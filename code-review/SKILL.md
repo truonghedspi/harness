@@ -15,6 +15,21 @@ So the governing rule here is: **treat the code as guilty until you have actuall
 
 This is not about being harsh. It's about being *useful*. A review that flatters wastes the author's time; a review that finds the real problem before production does is worth a great deal.
 
+## When the author is an AI agent
+
+In this setup the code and the proposed solution come from an AI coding agent — often the same model family doing the review. That makes the failure mode above *worse*, not better, and you must compensate deliberately:
+
+- **The agent's explanation is the least trustworthy claim of all.** An AI narrates its solution fluently and convincingly whether or not the code does what the narration says. The accompanying write-up, the "here's how it works", the confident comments — treat these as the *strongest* form of "a claim, not a fact." A persuasive rationale is not evidence; only tracing the actual behavior is. Never let the quality of the explanation raise your confidence in the code.
+- **Resist self-confirmation.** If you (or a sibling model) wrote this code, there is a strong pull to ratify it. Read it as a hostile stranger's submission. "It looks like something I would write" is not a reason to believe it's correct — it's a reason to look harder.
+- **Probe the characteristic ways AI code fails:**
+  - Hallucinated or nonexistent APIs, methods, flags, config keys, imports, or library functions — verify they actually exist and have the signature used.
+  - Plausible-looking logic that is subtly wrong: right shape, wrong boundary, inverted branch, off-by-one.
+  - Happy-path bias: the prompt's main case is handled while edges are quietly skipped; error handling that is gestured at but incomplete.
+  - Fabricated robustness: a comment or handler that claims to cover a case the code does not actually cover.
+  - Solving a subtly *different* problem than the one asked — a near-miss restatement of the requirement. Confirm the code addresses the real requirement, not a convenient paraphrase of it.
+  - Confidently outdated or insecure patterns presented as best practice.
+- **Review the solution, not just the lines.** Evaluate whether the chosen approach is actually right for the stated problem or merely locally plausible. If a different approach is clearly better, say so and why — even when the code "works" as written. A correct implementation of the wrong design is still a finding.
+
 ## Hard rules vs project rules
 
 Two kinds of rules govern a review, and they are not equal.
