@@ -1,0 +1,64 @@
+{
+  "name": "harness-loop",
+  "version": "1.0.0",
+  "description": "Set up a full agent harness (Lessons 1-12) plus an autonomous maker-checker loop (Lesson 13) on any project, targeting Kiro (kiro-cli), with a machine-checkable guarantee that all 13 Learn-Harness-Engineering lessons are covered.",
+  "license": "MIT",
+  "author": "harness repo",
+  "basedOn": "https://github.com/walkinglabs/learn-harness-engineering",
+  "languages": ["en"],
+  "compatibility": {
+    "minCliVersion": "0.1.0",
+    "agents": ["kiro", "claude-code", "codex-cli", "generic"]
+  },
+  "entryPoint": "SKILL.md",
+  "references": [
+    "references/13-lesson-coverage.md",
+    "references/loop-engineering.md",
+    "references/kiro-loop-runtime.md"
+  ],
+  "triggers": [
+    "harness loop",
+    "loop engineering",
+    "autonomous loop",
+    "maker-checker",
+    "generator evaluator separation",
+    "goal loop",
+    "run agent unattended",
+    "13 lessons coverage",
+    "feature_list.json",
+    "AGENTS.md",
+    "session handoff",
+    "verification gate",
+    "kiro-cli agents",
+    "microservice integration testing"
+  ],
+  "bundled": {
+    "scripts": [
+      "scripts/setup-harness-loop.mjs",
+      "scripts/check-coverage.mjs"
+    ],
+    "assets": [],
+    "templates": [
+      "templates/tree/AGENTS.md",
+      "templates/tree/feature_list.json",
+      "templates/tree/init.sh",
+      "templates/tree/progress.md",
+      "templates/tree/DECISIONS.md",
+      "templates/tree/session-handoff.md",
+      "templates/tree/docs/architecture.md",
+      "templates/tree/docs/constraints.md",
+      "templates/tree/docs/testing-standards.md",
+      "templates/tree/docs/definition-of-done.md",
+      "templates/tree/tools/trace.mjs",
+      "templates/tree/loop/goal.md",
+      "templates/tree/loop/maker-prompt.md",
+      "templates/tree/loop/checker-prompt.md",
+      "templates/tree/loop/run-loop.sh",
+      "templates/tree/prompts/harness-setup.md",
+      "templates/tree/.kiro/agents/maker.json",
+      "templates/tree/.kiro/agents/checker.json",
+      "templates/tree/.kiro/agents/harness-setup.json",
+      "templates/tree/.kiro/settings/mcp.json"
+    ]
+  }
+}

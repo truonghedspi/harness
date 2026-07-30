@@ -1,0 +1,39 @@
+{
+  "$comment": "Single source of truth for scope (Lesson 8). Every feature carries the triple: behavior + verification + state, plus evidence. Only the checker/verification script flips status to passing/done (Lesson 9). Replace these placeholders with real features whose verification is a runnable command.",
+  "states": ["not-started", "active", "blocked", "in-progress", "passing", "done"],
+  "features": [
+    {
+      "id": "feat-001",
+      "name": "Baseline green",
+      "behavior": "Project installs deps, runs ./init.sh to green, and starts from a clean checkout",
+      "verification": "./init.sh",
+      "dependencies": [],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": ""
+    },
+    {
+      "id": "feat-002",
+      "name": "First real feature (REPLACE ME)",
+      "behavior": "Replace with the first concrete behavior the agent should implement",
+      "verification": "REPLACE with a runnable command that proves this behavior, e.g. npm test -- feature-x",
+      "dependencies": ["feat-001"],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": ""
+    },
+    {
+      "id": "feat-003",
+      "name": "Cross-service integration verification for feat-002 (REPLACE ME)",
+      "behavior": "A full-pipeline check that the feature works across the microservice boundary — contract holds between the services involved (Lesson 10)",
+      "verification": "REPLACE with the microservice integration / contract command, e.g. npm run test:contract or docker compose up + a cross-service flow test",
+      "dependencies": ["feat-002"],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": ""
+    }
+  ]
+}

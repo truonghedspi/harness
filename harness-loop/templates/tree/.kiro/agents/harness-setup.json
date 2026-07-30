@@ -1,0 +1,14 @@
+{
+  "name": "harness-setup",
+  "description": "Set up and validate the harness against the real environment: toolchain, MCP connectivity, real verification commands, and a green ./init.sh baseline. Setup only — no feature work.",
+  "prompt": "file://./prompts/harness-setup.md",
+  "tools": ["read", "write", "shell", "*"],
+  "allowedTools": ["read"],
+  "includeMcpJson": true,
+  "resources": [
+    "file://AGENTS.md",
+    "file://feature_list.json",
+    "file://docs/architecture.md"
+  ],
+  "welcomeMessage": "Harness setup: I will verify the toolchain, confirm MCP connectivity, fill in the real verification commands, and get ./init.sh green. Setup only — no feature work."
+}
