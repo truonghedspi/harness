@@ -1,0 +1,4 @@
+{
+  "comment": "Units excluded from migration. approvedBy MUST be a human name; coverage-check fails otherwise.",
+  "exclusions": []
+}
