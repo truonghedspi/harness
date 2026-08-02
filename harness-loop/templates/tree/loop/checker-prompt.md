@@ -14,6 +14,14 @@ For every feature with `"readyForCheck": true`:
 3. Check that the feature's stated `behavior` is actually met, not just that some test is green.
 4. Check `feature_list.json` hygiene: `evidence` present and honest, dependencies satisfied, no
    scope bleed into unrelated files.
+5. If the change added or touches a long-running/integration-level test, confirm it has a
+   bounded, stack-appropriate timeout (docs/constraints.md) — reject if a hang there could eat
+   the whole baseline budget silently.
+
+For every feature with `"status": "blocked"`: confirm `checkerNotes` (or a `DECISIONS.md` entry)
+actually explains why, concretely enough that a human could act on it. A `blocked` with no real
+reason, or a vague one ("couldn't figure it out"), is not acceptable — send it back to
+`in-progress` with that gap noted, rather than letting a silent give-up sit in the state file.
 
 Verdict per feature:
 

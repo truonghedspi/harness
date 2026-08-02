@@ -39,13 +39,16 @@ elif [ -f go.mod ]; then
 elif [ -f Cargo.toml ]; then
   echo "=== Rust verification ==="; cargo build && cargo test
 elif [ -f pom.xml ]; then
-  echo "=== Maven verification ==="; mvn -q verify
+  echo "=== Maven verification ==="
+  if [ -x ./mvnw ]; then ./mvnw -q verify; else mvn -q verify; fi
 elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then
-  echo "=== Gradle verification ==="; ./gradlew build test
+  echo "=== Gradle verification ==="
+  if [ -x ./gradlew ]; then ./gradlew build test; else gradle build test; fi
 elif ls ./*.csproj ./*.sln >/dev/null 2>&1; then
   echo "=== .NET verification ==="; dotnet build && dotnet test
 else
-  echo "No recognized manifest. Edit this VERIFICATION block with the project's build/test commands."
+  echo "No recognized manifest. Edit this VERIFICATION block with the project's build/test commands." >&2
+  exit 1
 fi
 # <<< VERIFICATION
 

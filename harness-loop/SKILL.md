@@ -55,6 +55,58 @@ Full spec (what each check inspects, exactly) lives in
 [references/13-lesson-coverage.md](references/13-lesson-coverage.md) — it is the contract
 `check-coverage.mjs` implements.
 
+## Lifecycle: create → verify → improve
+
+`check-coverage.mjs` proves the 13 lessons are *structurally present* — every required file
+exists. It cannot tell a real feature from `feature_list.json`'s placeholder `feat-002`, and it
+cannot tell you `init.sh` exits 0 without running a single check. A scaffold that passes 13/13
+while still saying `REPLACE ME` everywhere is not a harness anyone can use.
+
+The skill closes that gap with three more scripts that turn "looks scaffolded" into "proven to
+work," and — the point that makes this self-improving — proven to work *because the skill itself
+was fixed*, not because the one target was patched around:
+
+1. **create** — `setup-harness-loop.mjs` (above). Never overwrites without `--force`.
+2. **verify** — `node scripts/verify-harness.mjs --target DIR` runs six gates beyond structure:
+   placeholders left unfilled, `./init.sh` actually going green (including a *vacuous* green —
+   exiting 0 without running any build/test step is treated as red), every feature's evidence
+   replaying under `--run-features`, loop-artifact sanity (a goal with no stop condition, a maker
+   prompt that doesn't forbid self-grading), a feature stuck past its `attempts`/`maxAttempts`
+   timebox without being marked `blocked`, an unjustified `blocked` (empty `checkerNotes` and no
+   matching `DECISIONS.md` entry), and clean-state hygiene. **Every finding is tagged
+   `layer: project` (the target repo needs work) or `layer: harness` (the skill itself is the
+   defect)** — that tag is what routes the fix to the right place instead of to a one-off patch.
+   Add `--promote` (requires `--run-features`) to mechanically flip a `readyForCheck` feature to
+   `done` once its evidence re-runs clean and the whole report is otherwise blocker-free — the
+   purely mechanical half of the checker's job (re-run it, don't trust the claim), not a
+   replacement for the checker's semantic review (does the behavior actually match, is there scope
+   bleed). It never promotes anything while any blocker exists anywhere in the report.
+3. **improve** — when verify finds a `layer: harness` finding, that is a bug in this skill, and it
+   must be remembered past the end of the chat:
+   ```bash
+   node scripts/harness-issue.mjs import --report DIR/trace/verify-report.json   # record it
+   node scripts/improve-harness.mjs                                              # rank open issues
+   node scripts/improve-harness.mjs --prompt                                     # hand to an agent
+   # ... fix templates/tree/** or scripts/*.mjs, never just the one target ...
+   node scripts/improve-harness.mjs --reverify --auto-resolve                    # prove it, don't claim it
+   ```
+   An issue closes only when `--reverify` shows it no longer reproduces on a real target. A
+   resolved issue seen again is flagged `regressed`, not silently reopened.
+
+`scripts/harness-loop.sh --target DIR [--setup] [--runner kiro|none]` drives all three phases as
+one meta-loop: verify, split findings by layer, dispatch the `harness-improver` agent for
+harness-layer findings and the project's own maker/checker loop for project-layer ones, verify
+again. It stops itself (not just on a green report) when the exact same blocker set repeats two
+iterations running — a loop that isn't moving needs a human, not a third try.
+
+`scripts/demo.sh` exercises all of the above — create, idempotent re-run, both verify layers, a
+real injected harness bug caught and closed via issue → improve → reverify, regression detection,
+evidence-replay catching a false `done` claim, and the meta-loop's stuck-progress stop — against a
+disposable target in one command. Run it after touching any script in this skill; it is the
+regression test for the skill itself. See
+[references/harness-improvement-loop.md](references/harness-improvement-loop.md) for the full
+layer-classification contract and event-log schema.
+
 ## Setup workflow
 
 1. **Inspect the target.** Detect stack/package manager, existing `AGENTS.md`/`CLAUDE.md`,
@@ -86,7 +138,16 @@ Full spec (what each check inspects, exactly) lives in
 
    Report the per-lesson scorecard, the lowest-covered lessons, and the first 2–3 fixes. Do not
    tell the user "all 13 are covered" until this passes — that is the whole point of the skill.
-7. **Start the loop only after coverage passes and the baseline is green.** Local first:
+7. **Verify it actually works, not just that the files exist:**
+
+   ```bash
+   node harness-loop/scripts/verify-harness.mjs --target /path/to/project --run-features
+   ```
+
+   Structural 13/13 plus a green `verify-harness.mjs` (0 blockers) is the real bar for "the
+   harness is ready" — not step 6 alone. If it reports `layer: harness` findings, this skill has a
+   bug; follow the Lifecycle section above before blaming the target.
+8. **Start the loop only after both checks pass and the baseline is green.** Local first:
    `kiro-cli chat --agent maker` then `--agent checker`; or headless `loop/run-loop.sh N`.
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
@@ -123,7 +184,9 @@ After setup, the target project should contain:
 
 - [ ] `AGENTS.md` (or `CLAUDE.md`) — router with DoD, Startup Readiness, Work Rules (WIP=1),
       clock-in/out, and session-exit checklist
-- [ ] `feature_list.json` — features with the behavior+verification+state+evidence triple
+- [ ] `feature_list.json` — features with the behavior+verification+state+evidence triple, plus
+      an `attempts`/`maxAttempts` timebox so a stuck feature converts to `blocked` instead of
+      retrying forever
 - [ ] `init.sh` — baseline gate running the real verification pipeline
 - [ ] `progress.md` + `DECISIONS.md` — external state
 - [ ] `session-handoff.md` — lifecycle handoff
@@ -132,5 +195,6 @@ After setup, the target project should contain:
 - [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
 - [ ] `.kiro/agents/{maker,checker,harness-setup}.json` (+ `.kiro/settings/mcp.json`)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
+- [ ] `verify-harness.mjs --run-features` reports 0 blockers (not just structural coverage)
 
 If you cannot write files, output the exact file contents and commands instead.

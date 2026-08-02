@@ -1,5 +1,5 @@
 {
-  "$comment": "Single source of truth for scope (Lesson 8). Every feature carries the triple: behavior + verification + state, plus evidence. Only the checker/verification script flips status to passing/done (Lesson 9). Replace these placeholders with real features whose verification is a runnable command.",
+  "$comment": "Single source of truth for scope (Lesson 8). Every feature carries the triple: behavior + verification + state, plus evidence. Only the checker/verification script flips status to passing/done (Lesson 9). Replace these placeholders with real features whose verification is a runnable command. attempts/maxAttempts is a timebox: the maker increments attempts on every iteration it works a feature and MUST set status=blocked (with a reason in checkerNotes) once attempts reaches maxAttempts, instead of continuing to retry indefinitely — this is what stops a hard problem from silently consuming an unbounded loop budget.",
   "states": ["not-started", "active", "blocked", "in-progress", "passing", "done"],
   "features": [
     {
@@ -11,7 +11,9 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": ""
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
       "id": "feat-002",
@@ -22,7 +24,9 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": ""
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
       "id": "feat-003",
@@ -33,7 +37,9 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": ""
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     }
   ]
 }
