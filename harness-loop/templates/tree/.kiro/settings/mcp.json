@@ -1,4 +1,4 @@
 {
-  "$comment": "MCP connectors (Lesson 13). A loop that only sees the filesystem is a small loop. Add servers here to let agents read the issue tracker, hit staging, post to chat. Keep them least-privilege / read-only where possible. Remove this placeholder or replace with real servers.",
+  "$comment": "MCP connectors (Lesson 13). A loop that only sees the filesystem is a small loop. Add servers here to let agents read the issue tracker, hit staging, post to chat. Keep them least-privilege / read-only where possible. Remove this placeholder or replace with real servers. Kubernetes-deployed microservice without Docker access: see harness-loop/references/k8s-integration-testing.md for a recommended read-only k8s MCP server config (containers/kubernetes-mcp-server --read-only --disable-destructive) so the agent can diagnose a failed deploy without being able to change the cluster.",
   "mcpServers": {}
 }

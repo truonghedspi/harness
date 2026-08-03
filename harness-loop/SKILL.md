@@ -177,6 +177,12 @@ layer-classification contract and event-log schema.
   silent costs, maturity ladder): [references/loop-engineering.md](references/loop-engineering.md)
 - How the Kiro runtime wires together (agent JSON, hooks, `run-loop.sh`, MCP connectors):
   [references/kiro-loop-runtime.md](references/kiro-loop-runtime.md)
+- Target is a Kubernetes-deployed microservice and Docker isn't available for Level 3 testing:
+  [references/k8s-integration-testing.md](references/k8s-integration-testing.md) — a
+  namespace-per-run Helm deploy/test/collect-diagnostics/teardown script
+  (`templates/k8s/tools/k8s-test-env.sh`, copied in deliberately, not part of the default
+  scaffold) plus a recommended read-only Kubernetes MCP server config so the agent can diagnose a
+  failed deploy without holding write access to a shared cluster.
 
 ## Deliverable checklist
 

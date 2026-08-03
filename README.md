@@ -20,7 +20,11 @@ This repository holds the agent-harness assets for the team:
   `node harness-loop/scripts/setup-harness-loop.mjs --target <proj>`, then
   `node check-coverage.mjs` (must report 13/13) and
   `node harness-loop/scripts/verify-harness.mjs --target <proj> --run-features` (must report 0
-  blockers). `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable
+  blockers). Kubernetes-deployed microservice without Docker access: an opt-in
+  `harness-loop/templates/k8s/tools/k8s-test-env.sh` does namespace-per-run Helm
+  deploy/test/collect-diagnostics/teardown for Level 3 testing — see
+  `harness-loop/references/k8s-integration-testing.md`. `harness-loop/scripts/demo.sh` proves the
+  whole lifecycle end-to-end on a disposable
   target in one command. Lesson 10's top verification tier is microservice integration / contract
   testing.
 - **TimesTen → Aeron Cluster migration harness** (below): the system of record that lets
