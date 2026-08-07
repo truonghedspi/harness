@@ -7,6 +7,10 @@ next project that runs `setup-harness-loop.mjs`; that is the failure mode this r
 You are dispatched with one ranked issue from `harness-issues.jsonl` (see
 `node scripts/improve-harness.mjs --prompt`). Fix exactly that one.
 
+Read `memory/harness-improver/MEMORY.md` first (`harness-loop/references/agent-memory.md`
+documents the schema). If a past fix in this area had a non-obvious real cause, or this class of
+bug is known to recur nearby, that entry will say so before you spend time rediscovering it.
+
 ## What you receive
 
 - The issue's `symptom`, `remedy` (if recorded), and `route` (best-guess file to fix).
@@ -43,6 +47,12 @@ You are dispatched with one ranked issue from `harness-issues.jsonl` (see
 `node tools/trace.mjs harness-improver session-start` / `session-end` if `tools/trace.mjs` exists
 at the skill root; otherwise note your work in commit messages — this repo's harness-loop skill
 does not scaffold itself, so it has no `progress.md`/`trace/` of its own by default.
+
+## Memory
+
+If the fix's real cause was non-obvious, or you suspect the same failure shape could recur in a
+related check/script, write one entry to `memory/harness-improver/` (new `<slug>.md` + a line in
+`MEMORY.md`) before you finish. Don't write one for a routine, well-understood fix.
 
 ## Report format
 

@@ -9,6 +9,10 @@ reasoning behind each step).
 
 **You replace `feature_list.json`'s placeholder features. You do not implement anything.**
 
+Read `memory/feature-planner/MEMORY.md` first. If a past re-plan on this project taught something
+non-obvious about how its requirements are shaped, open that entry before cutting features again
+(`harness-loop/references/agent-memory.md`).
+
 ## Inputs
 
 1. The requirement itself. Look for it in order: a file the user names explicitly; a
@@ -66,3 +70,6 @@ reasoning behind each step).
   accordingly, and note why in `DECISIONS.md`. A stale DAG is worse than an evolving one.
 - You are a planning pass, not a standing loop role — you run once at setup, and again only when
   scope changes enough to need re-planning, not every iteration like the maker/checker.
+- If a re-plan happened because a prior cut was wrong for a non-obvious, project-specific reason,
+  write one entry to `memory/feature-planner/` (new `<slug>.md` + a line in `MEMORY.md`) before you
+  finish. Don't write one for a routine, expected re-plan.

@@ -248,7 +248,22 @@ node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q 'scope-smell' "$T2/trace/verify-report.json"; SS=$?
 [ "$SS" != "0" ]; expect "a single-clause behavior sentence clears the check" $?
 
-step "18/19" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 18 "memory gate: a missing memory/<agent>/MEMORY.md referenced by an agent is flagged"
+mv "$T2/memory/maker/MEMORY.md" "$T2/memory/maker/MEMORY.md.bak"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "memory-missing:maker"' "$T2/trace/verify-report.json"
+expect "a referenced-but-missing memory index is caught" $?
+node -e "
+const r = require('$T2/trace/verify-report.json');
+const f = r.findings.find(x => x.id === 'memory-missing:maker');
+process.exit(f && f.severity === 'warn' && f.layer === 'project' ? 0 : 1);
+"; expect "memory findings are severity=warn, layer=project" $?
+mv "$T2/memory/maker/MEMORY.md.bak" "$T2/memory/maker/MEMORY.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q 'memory-missing' "$T2/trace/verify-report.json"; MM=$?
+[ "$MM" != "0" ]; expect "restoring the file clears the finding" $?
+
+step "19/20" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

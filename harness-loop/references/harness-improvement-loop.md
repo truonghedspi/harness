@@ -51,7 +51,7 @@ to keep this distinction real instead of tautological.
   "counts": { "blockers": 6, "warnings": 0, "harnessLayer": 1, "projectLayer": 5 },
   "findings": [
     {
-      "gate": "baseline",            // structure | placeholders | baseline | features | loop | clean-state
+      "gate": "baseline",            // structure | placeholders | baseline | features | loop | clean-state | memory
       "id": "init-red",              // stable within a gate; harness-issue.mjs keys on gate/id
       "layer": "harness",
       "severity": "blocker",         // or "warn"

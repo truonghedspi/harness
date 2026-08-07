@@ -439,6 +439,43 @@ function gateCleanState() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gate 7 — agent memory (references/agent-memory.md). Warn, not a blocker: a missing or oversized
+// memory file means an agent starts one run without its accumulated lessons, or with an index
+// that's stopped being cheap to load — not a broken harness. Structural check only; the actual
+// consolidation call (what to merge, what to archive) is memory-consolidate.mjs's report plus a
+// human/agent judgment, not something this gate can decide.
+// ---------------------------------------------------------------------------------------------
+const MEMORY_INDEX_MAX_LINES = 200;
+
+function gateMemory() {
+  for (const rel of lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))) {
+    const j = readJSON(P(".kiro", "agents", rel));
+    if (!j || !Array.isArray(j.resources)) continue;
+    for (const res of j.resources) {
+      const m = /^file:\/\/(memory\/[^/]+\/MEMORY\.md)$/.exec(res);
+      if (!m) continue;
+      const memPath = m[1];
+      if (!exists(P(memPath))) {
+        add({
+          gate: "memory", id: `memory-missing:${j.name || rel}`, layer: "project", severity: "warn",
+          symptom: `${j.name || rel} references ${memPath} in its resources, but the file does not exist`,
+          remedy: "scaffold it (mkdir -p the memory/<agent> dir and add a MEMORY.md index) or remove the stale resource entry",
+        });
+        continue;
+      }
+      const lines = read(P(memPath)).split("\n").length;
+      if (lines > MEMORY_INDEX_MAX_LINES) {
+        add({
+          gate: "memory", id: `memory-index-over-budget:${j.name || rel}`, layer: "project", severity: "warn",
+          symptom: `${memPath} is ${lines} lines (budget ${MEMORY_INDEX_MAX_LINES}) — no longer cheap to load every run`,
+          remedy: "run scripts/memory-consolidate.mjs and archive/merge the oldest or least-useful entries",
+        });
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------------------------
 gateStructure();
@@ -447,6 +484,7 @@ gateBaseline();
 gateFeatures();
 gateLoop();
 gateCleanState();
+gateMemory();
 promoteFeatures();
 
 const byLayer = (l) => findings.filter((f) => f.layer === l);

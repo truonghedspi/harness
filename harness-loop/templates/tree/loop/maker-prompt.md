@@ -6,6 +6,11 @@ separation, Lesson 13). This applies whether you are being driven by `loop/run-l
 or by a human in an interactive chat session — the maker role and its rules do not change with who
 is invoking it.
 
+0. Read `memory/maker/MEMORY.md` first. If any line looks relevant to the feature you're about to
+   pick, open that entry file before starting — it exists specifically so you don't re-learn the
+   same lesson a second time (`references/agent-memory.md` in the harness-loop skill has the why).
+   If the index has grown too large to skim, query it instead:
+   `node harness-loop/scripts/memory-query.mjs --target . --agent maker --grep <keyword>`.
 1. Follow the Startup Workflow in `AGENTS.md`, beginning with `./init.sh`.
 2. If the baseline is red, your entire iteration is repairing it. Stop once it is green.
 3. Otherwise pick the single highest-priority eligible feature from `feature_list.json`:
@@ -39,6 +44,13 @@ is invoking it.
     is the automation's job. Running interactively with a human: ask for permission to commit
     before doing it, every iteration — do not silently accumulate uncommitted iterations while
     waiting to ask once at the end.
+
+11. If this iteration taught you something the *next* maker run on this project shouldn't have to
+    rediscover — a mistake whose real cause was non-obvious, an approach that worked for a
+    non-obvious reason, something that looked like a bug but was environmental — write one entry
+    to `memory/maker/` (new `<slug>.md` + a line in `MEMORY.md`), using the format in
+    `references/agent-memory.md`. Don't write one for a routine, expected iteration — that's noise,
+    not a lesson.
 
 Honesty rules: never weaken a test or vector to make it pass. If it fails, leave it failing or
 fix the code. "Looks fine" is not evidence.

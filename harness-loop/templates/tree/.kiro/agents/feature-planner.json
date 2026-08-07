@@ -7,7 +7,7 @@
   "includeMcpJson": false,
   "toolsSettings": {
     "write": {
-      "allowedPaths": ["feature_list.json", "DECISIONS.md", "loop/goal.md", "docs/architecture.md"]
+      "allowedPaths": ["feature_list.json", "DECISIONS.md", "loop/goal.md", "docs/architecture.md", "memory/feature-planner/**"]
     }
   },
   "resources": [
@@ -16,7 +16,8 @@
     "file://docs/architecture.md",
     "file://docs/constraints.md",
     "file://loop/goal.md",
-    "file://init.sh"
+    "file://init.sh",
+    "file://memory/feature-planner/MEMORY.md"
   ],
   "welcomeMessage": "Feature planner: point me at the requirement (a file, or describe it) and I'll decompose it into a right-sized feature_list.json — build features for named components, prove features mapped to acceptance scenarios, sized so one maker iteration can finish each. I don't implement anything."
 }

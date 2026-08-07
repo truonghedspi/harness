@@ -66,13 +66,32 @@ actually broke, faster than reading through logs.
 {
   "mcpServers": {
     "k8s-readonly": {
-      "command": "npx",
-      "args": ["-y", "kubernetes-mcp-server@latest", "--read-only", "--disable-destructive"],
+      "command": "tools/mcp-k8s-readonly-wrapper.sh",
+      "args": [],
       "env": { "KUBECONFIG": "/path/to/kubeconfig" }
     }
   }
 }
 ```
+
+**Route through `tools/mcp-k8s-readonly-wrapper.sh`, don't call `npx kubernetes-mcp-server`
+directly — a bare local-cluster kubeconfig can make the server crash before the MCP handshake
+even completes.** Found via real use: a stopped local minikube doesn't just make the cluster
+unreachable, it clears `current-context`/`clusters`/`contexts` from kubeconfig entirely (confirmed
+behavior, not a fluke). `kubernetes-mcp-server` then exits immediately with "no current-context is
+set" — before it can send an `initialize` response — which an MCP client reports as a bare
+"connection closed: initialize response", giving no hint that the real cause is a stopped local
+cluster. The wrapper checks for exactly that condition (no context at all) and starts a local
+minikube itself first; a real shared/remote cluster's context persists in kubeconfig even when
+unreachable, so the wrapper is a harmless pass-through in that case (confirmed: near-zero overhead
+when the cluster is already up — it only blocks on `minikube start` for the cold-start case).
+
+**Known caveat:** the cold-start path (cluster was stopped, wrapper starts it) takes as long as
+`minikube start` does — 15-20s on a typical machine — before the MCP server can complete its
+`initialize` handshake. If an MCP client's own handshake timeout is shorter than that, the first
+connection attempt after a stop may still report a failure; reconnecting a moment later succeeds
+because minikube is warm by then. There's no way to make `minikube start` itself faster from this
+wrapper — this is a real cold-start cost, not a bug to chase further.
 
 **Give the agent read-only cluster access by default.** The same generator/evaluator instinct
 this whole skill applies to `feature_list.json` (the maker can't self-grade `done`) applies here:
@@ -96,6 +115,30 @@ still leak a namespace. Two safety nets:
 2. `k8s-test-env.sh list-stale` (see the script's own `--help`) lists namespaces with that label
    older than a threshold, for a human to review before deleting by hand if no automated reaper
    exists yet.
+
+## Local minikube/kind competes for RAM with heavy test suites — found via real use
+
+If the cluster is a **local** minikube/kind on the same machine that runs the project's own JVM
+(or otherwise memory-heavy) test suite — not the shared-cluster default this doc otherwise assumes
+— its static memory footprint (minikube's `--memory` allocation is reserved for as long as it's
+running, whether or not a test is deploying anything at that instant) can starve the test suite
+enough to turn real, previously-passing tests into flaky timeouts. This surfaced on real use
+(aeron-demo, 2026-08-07): a local 3 GB minikube running alongside `verify-harness.mjs
+--run-features` replaying 16 embedded-MediaDriver/Archive/Cluster SIT commands sequentially
+produced 3 failures (2 timeouts, 1 real-looking failure) that vanished completely once `minikube
+stop` freed the RAM back — not a code regression, a resource-contention false alarm that looks
+exactly like one if you don't know to check for it. **The cluster must be stopped before the
+project's own heavy test suite runs, and started again only for K8s-targeted work** — don't run
+both at once on a resource-constrained dev machine. This doesn't apply to the shared-cluster
+default (the cluster's compute is remote, not competing with the local test JVM).
+
+**This is the `k8s-integration-tester` agent's own job, not a step for a human to remember.** Its
+prompt's Step 0 checks cluster reachability and starts a local cluster itself if it's down (a
+host-level VM/container operation, not a Kubernetes API write — it doesn't cross the read-only
+cluster-access boundary elsewhere in this doc), and its Step 7 stops it again once k8s-targeted
+work for the session is done. A human should never need to run `minikube start`/`stop` by hand to
+use this agent — if it asks you to, that's the prompt regressing, file it as a `layer: harness`
+issue.
 
 ## How to adopt this in a scaffolded project
 

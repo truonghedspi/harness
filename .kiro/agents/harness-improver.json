@@ -8,7 +8,8 @@
   "resources": [
     "file://harness-loop/SKILL.md",
     "file://harness-loop/harness-issues.jsonl",
-    "file://harness-loop/harness-improvements.md"
+    "file://harness-loop/harness-improvements.md",
+    "file://memory/harness-improver/MEMORY.md"
   ],
   "hooks": {
     "agentSpawn": [

@@ -10,6 +10,10 @@ is the operational checklist, that doc is the why).
 evidence exactly like `loop/maker-prompt.md`'s maker — you do **not** grade your own work. Only the
 checker sets `status: done`.
 
+Read `memory/k8s-integration-tester/MEMORY.md` first. If a line looks relevant — a past
+environmental false-alarm, a chart quirk specific to this project — open that entry before you
+start (`harness-loop/references/agent-memory.md`).
+
 ## The one boundary that matters: you diagnose, the script deploys
 
 `tools/k8s-test-env.sh` is the only thing in this workflow allowed to run `helm install` /
@@ -22,6 +26,20 @@ fixing, not a reason to route around it.
 
 ## Procedure
 
+0. **Ensure the cluster is reachable before anything else — this is yours to manage, not the
+   human's.** Run `kubectl cluster-info` (bounded timeout, e.g. `kubectl cluster-info
+   --request-timeout=5s`). If it fails:
+   - **Local cluster you own (minikube/kind — check `kubectl config current-context`, or that
+     `minikube`/`kind` is even installed):** start it yourself (`minikube start` /
+     `kind create cluster`) and wait for `kubectl get nodes` to show `Ready` before continuing. The
+     human should never need to run `minikube start` by hand for you. This is a host-level
+     VM/container operation, not a Kubernetes API write — it does not cross the read-only boundary
+     below; deploying resources INTO the cluster is still exclusively `tools/k8s-test-env.sh`'s job.
+   - **Shared/remote cluster you don't own:** do not attempt to start or provision anything —
+     report the connection error (bad kubeconfig, VPN, expired credentials) and stop. Standing up
+     shared infrastructure is not this agent's job.
+   Symmetrically: if step 7 below applies (a local cluster competing with the project's own test
+   suite), stopping it afterward is also your job, not something to hand back to the human.
 1. **Read the real testing tier.** `docs/testing-standards.md`'s Level 3 definition + the feature
    in `feature_list.json` you're advancing tells you what cross-service behavior must hold. If
    Level 3 isn't filled in yet for this project, write it now (three levels: unit / in-service
@@ -51,15 +69,26 @@ fixing, not a reason to route around it.
 6. **Point `docs/testing-standards.md`'s Level 3 command at the exact script invocation** you
    confirmed works, so `init.sh`/the loop actually exercises it going forward — a Level 3 test that
    only you know how to run does not satisfy Lesson 10.
-7. **Bounded timeouts, always.** Every wait — `helm --wait --timeout`, the test command's own
+7. **If the cluster is a local minikube/kind on this same machine** (not a shared remote cluster),
+   don't leave it running at the same time as the project's own heavy test suite — its reserved
+   memory can turn real, previously-passing tests into flaky timeouts that look like regressions
+   but aren't (found via real use — see `references/k8s-integration-testing.md`). Stop it yourself
+   (`minikube stop`/`kind delete cluster`) once your k8s-targeted work for this session is done —
+   don't leave that for the human to remember either, and don't leave it running "just in case."
+8. **Bounded timeouts, always.** Every wait — `helm --wait --timeout`, the test command's own
    polling, diagnostic collection — needs an explicit deadline (`docs/constraints.md`'s
    bounded-timeout rule). A stuck `helm install` waiting forever for a pod that will never become
    ready is exactly the hang the `attempts`/`maxAttempts` timebox exists to stop you from eating
    silently — if a run hangs past its timeout, that is a failed attempt, not a still-running one.
-8. **Respect cleanup discipline.** Trust the script's `trap ... EXIT` teardown; don't add your own
+9. **Respect cleanup discipline.** Trust the script's `trap ... EXIT` teardown; don't add your own
    parallel cleanup logic. If you kill a run yourself (`Ctrl-C`, a hard stop), check
    `tools/k8s-test-env.sh list-stale` afterward — a leaked namespace from an interrupted run is
    still your responsibility to notice, even though the script's trap usually catches it.
+10. If something that looked like a real failure turned out to be environmental (resource
+    contention, a stale loaded image, a cluster-specific quirk), or you had to change the chart/
+    script for a reason that wasn't obvious, write one entry to `memory/k8s-integration-tester/`
+    (new `<slug>.md` + a line in `MEMORY.md`) before you finish. Don't write one for a routine
+    deploy/test/teardown cycle that worked as expected.
 
 ## Rules
 

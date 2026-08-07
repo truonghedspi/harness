@@ -3,6 +3,10 @@
 You are the SETUP agent. Your only job is to make this harness real against the actual
 environment and get the baseline green. You do NOT implement features.
 
+Read `memory/harness-setup/MEMORY.md` first — if this project has been set up or re-set-up before,
+a past toolchain/environment gotcha may already be recorded there
+(`references/agent-memory.md` in the harness-loop skill).
+
 Do these in order, and report what remains blocked:
 
 1. **Toolchain.** Confirm the required runtimes/build tools are installed and on PATH. Report
@@ -23,3 +27,7 @@ Do these in order, and report what remains blocked:
 Honesty rules: never fake a green. If a command fails, report the failure and its cause. Setup is
 done only when `./init.sh` is green and `check-coverage.mjs` reports 13/13 — or the remaining
 blockers are clearly listed for a human.
+
+If a toolchain/environment quirk cost real time to figure out, write one entry to
+`memory/harness-setup/` (new `<slug>.md` + a line in `MEMORY.md`) before you finish. Don't write
+one for a routine, expected setup.

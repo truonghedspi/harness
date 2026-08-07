@@ -7,7 +7,7 @@
   "includeMcpJson": true,
   "toolsSettings": {
     "write": {
-      "allowedPaths": ["feature_list.json", "progress.md", "session-handoff.md", "trace/**"]
+      "allowedPaths": ["feature_list.json", "progress.md", "session-handoff.md", "trace/**", "memory/checker/**"]
     }
   },
   "resources": [
@@ -15,7 +15,8 @@
     "file://loop/goal.md",
     "file://feature_list.json",
     "file://docs/testing-standards.md",
-    "file://docs/definition-of-done.md"
+    "file://docs/definition-of-done.md",
+    "file://memory/checker/MEMORY.md"
   ],
   "hooks": {
     "agentSpawn": [

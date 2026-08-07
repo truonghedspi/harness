@@ -9,7 +9,8 @@
     "file://AGENTS.md",
     "file://loop/goal.md",
     "file://feature_list.json",
-    "file://progress.md"
+    "file://progress.md",
+    "file://memory/maker/MEMORY.md"
   ],
   "hooks": {
     "agentSpawn": [

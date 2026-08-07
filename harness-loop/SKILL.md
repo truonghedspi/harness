@@ -67,13 +67,16 @@ work," and — the point that makes this self-improving — proven to work *beca
 was fixed*, not because the one target was patched around:
 
 1. **create** — `setup-harness-loop.mjs` (above). Never overwrites without `--force`.
-2. **verify** — `node scripts/verify-harness.mjs --target DIR` runs six gates beyond structure:
+2. **verify** — `node scripts/verify-harness.mjs --target DIR` runs seven gates beyond structure:
    placeholders left unfilled, `./init.sh` actually going green (including a *vacuous* green —
    exiting 0 without running any build/test step is treated as red), every feature's evidence
    replaying under `--run-features`, loop-artifact sanity (a goal with no stop condition, a maker
    prompt that doesn't forbid self-grading), a feature stuck past its `attempts`/`maxAttempts`
    timebox without being marked `blocked`, an unjustified `blocked` (empty `checkerNotes` and no
-   matching `DECISIONS.md` entry), and clean-state hygiene. **Every finding is tagged
+   matching `DECISIONS.md` entry), agent-memory hygiene (a referenced `memory/<agent>/MEMORY.md`
+   missing, or grown past its index budget —
+   [references/agent-memory.md](references/agent-memory.md)), and clean-state hygiene. **Every
+   finding is tagged
    `layer: project` (the target repo needs work) or `layer: harness` (the skill itself is the
    defect)** — that tag is what routes the fix to the right place instead of to a one-off patch.
    Add `--promote` (requires `--run-features`) to mechanically flip a `readyForCheck` feature to
@@ -193,6 +196,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 - Turning a requirement into a right-sized `feature_list.json` (the two-axis build/prove split,
   sizing heuristics, dependency DAG construction, a worked example):
   [references/feature-decomposition.md](references/feature-decomposition.md)
+- Giving an agent its own persistent, self-reorganizing memory (world-standard grounding, entry
+  schema, read/write lifecycle, the `memory-consolidate.mjs` mechanical reorganize pass):
+  [references/agent-memory.md](references/agent-memory.md)
 - Target is a Kubernetes-deployed microservice and Docker isn't available for Level 3 testing:
   [references/k8s-integration-testing.md](references/k8s-integration-testing.md) — a
   namespace-per-run Helm deploy/test/collect-diagnostics/teardown script
@@ -200,7 +206,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
   chart, writes and runs real Level 3 tests against it, and diagnoses failures
   (`templates/k8s/prompts/k8s-integration-tester.md` +
   `templates/k8s/.kiro/agents/k8s-integration-tester.json`) — all copied in deliberately, not part
-  of the default scaffold — plus a recommended read-only Kubernetes MCP server config so the agent
+  of the default scaffold — plus a recommended read-only Kubernetes MCP server config, routed
+  through `templates/k8s/tools/mcp-k8s-readonly-wrapper.sh` so a stopped local cluster's kubeconfig
+  doesn't crash the MCP server before the connection handshake, so the agent
   can diagnose a failed deploy without holding write access to a shared cluster.
 
 ## Deliverable checklist
@@ -217,6 +225,9 @@ After setup, the target project should contain:
 - [ ] `session-handoff.md` — lifecycle handoff
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`
 - [ ] `tools/trace.mjs` + `trace/` — observability
+- [ ] `memory/{maker,checker,feature-planner}/MEMORY.md` — per-agent persistent memory
+      ([references/agent-memory.md](references/agent-memory.md)); referenced in each agent's
+      `resources` so it loads every run
 - [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
 - [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner}.json` (+ `.kiro/settings/mcp.json`)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
