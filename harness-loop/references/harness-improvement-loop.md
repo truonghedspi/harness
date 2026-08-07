@@ -87,6 +87,16 @@ something `blocked` without saying why.
 Both checks are cheap, structural, and stack-agnostic — they read `feature_list.json` fields and
 grep `DECISIONS.md`, nothing about the target's language or build tool.
 
+A third, `severity: warn` (not a blocker — it's a heuristic, not a hard rule):
+
+- **`scope-smell:<id>`** — a feature's `behavior` sentence is over 400 characters or strings
+  together 3+ "and"/"then" joiners. Cheap proxy for "this is really two features" or "too big for
+  one maker iteration to hold in context" — see
+  [references/feature-decomposition.md](references/feature-decomposition.md) Step 3. A false
+  positive is fine (it's a warn); a feature that's actually oversized silently sailing through
+  structural checks is the failure mode this exists to catch early, before a maker burns its
+  `attempts` budget on something that was never one problem.
+
 ## `--promote`: the mechanical half of the checker's job
 
 `node scripts/verify-harness.mjs --target DIR --run-features --promote` re-runs every
@@ -103,6 +113,16 @@ still reproduce right now." Running it after a maker session, before a human/age
 means the checker spends its judgment on the features that need it instead of re-typing commands
 that already proved themselves. The all-or-nothing gate (any blocker anywhere blocks all
 promotion) is deliberate: a report with any blocker in it is not a run you can trust the rest of.
+
+**It never touches a `status: blocked` feature, even if that feature's verification reproduces.**
+Found via real use on aeron-demo, not a synthetic test: a feature can be deliberately `blocked` by
+a human/checker because the recorded evidence proves less than the original requirement asked for
+— e.g. a SIT was narrowed to assert only a provable subset of behavior, documented in
+`DECISIONS.md` as a requirement gap needing a design decision, while the narrowed command still
+exits `0`. That `readyForCheck: true` + passing-verification combination looks identical to a
+normal promotable feature to a mechanical replay. Promoting it anyway would silently overwrite a
+human judgment call with a false "done." `blocked` is therefore excluded unconditionally, the same
+way `done` already was — see `demo.sh` step 16.
 
 ## `harness-issues.jsonl` — event schema
 

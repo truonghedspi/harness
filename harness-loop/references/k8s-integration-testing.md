@@ -100,13 +100,19 @@ still leak a namespace. Two safety nets:
 ## How to adopt this in a scaffolded project
 
 1. Copy the opt-in tree into the target: everything under `harness-loop/templates/k8s/` mirrors
-   the target's own layout (e.g. `templates/k8s/tools/k8s-test-env.sh` → `tools/k8s-test-env.sh`).
-2. Fill in the script's `CHART_PATH` / `RELEASE_NAME` / `NAMESPACE_LABEL_SELECTOR_FOR_READINESS`
-   variables at the top for the real Helm chart.
-3. Point `docs/testing-standards.md`'s Level 3 command at it:
-   `tools/k8s-test-env.sh charts/my-service -- ./run-cross-service-tests.sh`.
-4. Add the MCP config above so the agent can self-diagnose a failure without shelling out blind.
-5. `verify-harness.mjs` doesn't have a k8s-specific gate (cluster access can't be assumed present
+   the target's own layout (`templates/k8s/tools/k8s-test-env.sh` → `tools/k8s-test-env.sh`,
+   `templates/k8s/prompts/k8s-integration-tester.md` → `prompts/k8s-integration-tester.md`,
+   `templates/k8s/.kiro/agents/k8s-integration-tester.json` →
+   `.kiro/agents/k8s-integration-tester.json`).
+2. Add the MCP config above so the agent can self-diagnose a failure without shelling out blind.
+3. Run the agent — `kiro-cli chat --agent k8s-integration-tester` — and point it at the real Helm
+   chart. It does steps that used to be manual: fills the script's `CHART_PATH` / `RELEASE_NAME` /
+   `NAMESPACE_LABEL_SELECTOR_FOR_READINESS`, writes real Level 3 tests against the deployed
+   service, runs them through the script, and points `docs/testing-standards.md`'s Level 3 command
+   at the confirmed-working invocation
+   (`tools/k8s-test-env.sh charts/my-service -- ./run-cross-service-tests.sh`). It behaves like a
+   specialized maker — it records evidence, it does not set `status: done` itself.
+4. `verify-harness.mjs` doesn't have a k8s-specific gate (cluster access can't be assumed present
    in every environment that runs verify) — the check that matters is the same one that already
    exists: does `docs/testing-standards.md`'s Level 3 command actually get exercised by
    `init.sh`/the loop, and does it have a bounded timeout (`docs/constraints.md`).

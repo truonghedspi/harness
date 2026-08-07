@@ -1,0 +1,30 @@
+{
+  "name": "k8s-integration-tester",
+  "description": "Stands up the project's Helm chart in an isolated namespace, writes and runs real Level-3 (microservice integration/contract) tests against it, and diagnoses failures via read-only cluster access. Never runs helm/kubectl directly itself — tools/k8s-test-env.sh is the only thing that deploys or tears down. A specialized maker: cannot set status=done.",
+  "prompt": "file://./prompts/k8s-integration-tester.md",
+  "tools": ["read", "write", "shell", "*"],
+  "allowedTools": ["read"],
+  "includeMcpJson": true,
+  "resources": [
+    "file://AGENTS.md",
+    "file://loop/goal.md",
+    "file://feature_list.json",
+    "file://progress.md",
+    "file://docs/testing-standards.md",
+    "file://docs/architecture.md",
+    "file://docs/constraints.md",
+    "file://tools/k8s-test-env.sh"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      { "command": "node tools/trace.mjs k8s-integration-tester session-start" },
+      { "command": "./init.sh" }
+    ],
+    "postToolUse": [
+      { "matcher": "execute_bash", "command": "node tools/trace.mjs k8s-integration-tester tool-use shell" },
+      { "matcher": "fs_write", "command": "node tools/trace.mjs k8s-integration-tester tool-use write" }
+    ],
+    "stop": [{ "command": "node tools/trace.mjs k8s-integration-tester session-end" }]
+  },
+  "welcomeMessage": "K8s integration tester: point me at the Helm chart and I'll fill in tools/k8s-test-env.sh, write real Level-3 tests against a live namespace, run them, and diagnose any failure with read-only cluster access — never helm/kubectl directly. I record evidence like a maker; the checker still decides done."
+}

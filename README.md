@@ -22,11 +22,12 @@ This repository holds the agent-harness assets for the team:
   `node harness-loop/scripts/verify-harness.mjs --target <proj> --run-features` (must report 0
   blockers). Kubernetes-deployed microservice without Docker access: an opt-in
   `harness-loop/templates/k8s/tools/k8s-test-env.sh` does namespace-per-run Helm
-  deploy/test/collect-diagnostics/teardown for Level 3 testing — see
-  `harness-loop/references/k8s-integration-testing.md`. `harness-loop/scripts/demo.sh` proves the
-  whole lifecycle end-to-end on a disposable
-  target in one command. Lesson 10's top verification tier is microservice integration / contract
-  testing.
+  deploy/test/collect-diagnostics/teardown for Level 3 testing, and the opt-in
+  `k8s-integration-tester` agent (`templates/k8s/.kiro/agents/k8s-integration-tester.json`) fills
+  in the chart, writes and runs the real cross-service tests, and diagnoses failures via read-only
+  cluster access — see `harness-loop/references/k8s-integration-testing.md`.
+  `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
+  one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **TimesTen → Aeron Cluster migration harness** (below): the system of record that lets
   agents run the migration autonomously with a machine-enforced 100%-coverage guarantee
 

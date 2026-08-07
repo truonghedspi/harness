@@ -1,0 +1,22 @@
+{
+  "name": "feature-planner",
+  "description": "Turns a raw requirement into a right-sized, dependency-ordered feature_list.json. Runs once at setup (and again only when scope changes enough to need re-planning) — not a per-iteration loop role like maker/checker.",
+  "prompt": "file://./prompts/feature-planner.md",
+  "tools": ["read", "write", "shell"],
+  "allowedTools": ["read"],
+  "includeMcpJson": false,
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": ["feature_list.json", "DECISIONS.md", "loop/goal.md", "docs/architecture.md"]
+    }
+  },
+  "resources": [
+    "file://AGENTS.md",
+    "file://feature_list.json",
+    "file://docs/architecture.md",
+    "file://docs/constraints.md",
+    "file://loop/goal.md",
+    "file://init.sh"
+  ],
+  "welcomeMessage": "Feature planner: point me at the requirement (a file, or describe it) and I'll decompose it into a right-sized feature_list.json — build features for named components, prove features mapped to acceptance scenarios, sized so one maker iteration can finish each. I don't implement anything."
+}

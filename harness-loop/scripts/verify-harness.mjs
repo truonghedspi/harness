@@ -305,6 +305,24 @@ function gateFeatures() {
         remedy: "the maker must stop retrying once the timebox is exhausted and set status=blocked with a reason (docs/constraints.md)",
       });
     }
+    // Heuristic, not a hard rule (severity: warn): a compound or overlong behavior sentence is
+    // the cheapest early signal that a feature is actually two features, or too big for one
+    // maker iteration to hold in context — see references/feature-decomposition.md Step 3.
+    const behavior = String(f.behavior || "").trim();
+    if (behavior) {
+      const joiners = (behavior.match(/\b(and|then)\b/gi) || []).length;
+      const tooLong = behavior.length > 400;
+      const tooCompound = joiners >= 3;
+      if (tooLong || tooCompound) {
+        add({
+          gate: "features", id: `scope-smell:${f.id}`, layer: "project", severity: "warn",
+          symptom: `feature ${f.id}'s behavior sentence looks oversized (${behavior.length} chars` +
+            (tooCompound ? `, ${joiners} and/then joiners` : "") + `) — possibly two features`,
+          remedy: "split at the joining clause into separate features with a dependency edge (references/feature-decomposition.md Step 3), or confirm this really is one atomic behavior",
+          evidence: behavior.slice(0, 200),
+        });
+      }
+    }
   }
 
   if (!RUN_FEATURES) return;
@@ -340,7 +358,11 @@ function promoteFeatures() {
   const now = new Date().toISOString().slice(0, 10);
   for (const f of featureListArray) {
     if (!reproducedIds.has(f.id)) continue;
-    if (String(f.status || f.state) === "done") continue;
+    const status = String(f.status || f.state);
+    // blocked is a human/checker call that passing evidence is not enough (e.g. the test was
+    // narrowed to what's provable and a requirement gap remains) — mechanical promotion must
+    // never override that judgment just because the narrowed command still exits 0.
+    if (status === "done" || status === "blocked") continue;
     const note = `[mechanically promoted by verify-harness --promote on ${now}: verification re-run, exited 0]`;
     f.status = "done";
     f.readyForCheck = false;

@@ -101,11 +101,17 @@ iterations running — a loop that isn't moving needs a human, not a third try.
 
 `scripts/demo.sh` exercises all of the above — create, idempotent re-run, both verify layers, a
 real injected harness bug caught and closed via issue → improve → reverify, regression detection,
-evidence-replay catching a false `done` claim, and the meta-loop's stuck-progress stop — against a
-disposable target in one command. Run it after touching any script in this skill; it is the
+evidence-replay catching a false `done` claim, the attempts-budget/blocked-justification/scope-smell
+feature hygiene checks, and the meta-loop's stuck-progress stop — against a disposable target in
+one command. Run it after touching any script in this skill; it is the
 regression test for the skill itself. See
 [references/harness-improvement-loop.md](references/harness-improvement-loop.md) for the full
 layer-classification contract and event-log schema.
+
+Visual walkthrough (end-to-end flow, the maker/checker generator-evaluator sequence, and the
+self-improvement loop) lives in
+[references/workflow-diagram.md](references/workflow-diagram.md) — read it alongside this section
+and "Setup workflow" below rather than re-deriving the shape from prose alone.
 
 ## Setup workflow
 
@@ -124,10 +130,15 @@ layer-classification contract and event-log schema.
    `--commands "cmd one,cmd two"` (override detected verification), `--name "Project X"`,
    `--purpose "one line"`, `--force` (only after the user OKs overwrites).
 
-4. **Fill the placeholders with the user.** Replace the placeholder features in
-   `feature_list.json` with real ones (each needs a runnable `verification`), and the goal in
-   `loop/goal.md` with the project's real objective + stopping condition. This is the step that
-   makes the loop actually do the user's work — do not leave placeholders.
+4. **Decompose the requirement into `feature_list.json`.** This is the step that makes the loop
+   actually do the user's work — do not leave placeholders, and do not hand-wave the cut. Run the
+   `feature-planner` agent (`kiro-cli chat --agent feature-planner`, or follow
+   `prompts/feature-planner.md` directly) against the real requirement: it extracts named
+   components as **build features** and named/derived scenarios as **prove features**, sizes each
+   against a concrete checklist (one sentence, one verification command, a nameable file
+   footprint), and produces a dependency DAG instead of a flat list. Full algorithm + a worked
+   example: [references/feature-decomposition.md](references/feature-decomposition.md). Then fill
+   `loop/goal.md` with the project's real objective + stopping condition to match.
 5. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
    it is green (Lesson 6/9). A loop on a red baseline just amplifies failure.
 6. **Prove coverage:**
@@ -172,17 +183,25 @@ layer-classification contract and event-log schema.
 
 ## When to read references
 
+- A picture instead of prose — end-to-end flow, the maker/checker sequence, the self-improvement
+  loop: [references/workflow-diagram.md](references/workflow-diagram.md)
 - The full per-lesson check contract: [references/13-lesson-coverage.md](references/13-lesson-coverage.md)
 - Lesson 13 in depth (six primitives, `/goal` vs `/loop`, generator/evaluator separation, four
   silent costs, maturity ladder): [references/loop-engineering.md](references/loop-engineering.md)
 - How the Kiro runtime wires together (agent JSON, hooks, `run-loop.sh`, MCP connectors):
   [references/kiro-loop-runtime.md](references/kiro-loop-runtime.md)
+- Turning a requirement into a right-sized `feature_list.json` (the two-axis build/prove split,
+  sizing heuristics, dependency DAG construction, a worked example):
+  [references/feature-decomposition.md](references/feature-decomposition.md)
 - Target is a Kubernetes-deployed microservice and Docker isn't available for Level 3 testing:
   [references/k8s-integration-testing.md](references/k8s-integration-testing.md) — a
   namespace-per-run Helm deploy/test/collect-diagnostics/teardown script
-  (`templates/k8s/tools/k8s-test-env.sh`, copied in deliberately, not part of the default
-  scaffold) plus a recommended read-only Kubernetes MCP server config so the agent can diagnose a
-  failed deploy without holding write access to a shared cluster.
+  (`templates/k8s/tools/k8s-test-env.sh`), the `k8s-integration-tester` agent that fills in the
+  chart, writes and runs real Level 3 tests against it, and diagnoses failures
+  (`templates/k8s/prompts/k8s-integration-tester.md` +
+  `templates/k8s/.kiro/agents/k8s-integration-tester.json`) — all copied in deliberately, not part
+  of the default scaffold — plus a recommended read-only Kubernetes MCP server config so the agent
+  can diagnose a failed deploy without holding write access to a shared cluster.
 
 ## Deliverable checklist
 
@@ -199,7 +218,7 @@ After setup, the target project should contain:
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`
 - [ ] `tools/trace.mjs` + `trace/` — observability
 - [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
-- [ ] `.kiro/agents/{maker,checker,harness-setup}.json` (+ `.kiro/settings/mcp.json`)
+- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner}.json` (+ `.kiro/settings/mcp.json`)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
 - [ ] `verify-harness.mjs --run-features` reports 0 blockers (not just structural coverage)
 

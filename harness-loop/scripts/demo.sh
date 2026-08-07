@@ -206,7 +206,49 @@ const fl = require('$T2/feature_list.json');
 process.exit(fl.features.find(f => f.id === 'feat-001').status === 'done' ? 1 : 0);
 "; expect "a feature whose evidence stops reproducing is never promoted, --promote or not" $?
 
-step "16/17" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 16 "--promote never overrides a human blocked decision, even if evidence reproduces"
+node -e "
+const fs = require('fs');
+const p = '$T2/feature_list.json';
+const fl = JSON.parse(fs.readFileSync(p, 'utf8'));
+fl.features[0].status = 'blocked'; fl.features[0].readyForCheck = true; fl.features[0].verification = 'exit 0';
+fl.features[0].checkerNotes = 'demo: blocked despite passing evidence — narrowed test, requirement gap needs a human design decision';
+fs.writeFileSync(p, JSON.stringify(fl, null, 2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --run-features --promote --quiet
+node -e "
+const fl = require('$T2/feature_list.json');
+process.exit(fl.features.find(f => f.id === 'feat-001').status === 'blocked' ? 0 : 1);
+"; expect "a blocked feature is never mechanically promoted, even when its (narrowed) verification passes" $?
+
+step 17 "scope-smell: an oversized/compound behavior sentence is flagged (warn, not blocker)"
+node -e "
+const fs = require('fs');
+const p = '$T2/feature_list.json';
+const fl = JSON.parse(fs.readFileSync(p, 'utf8'));
+fl.features[0].behavior = 'Build the ingest endpoint and validate the payload and persist it to the store and emit a metric and then notify downstream and then write an audit log entry';
+fs.writeFileSync(p, JSON.stringify(fl, null, 2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "scope-smell:feat-001"' "$T2/trace/verify-report.json"
+expect "a compound behavior sentence (5 and/then joiners) is flagged scope-smell" $?
+node -e "
+const r = require('$T2/trace/verify-report.json');
+const f = r.findings.find(x => x.id === 'scope-smell:feat-001');
+process.exit(f && f.severity === 'warn' ? 0 : 1);
+"; expect "scope-smell is severity=warn, not a blocker" $?
+node -e "
+const fs = require('fs');
+const p = '$T2/feature_list.json';
+const fl = JSON.parse(fs.readFileSync(p, 'utf8'));
+fl.features[0].behavior = 'Build the ingest endpoint that validates and persists a payload';
+fs.writeFileSync(p, JSON.stringify(fl, null, 2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q 'scope-smell' "$T2/trace/verify-report.json"; SS=$?
+[ "$SS" != "0" ]; expect "a single-clause behavior sentence clears the check" $?
+
+step "18/19" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash
