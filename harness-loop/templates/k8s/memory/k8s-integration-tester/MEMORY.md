@@ -1,7 +1,7 @@
 # K8s-integration-tester memory — {{PROJECT_NAME}}
 
 Index of what this agent has learned about this project's cluster/chart/environment across runs
-(`references/agent-memory.md` in the harness-loop skill documents the schema and why). One line
+(`docs/reference/agent-memory.md` documents the schema and why). One line
 per entry, always loaded — keep it short.
 
 Write a new entry when something that looked like a real deploy/test failure turned out to be

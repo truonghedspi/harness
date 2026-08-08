@@ -1,26 +1,50 @@
 {
   "name": "maker",
   "description": "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done.",
-  "prompt": "file://./loop/maker-prompt.md",
-  "tools": ["read", "write", "shell", "*"],
-  "allowedTools": ["read"],
+  "prompt": "file://../../loop/maker-prompt.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
   "includeMcpJson": true,
   "resources": [
-    "file://AGENTS.md",
-    "file://loop/goal.md",
-    "file://feature_list.json",
-    "file://progress.md",
-    "file://memory/maker/MEMORY.md"
+    "file://../../AGENTS.md",
+    "file://../../loop/goal.md",
+    "file://../../feature_list.json",
+    "file://../../progress.md",
+    "file://../../docs/constraints.md",
+    "file://../../docs/testing-standards.md",
+    "file://../../DECISIONS.md",
+    "file://../../memory/maker/MEMORY.md"
   ],
   "hooks": {
     "agentSpawn": [
-      { "command": "node tools/trace.mjs maker session-start" },
-      { "command": "./init.sh" }
+      {
+        "command": "node tools/trace.mjs maker session-start"
+      },
+      {
+        "command": "./init.sh"
+      }
     ],
     "postToolUse": [
-      { "matcher": "execute_bash", "command": "node tools/trace.mjs maker tool-use shell" },
-      { "matcher": "fs_write", "command": "node tools/trace.mjs maker tool-use write" }
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/trace.mjs maker tool-use shell"
+      },
+      {
+        "matcher": "fs_write",
+        "command": "node tools/trace.mjs maker tool-use write"
+      }
     ],
-    "stop": [{ "command": "node tools/trace.mjs maker session-end" }]
+    "stop": [
+      {
+        "command": "node tools/trace.mjs maker session-end"
+      }
+    ]
   }
 }

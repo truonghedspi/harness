@@ -75,7 +75,9 @@ was fixed*, not because the one target was patched around:
    timebox without being marked `blocked`, an unjustified `blocked` (empty `checkerNotes` and no
    matching `DECISIONS.md` entry), agent-memory hygiene (a referenced `memory/<agent>/MEMORY.md`
    missing, or grown past its index budget —
-   [references/agent-memory.md](references/agent-memory.md)), and clean-state hygiene. **Every
+   [references/agent-memory.md](references/agent-memory.md)), design hygiene (an uncited claim, a
+   blocked feature resting on an unverified assumption, a named component no feature covers —
+   [references/design-engineering.md](references/design-engineering.md)), and clean-state hygiene. **Every
    finding is tagged
    `layer: project` (the target repo needs work) or `layer: harness` (the skill itself is the
    defect)** — that tag is what routes the fix to the right place instead of to a one-off patch.
@@ -111,8 +113,9 @@ regression test for the skill itself. See
 [references/harness-improvement-loop.md](references/harness-improvement-loop.md) for the full
 layer-classification contract and event-log schema.
 
-Visual walkthrough (end-to-end flow, the maker/checker generator-evaluator sequence, and the
-self-improvement loop) lives in
+Visual walkthrough (end-to-end flow including where the opt-in `k8s-integration-tester` fits, the
+maker/checker generator-evaluator sequence, that agent's own K8s deploy/test/diagnose cycle, and
+the self-improvement loop) lives in
 [references/workflow-diagram.md](references/workflow-diagram.md) — read it alongside this section
 and "Setup workflow" below rather than re-deriving the shape from prose alone.
 
@@ -133,7 +136,16 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    `--commands "cmd one,cmd two"` (override detected verification), `--name "Project X"`,
    `--purpose "one line"`, `--force` (only after the user OKs overwrites).
 
-4. **Decompose the requirement into `feature_list.json`.** This is the step that makes the loop
+4. **Design before decomposing.** The feature-planner cuts a *design* into features — it does not
+   create one (`references/feature-decomposition.md` Step 1 assumes the requirement "already names
+   its parts"). When it doesn't, run the `designer` agent, then `design-reviewer`: named components
+   and boundaries, a claims table where every library fact cites a real `path:line` or a runnable
+   spike, and `docs/assumptions.md` — a registry of load-bearing assumptions tagged
+   `verified`/`assumed`/`needs-human`. **The loop stops only on `needs-human` assumptions**: the
+   deployment and business facts that cannot exist in the repo. Everything else proceeds without
+   asking. Full contract, and why automating design without this is unsafe:
+   [references/design-engineering.md](references/design-engineering.md).
+5. **Decompose the requirement into `feature_list.json`.** This is the step that makes the loop
    actually do the user's work — do not leave placeholders, and do not hand-wave the cut. Run the
    `feature-planner` agent (`kiro-cli chat --agent feature-planner`, or follow
    `prompts/feature-planner.md` directly) against the real requirement: it extracts named
@@ -142,9 +154,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    footprint), and produces a dependency DAG instead of a flat list. Full algorithm + a worked
    example: [references/feature-decomposition.md](references/feature-decomposition.md). Then fill
    `loop/goal.md` with the project's real objective + stopping condition to match.
-5. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
+6. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
    it is green (Lesson 6/9). A loop on a red baseline just amplifies failure.
-6. **Prove coverage:**
+7. **Prove coverage:**
 
    ```bash
    node harness-loop/scripts/check-coverage.mjs --target /path/to/project
@@ -152,7 +164,7 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 
    Report the per-lesson scorecard, the lowest-covered lessons, and the first 2–3 fixes. Do not
    tell the user "all 13 are covered" until this passes — that is the whole point of the skill.
-7. **Verify it actually works, not just that the files exist:**
+8. **Verify it actually works, not just that the files exist:**
 
    ```bash
    node harness-loop/scripts/verify-harness.mjs --target /path/to/project --run-features
@@ -161,7 +173,7 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    Structural 13/13 plus a green `verify-harness.mjs` (0 blockers) is the real bar for "the
    harness is ready" — not step 6 alone. If it reports `layer: harness` findings, this skill has a
    bug; follow the Lifecycle section above before blaming the target.
-8. **Start the loop only after both checks pass and the baseline is green.** Local first:
+9. **Start the loop only after both checks pass and the baseline is green.** Local first:
    `kiro-cli chat --agent maker` then `--agent checker`; or headless `loop/run-loop.sh N`.
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
@@ -193,6 +205,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
   silent costs, maturity ladder): [references/loop-engineering.md](references/loop-engineering.md)
 - How the Kiro runtime wires together (agent JSON, hooks, `run-loop.sh`, MCP connectors):
   [references/kiro-loop-runtime.md](references/kiro-loop-runtime.md)
+- Automating design without inheriting the agent's blind spots (cited claims, the assumption
+  registry, spikes, adversarial design review, and where the human is actually needed):
+  [references/design-engineering.md](references/design-engineering.md)
 - Turning a requirement into a right-sized `feature_list.json` (the two-axis build/prove split,
   sizing heuristics, dependency DAG construction, a worked example):
   [references/feature-decomposition.md](references/feature-decomposition.md)
@@ -225,11 +240,18 @@ After setup, the target project should contain:
 - [ ] `session-handoff.md` — lifecycle handoff
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`
 - [ ] `tools/trace.mjs` + `trace/` — observability
-- [ ] `memory/{maker,checker,feature-planner}/MEMORY.md` — per-agent persistent memory
-      ([references/agent-memory.md](references/agent-memory.md)); referenced in each agent's
-      `resources` so it loads every run
+- [ ] `tools/{verify-harness,memory-query,memory-consolidate}.mjs` +
+      `docs/reference/{agent-memory,feature-decomposition}.md` — the knowledge the agents' prompts
+      cite and the tools they invoke, copied INTO the target (a prompt citing a file that only
+      exists in this skill's repo fails the Fresh Session Test, Lesson 3)
+- [ ] `memory/{maker,checker,harness-setup,feature-planner}/MEMORY.md` — per-agent persistent
+      memory ([references/agent-memory.md](references/agent-memory.md)); referenced in each
+      agent's `resources` so it loads every run
 - [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
-- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner}.json` (+ `.kiro/settings/mcp.json`)
+- [ ] `docs/assumptions.md` — registry of load-bearing design assumptions; `docs/design/` for
+      design docs ([references/design-engineering.md](references/design-engineering.md))
+- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer}.json`
+      (+ `.kiro/settings/mcp.json`)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
 - [ ] `verify-harness.mjs --run-features` reports 0 blockers (not just structural coverage)
 

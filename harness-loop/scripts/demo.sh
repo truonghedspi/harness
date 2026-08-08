@@ -34,7 +34,7 @@ echo "$OUT" | grep -q "check-coverage.mjs" ; expect "wrote check-coverage.mjs an
 step 2 "no silent overwrite: re-run without --force"
 OUT="$(node "$SCRIPTS/setup-harness-loop.mjs" --target "$T" 2>&1)"
 echo "$OUT" | grep -q "Written (0)"; expect "second run wrote nothing" $?
-echo "$OUT" | grep -q "Skipped (2[0-9]"; expect "second run reports everything as skipped" $?
+echo "$OUT" | grep -qE "Skipped \([0-9]+,"; expect "second run reports everything as skipped" $?
 
 step 3 "static coverage: check-coverage.mjs catches structural gaps"
 (cd "$T" && node check-coverage.mjs >/tmp/demo-cov.$$ 2>&1); COV_RC=$?
@@ -263,7 +263,45 @@ node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q 'memory-missing' "$T2/trace/verify-report.json"; MM=$?
 [ "$MM" != "0" ]; expect "restoring the file clears the finding" $?
 
-step "19/20" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 19 "design gate: uncited claim + blocked-on-unverified-assumption are flagged (warn)"
+mkdir -p "$T2/docs/design"
+cat > "$T2/docs/design/demo.md" <<'EOD'
+# Demo design
+| Claim | Evidence |
+|---|---|
+| Cited fact | src/Foo.java:42 |
+| Uncited fact | recall |
+EOD
+cat > "$T2/docs/assumptions.md" <<'EOD'
+# Assumptions
+| id | Assumption | Status | If false | Depended on by |
+|---|---|---|---|---|
+| A-001 | Endpoint never moves | needs-human | premise returns | feat-001 |
+EOD
+node -e "
+const fs=require('fs'); const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features[0].status='blocked'; fl.features[0].checkerNotes='demo: blocked pending a design answer';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q "design-claim-uncited" "$T2/trace/verify-report.json"
+expect "an uncited design claim is flagged" $?
+grep -q '"id": "design-assumption-unverified:feat-001"' "$T2/trace/verify-report.json"
+expect "a blocked feature resting on an unverified assumption is flagged" $?
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const d=r.findings.filter(f=>f.gate==='design');
+process.exit(d.length && d.every(f=>f.severity==='warn') ? 0 : 1);
+"; expect "design findings are all severity=warn (never block a loop)" $?
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const f=r.findings.find(x=>x.id && x.id.startsWith('design-claim-uncited'));
+process.exit(f && !/Foo\.java/.test(f.evidence||'') ? 0 : 1);
+"; expect "a properly cited claim is NOT flagged" $?
+rm -rf "$T2/docs/design" "$T2/docs/assumptions.md"
+
+step "20/21" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

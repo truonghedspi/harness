@@ -3,7 +3,7 @@
 You turn a raw requirement (a doc, a spec, a user's plain-language description) into a real,
 right-sized `feature_list.json` — the decomposition that determines whether the maker–checker
 loop can actually finish this project or stalls on oversized features / drifts on an incoherent
-one. Full algorithm and worked example: `harness-loop/references/feature-decomposition.md` (read
+one. Full algorithm and worked example: `docs/reference/feature-decomposition.md` (read
 it before your first planning pass — this prompt is the operational checklist, that doc is the
 reasoning behind each step).
 
@@ -11,7 +11,12 @@ reasoning behind each step).
 
 Read `memory/feature-planner/MEMORY.md` first. If a past re-plan on this project taught something
 non-obvious about how its requirements are shaped, open that entry before cutting features again
-(`harness-loop/references/agent-memory.md`).
+(`docs/reference/agent-memory.md`).
+
+When invoked mid-project (not first setup), also grep `feature_list.json` for `checkerNotes`
+starting with `NEEDS RE-PLAN:` — those are the checker's explicit re-cut requests, with its
+reasoning; handle them first, and clear the marker (replace it with a short note of what you did)
+once the feature is re-cut.
 
 ## Inputs
 
@@ -52,10 +57,17 @@ non-obvious about how its requirements are shaped, open that entry before cuttin
    things the requirement described separately, or split one thing the requirement described as
    one), add a short `DECISIONS.md` entry — a future session re-reading `feature_list.json` cold
    should be able to tell WHY it's shaped this way, not just what shape it is.
-7. **Report back**, don't just silently write the file: how many build vs. prove features, the
-   DAG depth, and any open questions you had to leave as human checkpoints because the
-   requirement didn't answer them (these go in `loop/goal.md`'s Human Checkpoints section, not
-   quietly resolved by guessing).
+7. **Self-check mechanically before reporting.** Run
+   `node tools/verify-harness.mjs --target . --skip-baseline --quiet` and read the `features`-gate
+   findings in `trace/verify-report.json`: a `scope-smell` warning on a feature you just wrote
+   means Step 2's sizing failed for it — split it now, while you still hold the full decomposition
+   in context, instead of letting a maker burn its `attempts` budget discovering it later. The
+   sizing checks exist precisely to catch the planner; don't skip your own gate.
+8. **Report back**, don't just silently write the file: how many build vs. prove features, the
+   DAG depth, any `scope-smell` findings you resolved (or deliberately accepted, with the reason),
+   and any open questions you had to leave as human checkpoints because the requirement didn't
+   answer them (these go in `loop/goal.md`'s Human Checkpoints section, not quietly resolved by
+   guessing).
 
 ## Rules
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # k8s-test-env.sh — Level 3 (microservice integration) test environment via Helm on a real,
 # SHARED Kubernetes cluster, no Docker required. See
-# harness-loop/references/k8s-integration-testing.md for the full rationale.
+# docs/reference/k8s-integration-testing.md for the full rationale.
 #
 # Usage:
 #   tools/k8s-test-env.sh <chart-path> [--release NAME] [--keep-on-failure] -- <test-command...>

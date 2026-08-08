@@ -1,7 +1,7 @@
 # Harness-setup memory — {{PROJECT_NAME}}
 
 Index of what harness-setup has learned about this project's real environment/toolchain
-(`references/agent-memory.md` in the harness-loop skill documents the schema and why). One line
+(`docs/reference/agent-memory.md` documents the schema and why). One line
 per entry, always loaded — keep it short.
 
 Write a new entry when a toolchain/environment quirk cost real time to figure out (a flag needed

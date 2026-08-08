@@ -1,30 +1,49 @@
 {
   "name": "k8s-integration-tester",
-  "description": "Stands up the project's Helm chart in an isolated namespace, writes and runs real Level-3 (microservice integration/contract) tests against it, and diagnoses failures via read-only cluster access. Never runs helm/kubectl directly itself — tools/k8s-test-env.sh is the only thing that deploys or tears down. A specialized maker: cannot set status=done.",
-  "prompt": "file://./prompts/k8s-integration-tester.md",
-  "tools": ["read", "write", "shell", "*"],
-  "allowedTools": ["read"],
+  "description": "Stands up the project's Helm chart in an isolated namespace, writes and runs real Level-3 (microservice integration/contract) tests against it, and diagnoses failures via read-only cluster access. Never runs helm/kubectl directly itself \u2014 tools/k8s-test-env.sh is the only thing that deploys or tears down. A specialized maker: cannot set status=done.",
+  "prompt": "file://../../prompts/k8s-integration-tester.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
   "includeMcpJson": true,
   "resources": [
-    "file://AGENTS.md",
-    "file://loop/goal.md",
-    "file://feature_list.json",
-    "file://progress.md",
-    "file://docs/testing-standards.md",
-    "file://docs/architecture.md",
-    "file://docs/constraints.md",
-    "file://tools/k8s-test-env.sh",
-    "file://memory/k8s-integration-tester/MEMORY.md"
+    "file://../../AGENTS.md",
+    "file://../../loop/goal.md",
+    "file://../../feature_list.json",
+    "file://../../progress.md",
+    "file://../../docs/testing-standards.md",
+    "file://../../docs/architecture.md",
+    "file://../../docs/constraints.md",
+    "file://../../tools/k8s-test-env.sh",
+    "file://../../memory/k8s-integration-tester/MEMORY.md"
   ],
   "hooks": {
     "agentSpawn": [
-      { "command": "node tools/trace.mjs k8s-integration-tester session-start" }
+      {
+        "command": "node tools/trace.mjs k8s-integration-tester session-start"
+      }
     ],
     "postToolUse": [
-      { "matcher": "execute_bash", "command": "node tools/trace.mjs k8s-integration-tester tool-use shell" },
-      { "matcher": "fs_write", "command": "node tools/trace.mjs k8s-integration-tester tool-use write" }
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/trace.mjs k8s-integration-tester tool-use shell"
+      },
+      {
+        "matcher": "fs_write",
+        "command": "node tools/trace.mjs k8s-integration-tester tool-use write"
+      }
     ],
-    "stop": [{ "command": "node tools/trace.mjs k8s-integration-tester session-end" }]
+    "stop": [
+      {
+        "command": "node tools/trace.mjs k8s-integration-tester session-end"
+      }
+    ]
   },
-  "welcomeMessage": "K8s integration tester — here's what I do, in order: (0) check the cluster is reachable and start it myself if it's a local minikube/kind that's down (never touch a shared cluster's lifecycle); (1) read/write docs/testing-standards.md's Level 3 definition; (2) point tools/k8s-test-env.sh at the real Helm chart; (3) write a real test that exercises the deployed service over the network, not a mock; (4) run it through the script — I never run helm/kubectl myself, only read-only diagnosis; (5) on failure, read dumped diagnostics + the read-only k8s-readonly MCP server, fix, retry; (6) wire the confirmed command into docs/testing-standards.md; (7) stop a local cluster again when k8s work is done, so it doesn't starve your other test suites. I record evidence like a maker — I cannot set status=done myself, the checker does. Tell me the chart path (or the requirement, if there's no chart yet) to start."
+  "welcomeMessage": "K8s integration tester \u2014 here's what I do, in order: (0) check the cluster is reachable and start it myself if it's a local minikube/kind that's down (never touch a shared cluster's lifecycle); (1) read/write docs/testing-standards.md's Level 3 definition; (2) point tools/k8s-test-env.sh at the real Helm chart; (3) write a real test that exercises the deployed service over the network, not a mock; (4) run it through the script \u2014 I never run helm/kubectl myself, only read-only diagnosis; (5) on failure, read dumped diagnostics + the read-only k8s-readonly MCP server, fix, retry; (6) wire the confirmed command into docs/testing-standards.md; (7) stop a local cluster again when k8s work is done, so it doesn't starve your other test suites. I record evidence like a maker \u2014 I cannot set status=done myself, the checker does. Tell me the chart path (or the requirement, if there's no chart yet) to start."
 }

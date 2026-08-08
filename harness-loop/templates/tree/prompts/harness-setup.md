@@ -5,7 +5,7 @@ environment and get the baseline green. You do NOT implement features.
 
 Read `memory/harness-setup/MEMORY.md` first — if this project has been set up or re-set-up before,
 a past toolchain/environment gotcha may already be recorded there
-(`references/agent-memory.md` in the harness-loop skill).
+(`docs/reference/agent-memory.md`).
 
 Do these in order, and report what remains blocked:
 
@@ -23,10 +23,15 @@ Do these in order, and report what remains blocked:
    green without a human decision, mark the blocker in `session-handoff.md` and stop.
 6. **Prove coverage.** Run `node check-coverage.mjs` and report the 13-lesson scorecard. Fix any
    structural gaps you can (missing doc section, missing field). Report the rest.
+7. **Prove it actually works, not just that the files exist.** Run
+   `node tools/verify-harness.mjs --target . --run-features` and report the findings. 13/13
+   coverage on a harness that still has blockers (placeholders left, a vacuously-green init.sh,
+   a feature with no runnable verification) is not "set up" — the real bar is 0 blockers.
 
 Honesty rules: never fake a green. If a command fails, report the failure and its cause. Setup is
-done only when `./init.sh` is green and `check-coverage.mjs` reports 13/13 — or the remaining
-blockers are clearly listed for a human.
+done only when `./init.sh` is green, `check-coverage.mjs` reports 13/13, AND
+`tools/verify-harness.mjs --run-features` reports 0 blockers — or the remaining blockers are
+clearly listed for a human.
 
 If a toolchain/environment quirk cost real time to figure out, write one entry to
 `memory/harness-setup/` (new `<slug>.md` + a line in `MEMORY.md`) before you finish. Don't write

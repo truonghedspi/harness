@@ -112,6 +112,26 @@ if (!exists(checkerDest) || FORCE) {
   written.push("check-coverage.mjs");
 } else skipped.push("check-coverage.mjs");
 
+// Knowledge the agents' prompts cite, and tools they invoke, must live IN the target — a prompt
+// pointing at harness-loop/references/... resolves to nothing in a scaffolded repo (the Fresh
+// Session Test, Lesson 3, applied to this skill's own output). Copied, not referenced.
+const EXTRA_COPIES = [
+  ["scripts/verify-harness.mjs", "tools/verify-harness.mjs"],
+  ["scripts/memory-query.mjs", "tools/memory-query.mjs"],
+  ["scripts/memory-consolidate.mjs", "tools/memory-consolidate.mjs"],
+  ["scripts/run-report.mjs", "tools/run-report.mjs"],
+  ["references/agent-memory.md", "docs/reference/agent-memory.md"],
+  ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
+  ["references/design-engineering.md", "docs/reference/design-engineering.md"],
+];
+for (const [src, destRel] of EXTRA_COPIES) {
+  const dest = path.join(targetRoot, destRel);
+  if (exists(dest) && !FORCE) { skipped.push(destRel); continue; }
+  mkdirSync(path.dirname(dest), { recursive: true });
+  writeFileSync(dest, readFileSync(path.join(skillRoot, src), "utf8"));
+  written.push(destRel);
+}
+
 // --- report ---------------------------------------------------------------------------------
 console.log(`\nHarness loop scaffolded into: ${targetRoot}`);
 console.log(`  agent file: ${AGENT_FILE}   package manager: ${PM || "n/a (edit init.sh)"}\n`);
@@ -122,9 +142,10 @@ if (skipped.length) {
   for (const f of skipped) console.log(`    · ${f}`);
 }
 console.log(`\nNext steps:`);
-console.log(`  1. Replace placeholder features in feature_list.json with real ones (each needs a runnable verification).`);
-console.log(`  2. Fill loop/goal.md with the real objective + stopping condition, and docs/*.md with real content.`);
-console.log(`  3. cd ${TARGET} && ./init.sh      # get the baseline green before looping`);
-console.log(`  4. node check-coverage.mjs        # prove all 13 lessons are covered (must be 13/13)`);
-console.log(`  5. kiro-cli chat --agent maker    # Level 1 loop; then --agent checker; or loop/run-loop.sh N`);
+console.log(`  1. Design from the requirement: kiro-cli chat --agent designer (then --agent design-reviewer) — components, cited claims, and docs/assumptions.md. It stops only on assumptions only you can answer.`);
+console.log(`  2. Decompose the requirement: kiro-cli chat --agent feature-planner (or follow prompts/feature-planner.md) — it replaces feature_list.json's placeholders with a right-sized DAG.`);
+console.log(`  3. Fill loop/goal.md with the real objective + stopping condition, and docs/*.md with real content.`);
+console.log(`  4. cd ${TARGET} && ./init.sh      # get the baseline green before looping`);
+console.log(`  5. node check-coverage.mjs        # prove all 13 lessons are covered (must be 13/13)`);
+console.log(`  6. kiro-cli chat --agent maker    # Level 1 loop; then --agent checker; or loop/run-loop.sh N`);
 console.log("");

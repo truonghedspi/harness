@@ -452,7 +452,9 @@ function gateMemory() {
     const j = readJSON(P(".kiro", "agents", rel));
     if (!j || !Array.isArray(j.resources)) continue;
     for (const res of j.resources) {
-      const m = /^file:\/\/(memory\/[^/]+\/MEMORY\.md)$/.exec(res);
+      // Agent JSONs live in .kiro/agents/, so kiro-cli resolves their file:// URIs relative to
+      // THAT directory — the templates carry a ../../ prefix. Tolerate any depth of it.
+      const m = /^file:\/\/(?:\.\.\/)*(memory\/[^/]+\/MEMORY\.md)$/.exec(res);
       if (!m) continue;
       const memPath = m[1];
       if (!exists(P(memPath))) {
@@ -476,6 +478,82 @@ function gateMemory() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gate 8 — design hygiene (references/design-engineering.md). All warn: design quality is a
+// heuristic and a false positive must never stop a loop. These catch the mechanical half —
+// uncited claims, a blocked feature resting on an unverified assumption, a named component no
+// feature covers — leaving the reasoning defects to the design-reviewer's judgment.
+// ---------------------------------------------------------------------------------------------
+const WEAK_EVIDENCE = /^(|todo|tbd|n\/a|—|-|\?|recall|from memory|typically|should be)$/i;
+
+function parseAssumptions() {
+  const raw = read(P("docs", "assumptions.md"));
+  if (!raw) return [];
+  const rows = [];
+  for (const line of raw.split("\n")) {
+    if (!line.trim().startsWith("|") || /^\|[\s|:-]+\|$/.test(line.trim())) continue;
+    const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+    if (cells.length < 5 || /^id$/i.test(cells[0])) continue;
+    rows.push({ id: cells[0], assumption: cells[1], status: cells[2].toLowerCase(), ifFalse: cells[3], dependents: cells[4] });
+  }
+  return rows;
+}
+
+function gateDesign() {
+  // 8a — uncited claims in any docs/design/*.md claims table.
+  for (const f of lsSafe(P("docs", "design")).filter((f) => f.endsWith(".md") && f !== "README.md")) {
+    const lines = read(P("docs", "design", f)).split("\n");
+    lines.forEach((line, i) => {
+      const t = line.trim();
+      if (!t.startsWith("|") || /^\|[\s|:-]+\|$/.test(t)) return;
+      const cells = t.split("|").slice(1, -1).map((c) => c.trim());
+      if (cells.length !== 2 || /^claim$/i.test(cells[0])) return;
+      if (WEAK_EVIDENCE.test(cells[1])) {
+        add({
+          gate: "design", id: `design-claim-uncited:${f}:${i + 1}`, layer: "project", severity: "warn",
+          symptom: `docs/design/${f}:${i + 1} states a claim with no real evidence ("${cells[1] || "empty"}")`,
+          remedy: "cite a path:line from a checkout on this machine, or a spike under spikes/ that runs — recall is not a citation",
+          evidence: t.slice(0, 200),
+        });
+      }
+    });
+  }
+
+  // 8b — a blocked feature resting on an assumption nobody verified. This is the failure mode
+  // that cost this skill's dogfood project a week: a correct conclusion under an unstated premise.
+  const assumptions = parseAssumptions();
+  const byId = new Map((featureListArray || []).map((f) => [f.id, f]));
+  for (const a of assumptions) {
+    if (a.status.startsWith("verified")) continue;
+    for (const dep of a.dependents.split(/[,\s]+/).map((d) => d.trim()).filter((d) => byId.has(d))) {
+      if (String(byId.get(dep).status || byId.get(dep).state) !== "blocked") continue;
+      add({
+        gate: "design", id: `design-assumption-unverified:${dep}`, layer: "project", severity: "warn",
+        symptom: `${dep} is blocked while resting on assumption ${a.id} (status: ${a.status || "unset"})`,
+        remedy: `verify ${a.id} before accepting the block — a conclusion can be correct under a premise that is simply false (references/design-engineering.md)`,
+        evidence: a.assumption.slice(0, 200),
+      });
+    }
+  }
+
+  // 8c — a component named in architecture.md that no feature covers (total-mapping idea).
+  const arch = read(P("docs", "architecture.md"));
+  if (arch && featureListArray && featureListArray.length) {
+    const haystack = featureListArray.map((f) => `${f.id} ${f.name || ""} ${f.behavior || ""}`).join(" ").toLowerCase();
+    for (const m of arch.matchAll(/^-\s+\*\*(.+?)\*\*/gm)) {
+      const name = m[1].replace(/\(.*?\)/g, " ").trim();
+      const tokens = name.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 4);
+      if (!tokens.length || tokens.some((t) => haystack.includes(t))) continue;
+      add({
+        gate: "design", id: `design-component-uncovered:${name.replace(/\s+/g, "-").toLowerCase()}`,
+        layer: "project", severity: "warn",
+        symptom: `docs/architecture.md names component "${name}" but no feature mentions it`,
+        remedy: "either add a feature covering it (feature-planner) or drop it from the architecture — a named component with no feature is a coverage hole",
+      });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------------------------
 gateStructure();
@@ -485,6 +563,7 @@ gateFeatures();
 gateLoop();
 gateCleanState();
 gateMemory();
+gateDesign();
 promoteFeatures();
 
 const byLayer = (l) => findings.filter((f) => f.layer === l);

@@ -1,19 +1,28 @@
 {
   "name": "harness-improver",
-  "description": "Fixes defects in the harness-loop skill itself (templates/scripts), dispatched with one ranked issue from harness-loop/harness-issues.jsonl. May also mirror an approved fix into an affected target's already-scaffolded copy — the prompt's invariants (fix the template first, one issue per iteration, prove via --reverify) are what keep it from patching a target alone, not a path restriction, since targets live outside this repo.",
-  "prompt": "file://./harness-loop/prompts/harness-improver.md",
-  "tools": ["read", "write", "shell", "*"],
-  "allowedTools": ["read"],
+  "description": "Fixes defects in the harness-loop skill itself (templates/scripts), dispatched with one ranked issue from harness-loop/harness-issues.jsonl. May also mirror an approved fix into an affected target's already-scaffolded copy \u2014 the prompt's invariants (fix the template first, one issue per iteration, prove via --reverify) are what keep it from patching a target alone, not a path restriction, since targets live outside this repo.",
+  "prompt": "file://../../harness-loop/prompts/harness-improver.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
   "includeMcpJson": false,
   "resources": [
-    "file://harness-loop/SKILL.md",
-    "file://harness-loop/harness-issues.jsonl",
-    "file://harness-loop/harness-improvements.md",
-    "file://memory/harness-improver/MEMORY.md"
+    "file://../../harness-loop/SKILL.md",
+    "file://../../harness-loop/harness-issues.jsonl",
+    "file://../../harness-loop/harness-improvements.md",
+    "file://../../memory/harness-improver/MEMORY.md"
   ],
   "hooks": {
     "agentSpawn": [
-      { "command": "node harness-loop/scripts/improve-harness.mjs --top 5" }
+      {
+        "command": "node harness-loop/scripts/improve-harness.mjs --top 5"
+      }
     ]
   }
 }

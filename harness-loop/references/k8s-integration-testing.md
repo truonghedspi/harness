@@ -146,7 +146,11 @@ issue.
    the target's own layout (`templates/k8s/tools/k8s-test-env.sh` → `tools/k8s-test-env.sh`,
    `templates/k8s/prompts/k8s-integration-tester.md` → `prompts/k8s-integration-tester.md`,
    `templates/k8s/.kiro/agents/k8s-integration-tester.json` →
-   `.kiro/agents/k8s-integration-tester.json`).
+   `.kiro/agents/k8s-integration-tester.json`, `templates/k8s/memory/` → `memory/`,
+   `templates/k8s/tools/mcp-k8s-readonly-wrapper.sh` → `tools/mcp-k8s-readonly-wrapper.sh`).
+   **Also copy THIS document** → `docs/reference/k8s-integration-testing.md` — the agent's prompt
+   cites it, and a prompt citing a file that isn't in the repo fails the Fresh Session Test
+   (knowledge not in the repo is invisible to the agent, Lesson 3).
 2. Add the MCP config above so the agent can self-diagnose a failure without shelling out blind.
 3. Run the agent — `kiro-cli chat --agent k8s-integration-tester` — and point it at the real Helm
    chart. It does steps that used to be manual: fills the script's `CHART_PATH` / `RELEASE_NAME` /

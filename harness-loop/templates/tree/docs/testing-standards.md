@@ -26,7 +26,7 @@ service boundary requires all three.
   **contracts** on those boundaries (request/response schema, event shape, error semantics).
 - Command: `[microservice integration / contract test command — e.g. contract tests, a compose
   spin-up of the involved services, or a cross-service flow test]`. If Docker isn't available but
-  Kubernetes + Helm are, see `harness-loop/references/k8s-integration-testing.md` for a
+  Kubernetes + Helm are, see `docs/reference/k8s-integration-testing.md` (copied in when adopting the harness-loop k8s template) for a
   namespace-per-run Helm deploy/test/teardown script (`tools/k8s-test-env.sh`) instead of
   Testcontainers/Compose.
 - Required for: any change that touches a service boundary — a changed endpoint, a new event, a

@@ -8,14 +8,30 @@ is invoking it.
 
 0. Read `memory/maker/MEMORY.md` first. If any line looks relevant to the feature you're about to
    pick, open that entry file before starting — it exists specifically so you don't re-learn the
-   same lesson a second time (`references/agent-memory.md` in the harness-loop skill has the why).
+   same lesson a second time (`docs/reference/agent-memory.md` has the why).
    If the index has grown too large to skim, query it instead:
-   `node harness-loop/scripts/memory-query.mjs --target . --agent maker --grep <keyword>`.
+   `node tools/memory-query.mjs --target . --agent maker --grep <keyword>`.
 1. Follow the Startup Workflow in `AGENTS.md`, beginning with `./init.sh`.
 2. If the baseline is red, your entire iteration is repairing it. Stop once it is green.
 3. Otherwise pick the single highest-priority eligible feature from `feature_list.json`:
    - a feature already `in-progress`/`active`, else
    - the first `not-started` feature whose dependencies are all `done`.
+
+   **Never pick a feature whose `checkerNotes` starts with `NEEDS DESIGN:`** — a design question is
+   the `designer` agent's job, not something to solve inline while implementing. Skip it.
+
+   **Never pick a feature whose `checkerNotes` starts with `NEEDS RE-PLAN:`** — the checker has
+   ruled it mis-cut, and re-cutting is the `feature-planner`'s job, not yours. Skip it; if it's
+   the only eligible feature left, write `session-handoff.md` saying a re-plan pass is needed and
+   stop.
+
+   **Routing exception:** if the picked feature's verification deploys to a real Kubernetes
+   cluster (it runs through `tools/k8s-test-env.sh`, or the behavior names a Helm chart /
+   namespace) AND `.kiro/agents/k8s-integration-tester.json` exists, that feature belongs to the
+   specialized `k8s-integration-tester` agent — it carries cluster-lifecycle and diagnosis
+   knowledge you don't. Note the handoff in `progress.md`, leave the feature untouched, and pick
+   the next eligible non-k8s feature instead (if none, write `session-handoff.md` saying the
+   remaining work is k8s-specialized, and stop).
 4. **Timebox check, before doing any work on the picked feature:** if
    `feature.attempts >= feature.maxAttempts`, you MUST NOT try again yourself — set
    `"status": "blocked"`, write the concrete reason (what was tried, why it didn't work) into
@@ -30,8 +46,11 @@ is invoking it.
    and date. If verification did not run, the feature did not advance.
 7. Set `"readyForCheck": true`. You must NOT set `"status": "done"` — that is the checker's
    decision alone.
-8. Any requirement/architecture question `docs/` doesn't answer: add a note, set the feature
-   `blocked` (with the question in `checkerNotes`), and pick the next eligible feature. If none is
+8. Any requirement/architecture question `docs/` doesn't answer is a DESIGN question, not a
+   blocker for you to absorb: write `NEEDS DESIGN: <the question>` as the first line of
+   `checkerNotes`, leave `status` as it was, and pick the next eligible feature. The `designer`
+   agent answers it (`docs/reference/design-engineering.md`); do not invent an answer inline —
+   an undeclared design assumption is the most expensive defect in this loop. If no feature is
    eligible, write `session-handoff.md` and stop.
 9. Trace decision points as they happen:
    - `node tools/trace.mjs maker feature-picked <feat-id> "<why>"`
@@ -49,7 +68,7 @@ is invoking it.
     rediscover — a mistake whose real cause was non-obvious, an approach that worked for a
     non-obvious reason, something that looked like a bug but was environmental — write one entry
     to `memory/maker/` (new `<slug>.md` + a line in `MEMORY.md`), using the format in
-    `references/agent-memory.md`. Don't write one for a routine, expected iteration — that's noise,
+    `docs/reference/agent-memory.md`. Don't write one for a routine, expected iteration — that's noise,
     not a lesson.
 
 Honesty rules: never weaken a test or vector to make it pass. If it fails, leave it failing or
