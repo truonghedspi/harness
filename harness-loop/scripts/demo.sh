@@ -366,7 +366,26 @@ process.exit(retry && retry.flags.length===0 ? 0 : 1);
 "; expect "a complete row closes the concern (no flag)" $?
 rm -f /tmp/demo-cc.$$ /tmp/demo-cc2.$$ /tmp/demo-cc3.$$ "$T2/docs/constraints.md.bak" "$T2/docs/cross-cutting.md"
 
-step "22/23" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 22 "always-remember rules: an agent that can write must load the rulebook"
+node -e "
+const fs=require('fs');const p='$T2/.kiro/agents/maker.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8'));
+fs.writeFileSync(p+'.bak', JSON.stringify(j,null,2));
+j.resources=j.resources.filter(r=>!r.includes('constraints.md'));
+fs.writeFileSync(p, JSON.stringify(j,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='agent-missing-constraints:maker');
+process.exit(f && f.layer==='harness' && f.severity==='warn' ? 0 : 1);
+"; expect "a writing agent with no docs/constraints.md is caught, classified layer=harness" $?
+mv "$T2/.kiro/agents/maker.json.bak" "$T2/.kiro/agents/maker.json"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q "agent-missing-constraints" "$T2/trace/verify-report.json"; AMC=$?
+[ "$AMC" != "0" ]; expect "restoring the resource clears it — and the scaffold ships clean" $?
+
+step "23/24" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

@@ -405,6 +405,19 @@ function gateLoop() {
   }
   for (const rel of lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))) {
     const j = readJSON(P(".kiro", "agents", rel));
+    // An agent that can write but never loads the rulebook will violate rules it has never seen —
+    // and the violation looks like ordinary output, so nothing catches it. Any always-remember
+    // rule (file-size budget, index requirement, project invariants) lives in docs/constraints.md
+    // precisely because it is auto-loaded; this check is what keeps that guarantee true.
+    if (j && (j.tools || []).includes("write") && Array.isArray(j.resources)
+        && !j.resources.some((r) => String(r).includes("constraints.md"))
+        && exists(P("docs", "constraints.md"))) {
+      add({
+        gate: "loop", id: `agent-missing-constraints:${j.name || rel}`, layer: "harness", severity: "warn",
+        symptom: `${j.name || rel} can write files but does not load docs/constraints.md — it cannot follow rules it never sees`,
+        remedy: "add file://../../docs/constraints.md to that agent's resources in templates/tree/.kiro/agents/",
+      });
+    }
     if (!j) {
       add({
         gate: "loop", id: `agent-json-invalid:${rel}`, layer: "harness",
@@ -573,10 +586,14 @@ function gateDocs() {
       // AGENTS.md and MEMORY.md carry their own tighter budgets, checked elsewhere.
       if (e === "AGENTS.md" || e === "CLAUDE.md" || e === "MEMORY.md") continue;
       // A frozen, INDEXED archive is exempt: you never read it end to end, you follow its index
-      // to one entry (references/knowledge-layout.md Pattern B, the core-vs-archival tiering).
-      // An unindexed pile of split files is NOT exempt — splitting without a map is worse than
-      // one long file, and that incentive is exactly what this exemption's condition encodes.
-      if (rel && exists(path.join(dir, "INDEX.md")) && e !== "INDEX.md") continue;
+      // to one entry (references/knowledge-layout.md Pattern B). The condition must be narrow:
+      // the directory needs BOTH its own INDEX.md AND a live sibling file it was rotated out of
+      // (DECISIONS/ next to DECISIONS.md). Without that second half, `docs/` — which has an
+      // INDEX.md of its own — would exempt every document in the project. Caught by demo.sh
+      // immediately after the first, looser version shipped.
+      const isRotatedArchive = rel && exists(path.join(dir, "INDEX.md")) &&
+        exists(path.join(path.dirname(dir), `${path.basename(dir)}.md`));
+      if (isRotatedArchive && e !== "INDEX.md") continue;
       const n = read(abs).split("\n").length;
       if (n > DOC_MAX_LINES) seen.push({ rel: childRel, n });
     }

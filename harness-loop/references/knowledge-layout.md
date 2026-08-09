@@ -91,6 +91,25 @@ reads to decide what else to read, so it is worth more than the sum of its links
 "Read it when" is the load-bearing column. A list of filenames makes an agent open everything,
 which is the problem this file exists to solve.
 
+## Where these rules live, so an agent actually remembers them
+
+A rule an agent must honour *every time it touches a file* cannot live only in a reference document
+that gets read on demand — by definition it would be consulted only by someone who already
+remembered it. So the budget is stated in three places, each with a different job:
+
+| Place | Job |
+|---|---|
+| `docs/constraints.md` | The binding MUST/MUST NOT text. **Auto-loaded** into every writing agent via its `resources`, so it is in context before the agent writes anything. |
+| `AGENTS.md` Working Rules | One paragraph in the router every session reads at startup, pointing here for the method. |
+| This document | The reasoning, the two patterns, and the worked examples. Read when actually splitting something. |
+
+And the guarantee is itself checked: `verify-harness.mjs` reports
+`agent-missing-constraints:<agent>` (layer `harness`) when an agent has write access but does not
+load `docs/constraints.md` — because an agent that can write while never seeing the rulebook will
+violate rules it has never read, and the violation looks like perfectly ordinary output. That check
+is what makes `docs/constraints.md` a reliable home for **any** always-remember rule, not just this
+one. Found by running it: two scaffolded agents (`checker`, `harness-setup`) had exactly that gap.
+
 ## When splitting is the wrong answer
 
 If a document is over budget because it is **repetitive or padded**, cut it instead — two files of

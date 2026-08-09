@@ -131,7 +131,7 @@ for (const c of CONCERNS) {
 
   const flags = [];
   if (trackedOpen) flags.push("open-decision");            // known, tracked, waiting on a human
-  else if (allFiles.size >= 3 && !ownedByRule) flags.push("unowned");  // nobody has even noticed
+  else if (allFiles.size >= 3 && !ownedByRule && !ownedByRegister) flags.push("unowned");  // nobody has even noticed
   if (activeTerms.length >= 2 && !ownedByRegister && !ownedByRule) flags.push("fragmented");
 
   results.push({

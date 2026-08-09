@@ -17,8 +17,21 @@ possible — mechanically enforceable (a lint rule or a check in `init.sh` beats
   `./init.sh` baseline timeout budget, and must fail loud and fast instead of hanging silently.
 - [Project-specific MUST rules — e.g. respect module dependency direction, use fixed-point money]
 
+### Working with files and documents (applies to every agent, every session)
+
+- MUST keep every knowledge document **≤300 lines**. Past that an agent skims it and acts on a
+  partial reading while believing it read the whole thing — a failure that raises no error.
+- MUST split an over-budget document the way it grew: a **topic doc** into sections, keeping the
+  original filename as a map so existing links still resolve; an **append-only log** by rotating
+  closed periods into a frozen, dated archive. Method: `docs/reference/knowledge-layout.md`.
+- MUST add every new document to `docs/INDEX.md` with a *"read it when"* line. An indexed archive
+  directory is exempt from the size budget — you follow its index to one entry instead of reading
+  it through.
+
 ## MUST NOT
 
+- MUST NOT split a document without adding it to `docs/INDEX.md` — scattered files with no map
+  are harder to use than the one long file they replaced.
 - MUST NOT let the worker set `status: done` — only the checker or a verification script does.
 - MUST NOT modify files outside the active feature's scope.
 - MUST NOT weaken a test or a vector to make it pass.

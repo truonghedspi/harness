@@ -16,6 +16,7 @@
     "file://../../AGENTS.md",
     "file://../../feature_list.json",
     "file://../../docs/architecture.md",
+    "file://../../docs/constraints.md",
     "file://../../memory/harness-setup/MEMORY.md"
   ],
   "welcomeMessage": "Harness setup: I will verify the toolchain, confirm MCP connectivity, fill in the real verification commands, and get ./init.sh green. Setup only \u2014 no feature work."

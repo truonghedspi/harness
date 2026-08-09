@@ -7,6 +7,12 @@
 
 ## Map (read these when relevant)
 
+> Don't know which document you need? Start at [`docs/INDEX.md`](docs/INDEX.md) — it lists every
+> document with a "read it when" line, so you can decide what *not* to open.
+
+- `docs/INDEX.md` — the map of all documents
+- `docs/assumptions.md` — load-bearing design assumptions; a `needs-human` row stops the loop
+- `docs/cross-cutting.md` — policies with an owner and an enforcing rule (retry, identity, timeouts)
 - `docs/architecture.md` — what this is, how it's organized, how to run/verify, where we are
 - `docs/constraints.md` — hard MUST / MUST NOT rules
 - `docs/testing-standards.md` — the three verification levels (unit / in-service integration / cross-service microservice integration)
@@ -35,6 +41,12 @@ Before any work, these four must hold (Lesson 6). If any fails, fixing it is the
 If the baseline is red, repair it before adding any new scope.
 
 ## Working Rules
+
+- **Files you write:** every knowledge document stays **≤300 lines** and is listed in
+  `docs/INDEX.md` with a "read it when" line. Over budget → split it the way it grew (topic doc by
+  section, keeping the original filename as a map; append-only log by rotating a frozen dated
+  archive). Method: `docs/reference/knowledge-layout.md`; the binding rules are in
+  `docs/constraints.md`, already loaded for you.
 
 - **WIP = 1 (one feature at a time):** exactly one feature is `active`. Finish and verify it
   before activating another. No "while I'm here, also refactor B" (Lesson 7).

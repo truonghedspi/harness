@@ -262,7 +262,11 @@ After setup, the target project should contain:
       agent's `resources` so it loads every run
 - [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
 - [ ] `docs/INDEX.md` — the map of documents with a "read it when" column; every knowledge doc
-      under 300 lines ([references/knowledge-layout.md](references/knowledge-layout.md))
+      under 300 lines, the rule itself stated in `docs/constraints.md` (auto-loaded into every
+      writing agent) and in `AGENTS.md`'s Working Rules
+      ([references/knowledge-layout.md](references/knowledge-layout.md))
+- [ ] every agent with write access loads `docs/constraints.md` — checked mechanically, because an
+      agent that can write without the rulebook violates rules it has never seen
 - [ ] `docs/assumptions.md` — registry of load-bearing design assumptions; `docs/cross-cutting.md`
       — policies with an owner and an enforcing rule; `docs/design/` for design docs
       ([references/design-engineering.md](references/design-engineering.md))
