@@ -682,6 +682,19 @@ function gateDocs() {
 // ---------------------------------------------------------------------------------------------
 const RULE_BUDGET = 25;
 
+function gateDigest() {
+  if (!exists(P("feature_list.digest.md")) || !exists(P("tools", "feature-digest.mjs"))) return;
+  const r = spawnSync(process.execPath, [P("tools", "feature-digest.mjs"), "--target", TARGET, "--check"],
+    { encoding: "utf8" });
+  if (r.status !== 0) {
+    add({
+      gate: "docs", id: "feature-digest-stale", layer: "project", severity: "warn",
+      symptom: "feature_list.digest.md no longer matches feature_list.json — agents load the digest, so a stale one misinforms every one of them",
+      remedy: "run `node tools/feature-digest.mjs --target .` (init.sh does this automatically; a stale digest means init.sh has not run since the list changed)",
+    });
+  }
+}
+
 function gateRules() {
   const raw = read(P("docs", "constraints.md"));
   if (!raw) return;
@@ -728,6 +741,7 @@ gateMemory();
 gateDesign();
 gateDocs();
 gateRules();
+gateDigest();
 promoteFeatures();
 
 const byLayer = (l) => findings.filter((f) => f.layer === l);

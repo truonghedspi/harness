@@ -493,7 +493,35 @@ grep -q '"id": "prohibitions-mostly-unenforced"' "$T2/trace/verify-report.json";
 [ "$PMU" != "0" ]; expect "promoting the gateable ones quiets it — semantic ones may honestly remain" $?
 mv "$T2/docs/constraints.md.bak" "$T2/docs/constraints.md"
 
-step "28/29" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 28 "context budget: the feature digest keeps the biggest file out of every agent's context"
+node "$SCRIPTS/feature-digest.mjs" --target "$T2" >/dev/null
+node -e "
+const fs=require('fs');
+const full=fs.readFileSync('$T2/feature_list.json','utf8').split('\n').length;
+const dig=fs.readFileSync('$T2/feature_list.digest.md','utf8').split('\n').length;
+process.exit(dig < full ? 0 : 1);
+"; expect "the digest is smaller than the source it indexes" $?
+node -e "
+const fs=require('fs');
+const j=JSON.parse(fs.readFileSync('$T2/.kiro/agents/maker.json','utf8'));
+const r=j.resources.join(' ');
+process.exit(r.includes('feature_list.digest.md') && !r.includes('/feature_list.json') ? 0 : 1);
+"; expect "maker auto-loads the digest, not the full list" $?
+node -e "
+const fs=require('fs');
+const j=JSON.parse(fs.readFileSync('$T2/.kiro/agents/feature-planner.json','utf8'));
+process.exit(j.resources.some(r=>r.endsWith('feature_list.json')) ? 0 : 1);
+"; expect "feature-planner keeps the full list — it is the agent that rewrites it" $?
+node -e "const fs=require('fs');fs.appendFileSync('$T2/feature_list.digest.md','\n- drifted\n')"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "feature-digest-stale"' "$T2/trace/verify-report.json"
+expect "a stale digest is caught — agents read it, so a stale one misinforms all of them" $?
+node "$SCRIPTS/feature-digest.mjs" --target "$T2" >/dev/null
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "feature-digest-stale"' "$T2/trace/verify-report.json"; FDS=$?
+[ "$FDS" != "0" ]; expect "regenerating clears it" $?
+
+step "29/30" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

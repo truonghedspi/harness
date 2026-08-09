@@ -24,12 +24,12 @@
   "resources": [
     "file://../../AGENTS.md",
     "file://../../docs/constraints.md",
+    "file://../../docs/reference/design-engineering.md",
     "file://../../docs/INDEX.md",
     "file://../../docs/architecture.md",
     "file://../../docs/assumptions.md",
     "file://../../docs/cross-cutting.md",
     "file://../../DECISIONS.md",
-    "file://../../docs/reference/design-engineering.md",
     "file://../../memory/design-reviewer/MEMORY.md"
   ],
   "hooks": {

@@ -20,6 +20,9 @@ treatment below. Running standalone (no promote pass happened): do it all yourse
 The baseline was already gated this iteration (`run-loop.sh` runs `./init.sh` after you); only
 re-run `./init.sh` yourself if something you saw gives you a concrete reason to doubt it.
 
+`feature_list.digest.md` (loaded for you) shows every feature's status at a glance; open
+`feature_list.json` for the full entry of each one you are checking.
+
 For every feature with `"readyForCheck": true`:
 
 1. Re-run the recorded `evidence` command yourself. Evidence that does not reproduce is treated

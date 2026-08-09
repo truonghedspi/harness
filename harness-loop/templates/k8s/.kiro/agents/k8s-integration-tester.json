@@ -15,13 +15,13 @@
   "resources": [
     "file://../../AGENTS.md",
     "file://../../docs/constraints.md",
+    "file://../../tools/k8s-test-env.sh",
     "file://../../docs/cross-cutting.md",
     "file://../../docs/INDEX.md",
-    "file://../../feature_list.json",
+    "file://../../feature_list.digest.md",
     "file://../../progress.md",
     "file://../../docs/testing-standards.md",
     "file://../../docs/architecture.md",
-    "file://../../tools/k8s-test-env.sh",
     "file://../../loop/goal.md",
     "file://../../memory/k8s-integration-tester/MEMORY.md"
   ],

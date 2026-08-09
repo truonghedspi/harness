@@ -27,13 +27,13 @@
   "resources": [
     "file://../../AGENTS.md",
     "file://../../docs/constraints.md",
+    "file://../../docs/reference/design-engineering.md",
     "file://../../docs/INDEX.md",
     "file://../../docs/architecture.md",
     "file://../../docs/assumptions.md",
     "file://../../docs/cross-cutting.md",
     "file://../../DECISIONS.md",
-    "file://../../feature_list.json",
-    "file://../../docs/reference/design-engineering.md",
+    "file://../../feature_list.digest.md",
     "file://../../memory/designer/MEMORY.md"
   ],
   "hooks": {

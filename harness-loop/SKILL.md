@@ -278,6 +278,9 @@ After setup, the target project should contain:
 - [ ] `docs/assumptions.md` — registry of load-bearing design assumptions; `docs/cross-cutting.md`
       — policies with an owner and an enforcing rule; `docs/design/` for design docs
       ([references/design-engineering.md](references/design-engineering.md))
+- [ ] `tools/context-budget.mjs` + `tools/feature-digest.mjs` — measure what every agent is made
+      to read before it starts, and keep the feature list out of that budget
+      ([references/llm-failure-modes.md](references/llm-failure-modes.md))
 - [ ] `tools/cross-cutting-audit.mjs` — finds concerns nobody owns (`unowned`) and registered
       decisions still waiting on a human (`open-decision`)
 - [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer}.json`

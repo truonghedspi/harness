@@ -121,6 +121,8 @@ const EXTRA_COPIES = [
   ["scripts/memory-consolidate.mjs", "tools/memory-consolidate.mjs"],
   ["scripts/run-report.mjs", "tools/run-report.mjs"],
   ["scripts/cross-cutting-audit.mjs", "tools/cross-cutting-audit.mjs"],
+  ["scripts/feature-digest.mjs", "tools/feature-digest.mjs"],
+  ["scripts/context-budget.mjs", "tools/context-budget.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],

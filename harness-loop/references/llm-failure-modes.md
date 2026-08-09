@@ -94,6 +94,31 @@ Later instructions dominate earlier ones; the original objective fades as a sess
 - **Degradation near the context limit.** Quality falls before the window is technically full;
   nothing here detects it.
 
+## Measuring it — `tools/context-budget.mjs`
+
+None of the above is actionable without numbers, and nobody was producing any. The tool reports,
+per agent: total lines auto-loaded before it does anything, the heaviest contributors, how many
+rules it must actually remember, and whether the position-sensitive slots are used (rules and the
+role's own contract at the **start**, goal and memory at the **end**, skimmable data in between).
+
+Measured on the dogfood project, then fixed:
+
+| | before | after |
+|---|---|---|
+| agents over a 1200-line budget | 5 of 8 | 1 of 8 |
+| maker | 1509 | 898 |
+| k8s-integration-tester | 1650 | 1037 |
+| rules that must be remembered | 32 of 32 | 24 of 32 (8 promoted to gates) |
+
+The single biggest win was not a rule at all: `feature_list.json` had grown to 667 lines and was
+auto-loaded by five agents, dominating the middle of every one of their contexts. No agent needs
+every field of every feature up front — it needs to know what exists, then open the one entry it is
+working on. `tools/feature-digest.mjs` generates a ~50-line index that goes in `resources`, with
+the full file left as the source of truth, read on demand.
+
+`feature-planner` stays over budget at 1407, and that is recorded rather than gamed: its job is to
+rewrite `feature_list.json`, so it is the one agent that genuinely needs the whole thing.
+
 ## The rule this file implies
 
 When adding a mechanism to this harness, name the failure mode it counters. If you cannot name one,

@@ -14,6 +14,10 @@ if [ -f tools/trace.mjs ] && command -v node >/dev/null 2>&1; then
   node tools/trace.mjs init session-start "./init.sh" || true
 fi
 
+# Keep the always-loaded feature digest in step with the source of truth (docs/reference/
+# llm-failure-modes.md: the full list dominates every agent's context, the digest is what they read).
+if [ -f tools/feature-digest.mjs ]; then node tools/feature-digest.mjs --target . >/dev/null || true; fi
+
 # >>> VERIFICATION  (the scaffolder replaces this block when --commands is given)
 if [ -f package.json ]; then
   if [ -f pnpm-lock.yaml ]; then PM="pnpm";

@@ -13,7 +13,9 @@ is invoking it.
    `node tools/memory-query.mjs --target . --agent maker --grep <keyword>`.
 1. Follow the Startup Workflow in `AGENTS.md`, beginning with `./init.sh`.
 2. If the baseline is red, your entire iteration is repairing it. Stop once it is green.
-3. Otherwise pick the single highest-priority eligible feature from `feature_list.json`:
+3. Otherwise pick the single highest-priority eligible feature. `feature_list.digest.md` (loaded
+   for you) lists every feature with its status, dependencies and an **ELIGIBLE** marker; open
+   `feature_list.json` for the full entry of the one you pick:
    - a feature already `in-progress`/`active`, else
    - the first `not-started` feature whose dependencies are all `done`.
 
