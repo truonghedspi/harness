@@ -79,6 +79,18 @@ broken (JDK/arch incompatibility)". Running the upstream project's *own* equival
 machine took two minutes and it passed — killing the theory and converting a human-blocked item back
 into ordinary engineering. **A two-minute spike beat a week of confident reasoning.**
 
+### Ungrillable questions — the preference half of the same move
+
+A spike settles a **fact** ("does this API behave that way?"). Some questions are not facts and no
+interview settles them either: *how should this feel*, *is this latency acceptable*, *one long form
+or three pages*. Talking through one of these is where a design session balloons — the agent keeps
+rephrasing, the human keeps guessing, and scope grows to fill the uncertainty.
+
+Same move, different target: **build the throwaway, look at it, then answer in one line.** A spike
+settles a fact; a prototype settles a preference. Both beat another round of questions, and both
+live under `spikes/` under the same rules. (The distinction comes from the `grilling` skill by Matt
+Pocock — github.com/mattpocock/skills.)
+
 ## Generator / evaluator separation, applied to design
 
 The same rule that keeps the maker from grading itself applies here — a designer is its own

@@ -140,9 +140,10 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 
 4. **Collect what the repo cannot contain, before designing.** If the requirement leaves
    deployment facts, business intent, or risk appetite implicit, run the `context-interviewer`
-   agent (Claude Code users: the `grilling` skill is the same discipline). It looks up anything
-   greppable itself, asks **one question at a time with a recommended answer**, and — the part
-   that matters — **persists every answer to a file**: an `docs/assumptions.md` row flipped to
+   agent (its interview technique follows the `grilling` skill by Matt Pocock). It looks up
+   anything greppable itself, asks **the whole frontier of currently-answerable questions per
+   round, each numbered with a recommended answer** so a round can be answered by number, and — the
+   part that matters — **persists every answer to a file**: an `docs/assumptions.md` row flipped to
    `verified`, a `docs/cross-cutting.md` decision with its enforcing rule, or a ≤300-line
    `docs/context/<topic>.md` indexed in `docs/INDEX.md`. An answer that stays in chat is lost to
    the next session.
