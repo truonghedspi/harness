@@ -34,10 +34,12 @@ catch, and it has already cost this skill's own dogfood project a week of a feat
    future reader cannot judge the risk.
 6. **Option space too narrow.** One option is a first idea, not a design. Two options that are
    trivial variants of each other are also one option. Name the option that is missing.
-7. **Scope of the human ask.** Anything tagged `needs-human` must genuinely be unknowable from the
-   repo. A designer punting a decision it could have made by grepping or spiking is offloading work
-   onto the human — reject that too. This cuts both ways: over-asking kills the automation as
-   surely as under-asking corrupts it.
+7. **Scope of the human ask.** Every `needs-human` row must survive the exhaustion ladder
+   (`docs/reference/human-attention.md`): registry, memory, environment, spike, prototype. If the
+   designer could have grepped or spiked it, reject — that is a human's attention spent on
+   something renewable. Cuts both ways, and the other way is worse: an agent that *avoids* asking
+   to look self-sufficient produces a wrong system that passes every test, so never reject a
+   question that genuinely needed a person.
 8. **Cross-cutting policy smuggled in as local design.** Run
    `node tools/cross-cutting-audit.mjs --target .`. If the design settles a flagged concern by
    itself instead of registering it for a human, reject — that is a policy the whole system

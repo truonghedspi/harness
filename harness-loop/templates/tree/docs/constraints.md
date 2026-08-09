@@ -17,6 +17,14 @@ possible — mechanically enforceable (a lint rule or a check in `init.sh` beats
   `./init.sh` baseline timeout budget, and must fail loud and fast instead of hanging silently.
 - [Project-specific MUST rules — e.g. respect module dependency direction, use fixed-point money]
 
+### Spending human attention (the one scarce resource)
+
+- MUST climb the exhaustion ladder before anything costs a human: registry → memory → environment
+  → **spike** → prototype (`docs/reference/human-attention.md`). A fact you cannot read you can
+  often prove; two minutes of spike has already beaten a week of reasoning in a real project.
+- MUST ask when a question survives the ladder. Over-asking costs annoyance; under-asking produces
+  a wrong system that passes every test. When unsure, spend two more minutes exploring, then ask.
+
 ### Working with files and documents (applies to every agent, every session)
 
 - MUST keep every knowledge document **≤300 lines**. Past that an agent skims it and acts on a
@@ -30,6 +38,10 @@ possible — mechanically enforceable (a lint rule or a check in `init.sh` beats
 
 ## MUST NOT
 
+- MUST NOT use `blocked` as a way to avoid asking. A blocked feature nobody is asked about is a
+  question with the human removed from it — escalate it as a question instead.
+- MUST NOT guess an answer that belongs to a human. Once written down, a guess is indistinguishable
+  from a verified fact, and every feature built on it inherits the error while passing its tests.
 - MUST NOT split a document without adding it to `docs/INDEX.md` — scattered files with no map
   are harder to use than the one long file they replaced.
 - MUST NOT let the worker set `status: done` — only the checker or a verification script does.

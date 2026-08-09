@@ -219,6 +219,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 - Automating design without inheriting the agent's blind spots (cited claims, the assumption
   registry, spikes, adversarial design review, and where the human is actually needed):
   [references/design-engineering.md](references/design-engineering.md)
+- Spending the one resource that does not renew — the exhaustion ladder before any question
+  reaches a person, what is genuinely irreducible, and why under-asking is worse than over-asking:
+  [references/human-attention.md](references/human-attention.md)
 - Keeping documents inside the size an agent can actually use (the 300-line budget, splitting a
   topic doc vs rotating an append-only log, the `docs/INDEX.md` map):
   [references/knowledge-layout.md](references/knowledge-layout.md)

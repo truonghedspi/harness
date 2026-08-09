@@ -261,6 +261,11 @@ function gateFeatures() {
   if (!features) return; // structure gate covers a missing/invalid file
 
   const decisions = read(P("DECISIONS.md")) || "";
+  // A justification may live in a rotated archive (knowledge-layout Pattern B) — rotation must not
+  // make a properly-justified block look unjustified.
+  const decisionsAll = decisions + lsSafe(P("DECISIONS"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => read(P("DECISIONS", f)) || "").join("\n");
 
   for (const f of features) {
     const verif = String(f.verification || f.verify || "").trim();
@@ -284,7 +289,7 @@ function gateFeatures() {
     // An unexplained "blocked" is indistinguishable from silently giving up (docs/constraints.md).
     if (String(f.status || f.state) === "blocked") {
       const hasNote = String(f.checkerNotes || "").trim().length > 0;
-      const hasDecisionEntry = decisions.includes(f.id);
+      const hasDecisionEntry = decisionsAll.includes(f.id);   // live log + rotated archive
       if (!hasNote && !hasDecisionEntry) {
         add({
           gate: "features", id: `blocked-unjustified:${f.id}`, layer: "project",
@@ -323,6 +328,24 @@ function gateFeatures() {
         });
       }
     }
+  }
+
+  // An escalation with no trace of exploration is the cheapest kind of waste to catch: the agent
+  // spent a human's attention without spending two minutes of its own first
+  // (references/human-attention.md). Warn only — under-asking is worse than over-asking, so this
+  // must never discourage a genuine question, only an unexplored one.
+  const EXPLORED = /(`[^`]*(?:\.\/|node |npm |mvn|gradle|kubectl|helm|git |grep|curl)[^`]*`|\w+\.(?:java|mjs|js|ts|py|go|kt|md):\d+|\bspike\b|exit(?:ed)? \d|\bexit code\b|reproduc)/i;
+  for (const f of features) {
+    if (String(f.status || f.state) !== "blocked") continue;
+    const why = String(f.checkerNotes || "");
+    const inDecisions = decisionsAll.includes(f.id);
+    if (EXPLORED.test(why) || (inDecisions && EXPLORED.test(decisionsAll))) continue;
+    add({
+      gate: "features", id: `escalation-without-evidence:${f.id}`, layer: "project", severity: "warn",
+      symptom: `${f.id} is blocked but its justification shows no exploration — no command run, no path:line, no spike`,
+      remedy: "climb the exhaustion ladder before escalating: registry, memory, environment, spike, prototype (references/human-attention.md). If it survives, ask the human a question rather than leaving it blocked",
+      evidence: why.slice(0, 200),
+    });
   }
 
   if (!RUN_FEATURES) return;

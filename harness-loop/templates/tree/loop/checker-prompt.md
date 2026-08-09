@@ -34,8 +34,14 @@ For every feature with `"readyForCheck": true`:
    bounded, stack-appropriate timeout (docs/constraints.md) — reject if a hang there could eat
    the whole baseline budget silently.
 
-For every feature with `"status": "blocked"`: confirm `checkerNotes` (or a `DECISIONS.md` entry)
-actually explains why, concretely enough that a human could act on it. A `blocked` with no real
+For every feature with `"status": "blocked"`, ask first: **what would have settled this without a
+human, and was it tried?** Registry, memory, environment, a two-minute spike, a throwaway prototype
+(`docs/reference/human-attention.md`). A third of this project's historical escalations were
+reducible that way. If an experiment is obvious and untried, reject the block and name the
+experiment — the mechanical `escalation-without-evidence` check catches only escalations with *no*
+exploration at all; it cannot know which experiment nobody thought of. That part is yours.
+
+Then confirm `checkerNotes` (or a `DECISIONS.md` entry) actually explains why, concretely enough that a human could act on it. A `blocked` with no real
 reason, or a vague one ("couldn't figure it out"), is not acceptable — send it back to
 `in-progress` with that gap noted, rather than letting a silent give-up sit in the state file.
 

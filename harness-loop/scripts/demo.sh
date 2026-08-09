@@ -404,7 +404,54 @@ node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q "agent-cannot-write-instructed" "$T2/trace/verify-report.json"; ACW=$?
 [ "$ACW" != "0" ]; expect "the shipped scaffold has no prompt/permission disagreement" $?
 
-step "24/25" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 24 "human attention: an escalation with no exploration is caught, one with evidence is not"
+node -e "
+const fs=require('fs');const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features[0].status='blocked'; fl.features[0].checkerNotes='This seems hard, probably an environment problem.';
+fl.features[1].status='blocked'; fl.features[1].checkerNotes='Ran \`./mvnw -q verify\` exit 1; spike reproduces with vanilla upstream. Needs a product call on scope.';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "escalation-without-evidence:feat-001"' "$T2/trace/verify-report.json"
+expect "a blocked feature with no exploration at all is flagged" $?
+grep -q '"id": "escalation-without-evidence:feat-002"' "$T2/trace/verify-report.json"; EWE=$?
+[ "$EWE" != "0" ]; expect "a blocked feature citing a command + spike is NOT flagged" $?
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='escalation-without-evidence:feat-001');
+process.exit(f && f.severity==='warn' ? 0 : 1);
+"; expect "it is warn — under-asking must never be discouraged into guessing" $?
+node -e "
+const fs=require('fs');const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features[0].status='in-progress'; fl.features[0].checkerNotes='';
+fl.features[1].status='in-progress'; fl.features[1].checkerNotes='';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+
+step 25 "a justification rotated into an archive still counts as justified"
+mkdir -p "$T2/DECISIONS"
+node -e "
+const fs=require('fs');const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features[0].status='blocked'; fl.features[0].checkerNotes='';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+fs.writeFileSync('$T2/DECISIONS/2026-01.md', '# archived\n\n## 2026-01-01 — why feat-001 is blocked\nRan \`./init.sh\` exit 1; awaiting a product decision.\n');
+fs.writeFileSync('$T2/DECISIONS/INDEX.md', '# index\n| 2026-01-01 | feat-001 blocked | DECISIONS/2026-01.md |\n');
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "blocked-unjustified:feat-001"' "$T2/trace/verify-report.json"; BU=$?
+[ "$BU" != "0" ]; expect "rotation into DECISIONS/ does not make a justified block look unjustified" $?
+rm -rf "$T2/DECISIONS"
+node -e "
+const fs=require('fs');const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features[0].status='in-progress'; fl.features[0].checkerNotes='';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+
+step "26/27" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

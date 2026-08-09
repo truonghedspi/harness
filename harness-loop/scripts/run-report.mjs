@@ -102,6 +102,18 @@ if (exists(P("memory"))) {
   }
 }
 
+// --- human-attention ledger: the one resource that does not renew ---------------------------
+function readIf(rel) { try { return readFileSync(P(rel), "utf8"); } catch { return ""; } }
+const needsHuman = readIf("docs/assumptions.md").split("\n")
+  .filter((l) => l.trim().startsWith("|") && /needs-human/i.test(l))
+  .map((l) => l.split("|").slice(1, 3).map((c) => c.trim()).join(" — "));
+const openPolicy = readIf("docs/cross-cutting.md").split("\n")
+  .filter((l) => /^\|\s*X-\d/.test(l.trim()) && /not yet decided|needs decision|\|\s*—\s*\|/i.test(l))
+  .map((l) => l.split("|").slice(1, 3).map((c) => c.trim()).join(" — "));
+const blockedNow = features.filter((f) => (f.status || f.state) === "blocked").map((f) => f.id);
+const humanQueue = { needsHuman, openPolicy, blocked: blockedNow,
+  total: needsHuman.length + openPolicy.length + blockedNow.length };
+
 // --- insight candidates (mechanical heuristics; judgment stays human) ------------------------
 const insights = [];
 if (promoted.length || verdicts.length) {
@@ -136,6 +148,13 @@ for (const s of longSessions) {
   insights.push(`Cost hotspot: ${s.actor} session ran ${s.minutes} min (${s.toolUses} traced tool uses) — ` +
     `check the trace for repeated failing commands; a bounded-timeout or memory entry may be missing.`);
 }
+if (humanQueue.total) {
+  insights.push(`Human-attention queue: ${humanQueue.total} item(s) waiting on a person ` +
+    `(${needsHuman.length} unverified assumption(s), ${openPolicy.length} undecided policy, ` +
+    `${blockedNow.length} blocked feature(s)). Each one stalls everything downstream of it — and ` +
+    `before asking, confirm the exhaustion ladder was climbed (references/human-attention.md): a ` +
+    `third of this project's historical escalations turned out to be reducible by a two-minute spike.`);
+}
 if (!events.length) {
   insights.push("No trace events in window — either nothing ran, or agents ran without their hooks " +
     "(interactive sessions outside kiro-cli won't auto-trace; call tools/trace.mjs manually at decision points).");
@@ -153,6 +172,7 @@ const report = {
   lastVerify: verify ? { green: verify.green, blockers: verify.counts?.blockers, warnings: verify.counts?.warnings, timestamp: verify.timestamp } : null,
   commits,
   memoryEntriesInWindow: memoryDelta,
+  humanAttentionQueue: humanQueue,
   insightCandidates: insights,
 };
 
@@ -169,6 +189,12 @@ if (promoted.length) console.log(`  mechanically promoted: ${promoted.map((f) =>
 if (verify) console.log(`\nLast verify: ${verify.green ? "GREEN" : "RED"} (${verify.counts?.blockers ?? "?"} blockers, ${verify.counts?.warnings ?? "?"} warnings) at ${verify.timestamp}`);
 if (commits.length) { console.log(`\nCommits in window:`); for (const c of commits.slice(0, 10)) console.log(`  ${c}`); }
 if (memoryDelta.length) { console.log(`\nMemory entries written in window:`); for (const m of memoryDelta) console.log(`  ${m.agent}/${m.file}  (${m.mtime})`); }
+if (humanQueue.total) {
+  console.log(`\nHuman-attention queue (${humanQueue.total} waiting on a person):`);
+  for (const a of needsHuman) console.log(`  assumption   ${a}`);
+  for (const p of openPolicy) console.log(`  policy       ${p}`);
+  for (const b of blockedNow) console.log(`  blocked      ${b}`);
+}
 console.log(`\nInsight candidates (mechanical heuristics — the judgment is yours):`);
 for (const i of insights) console.log(`  • ${i}`);
 if (!insights.length) console.log("  (none surfaced)");
