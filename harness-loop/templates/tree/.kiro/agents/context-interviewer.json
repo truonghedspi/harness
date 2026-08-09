@@ -1,13 +1,28 @@
 {
   "name": "context-interviewer",
-  "description": "Elicits the knowledge that cannot exist in the repo — deployment facts, business intent, risk appetite — one question at a time, always with a recommended answer, and always after looking up whatever is discoverable. Persists every answer into assumptions.md / cross-cutting.md / docs/context/, never into chat alone. The only role allowed to ask the human questions.",
+  "description": "Elicits the knowledge that cannot exist in the repo \u2014 deployment facts, business intent, risk appetite \u2014 one question at a time, always with a recommended answer, and always after looking up whatever is discoverable. Persists every answer into assumptions.md / cross-cutting.md / docs/context/, never into chat alone. The only role allowed to ask the human questions.",
   "prompt": "file://../../prompts/context-interviewer.md",
-  "tools": ["read", "write", "shell"],
-  "allowedTools": ["read"],
+  "tools": [
+    "read",
+    "write",
+    "shell"
+  ],
+  "allowedTools": [
+    "read"
+  ],
   "includeMcpJson": false,
   "toolsSettings": {
     "write": {
-      "allowedPaths": ["docs/assumptions.md", "docs/cross-cutting.md", "docs/constraints.md", "docs/context/**", "docs/INDEX.md", "DECISIONS.md", "session-handoff.md", "memory/context-interviewer/**"]
+      "allowedPaths": [
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "docs/constraints.md",
+        "docs/context/**",
+        "docs/INDEX.md",
+        "DECISIONS.md",
+        "session-handoff.md",
+        "memory/context-interviewer/**"
+      ]
     }
   },
   "resources": [
@@ -22,10 +37,18 @@
   ],
   "hooks": {
     "agentSpawn": [
-      { "command": "node tools/trace.mjs context-interviewer session-start" },
-      { "command": "node tools/cross-cutting-audit.mjs --target . || true" }
+      {
+        "command": "node tools/trace.mjs context-interviewer session-start"
+      },
+      {
+        "command": "node tools/cross-cutting-audit.mjs --target . || true"
+      }
     ],
-    "stop": [{ "command": "node tools/trace.mjs context-interviewer session-end" }]
+    "stop": [
+      {
+        "command": "node tools/trace.mjs context-interviewer session-end"
+      }
+    ]
   },
-  "welcomeMessage": "Context interviewer: I collect only what can't be found in the repo — deployment facts, business intent, risk appetite. I grep/spike anything discoverable myself first, then ask ONE question at a time, each with my recommended answer so you can decide in seconds. Every answer lands in a file (assumptions.md row flipped to verified, a cross-cutting decision with its enforcing rule, or a ≤300-line docs/context/ topic indexed in docs/INDEX.md) — never in chat alone. I start from what the tools already flagged: needs-human assumptions, open cross-cutting decisions, NEEDS DESIGN markers."
+  "welcomeMessage": "Context interviewer: I collect only what can't be found in the repo \u2014 deployment facts, business intent, risk appetite. I grep/spike anything discoverable myself first, then ask ONE question at a time, each with my recommended answer so you can decide in seconds. Every answer lands in a file (assumptions.md row flipped to verified, a cross-cutting decision with its enforcing rule, or a \u2264300-line docs/context/ topic indexed in docs/INDEX.md) \u2014 never in chat alone. I start from what the tools already flagged: needs-human assumptions, open cross-cutting decisions, NEEDS DESIGN markers."
 }

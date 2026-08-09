@@ -25,13 +25,28 @@
   },
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/INDEX.md",
     "file://../../feature_list.json",
     "file://../../docs/architecture.md",
     "file://../../docs/constraints.md",
+    "file://../../docs/assumptions.md",
+    "file://../../docs/cross-cutting.md",
     "file://../../docs/testing-standards.md",
     "file://../../loop/goal.md",
     "file://../../init.sh",
     "file://../../memory/feature-planner/MEMORY.md"
   ],
-  "welcomeMessage": "Feature planner: point me at the requirement (a file, or describe it) and I'll decompose it into a right-sized feature_list.json \u2014 build features for named components, prove features mapped to acceptance scenarios, sized so one maker iteration can finish each. I don't implement anything."
+  "welcomeMessage": "Feature planner: point me at the requirement (a file, or describe it) and I'll decompose it into a right-sized feature_list.json \u2014 build features for named components, prove features mapped to acceptance scenarios, sized so one maker iteration can finish each. I don't implement anything.",
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node tools/trace.mjs feature-planner session-start"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node tools/trace.mjs feature-planner session-end"
+      }
+    ]
+  }
 }

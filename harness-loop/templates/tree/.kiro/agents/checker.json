@@ -24,10 +24,13 @@
   },
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/INDEX.md",
     "file://../../loop/goal.md",
     "file://../../feature_list.json",
     "file://../../docs/testing-standards.md",
     "file://../../docs/constraints.md",
+    "file://../../docs/assumptions.md",
+    "file://../../docs/cross-cutting.md",
     "file://../../docs/definition-of-done.md",
     "file://../../DECISIONS.md",
     "file://../../memory/checker/MEMORY.md"

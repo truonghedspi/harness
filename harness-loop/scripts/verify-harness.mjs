@@ -418,6 +418,37 @@ function gateLoop() {
         remedy: "add file://../../docs/constraints.md to that agent's resources in templates/tree/.kiro/agents/",
       });
     }
+    // An agent told to update a file it has no write permission for will fail at the moment it
+    // matters, in a way no test covers — the instruction reads fine and the config reads fine; only
+    // the pair is wrong. Found in the wild: the designer's prompt says "register it in
+    // docs/cross-cutting.md" while its allowedPaths omitted that file.
+    if (j && Array.isArray(j.toolsSettings?.write?.allowedPaths)) {
+      const allowed = j.toolsSettings.write.allowedPaths;
+      const covers = (f) => allowed.some((a) =>
+        a === f || (a.endsWith("/**") && f.startsWith(a.slice(0, -2))));
+      const promptRel = String(j.prompt || "").replace(/^file:\/\/(\.\.\/)*/, "");
+      const body = read(P(promptRel)) || "";
+      const WRITE_VERB = /\b(write|writes|writing|register|registers|record|records|update|updates|fill|fills|add(?:ing)? (?:a |one |it )?(?:row|line|entry)?\s*to)\b/i;
+      const wanted = new Set();
+      // "You do NOT write feature_list.json" is an instruction not to — and a path cited in
+      // parentheses is a reference, not a target. Both showed up as false positives on the first run.
+      const NEGATED = /\b(not|never|n't|cannot|instead of)\b/i;
+      for (const line of body.split("\n")) {
+        if (!WRITE_VERB.test(line) || NEGATED.test(line)) continue;
+        for (const m of line.matchAll(/`(docs\/[\w./-]+\.md|feature_list\.json|DECISIONS\.md|progress\.md|loop\/[\w.-]+\.md|session-handoff\.md)`/g)) {
+          // docs/reference/** is read-only knowledge copied in by setup — citing it is never a write.
+          if (!m[1].startsWith("docs/reference/")) wanted.add(m[1]);
+        }
+      }
+      for (const f of wanted) {
+        if (covers(f)) continue;
+        add({
+          gate: "loop", id: `agent-cannot-write-instructed:${j.name || rel}:${f}`, layer: "harness", severity: "warn",
+          symptom: `${j.name || rel}'s prompt tells it to write ${f}, but that path is not in its write allowedPaths`,
+          remedy: `either add ${f} to that agent's allowedPaths in templates/tree/.kiro/agents/, or stop instructing it to write there`,
+        });
+      }
+    }
     if (!j) {
       add({
         gate: "loop", id: `agent-json-invalid:${rel}`, layer: "harness",

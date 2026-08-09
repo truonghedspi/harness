@@ -385,7 +385,26 @@ node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q "agent-missing-constraints" "$T2/trace/verify-report.json"; AMC=$?
 [ "$AMC" != "0" ]; expect "restoring the resource clears it — and the scaffold ships clean" $?
 
-step "23/24" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 23 "config/prompt agreement: an agent told to write a file it cannot write is caught"
+node -e "
+const fs=require('fs');const p='$T2/.kiro/agents/checker.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8'));
+fs.writeFileSync(p+'.bak', JSON.stringify(j,null,2));
+j.toolsSettings.write.allowedPaths=j.toolsSettings.write.allowedPaths.filter(x=>x!=='feature_list.json');
+fs.writeFileSync(p, JSON.stringify(j,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const f=r.findings.find(x=>x.id.startsWith('agent-cannot-write-instructed:checker'));
+process.exit(f && f.layer==='harness' ? 0 : 1);
+"; expect "prompt says write feature_list.json, allowedPaths says no → caught, layer=harness" $?
+mv "$T2/.kiro/agents/checker.json.bak" "$T2/.kiro/agents/checker.json"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q "agent-cannot-write-instructed" "$T2/trace/verify-report.json"; ACW=$?
+[ "$ACW" != "0" ]; expect "the shipped scaffold has no prompt/permission disagreement" $?
+
+step "24/25" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

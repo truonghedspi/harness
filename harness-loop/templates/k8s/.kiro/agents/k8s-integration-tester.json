@@ -14,6 +14,8 @@
   "includeMcpJson": true,
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/cross-cutting.md",
+    "file://../../docs/INDEX.md",
     "file://../../loop/goal.md",
     "file://../../feature_list.json",
     "file://../../progress.md",

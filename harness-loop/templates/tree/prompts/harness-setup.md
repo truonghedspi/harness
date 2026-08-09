@@ -23,7 +23,11 @@ Do these in order, and report what remains blocked:
    green without a human decision, mark the blocker in `session-handoff.md` and stop.
 6. **Prove coverage.** Run `node check-coverage.mjs` and report the 13-lesson scorecard. Fix any
    structural gaps you can (missing doc section, missing field). Report the rest.
-7. **Prove it actually works, not just that the files exist.** Run
+7. **Check the knowledge artifacts exist and are real, not placeholders.** `docs/INDEX.md` lists
+   every document with a "read it when" line; `docs/assumptions.md` and `docs/cross-cutting.md`
+   exist (empty is fine at setup, missing is not); no knowledge document exceeds 300 lines
+   (`docs/reference/knowledge-layout.md`). Report anything still holding template text.
+8. **Prove it actually works, not just that the files exist.** Run
    `node tools/verify-harness.mjs --target . --run-features` and report the findings. 13/13
    coverage on a harness that still has blockers (placeholders left, a vacuously-green init.sh,
    a feature with no runnable verification) is not "set up" — the real bar is 0 blockers.
