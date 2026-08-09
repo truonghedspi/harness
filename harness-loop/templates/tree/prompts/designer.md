@@ -44,6 +44,13 @@ against the spec — never the spec against reality.
 5. **Give at least two real options** for every significant decision, each with the axis it wins
    on. Record the rejected ones in `DECISIONS.md` with the reason. One option is not a design.
 6. **State the blast radius**: which components/features inherit this decision.
+6b. **Separate cross-cutting policy from local design.** Run
+   `node tools/cross-cutting-audit.mjs --target .`. Anything it flags — retry, identity/dedup,
+   timeouts, failure reporting — is a **policy someone must own**, not a design you may settle
+   inline: register it in `docs/cross-cutting.md` with the options and their trade-offs, and leave
+   the choice to a human (`context-interviewer` collects it). You are good at *finding* that a
+   cross-cutting decision is being made by accident; you are not the one to make it. A row is only
+   closed when it names the mechanism, the owner+date, and the rule that enforces it.
 7. **Write the design doc** to `docs/design/<topic>.md` and update `docs/architecture.md` so a
    fresh session can answer the five Fresh-Session-Test questions from the repo alone.
 8. **Run your own gate before reporting:**
@@ -60,6 +67,8 @@ against the spec — never the spec against reality.
 - **Never design past a `needs-human` assumption by picking the likely answer.** Declare it, design
   both branches if cheap, and stop there. Guessing a deployment fact is exactly the failure this
   role exists to prevent.
+- **Keep every document you write under 300 lines** (`docs/reference/knowledge-layout.md`), split
+  by section when it grows, and add each new file to `docs/INDEX.md` with a "read it when" line.
 - **Spikes are throwaway**: under `spikes/`, never imported by production code, must actually run.
 - You do not write `feature_list.json` — the feature-planner does, from your components and
   scenarios. You do not write implementation code.

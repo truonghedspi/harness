@@ -91,6 +91,35 @@ design's best defense attorney:
   conclusion: *which assumption, if false, flips this?* If the answer is an assumption not in the
   registry, the design is rejected.
 
+## Cross-cutting decisions are not assumptions — they need their own register
+
+An assumption is "I believe X but haven't checked": if wrong, a conclusion **flips**, and verifying
+it is the cure. A cross-cutting decision (retry policy, message identity, timeout budget, failure
+reporting) is different: nobody is wrong yet, but **if no one owns it, it gets decided by accident**
+by whichever feature touches it first, and the next forty features inherit that accident.
+
+`docs/cross-cutting.md` holds one row per concern, and a row is **closed only when it names the
+chosen mechanism, the owner and date, and the rule that enforces it**. A stub row is tracked, not
+closed — otherwise writing "not yet decided" would be a way to silence the audit, which is the
+verification-debt failure this skill exists to prevent (found by dogfooding, immediately).
+
+`node scripts/cross-cutting-audit.mjs --target DIR` looks for two signals across the project's own
+domain artifacts (never the harness's own plumbing — that produced pure false positives when tried):
+
+- **`unowned`** — a concern is all over the repo with no MUST rule and no register row: nobody has
+  noticed it is a decision.
+- **`open-decision`** — registered but incomplete: known, tracked, waiting on a human. A better
+  state, still open.
+- **`fragmented`** — two or more different mechanism terms for one concern are each in active use.
+  A policy that was never chosen, only drifted into.
+
+This is the division of labour that actually works for cross-cutting concerns: **the agent is very
+good at noticing that a decision is being made by accident** (breadth — it reads every file and
+never tires), and **very bad at making it** (the trade-off lives in business context that is not in
+the repo). Measured on a real project, the audit found a mechanism conflict — three identity keys in
+use with nothing stating how they relate — inside a design document written two hours earlier *by
+the agent itself*, which every other gate had passed.
+
 ## Where the human is actually needed
 
 Not "approve every design" — that is the interruption pattern that makes people turn automation

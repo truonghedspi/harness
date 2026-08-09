@@ -67,7 +67,7 @@ work," and — the point that makes this self-improving — proven to work *beca
 was fixed*, not because the one target was patched around:
 
 1. **create** — `setup-harness-loop.mjs` (above). Never overwrites without `--force`.
-2. **verify** — `node scripts/verify-harness.mjs --target DIR` runs seven gates beyond structure:
+2. **verify** — `node scripts/verify-harness.mjs --target DIR` runs eight gates beyond structure:
    placeholders left unfilled, `./init.sh` actually going green (including a *vacuous* green —
    exiting 0 without running any build/test step is treated as red), every feature's evidence
    replaying under `--run-features`, loop-artifact sanity (a goal with no stop condition, a maker
@@ -77,7 +77,9 @@ was fixed*, not because the one target was patched around:
    missing, or grown past its index budget —
    [references/agent-memory.md](references/agent-memory.md)), design hygiene (an uncited claim, a
    blocked feature resting on an unverified assumption, a named component no feature covers —
-   [references/design-engineering.md](references/design-engineering.md)), and clean-state hygiene. **Every
+   [references/design-engineering.md](references/design-engineering.md)), knowledge layout (a
+   document past the 300-line budget an agent can actually hold —
+   [references/knowledge-layout.md](references/knowledge-layout.md)), and clean-state hygiene. **Every
    finding is tagged
    `layer: project` (the target repo needs work) or `layer: harness` (the skill itself is the
    defect)** — that tag is what routes the fix to the right place instead of to a one-off patch.
@@ -136,7 +138,15 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    `--commands "cmd one,cmd two"` (override detected verification), `--name "Project X"`,
    `--purpose "one line"`, `--force` (only after the user OKs overwrites).
 
-4. **Design before decomposing.** The feature-planner cuts a *design* into features — it does not
+4. **Collect what the repo cannot contain, before designing.** If the requirement leaves
+   deployment facts, business intent, or risk appetite implicit, run the `context-interviewer`
+   agent (Claude Code users: the `grilling` skill is the same discipline). It looks up anything
+   greppable itself, asks **one question at a time with a recommended answer**, and — the part
+   that matters — **persists every answer to a file**: an `docs/assumptions.md` row flipped to
+   `verified`, a `docs/cross-cutting.md` decision with its enforcing rule, or a ≤300-line
+   `docs/context/<topic>.md` indexed in `docs/INDEX.md`. An answer that stays in chat is lost to
+   the next session.
+5. **Design before decomposing.** The feature-planner cuts a *design* into features — it does not
    create one (`references/feature-decomposition.md` Step 1 assumes the requirement "already names
    its parts"). When it doesn't, run the `designer` agent, then `design-reviewer`: named components
    and boundaries, a claims table where every library fact cites a real `path:line` or a runnable
@@ -145,7 +155,7 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    deployment and business facts that cannot exist in the repo. Everything else proceeds without
    asking. Full contract, and why automating design without this is unsafe:
    [references/design-engineering.md](references/design-engineering.md).
-5. **Decompose the requirement into `feature_list.json`.** This is the step that makes the loop
+6. **Decompose the requirement into `feature_list.json`.** This is the step that makes the loop
    actually do the user's work — do not leave placeholders, and do not hand-wave the cut. Run the
    `feature-planner` agent (`kiro-cli chat --agent feature-planner`, or follow
    `prompts/feature-planner.md` directly) against the real requirement: it extracts named
@@ -154,9 +164,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    footprint), and produces a dependency DAG instead of a flat list. Full algorithm + a worked
    example: [references/feature-decomposition.md](references/feature-decomposition.md). Then fill
    `loop/goal.md` with the project's real objective + stopping condition to match.
-6. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
+7. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
    it is green (Lesson 6/9). A loop on a red baseline just amplifies failure.
-7. **Prove coverage:**
+8. **Prove coverage:**
 
    ```bash
    node harness-loop/scripts/check-coverage.mjs --target /path/to/project
@@ -164,7 +174,7 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 
    Report the per-lesson scorecard, the lowest-covered lessons, and the first 2–3 fixes. Do not
    tell the user "all 13 are covered" until this passes — that is the whole point of the skill.
-8. **Verify it actually works, not just that the files exist:**
+9. **Verify it actually works, not just that the files exist:**
 
    ```bash
    node harness-loop/scripts/verify-harness.mjs --target /path/to/project --run-features
@@ -173,7 +183,7 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    Structural 13/13 plus a green `verify-harness.mjs` (0 blockers) is the real bar for "the
    harness is ready" — not step 6 alone. If it reports `layer: harness` findings, this skill has a
    bug; follow the Lifecycle section above before blaming the target.
-9. **Start the loop only after both checks pass and the baseline is green.** Local first:
+10. **Start the loop only after both checks pass and the baseline is green.** Local first:
    `kiro-cli chat --agent maker` then `--agent checker`; or headless `loop/run-loop.sh N`.
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
@@ -208,6 +218,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 - Automating design without inheriting the agent's blind spots (cited claims, the assumption
   registry, spikes, adversarial design review, and where the human is actually needed):
   [references/design-engineering.md](references/design-engineering.md)
+- Keeping documents inside the size an agent can actually use (the 300-line budget, splitting a
+  topic doc vs rotating an append-only log, the `docs/INDEX.md` map):
+  [references/knowledge-layout.md](references/knowledge-layout.md)
 - Turning a requirement into a right-sized `feature_list.json` (the two-axis build/prove split,
   sizing heuristics, dependency DAG construction, a worked example):
   [references/feature-decomposition.md](references/feature-decomposition.md)
@@ -248,9 +261,14 @@ After setup, the target project should contain:
       memory ([references/agent-memory.md](references/agent-memory.md)); referenced in each
       agent's `resources` so it loads every run
 - [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
-- [ ] `docs/assumptions.md` — registry of load-bearing design assumptions; `docs/design/` for
-      design docs ([references/design-engineering.md](references/design-engineering.md))
-- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer}.json`
+- [ ] `docs/INDEX.md` — the map of documents with a "read it when" column; every knowledge doc
+      under 300 lines ([references/knowledge-layout.md](references/knowledge-layout.md))
+- [ ] `docs/assumptions.md` — registry of load-bearing design assumptions; `docs/cross-cutting.md`
+      — policies with an owner and an enforcing rule; `docs/design/` for design docs
+      ([references/design-engineering.md](references/design-engineering.md))
+- [ ] `tools/cross-cutting-audit.mjs` — finds concerns nobody owns (`unowned`) and registered
+      decisions still waiting on a human (`open-decision`)
+- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer}.json`
       (+ `.kiro/settings/mcp.json`)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
 - [ ] `verify-harness.mjs --run-features` reports 0 blockers (not just structural coverage)

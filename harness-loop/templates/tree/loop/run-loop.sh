@@ -85,4 +85,11 @@ if [ -f tools/memory-consolidate.mjs ]; then
   node tools/memory-consolidate.mjs --target . || true
 fi
 
+# Cross-cutting drift report (report-only): surfaces policies nobody owns before the next batch of
+# features inherits whatever the last one happened to do — docs/reference/design-engineering.md.
+if [ -f tools/cross-cutting-audit.mjs ]; then
+  echo "=== cross-cutting audit ==="
+  node tools/cross-cutting-audit.mjs --target . || true
+fi
+
 echo "loop finished: $ITERATIONS iteration(s), baseline green."

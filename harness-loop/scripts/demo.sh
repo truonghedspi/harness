@@ -301,7 +301,72 @@ process.exit(f && !/Foo\.java/.test(f.evidence||'') ? 0 : 1);
 "; expect "a properly cited claim is NOT flagged" $?
 rm -rf "$T2/docs/design" "$T2/docs/assumptions.md"
 
-step "20/21" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 20 "docs gate: an over-budget document is flagged, with the right split advice per kind"
+node -e "
+const fs=require('fs');
+fs.writeFileSync('$T2/docs/huge-topic.md', '# Huge topic\n' + 'filler line\n'.repeat(320));
+fs.writeFileSync('$T2/DECISIONS.md', fs.readFileSync('$T2/DECISIONS.md','utf8') + '\nlog entry\n'.repeat(320));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "doc-over-budget:docs/huge-topic.md"' "$T2/trace/verify-report.json"
+expect "an over-budget topic doc is flagged" $?
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const topic=r.findings.find(f=>f.id==='doc-over-budget:docs/huge-topic.md');
+const log=r.findings.find(f=>f.id==='doc-over-budget:DECISIONS.md');
+process.exit(topic && log && /split at section boundaries/.test(topic.remedy) && /rotate closed periods/.test(log.remedy) ? 0 : 1);
+"; expect "a topic doc gets split advice, an append-only log gets rotate advice" $?
+# The template always scaffolds docs/INDEX.md, so this check only fires if a project removed it —
+# exercise that path explicitly rather than asserting on a condition setup makes impossible.
+mv "$T2/docs/INDEX.md" "$T2/docs/INDEX.md.bak"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "doc-index-missing"' "$T2/trace/verify-report.json"
+expect "a removed docs/INDEX.md is flagged once documents overflow" $?
+mv "$T2/docs/INDEX.md.bak" "$T2/docs/INDEX.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "doc-index-missing"' "$T2/trace/verify-report.json"; IDX=$?
+[ "$IDX" != "0" ]; expect "restoring the index clears that finding" $?
+node -e "
+const r=require('$T2/trace/verify-report.json');
+process.exit(r.findings.filter(f=>f.gate==='docs').every(f=>f.severity==='warn') ? 0 : 1);
+"; expect "docs findings are all severity=warn" $?
+rm -f "$T2/docs/huge-topic.md"
+
+step 21 "cross-cutting audit: unowned vs open-decision vs owned"
+mkdir -p "$T2/docs"
+cat > "$T2/docs/constraints.md.bak" <<'EOD'
+placeholder
+EOD
+node "$SCRIPTS/cross-cutting-audit.mjs" --target "$T2" --json > /tmp/demo-cc.$$ 2>&1
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-cc.$$','utf8'));
+process.exit(Array.isArray(r.results) && typeof r.scanned === 'number' ? 0 : 1);
+"; expect "audit emits a parseable report over the target's domain artifacts" $?
+cat > "$T2/docs/cross-cutting.md" <<'EOD'
+| id | Concern | Chosen mechanism | Owner / date | Enforced by | Inherited by |
+|---|---|---|---|---|---|
+| X-001 | retry & backoff policy | not yet decided | — | — | feat-002 |
+EOD
+node "$SCRIPTS/cross-cutting-audit.mjs" --target "$T2" --json > /tmp/demo-cc2.$$ 2>&1
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-cc2.$$','utf8'));
+const retry=r.results.find(x=>x.id==='retry');
+process.exit(retry && retry.flags.includes('open-decision') ? 0 : 1);
+"; expect "a stub register row reads as open-decision, NOT as owned" $?
+cat > "$T2/docs/cross-cutting.md" <<'EOD'
+| id | Concern | Chosen mechanism | Owner / date | Enforced by | Inherited by |
+|---|---|---|---|---|---|
+| X-001 | retry & backoff policy | exponential capped 30s | Alice, 2026-08-09 | docs/constraints.md MUST | feat-002 |
+EOD
+node "$SCRIPTS/cross-cutting-audit.mjs" --target "$T2" --json > /tmp/demo-cc3.$$ 2>&1
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-cc3.$$','utf8'));
+const retry=r.results.find(x=>x.id==='retry');
+process.exit(retry && retry.flags.length===0 ? 0 : 1);
+"; expect "a complete row closes the concern (no flag)" $?
+rm -f /tmp/demo-cc.$$ /tmp/demo-cc2.$$ /tmp/demo-cc3.$$ "$T2/docs/constraints.md.bak" "$T2/docs/cross-cutting.md"
+
+step "22/23" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

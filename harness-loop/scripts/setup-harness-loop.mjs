@@ -120,9 +120,11 @@ const EXTRA_COPIES = [
   ["scripts/memory-query.mjs", "tools/memory-query.mjs"],
   ["scripts/memory-consolidate.mjs", "tools/memory-consolidate.mjs"],
   ["scripts/run-report.mjs", "tools/run-report.mjs"],
+  ["scripts/cross-cutting-audit.mjs", "tools/cross-cutting-audit.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],
+  ["references/knowledge-layout.md", "docs/reference/knowledge-layout.md"],
 ];
 for (const [src, destRel] of EXTRA_COPIES) {
   const dest = path.join(targetRoot, destRel);
@@ -142,10 +144,11 @@ if (skipped.length) {
   for (const f of skipped) console.log(`    · ${f}`);
 }
 console.log(`\nNext steps:`);
-console.log(`  1. Design from the requirement: kiro-cli chat --agent designer (then --agent design-reviewer) — components, cited claims, and docs/assumptions.md. It stops only on assumptions only you can answer.`);
-console.log(`  2. Decompose the requirement: kiro-cli chat --agent feature-planner (or follow prompts/feature-planner.md) — it replaces feature_list.json's placeholders with a right-sized DAG.`);
-console.log(`  3. Fill loop/goal.md with the real objective + stopping condition, and docs/*.md with real content.`);
-console.log(`  4. cd ${TARGET} && ./init.sh      # get the baseline green before looping`);
-console.log(`  5. node check-coverage.mjs        # prove all 13 lessons are covered (must be 13/13)`);
-console.log(`  6. kiro-cli chat --agent maker    # Level 1 loop; then --agent checker; or loop/run-loop.sh N`);
+console.log(`  1. Missing context? kiro-cli chat --agent context-interviewer — it asks only what can't be grepped, one question at a time, and persists every answer to a file.`);
+console.log(`  2. Design from the requirement: kiro-cli chat --agent designer (then --agent design-reviewer) — components, cited claims, and docs/assumptions.md. It stops only on assumptions only you can answer.`);
+console.log(`  3. Decompose the requirement: kiro-cli chat --agent feature-planner (or follow prompts/feature-planner.md) — it replaces feature_list.json's placeholders with a right-sized DAG.`);
+console.log(`  4. Fill loop/goal.md with the real objective + stopping condition, and docs/*.md with real content.`);
+console.log(`  5. cd ${TARGET} && ./init.sh      # get the baseline green before looping`);
+console.log(`  6. node check-coverage.mjs        # prove all 13 lessons are covered (must be 13/13)`);
+console.log(`  7. kiro-cli chat --agent maker    # Level 1 loop; then --agent checker; or loop/run-loop.sh N`);
 console.log("");

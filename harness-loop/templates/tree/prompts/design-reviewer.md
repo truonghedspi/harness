@@ -38,7 +38,13 @@ catch, and it has already cost this skill's own dogfood project a week of a feat
    repo. A designer punting a decision it could have made by grepping or spiking is offloading work
    onto the human — reject that too. This cuts both ways: over-asking kills the automation as
    surely as under-asking corrupts it.
-8. **Consistency with what already exists.** The design must not silently contradict
+8. **Cross-cutting policy smuggled in as local design.** Run
+   `node tools/cross-cutting-audit.mjs --target .`. If the design settles a flagged concern by
+   itself instead of registering it for a human, reject — that is a policy the whole system
+   inherits, decided by an agent with no access to the business trade-off. Also reject a
+   `docs/cross-cutting.md` row that *looks* closed but has no **enforced by** rule: an unenforced
+   decision drifts straight back.
+9. **Consistency with what already exists.** The design must not silently contradict
    `docs/constraints.md`, `DECISIONS.md`, or a prior design. If it does contradict, that must be an
    explicit, reasoned reopening — not an accident.
 

@@ -554,6 +554,55 @@ function gateDesign() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gate 9 — knowledge layout (references/knowledge-layout.md). Past ~300 lines a document stops
+// being reliably USED: it gets skimmed, the middle is dropped, and the agent acts on a partial
+// reading while believing it read the whole thing — a failure that raises no error. Warn only.
+// ---------------------------------------------------------------------------------------------
+const DOC_MAX_LINES = 300;
+
+function gateDocs() {
+  const seen = [];
+  const walk = (dir, rel = "") => {
+    for (const e of lsSafe(dir)) {
+      if (e.startsWith(".") || ["node_modules", "target", "build", "dist", "trace"].includes(e)) continue;
+      const abs = path.join(dir, e);
+      const childRel = rel ? `${rel}/${e}` : e;
+      let st; try { st = statSync(abs); } catch { continue; }
+      if (st.isDirectory()) { walk(abs, childRel); continue; }
+      if (!e.endsWith(".md")) continue;
+      // AGENTS.md and MEMORY.md carry their own tighter budgets, checked elsewhere.
+      if (e === "AGENTS.md" || e === "CLAUDE.md" || e === "MEMORY.md") continue;
+      // A frozen, INDEXED archive is exempt: you never read it end to end, you follow its index
+      // to one entry (references/knowledge-layout.md Pattern B, the core-vs-archival tiering).
+      // An unindexed pile of split files is NOT exempt — splitting without a map is worse than
+      // one long file, and that incentive is exactly what this exemption's condition encodes.
+      if (rel && exists(path.join(dir, "INDEX.md")) && e !== "INDEX.md") continue;
+      const n = read(abs).split("\n").length;
+      if (n > DOC_MAX_LINES) seen.push({ rel: childRel, n });
+    }
+  };
+  walk(TARGET);
+  for (const d of seen) {
+    const isLog = /DECISIONS|progress|CHANGELOG/i.test(d.rel);
+    add({
+      gate: "docs", id: `doc-over-budget:${d.rel}`, layer: "project", severity: "warn",
+      symptom: `${d.rel} is ${d.n} lines (budget ${DOC_MAX_LINES}) — past this an agent skims it and silently acts on a partial reading`,
+      remedy: isLog
+        ? "append-only log: rotate closed periods into a dated archive + an index, keeping recent entries live (references/knowledge-layout.md Pattern B)"
+        : "topic doc: split at section boundaries into sibling files and leave the original as a map that keeps its filename (references/knowledge-layout.md Pattern A)",
+    });
+  }
+  // An index is what makes the budget survivable — without it, splitting just scatters knowledge.
+  if (seen.length && !exists(P("docs", "INDEX.md"))) {
+    add({
+      gate: "docs", id: "doc-index-missing", layer: "project", severity: "warn",
+      symptom: "documents exceed the size budget but docs/INDEX.md does not exist — split files with no map are harder to use than one long file",
+      remedy: "add docs/INDEX.md with one line per document and a 'read it when' column",
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------------------------
 gateStructure();
@@ -564,6 +613,7 @@ gateLoop();
 gateCleanState();
 gateMemory();
 gateDesign();
+gateDocs();
 promoteFeatures();
 
 const byLayer = (l) => findings.filter((f) => f.layer === l);
