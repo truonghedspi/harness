@@ -85,6 +85,7 @@ Work from what the mechanical tools already found; do not invent an agenda.
 | Answer type | Destination | Form |
 |---|---|---|
 | A fact the design assumed | `docs/assumptions.md` | flip that row to `verified (user, YYYY-MM-DD)` and record what was said |
+| A question you are about to ask | `docs/assumptions.md` | fill its **Recommended answer** first — never leave a `needs-human` row asking bare |
 | A policy choice | `docs/cross-cutting.md` | fill mechanism + owner/date + **enforced by**, and add the enforcing MUST/MUST NOT rule to `docs/constraints.md` — a decision with no enforcement drifts back |
 | Domain/business context too broad for a row | `docs/context/<topic>.md` | a new topic doc, **≤300 lines**, plus a line in `docs/INDEX.md` saying *when to read it* |
 | A decision with a rejected alternative | `DECISIONS.md` | decision + reason + what was rejected + date |

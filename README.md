@@ -2,8 +2,7 @@
 
 This repository holds the agent-harness assets for the team:
 
-- **Skill packs** (pre-existing): `code-review/`, `code-review-workflow/`, `flow-spec/`,
-  `halo-guide/`, `java-aeron-quality-review/`, `test-design.skill`
+- **`test-design.skill`** — test-design skill pack
 - **`harness-loop/`**: scaffolds a full agent harness (Lessons 1–12) plus an autonomous
   maker–checker loop (Lesson 13) onto any project, targeting Kiro (kiro-cli), with a
   machine-checkable guarantee that all 13

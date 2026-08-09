@@ -521,7 +521,37 @@ node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q '"id": "feature-digest-stale"' "$T2/trace/verify-report.json"; FDS=$?
 [ "$FDS" != "0" ]; expect "regenerating clears it" $?
 
-step "29/30" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 29 "review digest: a large diff becomes a ranked, bounded list of decisions to judge"
+(cd "$T2" && git add -A >/dev/null 2>&1 && git -c user.email=d@d -c user.name=d commit -qm "demo baseline" >/dev/null 2>&1) || true
+node -e "
+const fs=require('fs'); const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features[0].status='done'; fl.features[0].checkerNotes='[mechanically promoted by verify-harness --promote on 2026-01-01: verification re-run, exited 0]';
+fl.features[1].status='done'; fl.features[1].attempts=3; fl.features[1].maxAttempts=3; fl.features[1].checkerNotes='REJECT once, then fixed.';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+fs.mkdirSync('$T2/docs',{recursive:true});
+fs.writeFileSync('$T2/docs/cross-cutting.md','| id | Concern | Chosen mechanism | Owner | Enforced by | Inherited |\n|---|---|---|---|---|---|\n| X-009 | retry policy | not yet decided | — | — | feat-002 |\n');
+"
+(cd "$T2" && git add -A >/dev/null 2>&1 && git -c user.email=d@d -c user.name=d commit -qm "demo work" >/dev/null 2>&1) || true
+node "$SCRIPTS/review-digest.mjs" --target "$T2" --json > /tmp/demo-rd.$$ 2>&1
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-rd.$$','utf8'));
+const kinds=r.items.map(i=>i.kind);
+process.exit(kinds.includes('policy') && kinds.includes('struggled') && kinds.includes('unreviewed-claims') ? 0 : 1);
+"; expect "an open policy, a struggled feature and unreviewed claims all surface" $?
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-rd.$$','utf8'));
+const top=r.items[0];
+process.exit(top && top.weight >= 4 && top.ask && top.why ? 0 : 1);
+"; expect "the top item is high-consequence and states both why-it-ranks and what-to-answer" $?
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-rd.$$','utf8'));
+// promoted features are grouped into ONE item, not listed individually — the wall this tool removes
+process.exit(r.items.filter(i=>i.kind==='unreviewed-claims').length === 1 ? 0 : 1);
+"; expect "identical findings are grouped, not repeated per feature" $?
+rm -f /tmp/demo-rd.$$
+
+step "30/31" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

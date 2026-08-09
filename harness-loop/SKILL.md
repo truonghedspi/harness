@@ -278,6 +278,8 @@ After setup, the target project should contain:
 - [ ] `docs/assumptions.md` — registry of load-bearing design assumptions; `docs/cross-cutting.md`
       — policies with an owner and an enforcing rule; `docs/design/` for design docs
       ([references/design-engineering.md](references/design-engineering.md))
+- [ ] `tools/review-digest.mjs` — turns a large generated diff into the ranked handful of
+      *decisions* a human should judge, and says plainly what it is telling you to skip
 - [ ] `tools/context-budget.mjs` + `tools/feature-digest.mjs` — measure what every agent is made
       to read before it starts, and keep the feature list out of that budget
       ([references/llm-failure-modes.md](references/llm-failure-modes.md))

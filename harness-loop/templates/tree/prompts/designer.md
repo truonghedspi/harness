@@ -37,7 +37,10 @@ against the spec — never the spec against reality.
    - Quote the project's own requirement.
    An uncited claim is a defect. If you cannot cite it and cannot spike it, it is not a claim — it
    is an assumption, and belongs in step 4.
-4. **Register every load-bearing assumption** in `docs/assumptions.md` with: what it is, status
+4. **Register every load-bearing assumption** in `docs/assumptions.md` — and for any `needs-human`
+   row, **fill the Recommended answer column**: a bare question makes the human generate, a
+   recommendation lets them evaluate in seconds and exposes the answer you would have assumed.
+   With: what it is, status
    (`verified` with how / `assumed` with blast radius / `needs-human`), what breaks if it is false,
    and which components or features depend on it. Be ruthless here — the assumption you did not
    think worth writing down is the one that costs a week.

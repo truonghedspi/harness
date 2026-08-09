@@ -76,6 +76,37 @@ producing one from a blank page takes minutes.
 And **persist the answer**. An answer that stays in chat will be asked again next session, which is
 the same waste with extra steps.
 
+## Reviewing what the agent produced — the same inversion, applied to code
+
+Turning questions into evaluations was only half the job. The largest thing an agent produces is
+**code**, and a human facing four thousand generated lines is back in generating mode:
+reconstructing intent from source. Measured on this project's dogfood target — 4317 lines of Java
+across 36 files in 22 commits — no tool existed for that at all.
+
+The fix is not "review faster". It is: **do not review the diff, review the decisions inside it.**
+Everything else has already been checked by something that does not tire — the verification command
+ran, the evidence replayed, the gates passed. What no machine checked is whether the *choices* were
+right, and those are few.
+
+`node tools/review-digest.mjs --target . [--since REF] [--mark]` ranks exactly those, most
+consequential first, each with **why it ranks there** and **the one question to answer**:
+
+- an open cross-cutting policy (every later feature inherits it)
+- an unverified assumption a design now rests on
+- a feature that took several attempts, or that a checker rejected before it landed
+- features promoted mechanically — their command passed, so nobody judged whether the behaviour
+  claimed is the behaviour wanted
+- production code changed with no test touched alongside it
+
+It caps the detail at ten items, groups the identical remainder, and **states how much it is
+telling you to skip** — because an unreviewed remainder should be a decision you made, not an
+oversight. `--mark` records the watermark so the next run shows only what arrived since.
+
+Building it produced the lesson twice over: the first version emitted 66 items, which is the same
+wall in a different shape. Ranking by *judgement still owed* (a verified assumption is not a
+question; a closed policy is not a question) and grouping identical findings brought it to 18, with
+10 shown.
+
 ## Mechanical support, and its limits
 
 `verify-harness.mjs` reports `escalation-without-evidence:<id>` (gate `features`, warn) when a
