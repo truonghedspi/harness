@@ -44,8 +44,20 @@ is invoking it.
 5. Advance it by exactly ONE step: implement the behavior, then run its `verification` command.
    Do not touch files outside this feature's scope (WIP = 1, Lesson 7). Increment
    `feature.attempts` by 1 for this iteration, regardless of whether it succeeds.
-6. Record honest evidence in the feature's `evidence` field: command, one-line result summary,
-   and date. If verification did not run, the feature did not advance.
+
+   **Run the verification BEFORE you implement, and record that it fails.** You and the test are
+   the same author, so a test you only ever saw green may be asserting nothing — the red run is the
+   only cheap proof that it can fail at all. It must fail on an assertion, not on a compile error or
+   a missing fixture; if it passes before you write anything, the behavior already exists, and you
+   should say so rather than adding code nobody needed.
+
+   **If a `test-designer`/`test-implementer` already authored this feature's test, do not rewrite
+   it.** Make the code satisfy it. Changing the test to fit your implementation destroys the one
+   thing that made it an independent oracle (`docs/reference/test-authoring.md`).
+6. Record honest evidence in the feature's `evidence` field: **the red run and the green run** —
+   command, how it failed, then how it passed — and the date. If verification did not run, the
+   feature did not advance. (`verify-harness.mjs` reports `evidence-no-red` for green features whose
+   evidence never shows a failure.)
 7. Set `"readyForCheck": true`. You must NOT set `"status": "done"` — that is the checker's
    decision alone.
 8. Any requirement/architecture question `docs/` doesn't answer is a DESIGN question, not a

@@ -54,6 +54,18 @@ const exists = (p) => { try { statSync(p); return true; } catch { return false; 
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
 const readJSON = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return null; } };
 const lsSafe = (d) => { try { return readdirSync(d); } catch { return []; } };
+const WALK_SKIP = new Set(["node_modules", ".git", "target", "build", "dist", "trace", ".venv", "venv", "__pycache__"]);
+/** Bounded recursive walk — used to locate a file by basename without shelling out. */
+const walk = (dir, depth = 12, acc = []) => {   // deep enough for src/test/java/<package…>/
+  if (depth < 0) return acc;
+  for (const name of lsSafe(dir)) {
+    if (WALK_SKIP.has(name)) continue;
+    const p = path.join(dir, name);
+    let st; try { st = statSync(p); } catch { continue; }
+    if (st.isDirectory()) walk(p, depth - 1, acc); else acc.push(p);
+  }
+  return acc;
+};
 
 // Same manifest set init.sh's if-elif chain recognizes. Used to tell apart "this stack has no
 // verification block yet" (harness gap) from "there is no stack here at all" (project hasn't
@@ -345,6 +357,96 @@ function gateFeatures() {
       symptom: `${f.id} is blocked but its justification shows no exploration — no command run, no path:line, no spike`,
       remedy: "climb the exhaustion ladder before escalating: registry, memory, environment, spike, prototype (references/human-attention.md). If it survives, ask the human a question rather than leaving it blocked",
       evidence: why.slice(0, 200),
+    });
+  }
+
+  // --- test-authoring gates (references/test-authoring.md) ---------------------------------------
+  // The circularity these exist for: the same agent writes the code and the test, so both can be
+  // wrong in the same direction and everything still passes. None of these catch a well-disguised
+  // tautology — that is the reviewer's R-T3/R-T9 pass. They catch the lazy version, which is the
+  // common one. All are grouped into single findings: 20 identical warnings is the wall that
+  // review-digest exists to remove, and this must not rebuild it.
+
+  // 1. Red-green. A test nobody ever saw fail is not known to test anything.
+  const RED = /\b(red|fail(?:ed|ing|ure)?s?|exit(?:ed)? [1-9]|non-zero|assertion ?error|✗)\b/i;
+  const noRed = features.filter((f) =>
+    ["passing", "done"].includes(String(f.status || f.state)) &&
+    String(f.evidence || "").trim() && !RED.test(String(f.evidence)));
+  if (noRed.length) {
+    add({
+      gate: "features", id: "evidence-no-red", layer: "project", severity: "warn",
+      symptom: `${noRed.length} green feature(s) record no red step — their evidence never shows the verification failing before it passed`,
+      remedy: "record both halves in evidence: the command failing against the unimplemented behavior, then passing after. A test that was only ever seen green may be asserting nothing (references/test-authoring.md)",
+      evidence: noRed.slice(0, 5).map((f) => f.id).join(", ") + (noRed.length > 5 ? ", …" : ""),
+    });
+  }
+
+  // 2. Falsifier. "What wrong implementation does this verification catch?" is the question that
+  // separates a real oracle from a command that exits 0. Asked at planning time, when it is cheap.
+  const pending = features.filter((f) => ["not-started", "in-progress", "active"].includes(String(f.status || f.state)));
+  const noFalsifier = pending.filter((f) => !String(f.falsifier || "").trim());
+  if (pending.length && noFalsifier.length) {
+    add({
+      gate: "features", id: "falsifier-missing", layer: "project", severity: "warn",
+      symptom: `${noFalsifier.length}/${pending.length} unfinished feature(s) have no "falsifier" field naming the wrong implementation their verification would catch`,
+      remedy: 'add "falsifier": "<a specific wrong implementation this command fails on>" to each. If you cannot name one, the verification does not discriminate and the feature is not yet decomposed (references/test-authoring.md)',
+      evidence: noFalsifier.slice(0, 5).map((f) => f.id).join(", ") + (noFalsifier.length > 5 ? ", …" : ""),
+    });
+  }
+
+  // 3. Every build feature needs an independent oracle. Dependency *direction* is the wrong thing
+  // to check here — prove→build is correct for completion order, and authoring order (test first)
+  // is not expressible in the DAG at all; the red-evidence check above is what covers that.
+  // What the DAG *does* answer is whether a piece of implementation was ever given a separate
+  // acceptance claim, or whether it only ever judges itself. Opt-in: silent for projects whose
+  // features carry no `kind`, so it never fires spuriously.
+  const kinded = features.filter((f) => f.kind === "build" || f.kind === "prove");
+  if (kinded.length) {
+    const provenIds = new Set(features.filter((f) => f.kind === "prove")
+      .flatMap((f) => f.dependencies || []));
+    const unproven = features.filter((f) => f.kind === "build" && !provenIds.has(f.id));
+    if (unproven.length) {
+      add({
+        gate: "features", id: "build-unproven", layer: "project", severity: "warn",
+        symptom: `${unproven.length} build feature(s) have no prove feature depending on them — their only judge is the test shipped alongside the implementation`,
+        remedy: "give each one a prove feature carrying the acceptance claim, authored from the spec rather than from the code (references/test-authoring.md). A feature that supplies both the implementation and its own oracle can be wrong in both directions at once",
+        evidence: unproven.slice(0, 5).map((f) => f.id).join(", ") + (unproven.length > 5 ? ", …" : ""),
+      });
+    }
+  }
+
+  // 4. Traceability (R-T6). Only checks test files a feature's verification actually names — broad
+  // scanning would flood every legacy suite and teach everyone to ignore the gate.
+  const cited = new Set();
+  for (const f of features) {
+    const v = String(f.verification || "");
+    // a path with an extension (jest/pytest/go), or a bare class name in a -Dtest= selector (maven)
+    for (const m of v.matchAll(/[\w/.-]+(?:Test|IT|SIT|Spec|_test)\.\w+/g)) cited.add(m[0]);
+    for (const m of v.matchAll(/-D(?:it\.)?test=([\w.$,]+)/g)) {
+      for (const cls of m[1].split(",")) if (cls.trim()) cited.add(cls.trim().split(".").pop().split("$")[0] + ".java");
+    }
+  }
+  const untraceable = [];
+  const allFiles = cited.size ? walk(TARGET) : [];
+  for (const name of cited) {
+    const base = path.basename(name);
+    const hits = allFiles.filter((p) => path.basename(p) === base);
+    for (const hit of hits.slice(0, 1)) {
+      const head = (read(hit) || "").split("\n").slice(0, 40).join("\n");
+      // Accepted forms of "this test traces to a spec": an explicit id, or a section citation
+      // into a spec document. Both let a reviewer go from the test back to what it must satisfy.
+      const TRACEABLE = /\b(REQ-[A-Z0-9-]+|TCON-[A-Z0-9-]+|condition_id|requirement_id|feat-[\w-]+)\b|§\s*\d|\b(?:section|case)\s+\d/i;
+      if (head && !TRACEABLE.test(head)) {
+        untraceable.push(path.relative(TARGET, hit));
+      }
+    }
+  }
+  if (untraceable.length) {
+    add({
+      gate: "features", id: "test-untraceable", layer: "project", severity: "warn",
+      symptom: `${untraceable.length} test file(s) named by a feature's verification carry no traceability header naming the requirement or condition they implement`,
+      remedy: "open each with a comment block listing its requirement_id / condition_id / feature id. A test that cannot be traced to a spec was probably derived from the code it is meant to judge (R-T6, references/test-authoring.md)",
+      evidence: untraceable.slice(0, 5).join(", ") + (untraceable.length > 5 ? ", …" : ""),
     });
   }
 

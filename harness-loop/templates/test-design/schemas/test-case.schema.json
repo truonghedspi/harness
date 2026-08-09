@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness.tcbs.vn/schemas/test-case/v1",
+  "title": "Test Case Metadata",
+  "description": "Metadata cho mỗi test case do Test-Implementer sinh, kèm theo test code. Harness dùng để đối chiếu traceability và định tuyến failure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "condition_id", "requirement_id", "technique", "priority", "test_class", "test_method", "preconditions", "steps", "expected"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^TC-[A-Z]+-\\d{4}$"
+    },
+    "condition_id": {
+      "type": "string",
+      "pattern": "^TCON-[A-Z]+-\\d{4}$",
+      "description": "Condition trong test plan mà case này hiện thực hóa"
+    },
+    "requirement_id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-\\d{3}$"
+    },
+    "technique": {
+      "enum": ["property", "decision_table", "mcdc", "boundary_value", "equivalence_partition", "state_transition", "example", "contract", "e2e_scenario", "jcstress", "deterministic_replay", "fuzzing", "regression_from_property"]
+    },
+    "property_kind": {
+      "enum": ["invariant", "round_trip", "model_based", "metamorphic", "field_sensitivity", "algebraic"],
+      "description": "Bắt buộc khi technique = property, cấm khi khác"
+    },
+    "origin_seed": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Chỉ dùng cho regression_from_property: seed jqwik của lần fail gốc"
+    },
+    "priority": {
+      "enum": ["P0", "P1", "P2"]
+    },
+    "test_class": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_$][a-zA-Z\\d_$]*(\\.[a-zA-Z_$][a-zA-Z\\d_$]*)*$",
+      "description": "FQCN của test class"
+    },
+    "test_method": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_$][a-zA-Z\\d_$]*$"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 300 }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "maxLength": 500 }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertion_kind", "description"],
+      "properties": {
+        "assertion_kind": {
+          "enum": ["state", "return_value", "event_emitted", "exception", "property_holds"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 500
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "technique": { "const": "property" } } },
+      "then": { "required": ["property_kind"] },
+      "else": { "not": { "required": ["property_kind"] } }
+    },
+    {
+      "if": { "properties": { "technique": { "const": "regression_from_property" } } },
+      "then": { "required": ["origin_seed"] }
+    }
+  ]
+}

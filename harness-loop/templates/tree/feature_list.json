@@ -1,12 +1,20 @@
 {
-  "$comment": "Single source of truth for scope (Lesson 8). Every feature carries the triple: behavior + verification + state, plus evidence. Only the checker/verification script flips status to passing/done (Lesson 9). Replace these placeholders with real features whose verification is a runnable command. attempts/maxAttempts is a timebox: the maker increments attempts on every iteration it works a feature and MUST set status=blocked (with a reason in checkerNotes) once attempts reaches maxAttempts, instead of continuing to retry indefinitely — this is what stops a hard problem from silently consuming an unbounded loop budget.",
-  "states": ["not-started", "active", "blocked", "in-progress", "passing", "done"],
+  "$comment": "Single source of truth for scope (Lesson 8). Every feature carries the triple: behavior + verification + state, plus evidence. Only the checker/verification script flips status to passing/done (Lesson 9). Replace these placeholders with real features whose verification is a runnable command. attempts/maxAttempts is a timebox: the maker increments attempts on every iteration it works a feature and MUST set status=blocked (with a reason in checkerNotes) once attempts reaches maxAttempts, instead of continuing to retry indefinitely \u2014 this is what stops a hard problem from silently consuming an unbounded loop budget. Each feature also carries kind (build|prove) and falsifier: the specific wrong implementation its verification would fail on. A verification whose falsifier you cannot name does not discriminate \u2014 see docs/reference/test-authoring.md.",
+  "states": [
+    "not-started",
+    "active",
+    "blocked",
+    "in-progress",
+    "passing",
+    "done"
+  ],
   "features": [
     {
       "id": "feat-001",
       "name": "Baseline green",
       "behavior": "Project installs deps, runs ./init.sh to green, and starts from a clean checkout",
       "verification": "./init.sh",
+      "falsifier": "an init.sh that exits 0 without running anything \u2014 the baseline gate must be able to go red",
       "dependencies": [],
       "status": "not-started",
       "readyForCheck": false,
@@ -20,7 +28,11 @@
       "name": "First real feature (REPLACE ME)",
       "behavior": "Replace with the first concrete behavior the agent should implement",
       "verification": "REPLACE with a runnable command that proves this behavior, e.g. npm test -- feature-x",
-      "dependencies": ["feat-001"],
+      "falsifier": "REPLACE with the wrong implementation this command catches, e.g. 'returns the input unchanged' or 'rounds half-up instead of half-even'",
+      "kind": "build",
+      "dependencies": [
+        "feat-001"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -31,9 +43,13 @@
     {
       "id": "feat-003",
       "name": "Cross-service integration verification for feat-002 (REPLACE ME)",
-      "behavior": "A full-pipeline check that the feature works across the microservice boundary — contract holds between the services involved (Lesson 10)",
+      "behavior": "A full-pipeline check that the feature works across the microservice boundary \u2014 contract holds between the services involved (Lesson 10)",
       "verification": "REPLACE with the microservice integration / contract command, e.g. npm run test:contract or docker compose up + a cross-service flow test",
-      "dependencies": ["feat-002"],
+      "falsifier": "REPLACE with the cross-boundary defect this catches, e.g. 'service A serialises the field as a string while B expects a number'",
+      "kind": "prove",
+      "dependencies": [
+        "feat-002"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",

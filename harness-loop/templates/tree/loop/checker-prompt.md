@@ -31,6 +31,17 @@ For every feature with `"readyForCheck": true`:
    change that crosses a service boundary was verified only with unit or in-service tests, reject
    and say which microservice-integration/contract check is missing.
 3. Check that the feature's stated `behavior` is actually met, not just that some test is green.
+   Then ask the question a green test cannot answer for itself: **would this verification have
+   failed on a wrong implementation?** Look for the two defects that make a passing test worthless
+   (`skills/test-design/references/anti-patterns.md`):
+   - `R-T3` **tautology** — the expected value is derived the way the code derives it, so the test
+     passes by construction. Expected values must come from somewhere else: a spec figure, a worked
+     example, a known-good literal, or a property that holds independently of the algorithm.
+   - `R-T9` **written from the code** — the cases chosen mirror the implementation's branches
+     rather than the spec's behaviours. The `falsifier` field says which wrong implementation this
+     catches; if it names none, or names one the test would actually pass, reject.
+   The cheapest check: change one constant or flip one comparison in the implementation and re-run.
+   If the suite stays green, the feature is not verified, whatever its evidence says.
 4. Check `feature_list.json` hygiene: `evidence` present and honest, dependencies satisfied, no
    scope bleed into unrelated files.
 5. If the change added or touches a long-running/integration-level test, confirm it has a
@@ -58,6 +69,9 @@ Verdict per feature:
   `NEEDS DESIGN:` and name the assumption. The `designer` picks it up; the maker is forbidden from
   touching it meanwhile. Check `docs/assumptions.md` — if the premise is not a row there, that is
   itself the defect (`docs/reference/design-engineering.md`).
+  This is also where a test-design `ESCALATE_SPEC` lands: when the code and the test are *both*
+  valid readings of an ambiguous spec, neither is wrong and picking one yourself just hides the
+  ambiguity. Quote the ambiguous sentence and both readings; do not arbitrate it.
 - **REJECT because the feature itself is mis-cut** (really two features, scope too big to verify
   as one claim, a missing dependency edge — the `scope-smell` warning is the mechanical hint) →
   same as REJECT, but start `checkerNotes` with `NEEDS RE-PLAN:` and say how it should be split.

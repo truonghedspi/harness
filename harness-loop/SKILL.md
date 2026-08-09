@@ -81,7 +81,10 @@ was fixed*, not because the one target was patched around:
    document past the 300-line budget an agent can actually hold —
    [references/knowledge-layout.md](references/knowledge-layout.md)), instruction load (rule count
    past the budget an agent can actually follow, and prohibitions with nothing enforcing them —
-   [references/llm-failure-modes.md](references/llm-failure-modes.md)), and clean-state hygiene. **Every
+   [references/llm-failure-modes.md](references/llm-failure-modes.md)), test-authoring hygiene (a
+   green feature whose evidence never shows a red run, a verification with no `falsifier`, a build
+   feature no prove feature judges, a test file that traces to no requirement —
+   [references/test-authoring.md](references/test-authoring.md)), and clean-state hygiene. **Every
    finding is tagged
    `layer: project` (the target repo needs work) or `layer: harness` (the skill itself is the
    defect)** — that tag is what routes the fix to the right place instead of to a one-off patch.
@@ -167,9 +170,16 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    footprint), and produces a dependency DAG instead of a flat list. Full algorithm + a worked
    example: [references/feature-decomposition.md](references/feature-decomposition.md). Then fill
    `loop/goal.md` with the project's real objective + stopping condition to match.
-7. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
+7. **Author the oracles before the code.** The same agent writing both the implementation and its
+   test can be wrong in both directions and still go green — so the acceptance test for a prove
+   feature is designed by an agent that has not read the implementation. Run `test-designer`
+   (spec → conditions under `tests/design/`, plus each feature's `falsifier`: the wrong
+   implementation its verification catches) and then `test-implementer` (conditions → failing test
+   code). Both follow `skills/test-design/SKILL.md`, scaffolded into the target. Why this is
+   structural rather than advisory: [references/test-authoring.md](references/test-authoring.md).
+8. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
    it is green (Lesson 6/9). A loop on a red baseline just amplifies failure.
-8. **Prove coverage:**
+9. **Prove coverage:**
 
    ```bash
    node harness-loop/scripts/check-coverage.mjs --target /path/to/project
@@ -177,7 +187,7 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 
    Report the per-lesson scorecard, the lowest-covered lessons, and the first 2–3 fixes. Do not
    tell the user "all 13 are covered" until this passes — that is the whole point of the skill.
-9. **Verify it actually works, not just that the files exist:**
+10. **Verify it actually works, not just that the files exist:**
 
    ```bash
    node harness-loop/scripts/verify-harness.mjs --target /path/to/project --run-features
@@ -186,7 +196,7 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
    Structural 13/13 plus a green `verify-harness.mjs` (0 blockers) is the real bar for "the
    harness is ready" — not step 6 alone. If it reports `layer: harness` findings, this skill has a
    bug; follow the Lifecycle section above before blaming the target.
-10. **Start the loop only after both checks pass and the baseline is green.** Local first:
+11. **Start the loop only after both checks pass and the baseline is green.** Local first:
    `kiro-cli chat --agent maker` then `--agent checker`; or headless `loop/run-loop.sh N`.
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
@@ -229,6 +239,9 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 - Keeping documents inside the size an agent can actually use (the 300-line budget, splitting a
   topic doc vs rotating an append-only log, the `docs/INDEX.md` map):
   [references/knowledge-layout.md](references/knowledge-layout.md)
+- Why a green suite can prove nothing, and the information asymmetry that fixes it (the
+  test-designer/test-implementer split, red-green evidence, `falsifier`, property and mutation
+  oracles): [references/test-authoring.md](references/test-authoring.md)
 - Turning a requirement into a right-sized `feature_list.json` (the two-axis build/prove split,
   sizing heuristics, dependency DAG construction, a worked example):
   [references/feature-decomposition.md](references/feature-decomposition.md)
@@ -255,7 +268,8 @@ After setup, the target project should contain:
       clock-in/out, and session-exit checklist
 - [ ] `feature_list.json` — features with the behavior+verification+state+evidence triple, plus
       an `attempts`/`maxAttempts` timebox so a stuck feature converts to `blocked` instead of
-      retrying forever
+      retrying forever, a `kind` (`build`/`prove`), and a `falsifier` naming the wrong
+      implementation each verification would fail on
 - [ ] `init.sh` — baseline gate running the real verification pipeline
 - [ ] `progress.md` + `DECISIONS.md` — external state
 - [ ] `session-handoff.md` — lifecycle handoff
@@ -265,7 +279,11 @@ After setup, the target project should contain:
       `docs/reference/{agent-memory,feature-decomposition}.md` — the knowledge the agents' prompts
       cite and the tools they invoke, copied INTO the target (a prompt citing a file that only
       exists in this skill's repo fails the Fresh Session Test, Lesson 3)
-- [ ] `memory/{maker,checker,harness-setup,feature-planner}/MEMORY.md` — per-agent persistent
+- [ ] `skills/test-design/` — the test-design skill (strategy matrix by logic shape, property
+      catalog, anti-patterns R-T1…R-T10, schemas), scaffolded into the target because the
+      `test-designer`/`test-implementer` prompts dispatch to it
+      ([references/test-authoring.md](references/test-authoring.md))
+- [ ] `memory/{maker,checker,harness-setup,feature-planner,test-designer,test-implementer}/MEMORY.md` — per-agent persistent
       memory ([references/agent-memory.md](references/agent-memory.md)); referenced in each
       agent's `resources` so it loads every run
 - [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
@@ -285,7 +303,7 @@ After setup, the target project should contain:
       ([references/llm-failure-modes.md](references/llm-failure-modes.md))
 - [ ] `tools/cross-cutting-audit.mjs` — finds concerns nobody owns (`unowned`) and registered
       decisions still waiting on a human (`open-decision`)
-- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer}.json`
+- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer,test-designer,test-implementer}.json`
       (+ `.kiro/settings/mcp.json`)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
 - [ ] `verify-harness.mjs --run-features` reports 0 blockers (not just structural coverage)

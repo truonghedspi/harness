@@ -145,6 +145,7 @@ fl.features[0].status = 'in-progress'; fl.features[0].readyForCheck = true; fl.f
 fl.features[1].name = 'promotable feature';
 fl.features[1].behavior = 'a trivially true behavior for the demo';
 fl.features[1].verification = 'exit 0';
+fl.features[1].falsifier = 'an implementation that exits non-zero';
 fl.features[1].status = 'in-progress';
 fl.features[1].attempts = 3;
 fl.features[1].maxAttempts = 3;
@@ -551,7 +552,68 @@ process.exit(r.items.filter(i=>i.kind==='unreviewed-claims').length === 1 ? 0 : 
 "; expect "identical findings are grouped, not repeated per feature" $?
 rm -f /tmp/demo-rd.$$
 
-step "30/31" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 30 "test authoring: the four ways a green test can still prove nothing"
+# A separate throwaway target — these checks read feature_list.json and the test tree, and T2 is
+# mid-story from the steps above.
+T3="$WORK/demo-target-3"
+rm -rf "$T3" && mkdir -p "$T3/src/test/java/com/acme/deep/pkg" && (cd "$T3" && git init -q .)
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$T3" --name "Demo3" --purpose "test-authoring demo" >/dev/null
+echo '{ "name": "demo-target-3", "private": true }' > "$T3/package.json"
+cat > "$T3/src/test/java/com/acme/deep/pkg/WidgetTest.java" <<'EOF'
+/** Tests the widget. Written by reading Widget.java. */
+class WidgetTest { }
+EOF
+cat > "$T3/src/test/java/com/acme/deep/pkg/GadgetTest.java" <<'EOF'
+/** requirement.md §4 case 2 — a gadget rejects a negative quantity. */
+class GadgetTest { }
+EOF
+node -e "
+const fs=require('fs'); const p='$T3/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features=[
+  {id:'feat-w', name:'widget', behavior:'b', verification:'mvn test -Dtest=WidgetTest', kind:'build',
+   dependencies:[], status:'done', readyForCheck:false, evidence:'ran mvn test -Dtest=WidgetTest, 4 tests green on 2026-01-01',
+   checkerNotes:'', attempts:1, maxAttempts:3, falsifier:'a widget that accepts anything'},
+  {id:'feat-g', name:'gadget', behavior:'b', verification:'mvn test -Dtest=GadgetTest', kind:'build',
+   dependencies:[], status:'not-started', readyForCheck:false, evidence:'', checkerNotes:'', attempts:0, maxAttempts:3},
+  {id:'feat-g-prove', name:'gadget proven', behavior:'b', verification:'mvn test -Dtest=GadgetTest', kind:'prove',
+   dependencies:['feat-g'], status:'not-started', readyForCheck:false, evidence:'', checkerNotes:'', attempts:0, maxAttempts:3,
+   falsifier:'a gadget that accepts a negative quantity'},
+];
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T3" --skip-baseline --quiet
+RPT3="$T3/trace/verify-report.json"
+node -e "
+const r=require('$RPT3'); const f=r.findings.find(x=>x.id==='evidence-no-red');
+// feat-w is green and its evidence never mentions a failing run
+process.exit(f && f.evidence.includes('feat-w') ? 0 : 1);
+"; expect "a green feature whose evidence never shows a red run is flagged" $?
+node -e "
+const r=require('$RPT3'); const f=r.findings.find(x=>x.id==='falsifier-missing');
+process.exit(f && f.evidence.includes('feat-g') && !f.evidence.includes('feat-g-prove') ? 0 : 1);
+"; expect "an unfinished feature with no falsifier is flagged; one that has it is not" $?
+node -e "
+const r=require('$RPT3'); const f=r.findings.find(x=>x.id==='build-unproven');
+// feat-g has a prove feature depending on it; feat-w has none
+process.exit(f && f.evidence.includes('feat-w') && !f.evidence.includes('feat-g,') ? 0 : 1);
+"; expect "a build feature that no prove feature judges is flagged" $?
+node -e "
+const r=require('$RPT3'); const f=r.findings.find(x=>x.id==='test-untraceable');
+process.exit(f && f.evidence.includes('WidgetTest') && !f.evidence.includes('GadgetTest') ? 0 : 1);
+"; expect "a test with no spec citation is flagged; one citing a requirement section is not" $?
+node -e "
+const fs=require('fs');
+// the whole test-design skill must land in the target — SKILL.md alone dispatches to files that
+// would not exist, which is exactly the Fresh Session Test failure (Lesson 3)
+const need=['skills/test-design/SKILL.md','skills/test-design/references/anti-patterns.md',
+            'skills/test-design/references/property-catalog.md','skills/test-design/schemas/test-condition.schema.json',
+            'skills/test-design/checklists/reviewer-checklist.md','docs/reference/test-authoring.md',
+            '.kiro/agents/test-designer.json','.kiro/agents/test-implementer.json','memory/test-designer/MEMORY.md'];
+process.exit(need.every(f=>fs.existsSync('$T3/'+f)) ? 0 : 1);
+"; expect "the test-design skill, its agents and their memory are scaffolded into the target" $?
+
+step "31/32" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

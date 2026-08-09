@@ -44,8 +44,19 @@ once the feature is re-cut.
    test infrastructure multiple prove features will reuse) with no dependencies; build features
    depending on foundations/other builds; prove features depending on the build(s) they verify,
    never the reverse. Check by hand that there is no cycle.
+
+   Tag each feature `"kind": "build"` or `"kind": "prove"`. **Every build feature needs at least
+   one prove feature depending on it** — a feature that ships both the implementation and its own
+   only test can be wrong in both directions at once and still go green
+   (`docs/reference/test-authoring.md`; `verify-harness.mjs` reports `build-unproven`).
+
+   Dependency order is *completion* order. **Authoring order is the opposite**: the prove feature's
+   test is written from the spec and seen failing before the build feature makes it pass. Say so in
+   the prove feature's behavior sentence so the maker doesn't discover it late.
 4. **Apply the Definition-of-Ready checklist** (reference doc Step 5) to every feature: id,
    one-sentence behavior, one real runnable verification command, dependency ids that already
+   one-sentence behavior, one real runnable verification command, a **`falsifier`** naming the
+   specific wrong implementation that command would fail on, dependency ids that already
    exist in this same pass, and the full state quintuple (`status: "not-started"`,
    `readyForCheck: false`, `evidence: ""`, `checkerNotes: ""`, `attempts: 0`, `maxAttempts: 3`
    unless you have a specific reason to raise it for a feature you already expect to be

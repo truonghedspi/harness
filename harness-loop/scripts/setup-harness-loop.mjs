@@ -130,13 +130,32 @@ const EXTRA_COPIES = [
   ["references/knowledge-layout.md", "docs/reference/knowledge-layout.md"],
   ["references/human-attention.md", "docs/reference/human-attention.md"],
   ["references/llm-failure-modes.md", "docs/reference/llm-failure-modes.md"],
+  ["references/test-authoring.md", "docs/reference/test-authoring.md"],
 ];
+// Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
+// without the strategy matrix, property catalog and schemas it dispatches to.
+const EXTRA_DIR_COPIES = [["templates/test-design", "skills/test-design"]];
 for (const [src, destRel] of EXTRA_COPIES) {
   const dest = path.join(targetRoot, destRel);
   if (exists(dest) && !FORCE) { skipped.push(destRel); continue; }
   mkdirSync(path.dirname(dest), { recursive: true });
   writeFileSync(dest, readFileSync(path.join(skillRoot, src), "utf8"));
   written.push(destRel);
+}
+for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
+  const walkDir = (rel) => {
+    for (const name of readdirSync(path.join(skillRoot, srcDir, rel), { withFileTypes: true })) {
+      const childRel = path.join(rel, name.name);
+      if (name.isDirectory()) { walkDir(childRel); continue; }
+      const destRel = path.join(destDir, childRel);
+      const dest = path.join(targetRoot, destRel);
+      if (exists(dest) && !FORCE) { skipped.push(destRel); continue; }
+      mkdirSync(path.dirname(dest), { recursive: true });
+      writeFileSync(dest, readFileSync(path.join(skillRoot, srcDir, childRel), "utf8"));
+      written.push(destRel);
+    }
+  };
+  walkDir(".");
 }
 
 // --- report ---------------------------------------------------------------------------------

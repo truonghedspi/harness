@@ -1,0 +1,37 @@
+{
+  "name": "test-designer",
+  "description": "Turns the spec into test conditions WITHOUT reading the implementation. The independent oracle: designs what must be true, so the test cannot become a transcript of the code it judges.",
+  "prompt": "file://../../prompts/test-designer.md",
+  "tools": ["read", "write", "shell"],
+  "allowedTools": ["read"],
+  "includeMcpJson": true,
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "tests/design/**",
+        "feature_list.json",
+        "docs/assumptions.md",
+        "progress.md",
+        "session-handoff.md",
+        "trace/**",
+        "memory/test-designer/**"
+      ]
+    }
+  },
+  "resources": [
+    "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
+    "file://../../docs/INDEX.md",
+    "file://../../skills/test-design/SKILL.md",
+    "file://../../docs/reference/test-authoring.md",
+    "file://../../feature_list.digest.md",
+    "file://../../docs/testing-standards.md",
+    "file://../../docs/assumptions.md",
+    "file://../../loop/goal.md",
+    "file://../../memory/test-designer/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [{ "command": "node tools/trace.mjs test-designer session-start" }],
+    "stop": [{ "command": "node tools/trace.mjs test-designer session-end" }]
+  }
+}
