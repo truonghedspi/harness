@@ -14,15 +14,15 @@
   "includeMcpJson": true,
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
     "file://../../docs/INDEX.md",
-    "file://../../loop/goal.md",
     "file://../../feature_list.json",
     "file://../../progress.md",
-    "file://../../docs/constraints.md",
     "file://../../docs/cross-cutting.md",
     "file://../../docs/assumptions.md",
     "file://../../docs/testing-standards.md",
     "file://../../DECISIONS.md",
+    "file://../../loop/goal.md",
     "file://../../memory/maker/MEMORY.md"
   ],
   "hooks": {

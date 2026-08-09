@@ -23,9 +23,9 @@
   },
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
     "file://../../docs/INDEX.md",
     "file://../../docs/architecture.md",
-    "file://../../docs/constraints.md",
     "file://../../docs/assumptions.md",
     "file://../../docs/cross-cutting.md",
     "file://../../DECISIONS.md",

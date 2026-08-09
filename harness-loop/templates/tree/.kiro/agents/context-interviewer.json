@@ -27,10 +27,10 @@
   },
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
     "file://../../docs/INDEX.md",
     "file://../../docs/assumptions.md",
     "file://../../docs/cross-cutting.md",
-    "file://../../docs/constraints.md",
     "file://../../docs/reference/design-engineering.md",
     "file://../../docs/reference/knowledge-layout.md",
     "file://../../memory/context-interviewer/MEMORY.md"

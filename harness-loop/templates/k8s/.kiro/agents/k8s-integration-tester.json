@@ -14,15 +14,15 @@
   "includeMcpJson": true,
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
     "file://../../docs/cross-cutting.md",
     "file://../../docs/INDEX.md",
-    "file://../../loop/goal.md",
     "file://../../feature_list.json",
     "file://../../progress.md",
     "file://../../docs/testing-standards.md",
     "file://../../docs/architecture.md",
-    "file://../../docs/constraints.md",
     "file://../../tools/k8s-test-env.sh",
+    "file://../../loop/goal.md",
     "file://../../memory/k8s-integration-tester/MEMORY.md"
   ],
   "hooks": {

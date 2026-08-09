@@ -91,6 +91,18 @@ reads to decide what else to read, so it is worth more than the sum of its links
 "Read it when" is the load-bearing column. A list of filenames makes an agent open everything,
 which is the problem this file exists to solve.
 
+## Placement inside a document — the other half of the size rule
+
+Recall over a long context is **U-shaped**: the beginning and the end are retrieved far more
+reliably than the middle (`llm-failure-modes.md`). Size limits how much middle exists; **placement**
+decides what falls into it.
+
+- State the load-bearing rule in the **first paragraph**, and restate it in the **last**.
+- Never leave the single most important sentence in the middle of the file.
+- The same applies to an agent's `resources` list: the templates order them **rules first, goal and
+  memory last, bulk structured data in between** — prose an agent must absorb goes at the edges,
+  JSON it will grep goes where position costs least.
+
 ## Where these rules live, so an agent actually remembers them
 
 A rule an agent must honour *every time it touches a file* cannot live only in a reference document

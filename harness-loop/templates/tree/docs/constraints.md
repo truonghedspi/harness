@@ -38,16 +38,17 @@ possible — mechanically enforceable (a lint rule or a check in `init.sh` beats
 
 ## MUST NOT
 
-- MUST NOT use `blocked` as a way to avoid asking. A blocked feature nobody is asked about is a
+- MUST NOT use `blocked` as a way to avoid asking (enforced: `verify-harness` `escalation-without-evidence`). A blocked feature nobody is asked about is a
   question with the human removed from it — escalate it as a question instead.
 - MUST NOT guess an answer that belongs to a human. Once written down, a guess is indistinguishable
   from a verified fact, and every feature built on it inherits the error while passing its tests.
-- MUST NOT split a document without adding it to `docs/INDEX.md` — scattered files with no map
+- MUST NOT split a document without adding it to `docs/INDEX.md` (enforced: `verify-harness` gate `docs`) — scattered files with no map
   are harder to use than the one long file they replaced.
-- MUST NOT let the worker set `status: done` — only the checker or a verification script does.
+- MUST NOT let the worker set `status: done` — only the checker or a verification script does
+  (enforced: `verify-harness --promote` refuses past any blocker; the checker agent is write-restricted).
 - MUST NOT modify files outside the active feature's scope.
 - MUST NOT weaken a test or a vector to make it pass.
-- MUST NOT set `status: blocked` without a concrete reason in `checkerNotes` (or a matching
+- MUST NOT set `status: blocked` without a concrete reason (enforced: `verify-harness` `blocked-unjustified`) in `checkerNotes` (or a matching
   `DECISIONS.md` entry) — an unexplained `blocked` is indistinguishable from an agent quietly
   giving up, and the checker/loop cannot judge whether it's legitimate.
 - [Project-specific MUST NOT rules — e.g. no network calls in unit tests, no writes to prod]

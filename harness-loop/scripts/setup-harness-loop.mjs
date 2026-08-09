@@ -126,6 +126,7 @@ const EXTRA_COPIES = [
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],
   ["references/knowledge-layout.md", "docs/reference/knowledge-layout.md"],
   ["references/human-attention.md", "docs/reference/human-attention.md"],
+  ["references/llm-failure-modes.md", "docs/reference/llm-failure-modes.md"],
 ];
 for (const [src, destRel] of EXTRA_COPIES) {
   const dest = path.join(targetRoot, destRel);

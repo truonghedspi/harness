@@ -14,9 +14,9 @@
   "includeMcpJson": true,
   "resources": [
     "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
     "file://../../feature_list.json",
     "file://../../docs/architecture.md",
-    "file://../../docs/constraints.md",
     "file://../../docs/INDEX.md",
     "file://../../docs/cross-cutting.md",
     "file://../../docs/assumptions.md",

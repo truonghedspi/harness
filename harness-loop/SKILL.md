@@ -67,7 +67,7 @@ work," and — the point that makes this self-improving — proven to work *beca
 was fixed*, not because the one target was patched around:
 
 1. **create** — `setup-harness-loop.mjs` (above). Never overwrites without `--force`.
-2. **verify** — `node scripts/verify-harness.mjs --target DIR` runs eight gates beyond structure:
+2. **verify** — `node scripts/verify-harness.mjs --target DIR` runs nine gates beyond structure:
    placeholders left unfilled, `./init.sh` actually going green (including a *vacuous* green —
    exiting 0 without running any build/test step is treated as red), every feature's evidence
    replaying under `--run-features`, loop-artifact sanity (a goal with no stop condition, a maker
@@ -79,7 +79,9 @@ was fixed*, not because the one target was patched around:
    blocked feature resting on an unverified assumption, a named component no feature covers —
    [references/design-engineering.md](references/design-engineering.md)), knowledge layout (a
    document past the 300-line budget an agent can actually hold —
-   [references/knowledge-layout.md](references/knowledge-layout.md)), and clean-state hygiene. **Every
+   [references/knowledge-layout.md](references/knowledge-layout.md)), instruction load (rule count
+   past the budget an agent can actually follow, and prohibitions with nothing enforcing them —
+   [references/llm-failure-modes.md](references/llm-failure-modes.md)), and clean-state hygiene. **Every
    finding is tagged
    `layer: project` (the target repo needs work) or `layer: harness` (the skill itself is the
    defect)** — that tag is what routes the fix to the right place instead of to a one-off patch.
@@ -219,6 +221,8 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 - Automating design without inheriting the agent's blind spots (cited claims, the assumption
   registry, spikes, adversarial design review, and where the human is actually needed):
   [references/design-engineering.md](references/design-engineering.md)
+- What each mechanism in this skill is actually defending against — the LLM failure-mode taxonomy,
+  including the ones still uncountered: [references/llm-failure-modes.md](references/llm-failure-modes.md)
 - Spending the one resource that does not renew — the exhaustion ladder before any question
   reaches a person, what is genuinely irreducible, and why under-asking is worse than over-asking:
   [references/human-attention.md](references/human-attention.md)

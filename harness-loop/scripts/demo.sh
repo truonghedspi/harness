@@ -451,7 +451,49 @@ fl.features[0].status='in-progress'; fl.features[0].checkerNotes='';
 fs.writeFileSync(p, JSON.stringify(fl,null,2));
 "
 
-step "26/27" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 26 "instruction load: rule count is budgeted, and gating a rule buys budget back"
+node -e "
+const fs=require('fs'); const p='$T2/docs/constraints.md';
+fs.writeFileSync(p+'.bak', fs.readFileSync(p));
+let extra='';
+for (let i=0;i<30;i++) extra += '- MUST do invented thing number ' + i + '.\n';
+fs.appendFileSync(p, '\n' + extra);
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "instruction-load-over-budget"' "$T2/trace/verify-report.json"
+expect "a constraints.md past the rule budget is flagged" $?
+node -e "
+const fs=require('fs'); const p='$T2/docs/constraints.md';
+let s=fs.readFileSync(p,'utf8');
+s=s.replace(/- MUST do invented thing number (\d+)\./g, '- MUST do invented thing number \$1 — enforced by \`init.sh\`.');
+fs.writeFileSync(p,s);
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "instruction-load-over-budget"' "$T2/trace/verify-report.json"; ILB=$?
+[ "$ILB" != "0" ]; expect "the same rules, once mechanically enforced, stop counting against the budget" $?
+mv "$T2/docs/constraints.md.bak" "$T2/docs/constraints.md"
+
+step 27 "unenforced prohibitions: flagged by ratio, quiet once the gateable ones are promoted"
+node -e "
+const fs=require('fs'); const p='$T2/docs/constraints.md';
+fs.writeFileSync(p+'.bak', fs.readFileSync(p));
+fs.appendFileSync(p, '\n- MUST NOT alpha.\n- MUST NOT beta.\n- MUST NOT gamma.\n- MUST NOT delta.\n- MUST NOT epsilon.\n');
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "prohibitions-mostly-unenforced"' "$T2/trace/verify-report.json"
+expect "prohibitions with nothing enforcing them are flagged" $?
+node -e "
+const fs=require('fs'); const p='$T2/docs/constraints.md';
+let s=fs.readFileSync(p,'utf8');
+s=s.replace(/- MUST NOT (alpha|beta|gamma|delta)\./g, '- MUST NOT \$1 — enforced by \`init.sh\`.');
+fs.writeFileSync(p,s);
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "prohibitions-mostly-unenforced"' "$T2/trace/verify-report.json"; PMU=$?
+[ "$PMU" != "0" ]; expect "promoting the gateable ones quiets it — semantic ones may honestly remain" $?
+mv "$T2/docs/constraints.md.bak" "$T2/docs/constraints.md"
+
+step "28/29" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

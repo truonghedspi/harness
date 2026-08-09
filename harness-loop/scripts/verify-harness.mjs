@@ -674,6 +674,48 @@ function gateDocs() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gate 10 — instruction load (references/llm-failure-modes.md). Per-instruction compliance falls
+// as the number of simultaneous instructions rises: fifty rules do not produce fifty-rule
+// behaviour, they produce roughly the top-N by salience. And prohibitions are the weakest shape
+// of all — "don't do Y" is followed worse than "do X" — so an unenforced MUST NOT is closer to a
+// wish than a rule. Both warn: the remedy is promote-or-cut, never "try harder".
+// ---------------------------------------------------------------------------------------------
+const RULE_BUDGET = 25;
+
+function gateRules() {
+  const raw = read(P("docs", "constraints.md"));
+  if (!raw) return;
+  const allRules = raw.split("\n").filter((l) => /^\s*-\s+MUST\b/.test(l));
+  const prohibitions = allRules.filter((l) => /^\s*-\s+MUST NOT\b/.test(l));
+  // A rule is enforced if its own text points at the thing that enforces it.
+  const ENFORCED = /(verify-harness|check-coverage|init\.sh|gate\b|`[\w-]+\.mjs`|mechanically|checked mechanically|enforced)/i;
+  const unenforced = prohibitions.filter((l) => !ENFORCED.test(l));
+  // Only rules the agent must REMEMBER count against the budget. A gated rule cannot be violated
+  // silently, so it costs documentation space but not attention — and that difference is the
+  // whole incentive to promote rather than to keep writing rules.
+  const rules = allRules.filter((l) => !ENFORCED.test(l));
+
+  if (rules.length > RULE_BUDGET) {
+    add({
+      gate: "rules", id: "instruction-load-over-budget", layer: "project", severity: "warn",
+      symptom: `docs/constraints.md carries ${rules.length} rules an agent must remember (budget ${RULE_BUDGET}; ${allRules.length - rules.length} more are mechanically enforced and don't count) — compliance per rule falls as the count rises, so the tail is loaded but not followed`,
+      remedy: "promote or cut: a rule that matters becomes a mechanical gate (and then the prompt need not carry it), a rule that does not becomes deleted. Writing it more emphatically does not help (references/llm-failure-modes.md)",
+    });
+  }
+  // Ratio, not a raw count: some prohibitions are irreducibly semantic ("don't weaken a test to
+  // make it pass") and no grep will ever enforce them. A project that has promoted the gateable
+  // ones should go quiet; one that has promoted none should not.
+  if (prohibitions.length >= 4 && unenforced.length / prohibitions.length > 0.6) {
+    add({
+      gate: "rules", id: "prohibitions-mostly-unenforced", layer: "project", severity: "warn",
+      symptom: `${unenforced.length} of ${prohibitions.length} MUST NOT rules name no mechanism that enforces them — negation is the weakest instruction shape, so these are advisory in practice`,
+      remedy: "back each load-bearing prohibition with a gate and name it in the rule text, or restate it as a positive MUST, or accept it is advice and move it out of the MUST NOT list",
+      evidence: unenforced.slice(0, 3).map((l) => l.trim().slice(0, 90)).join(" | "),
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------------------------
 gateStructure();
@@ -685,6 +727,7 @@ gateCleanState();
 gateMemory();
 gateDesign();
 gateDocs();
+gateRules();
 promoteFeatures();
 
 const byLayer = (l) => findings.filter((f) => f.layer === l);
