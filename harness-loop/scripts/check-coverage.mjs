@@ -75,7 +75,7 @@ const CHECKS = [
     if (!exists(P("DECISIONS.md"))) missing.push("DECISIONS.md");
     if (missing.length) return no("missing: " + missing.join(", "));
     if (!agent || !/(startup workflow|start of session)/i.test(agent) || !/end of session/i.test(agent))
-      return no(`${agentFile} lacks clock-in/clock-out routine`);
+      return no(`${agentFile} lacks clock-in/clock-out — copy the "Startup Workflow (start of session — clock in)" section from templates/tree/AGENTS.md and fill it with this project's real startup steps`);
     return ok("progress + decisions + clock-in/out present");
   }],
   ["L6  Init phase", () => {
@@ -114,7 +114,7 @@ const CHECKS = [
       [/(micro-?service|cross-service|service-to-service|contract|e2e|end-to-end|end to end)/i, "microservice-integration"],
     ];
     const gaps = levels.filter(([re]) => !re.test(t)).map(([, n]) => n);
-    if (gaps.length) return no("testing-standards.md missing level(s): " + gaps.join(", "));
+    if (gaps.length) return no("testing-standards.md missing level(s): " + gaps.join(", ") + " — name the level after the tests this project actually has; if they exist under another name, relabel the section, do not invent a level");
     if (!initSh || !/(test|build|check|verify|pytest|gradle|mvn|cargo|dotnet)/i.test(initSh)) return no("init.sh does not run a build/test/check step");
     return ok("3 levels documented + init.sh runs the pipeline");
   }],
@@ -124,7 +124,7 @@ const CHECKS = [
     return ok("trace.mjs present + wired into agent hooks");
   }],
   ["L12 Clean-state handoff", () => {
-    if (!agent || !/(end of session|clean state)/i.test(agent)) return no(`${agentFile} lacks an End-of-Session / clean-state checklist`);
+    if (!agent || !/(end of session|clean state)/i.test(agent)) return no(`${agentFile} lacks a clean-state exit — copy the "End of Session (clock out — leave clean state)" section from templates/tree/AGENTS.md and fill it with this project's real exit conditions`);
     if (!exists(P("session-handoff.md"))) return no("missing session-handoff.md");
     return ok("exit checklist + handoff file present");
   }],

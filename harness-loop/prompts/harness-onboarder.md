@@ -60,6 +60,22 @@ Ask at most these, and drop any the survey already settled:
 nobody uses. If the owner has no answer, the honest recommendation is to stop and come back when
 there is a concrete piece of work — not to scaffold anyway.
 
+### Running headless (`--no-interactive`)
+
+There is nobody to answer. **Proceed on your own recommendations — and record every one of them as
+an open question, or the interview did not happen, it was skipped.** For each unanswered question:
+
+- add a row to `docs/assumptions.md` with status **`needs-human`** and the **Recommended answer**
+  column filled in with what you chose and why;
+- name all of them in your final report, under a heading that says these were decided without the
+  owner.
+
+A guessed answer written down is indistinguishable from a verified one the moment it lands in a
+file — that is the exact defect this whole harness exists to prevent, and skipping the interview is
+the fastest way to introduce it. **Q4 in particular is never silently self-answered:** pick the best
+candidate from the survey, write it into `loop/goal.md`, and put a `needs-human` row against it
+saying the objective was chosen by you and needs confirmation before a long run.
+
 Everything else — stack, package manager, project name, verification commands — you found yourself
 in Phase 1. Asking about those spends the one resource this harness exists to conserve
 (`docs/reference/human-attention.md`).
@@ -78,7 +94,7 @@ skips as already-present is a collision from your Phase 1 list, and each one nee
 
 | Collision | What to do |
 |---|---|
-| existing `AGENTS.md`/`CLAUDE.md` | keep theirs; **append** the harness sections (Startup Readiness, Work Rules WIP=1, session exit checklist, DoD) and the links to `docs/`. Never replace their content. |
+| existing `AGENTS.md`/`CLAUDE.md` | keep theirs; **append** the harness sections by copying the headings from `<skill>/templates/tree/AGENTS.md` **verbatim**, then filling them with this project's real content. Never replace their content. |
 | existing `docs/` with real content | leave it; add `docs/INDEX.md` pointing at what is already there, and only add the harness topic docs that are genuinely missing |
 | an existing long doc (>300 lines) | do **not** split it now. Record it in the adoption baseline as debt and note the split in `docs/INDEX.md` as future work |
 | existing `.kiro/` | merge agent JSONs in; do not clobber agents they already use |
@@ -128,6 +144,15 @@ node tools/context-budget.mjs --target .                      # what each agent 
 ```
 
 13/13 on a harness still holding placeholders is not "set up". The bar is **0 blockers**.
+
+**Never read a checker's source to work out what text will satisfy it.** If `check-coverage.mjs`
+says `AGENTS.md` lacks a clock-in routine, the fix is to give it a real one — copied from the
+template's headings, which already encode what the checks look for. Deriving wording from a regex
+produces a document that passes and does not inform anyone, which is worse than the failure: the
+gate now reports coverage that is not there. (Seen for real on the first onboarding run — the agent
+extracted `/(startup workflow|start of session)/i` from the checker and rewrote a heading to match.)
+If a check fails on content you believe is genuinely present, that is a **harness-layer defect**:
+report it, do not phrase around it.
 
 Then hand off, naming the next agent explicitly:
 
