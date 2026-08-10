@@ -13,10 +13,14 @@
 //   node tools/run-report.mjs --target DIR [--since ISO8601|-Nh] [--json]
 //
 // --since accepts an ISO timestamp or a relative "-6h" / "-30m" / "-2d". Default: everything.
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync , writeSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 
+// stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
+// past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
+// spawnSync. Found when aeron-demo's report crossed that line and adoption-baseline
+// started failing to parse its own input. writeSync is the fix everywhere --json exits.
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const JSON_OUT = args.includes("--json");
@@ -176,7 +180,7 @@ const report = {
   insightCandidates: insights,
 };
 
-if (JSON_OUT) { console.log(JSON.stringify(report, null, 2)); process.exit(0); }
+if (JSON_OUT) { writeSync(1, JSON.stringify(report, null, 2) + "\n"); process.exit(0); }
 
 console.log(`Run report — ${TARGET}`);
 console.log(`Window: ${SINCE ? `since ${SINCE.toISOString()}` : "all history"}\n`);

@@ -19,10 +19,14 @@
 //   node review-digest.mjs --target DIR [--since <git-ref>] [--mark] [--json]
 //     --since   default: the watermark in .review-watermark, else the first commit
 //     --mark    record HEAD as reviewed, so the next run shows only what came after
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync , writeSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 
+// stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
+// past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
+// spawnSync. Found when aeron-demo's report crossed that line and adoption-baseline
+// started failing to parse its own input. writeSync is the fix everywhere --json exits.
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const JSON_OUT = args.includes("--json");
@@ -165,7 +169,7 @@ const out = {
 };
 
 if (MARK) { writeFileSync(WATERMARK, head + "\n"); }
-if (JSON_OUT) { console.log(JSON.stringify(out, null, 2)); process.exit(0); }
+if (JSON_OUT) { writeSync(1, JSON.stringify(out, null, 2) + "\n"); process.exit(0); }
 
 console.log(`Review digest — ${TARGET}`);
 console.log(`Range: ${range || "(nothing since the last mark)"}\n`);

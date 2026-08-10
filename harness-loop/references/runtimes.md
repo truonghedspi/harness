@@ -60,7 +60,23 @@ deny, so `tools/guard-write.mjs` matches the target path against the manifest's 
 | `maxTurns` | A runtime-level turn budget would duplicate `attempts`/`maxAttempts`, which already works on both runtimes and is visible in `feature_list.json` where a human reviews it |
 | `isolation: worktree` | WIP=1 makes parallel agents a non-goal, and P08 measured the trade: parallelism buys latency and pays throughput (`p08-parallel-record.md`) |
 | `memory: project` | The harness has its own `memory/<agent>/` with `memory-query.mjs`, `memory-consolidate.mjs` and a gate. Adopting Claude Code's would create a second store kiro cannot read |
-| `model` / `effort` per agent | Left to the operator: the right model per role is a cost decision that belongs to whoever pays for the run, not to a scaffold |
+
+## Model per role
+
+Set in the manifest, per runtime, and generated into both configs:
+
+| Role kind | Claude Code | kiro |
+|---|---|---|
+| **executors** — maker, designer, feature-planner, test-designer, test-implementer, context-interviewer, harness-setup, k8s-integration-tester | `sonnet` | the runtime default (no `model` field) |
+| **evaluators** — checker, design-reviewer | `claude-opus-5` | `claude-sonnet-4.5` |
+
+The split follows the same line as generator/evaluator separation: catching what a cheaper model
+got wrong *is* the evaluator's whole job, so that is where the strong model earns its cost.
+
+**The runtimes are not equal here, and the manifest says so rather than pretending.** kiro offers no
+Opus on this account — `kiro-cli chat --list-models` tops out at `claude-sonnet-4.5` — so a kiro
+checker is a weaker evaluator than a Claude Code checker. If that matters for a given project, run
+the checking half on Claude Code.
 
 ## Verified, not assumed
 
@@ -73,3 +89,5 @@ misconfigured agent starts anyway, as something other than what you configured.
 - `guard-write.mjs` → `allow` for `feature_list.json`, `deny` for `src/Foo.java`, `allow` for the
   unrestricted `maker`
 - generated kiro configs → key-by-key identical to the hand-written ones they replaced
+- `kiro-cli chat --list-models` → no Opus available; `kiro-cli agent validate` accepts an invalid
+  model name silently (exit 0), so a typo there is another failure that does not announce itself

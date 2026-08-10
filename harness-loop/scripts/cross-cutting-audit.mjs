@@ -20,9 +20,13 @@
 // never) feeding the human-strong half (choose the trade-off) — see references/design-engineering.md.
 //
 // Usage: node cross-cutting-audit.mjs --target DIR [--json]
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync , writeSync } from "node:fs";
 import path from "node:path";
 
+// stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
+// past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
+// spawnSync. Found when aeron-demo's report crossed that line and adoption-baseline
+// started failing to parse its own input. writeSync is the fix everywhere --json exits.
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const JSON_OUT = args.includes("--json");
@@ -142,7 +146,7 @@ for (const c of CONCERNS) {
 }
 
 const flagged = results.filter((r) => r.flags.length);
-if (JSON_OUT) { console.log(JSON.stringify({ target: TARGET, scanned: files.length, results }, null, 2)); process.exit(0); }
+if (JSON_OUT) { writeSync(1, JSON.stringify({ target: TARGET, scanned: files.length, results }, null, 2) + "\n"); process.exit(0); }
 
 console.log(`Cross-cutting audit — ${TARGET}`);
 console.log(`Scanned ${files.length} files, ${CONCERNS.length} concerns\n`);

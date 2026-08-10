@@ -23,11 +23,15 @@
 //   node adoption-baseline.mjs --target DIR --record   [--note "..."]
 //   node adoption-baseline.mjs --target DIR [--check]  [--json]
 //   node adoption-baseline.mjs --target DIR --ratchet
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync , writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
+// past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
+// spawnSync. Found when aeron-demo's report crossed that line and adoption-baseline
+// started failing to parse its own input. writeSync is the fix everywhere --json exits.
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const TARGET = path.resolve(opt("--target", "."));
@@ -105,7 +109,7 @@ if (MODE === "ratchet") {
 }
 
 const out = { baseline: base.recordedAt, totalNow: total, totalAtAdoption: base.totalAtAdoption, rows, grown, blockers };
-if (JSON_OUT) { console.log(JSON.stringify(out, null, 2)); process.exit(grown.length || blockers ? 1 : 0); }
+if (JSON_OUT) { writeSync(1, JSON.stringify(out, null, 2) + "\n"); process.exit(grown.length || blockers ? 1 : 0); }
 
 console.log(`Adoption ratchet — baseline recorded ${base.recordedAt}${base.note ? ` (${base.note})` : ""}\n`);
 if (blockers) console.log(`${blockers} BLOCKER(s) — never grandfathered, fix regardless of the baseline.\n`);

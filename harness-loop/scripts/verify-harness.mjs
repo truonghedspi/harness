@@ -22,7 +22,7 @@
 // bleed) — it only saves the checker from re-doing the purely mechanical "does this reproduce"
 // step by hand. Never promotes a feature with any blocker finding against it.
 // Exit: 0 iff no blocker findings.
-import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1030,7 +1030,12 @@ if (exists(P("tools/trace.mjs"))) {
 }
 
 if (AS_JSON) {
-  console.log(JSON.stringify(report, null, 2));
+  // writeSync, not console.log: stdout on a pipe is async and the process exits below, so any
+  // report past the pipe buffer (~8 KB on macOS) was silently truncated for every spawnSync
+  // caller. adoption-baseline hit exactly that the moment aeron-demo's report crossed 8 KB —
+  // and a truncated report parses as "could not read", not as "wrong", which is the good case.
+  // The bad case is a consumer that tolerates partial JSON and under-reports.
+  writeSync(1, JSON.stringify(report, null, 2) + "\n");
 } else if (!QUIET) {
   console.log(`\nHarness verify — ${TARGET}\n`);
   if (coverage) console.log(`  structure : ${coverage.passed}/${coverage.total} lessons`);

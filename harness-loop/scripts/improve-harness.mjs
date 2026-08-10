@@ -11,12 +11,16 @@
 //   node improve-harness.mjs [--top N] [--json] [--out PATH]
 //   node improve-harness.mjs --reverify [--target DIR] [--auto-resolve] [--skip-baseline]
 //   node improve-harness.mjs --prompt              # agent-ready instructions for the top issue
-import { readFileSync, writeFileSync, statSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync, mkdtempSync , writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
+// past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
+// spawnSync. Found when aeron-demo's report crossed that line and adoption-baseline
+// started failing to parse its own input. writeSync is the fix everywhere --json exits.
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const flag = (n) => args.includes(n);
@@ -126,7 +130,7 @@ Rules:
   process.exit(0);
 }
 
-if (flag("--json")) { console.log(JSON.stringify(ranked.slice(0, TOP), null, 2)); process.exit(0); }
+if (flag("--json")) { writeSync(1, JSON.stringify(ranked.slice(0, TOP), null, 2) + "\n"); process.exit(0); }
 
 const lines = [];
 lines.push("# Harness improvement plan");

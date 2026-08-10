@@ -833,6 +833,16 @@ process.exit(same(kiro,man)&&same(cc,man)?0:1);
 "; expect "one manifest emits both formats, with the same agent set" $?
 node -e "
 const fs=require('fs');
+// Cheap model for producing, strong model for judging — the same line as generator/evaluator
+// separation, because catching what a cheaper model got wrong IS the evaluator's job.
+const cc=(n)=>(fs.readFileSync('$TR/.claude/agents/'+n+'.md','utf8').match(/^model: (.+)\$/m)||[])[1];
+const kiro=(n)=>require('$TR/.kiro/agents/'+n+'.json').model;
+process.exit(cc('checker')==='claude-opus-5' && cc('design-reviewer')==='claude-opus-5' &&
+             cc('maker')==='sonnet' && cc('test-designer')==='sonnet' &&
+             kiro('checker')==='claude-sonnet-4.5' && kiro('maker')===undefined ? 0 : 1);
+"; expect "evaluators get the strongest model each runtime offers; executors run cheap" $?
+node -e "
+const fs=require('fs');
 // the two things Claude Code has no field for are carried by per-agent hooks
 const md=fs.readFileSync('$TR/.claude/agents/checker.md','utf8');
 process.exit(/SubagentStart:[\s\S]*agent-context\.mjs checker/.test(md) &&
@@ -875,7 +885,32 @@ const r=require('$TR/trace/verify-report.json');
 process.exit(r.findings.some(f=>f.id==='agent-generated-stale') ? 1 : 0);
 "; expect "regenerating from the manifest clears it" $?
 
-step "33/34" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 33 "machine-readable output survives a pipe (the ~8 KB truncation class)"
+# stdout on a pipe is async; process.exit() drops whatever has not flushed. Under ~8 KB nothing
+# shows, so this hides until a report grows — which is exactly how it surfaced: aeron-demo's
+# report crossed the pipe buffer and adoption-baseline started failing to parse its own input.
+node -e "
+const fs=require('fs'),path=require('path');
+const dirs=['$SCRIPTS','$SCRIPTS/../templates/tree/loop'];
+const bad=[];
+for (const d of dirs) for (const f of fs.readdirSync(d).filter(x=>x.endsWith('.mjs'))) {
+  const s=fs.readFileSync(path.join(d,f),'utf8');
+  // console.log of a JSON payload with a process.exit close behind = truncatable on a pipe
+  if (/console\.log\(JSON\.stringify[\s\S]{0,120}?process\.exit/.test(s)) bad.push(f);
+}
+if (bad.length) console.log('    ', bad.join(', '));
+process.exit(bad.length?1:0);
+"; expect "no shipped script writes JSON with console.log then exits — writeSync only" $?
+# And prove it end to end on a report large enough to matter.
+node -e "
+const {spawnSync}=require('child_process');
+const r=spawnSync(process.execPath,['$SCRIPTS/verify-harness.mjs','--target','$T2','--skip-baseline','--json'],
+  {encoding:'utf8',maxBuffer:64e6});
+try { const j=JSON.parse(r.stdout); process.exit(Array.isArray(j.findings)?0:1); }
+catch(e){ console.log('     stdout was', (r.stdout||'').length, 'bytes:', e.message); process.exit(1); }
+"; expect "a --json report read through spawnSync parses whole" $?
+
+step "34/35" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

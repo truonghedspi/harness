@@ -49,6 +49,11 @@ function kiroAgent(a) {
     name: a.name, description: a.description, prompt: uri(a.prompt),
     tools: a.tools, allowedTools: ["read"], includeMcpJson: !!a.mcp,
   };
+  // Executors run on the runtime default; evaluators get the strongest model the runtime offers,
+  // because catching what a cheaper model got wrong is the entire job (Lesson 9/13). Note kiro has
+  // no Opus on this account — `kiro-cli chat --list-models` tops out at claude-sonnet-4.5 — so the
+  // manifest names that for kiro evaluators rather than pretending the runtimes are equal.
+  if (a.model && a.model.kiro) j.model = a.model.kiro;
   if (a.writes) j.toolsSettings = { write: { allowedPaths: a.writes } };
   j.resources = a.resources.map(uri);
   const hooks = {};
@@ -97,6 +102,9 @@ function claudeAgent(a) {
     `description: ${JSON.stringify(a.description)}`,
     // kiro's tool names are lowercase and coarse; Claude's are capitalised tool names.
     `tools: ${a.tools.includes("*") || a.tools.includes("shell") ? "Read, Write, Edit, Bash, Grep, Glob, WebFetch" : "Read, Grep, Glob, Bash"}`,
+    // Executors run cheap; evaluators get the strongest model available, because catching what a
+    // cheaper model got wrong is the entire job (Lesson 9/13). Omitted = inherit the session model.
+    a.model && a.model.claude ? `model: ${a.model.claude}` : null,
     hooks.length ? "hooks:\n" + hooks.join("\n") : null,
     "---",
   ].filter((l) => l !== null).join("\n");
