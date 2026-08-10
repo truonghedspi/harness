@@ -126,7 +126,32 @@ the self-improvement loop) lives in
 [references/workflow-diagram.md](references/workflow-diagram.md) — read it alongside this section
 and "Setup workflow" below rather than re-deriving the shape from prose alone.
 
+## Adopting an EXISTING project
+
+A repo with history is a different job from a fresh scaffold, and the difference decides whether
+anyone keeps using the harness. Run this instead of the scaffolder:
+
+```bash
+node harness-loop/scripts/install-onboarder.mjs --target /path/to/repo
+cd /path/to/repo && kiro-cli chat --agent harness-onboarder
+```
+
+It installs **two files** and touches nothing else. The `harness-onboarder` agent then surveys the
+repo (real build command, whether the baseline even passes, every file the scaffold would collide
+with, what work is actually in flight), asks one round of questions with recommended answers, and
+only then scaffolds — never with `--force`.
+
+The mechanism that makes adoption survivable is `tools/adoption-baseline.mjs`. Every gate here
+assumes a project that grew up with them; pointed at existing code they all fire at once (49
+warnings on this skill's own dogfood target, none of them anyone's fault). So the onboarder freezes
+today's counts as **accepted debt** and from then on the rule is one sentence: *you may leave the
+old debt alone, you may not add to it.* New work is held to the full standard, `--ratchet` locks in
+debt paid down, and blockers and a red baseline are never grandfathered. Full contract:
+[references/adopting-an-existing-project.md](references/adopting-an-existing-project.md).
+
 ## Setup workflow
+
+For a fresh project, or once the onboarder has surveyed an existing one:
 
 1. **Inspect the target.** Detect stack/package manager, existing `AGENTS.md`/`CLAUDE.md`,
    any feature/state files, and the real verification commands. Never overwrite silently.
@@ -242,6 +267,11 @@ and "Setup workflow" below rather than re-deriving the shape from prose alone.
 - Why a green suite can prove nothing, and the information asymmetry that fixes it (the
   test-designer/test-implementer split, red-green evidence, `falsifier`, property and mutation
   oracles): [references/test-authoring.md](references/test-authoring.md)
+- Bringing an existing repo under the harness without a day-one wall of warnings (the survey, the
+  merge-don't-overwrite table, honest backfill, the debt baseline and ratchet):
+  [references/adopting-an-existing-project.md](references/adopting-an-existing-project.md)
+- The harness as an explicit graph — nodes, edges, shared-state ownership, the routing table, and
+  the seven edges that were documented but never dispatched: [references/graph.md](references/graph.md)
 - Turning a requirement into a right-sized `feature_list.json` (the two-axis build/prove split,
   sizing heuristics, dependency DAG construction, a worked example):
   [references/feature-decomposition.md](references/feature-decomposition.md)
@@ -296,6 +326,12 @@ After setup, the target project should contain:
 - [ ] `docs/assumptions.md` — registry of load-bearing design assumptions; `docs/cross-cutting.md`
       — policies with an owner and an enforcing rule; `docs/design/` for design docs
       ([references/design-engineering.md](references/design-engineering.md))
+- [ ] `tools/adoption-baseline.mjs` — freezes pre-existing warnings as accepted debt on an adopted
+      repo, fails only on growth, `--ratchet` locks in what has been paid down
+      ([references/adopting-an-existing-project.md](references/adopting-an-existing-project.md))
+- [ ] `loop/route.mjs` + `loop/approval-gate.mjs` — the routing table as code (a rollback returns to
+      the *layer* the defect came from), and a selective human-approval node on the edge where
+      `done` becomes terminal ([references/graph.md](references/graph.md))
 - [ ] `tools/review-digest.mjs` — turns a large generated diff into the ranked handful of
       *decisions* a human should judge, and says plainly what it is telling you to skip
 - [ ] `tools/context-budget.mjs` + `tools/feature-digest.mjs` — measure what every agent is made

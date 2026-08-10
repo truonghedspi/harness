@@ -30,6 +30,14 @@ kiro-cli chat --agent maker      # then --agent checker
 loop/run-loop.sh 5               # headless (needs KIRO_API_KEY)
 ```
 
+**Existing repo?** Don't run the scaffolder at it. Run the onboarder — two files, nothing else
+touched — and let it survey first:
+
+```bash
+node harness-loop/scripts/install-onboarder.mjs --target /path/to/repo
+cd /path/to/repo && kiro-cli chat --agent harness-onboarder
+```
+
 Scripts use only Node.js built-ins, so they run after copying the skill into any repo.
 
 ## What it creates

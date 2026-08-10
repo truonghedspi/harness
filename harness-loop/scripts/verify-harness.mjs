@@ -82,7 +82,7 @@ const findings = [];
  * @param {{gate:string,id:string,layer:"project"|"harness",symptom:string,remedy:string,
  *          severity?:"blocker"|"warn",evidence?:string}} f
  */
-const add = (f) => { findings.push({ severity: "blocker", evidence: "", ...f }); };
+const add = (f) => { findings.push({ severity: "blocker", evidence: "", count: 1, ...f }); };
 
 const blockers = () => findings.filter((f) => f.severity === "blocker");
 
@@ -374,7 +374,7 @@ function gateFeatures() {
     String(f.evidence || "").trim() && !RED.test(String(f.evidence)));
   if (noRed.length) {
     add({
-      gate: "features", id: "evidence-no-red", layer: "project", severity: "warn",
+      gate: "features", id: "evidence-no-red", layer: "project", severity: "warn", count: noRed.length,
       symptom: `${noRed.length} green feature(s) record no red step — their evidence never shows the verification failing before it passed`,
       remedy: "record both halves in evidence: the command failing against the unimplemented behavior, then passing after. A test that was only ever seen green may be asserting nothing (references/test-authoring.md)",
       evidence: noRed.slice(0, 5).map((f) => f.id).join(", ") + (noRed.length > 5 ? ", …" : ""),
@@ -387,7 +387,7 @@ function gateFeatures() {
   const noFalsifier = pending.filter((f) => !String(f.falsifier || "").trim());
   if (pending.length && noFalsifier.length) {
     add({
-      gate: "features", id: "falsifier-missing", layer: "project", severity: "warn",
+      gate: "features", id: "falsifier-missing", layer: "project", severity: "warn", count: noFalsifier.length,
       symptom: `${noFalsifier.length}/${pending.length} unfinished feature(s) have no "falsifier" field naming the wrong implementation their verification would catch`,
       remedy: 'add "falsifier": "<a specific wrong implementation this command fails on>" to each. If you cannot name one, the verification does not discriminate and the feature is not yet decomposed (references/test-authoring.md)',
       evidence: noFalsifier.slice(0, 5).map((f) => f.id).join(", ") + (noFalsifier.length > 5 ? ", …" : ""),
@@ -407,7 +407,7 @@ function gateFeatures() {
     const unproven = features.filter((f) => f.kind === "build" && !provenIds.has(f.id));
     if (unproven.length) {
       add({
-        gate: "features", id: "build-unproven", layer: "project", severity: "warn",
+        gate: "features", id: "build-unproven", layer: "project", severity: "warn", count: unproven.length,
         symptom: `${unproven.length} build feature(s) have no prove feature depending on them — their only judge is the test shipped alongside the implementation`,
         remedy: "give each one a prove feature carrying the acceptance claim, authored from the spec rather than from the code (references/test-authoring.md). A feature that supplies both the implementation and its own oracle can be wrong in both directions at once",
         evidence: unproven.slice(0, 5).map((f) => f.id).join(", ") + (unproven.length > 5 ? ", …" : ""),
@@ -443,7 +443,7 @@ function gateFeatures() {
   }
   if (untraceable.length) {
     add({
-      gate: "features", id: "test-untraceable", layer: "project", severity: "warn",
+      gate: "features", id: "test-untraceable", layer: "project", severity: "warn", count: untraceable.length,
       symptom: `${untraceable.length} test file(s) named by a feature's verification carry no traceability header naming the requirement or condition they implement`,
       remedy: "open each with a comment block listing its requirement_id / condition_id / feature id. A test that cannot be traced to a spec was probably derived from the code it is meant to judge (R-T6, references/test-authoring.md)",
       evidence: untraceable.slice(0, 5).join(", ") + (untraceable.length > 5 ? ", …" : ""),

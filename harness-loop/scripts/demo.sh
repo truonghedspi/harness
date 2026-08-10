@@ -613,7 +613,68 @@ const need=['skills/test-design/SKILL.md','skills/test-design/references/anti-pa
 process.exit(need.every(f=>fs.existsSync('$T3/'+f)) ? 0 : 1);
 "; expect "the test-design skill, its agents and their memory are scaffolded into the target" $?
 
-step "31/32" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 31 "adopting an existing repo: two-file footprint, then debt is frozen and ratcheted"
+LEG="$WORK/legacy-repo"
+rm -rf "$LEG" && mkdir -p "$LEG/src" && (cd "$LEG" && git init -q .)
+printf '# Our agent rules\n\nExisting content nobody may destroy.\n' > "$LEG/AGENTS.md"
+echo '{ "name": "legacy", "private": true }' > "$LEG/package.json"
+(cd "$LEG" && git add -A && git -c user.email=d@d -c user.name=d commit -qm init >/dev/null 2>&1)
+node "$SCRIPTS/install-onboarder.mjs" --target "$LEG" >/dev/null
+node -e "
+const fs=require('fs');
+const before=['AGENTS.md','package.json'].every(f=>fs.existsSync('$LEG/'+f));
+const kept=fs.readFileSync('$LEG/AGENTS.md','utf8').includes('nobody may destroy');
+const added=['prompts/harness-onboarder.md','.kiro/agents/harness-onboarder.json'].every(f=>fs.existsSync('$LEG/'+f));
+// the whole point: nothing ELSE appeared — no init.sh, no feature_list.json, no docs/
+const untouched=!fs.existsSync('$LEG/init.sh') && !fs.existsSync('$LEG/feature_list.json');
+process.exit(before&&kept&&added&&untouched?0:1);
+"; expect "the onboarder installs two files and leaves the existing repo untouched" $?
+node -e "
+const j=require('$LEG/.kiro/agents/harness-onboarder.json');
+const p=require('fs').readFileSync('$LEG/prompts/harness-onboarder.md','utf8');
+// a file:// URI kiro resolves relative to .kiro/agents/, and no unsubstituted <skill> token
+process.exit(j.prompt==='file://../../prompts/harness-onboarder.md' && !p.includes('<skill>') ? 0 : 1);
+"; expect "its prompt URI resolves from .kiro/agents/ and the skill path is substituted" $?
+# The ratchet, on a target that already carries real debt (T3 from step 30).
+node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --record --note "demo" >/dev/null
+BASE0=$(node -e "const b=require('$T3/trace/adoption-baseline.json');console.log(b.debt['falsifier-missing']||0)")
+node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --json > /tmp/demo-ab0.$$ 2>&1 || true
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-ab0.$$','utf8'));
+// no family grew, and the debt IS carried (not zero) — that is 'frozen', not 'clean'.
+// Blockers are reported separately and never grandfathered, which is why exit code alone
+// is the wrong assertion here: this scaffold still holds placeholders.
+process.exit(r.grown.length===0 && r.totalNow>0 ? 0 : 1);
+"; expect "with the debt frozen, pre-existing warnings are carried, not failed" $?
+node -e "
+const fs=require('fs'); const p='$T3/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+fl.features.push({id:'feat-post',name:'post-adoption',behavior:'b',verification:'exit 0',
+  dependencies:[],status:'not-started',readyForCheck:false,evidence:'',checkerNotes:'',attempts:0,maxAttempts:3});
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --json > /tmp/demo-ab.$$ 2>&1
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-ab.$$','utf8'));
+const g=r.grown.find(x=>x.family==='falsifier-missing');
+// exactly the ONE new one is new debt; the pre-existing $BASE0 stay silent
+process.exit(g && g.delta===1 && g.was===$BASE0 ? 0 : 1);
+"; expect "one feature added after adoption is new debt; the pre-existing ones stay silent" $?
+node -e "
+const fs=require('fs'); const p='$T3/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+for (const f of fl.features) if (!f.falsifier) f.falsifier='paid down during the demo';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --ratchet >/dev/null
+node -e "
+const b=require('$T3/trace/adoption-baseline.json');
+// debt paid down is locked out: the family is gone or lowered, so it can never return quietly
+process.exit((b.debt['falsifier-missing']||0) < $BASE0 ? 0 : 1);
+"; expect "--ratchet lowers the baseline so paid-down debt cannot come back" $?
+rm -f /tmp/demo-ab.$$
+
+step "32/33" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

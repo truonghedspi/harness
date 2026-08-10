@@ -1,0 +1,63 @@
+#!/usr/bin/env node
+// install-onboarder.mjs — the one command you run against an existing repo.
+//
+// Chicken-and-egg: the onboarding agent's job is to decide how to scaffold this repo, so it has to
+// exist before the scaffold does. This drops the smallest possible footprint — one prompt, one
+// agent config — and nothing else. The agent then surveys, asks what it cannot infer, and runs
+// setup-harness-loop.mjs itself with the flags it worked out.
+//
+// Deliberately minimal: pointing a scaffolder at someone's five-year-old repo before anyone has
+// looked at it is how you get an AGENTS.md overwritten and a maintainer who never trusts the tool
+// again.
+//
+// Usage: node install-onboarder.mjs --target /path/to/existing/repo [--force]
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const args = process.argv.slice(2);
+const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
+const FORCE = args.includes("--force");
+const TARGET = path.resolve(opt("--target", "."));
+const skillRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+if (!existsSync(TARGET)) { console.error(`no such directory: ${TARGET}`); process.exit(2); }
+
+const AGENT = {
+  name: "harness-onboarder",
+  description:
+    "Brings an EXISTING codebase under the harness: surveys the repo, asks only what it cannot infer, " +
+    "scaffolds without overwriting, backfills the feature list from real in-flight work, and records an " +
+    "adoption baseline so the back catalogue is accepted debt instead of a wall of day-one warnings.",
+  prompt: "file://../../prompts/harness-onboarder.md",
+  tools: ["read", "write", "shell", "*"],
+  allowedTools: ["read"],
+  includeMcpJson: true,
+  resources: ["file://../../prompts/harness-onboarder.md"],
+};
+
+const files = [
+  ["prompts/harness-onboarder.md",
+    readFileSync(path.join(skillRoot, "prompts", "harness-onboarder.md"), "utf8")
+      .replaceAll("<skill>", skillRoot)],
+  [".kiro/agents/harness-onboarder.json", JSON.stringify(AGENT, null, 2) + "\n"],
+];
+
+const written = [], skipped = [];
+for (const [rel, content] of files) {
+  const dest = path.join(TARGET, rel);
+  if (existsSync(dest) && !FORCE) { skipped.push(rel); continue; }
+  mkdirSync(path.dirname(dest), { recursive: true });
+  writeFileSync(dest, content);
+  written.push(rel);
+}
+
+console.log(`\nOnboarder installed into: ${TARGET}`);
+for (const f of written) console.log(`  + ${f}`);
+for (const f of skipped) console.log(`  · ${f} (exists — re-run with --force to overwrite)`);
+console.log(`\nNothing else was touched. Next:\n`);
+console.log(`  cd ${TARGET}`);
+console.log(`  kiro-cli chat --agent harness-onboarder\n`);
+console.log(`It will survey the repo, ask you a single round of questions with recommended answers,`);
+console.log(`and only then scaffold — never overwriting what is already there.`);
+console.log(`Contract: ${path.join(skillRoot, "references", "adopting-an-existing-project.md")}\n`);
