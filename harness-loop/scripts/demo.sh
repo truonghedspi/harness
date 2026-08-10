@@ -681,6 +681,23 @@ d.features.find(f=>f.id==='feat-p').evidence='wrote the test; ran it, FAILED (ex
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
 [ "$(route_node)" = "maker" ]; expect "only once the oracle exists does the build feature become eligible" $?
+# Level 3 is proof, not construction — the node that owns it belongs to the test band, and the
+# routing layer is what tells a reader (and the run-loop log) which band a node is in.
+node -e "
+const fs=require('fs');
+const src=fs.readFileSync('$TO/loop/route.mjs','utf8');
+const m=src.match(/node: \"k8s-integration-tester\"[^}]*?layer: \"(\w+)\"/s);
+process.exit(m && m[1]==='integration' ? 0 : 1);
+"; expect "k8s-integration-tester routes as layer:integration, not layer:implementation" $?
+node -e "
+const fs=require('fs');
+const p='$SCRIPTS/../templates/k8s/prompts/k8s-integration-tester.md';
+const t=fs.readFileSync(p,'utf8');
+// a test-layer node carries the test-authoring rules, including the honest caveat that unlike
+// test-designer it DOES read the implementation, so its independence is the boundary
+const need=[/traceability header/i, /falsifier/i, /red before/i.test(t)?/red/i:/red/i, /never widen an assertion/i, /independence comes from the \*\*boundary\*\*/i];
+process.exit(need.every(r=>r.test(t)) ? 0 : 1);
+"; expect "its prompt carries the test-authoring rules and the boundary-not-blindness caveat" $?
 # The upstream half: the material a falsifier is derived FROM is a design output.
 mkdir -p "$TO/docs/design"
 printf '# Reconciler\n\nIt reads the log and fills the gap.\nIt writes to the sink.\n%.0s' 1 2 3 4 5 6 7 8 > "$TO/docs/design/recon.md"

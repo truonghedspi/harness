@@ -22,7 +22,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
-| `k8s-integration-tester` | agent | cluster lifecycle + Level 3 tests | chart, `feature_list.json` | chart, tests, `feature_list.json` |
+| `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json` | chart, tests, `feature_list.json` |
 
 `maker`, `test-implementer`, `harness-setup` and `k8s-integration-tester` write unrestricted; every
 other agent is confined by `toolsSettings.write.allowedPaths`. **That confinement is the edge set**:
@@ -54,7 +54,7 @@ if a prove feature has a falsifier
    but no recorded test run               → test-implementer
 if a build feature's prove feature
    has no test yet                        → NOT eligible (the maker would write it)
-if feature.verification touches k8s       → k8s-integration-tester
+if feature.verification touches k8s       → k8s-integration-tester  [integration]
 if feature.attempts >= maxAttempts        → blocked (stop retrying)
 if assumption.status == needs-human       → context-interviewer   [STOPS the loop]
 if feature.readyForCheck                  → verify-harness --promote → checker
@@ -83,7 +83,7 @@ flowchart TD
   C -->|NEEDS DESIGN| D
   C -->|NEEDS RE-PLAN| FP
   M -.->|NEEDS DESIGN| D
-  M -.->|k8s feature| K[k8s-integration-tester]
+  M -.->|k8s feature| K["k8s-integration-tester<br/>integration / Level 3"]
   K --> C
   D -.->|needs-human| CI
   classDef code fill:#eef,stroke:#446

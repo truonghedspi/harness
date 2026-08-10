@@ -54,6 +54,30 @@ fixing, not a reason to route around it.
    would (its actual Service/Ingress endpoint inside the namespace `k8s-test-env.sh` creates), and
    it must be genuinely falsifiable — able to fail if the cross-service contract breaks, not just
    "the pod is Running."
+
+   **You are a test-layer node, so the test-authoring rules apply to you in full**
+   (`docs/reference/test-authoring.md`):
+   - **Open the test file with a traceability header** naming the `requirement_id` / feature id it
+     implements. `verify-harness.mjs` reports `test-untraceable` otherwise, and a Level 3 test
+     nobody can trace to a requirement is the most expensive kind to own.
+   - **Fill the feature's `falsifier`**: the specific cross-service defect this catches — "service A
+     serialises the field as a string while B expects a number", not "the deploy fails". If you
+     cannot name one, the test does not discriminate and you are asserting that Kubernetes works.
+   - **See it red before you see it green, and record both** in the feature's `evidence`. The
+     cheapest way: point the test at the contract *before* the chart or the code satisfies it, or
+     break one value in the chart and confirm the test notices. A Level 3 test that has only ever
+     been green usually proves the cluster came up, nothing more.
+   - **Never widen an assertion, lengthen a timeout, or drop a check to make a deploy pass.** That
+     converts a real failure into a green build, which is worse than a red one because nobody will
+     look again.
+
+   **One honest difference from `test-designer`/`test-implementer`:** they may not read the
+   implementation, and that blindness is what makes them independent oracles. You must read it —
+   diagnosing a failed deploy is half your job. Your independence comes from the **boundary** you
+   test across, not from ignorance of the code. So be aware that you can write a test shaped by
+   what the code happens to do; derive the expected behaviour from
+   `docs/testing-standards.md` and the feature's stated contract, never from the handler you just
+   read while debugging.
 4. **Run it for real**, always through the script:
    ```bash
    tools/k8s-test-env.sh <chart-path> -- <your real test command>

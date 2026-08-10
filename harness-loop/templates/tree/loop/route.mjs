@@ -80,7 +80,13 @@ const RULES = [
     },
   },
   {
-    node: "k8s-integration-tester", kind: "agent", layer: "implementation",
+    // Level 3 of docs/testing-standards.md — this node's job is PROOF across a real service
+    // boundary, not building the thing. It is a test-layer node, and the test-authoring discipline
+    // applies to it (traceability, a red run, a named falsifier). It is deliberately NOT tagged
+    // `oracle`: unlike test-designer/test-implementer it must read the implementation to diagnose
+    // a failed deploy, so its independence comes from the boundary it tests across, not from
+    // blindness to the code.
+    node: "k8s-integration-tester", kind: "agent", layer: "integration",
     match: () => {
       if (!has(".kiro/agents/k8s-integration-tester.json")) return null;
       const f = open.find((x) => /k8s-test-env|kubectl|helm |namespace/i.test(String(x.verification || "")) &&

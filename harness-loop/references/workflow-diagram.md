@@ -27,14 +27,14 @@ flowchart TD
     GATES -- no --> FIX["layer:project → fix the target\nlayer:harness → fix the SKILL"]
     FIX --> GATES
     GATES -- yes --> LOOP["loop/run-loop.sh N\nrouted by loop/route.mjs"]
-    LOOP --> K8S{"needs a real cluster?"}
-    K8S -- yes --> KT["k8s-integration-tester"]
+    LOOP --> K8S{"verification crosses a real\nservice boundary?"}
+    K8S -- yes --> KT["k8s-integration-tester\nLAYER: integration (Level 3)\nsame test-authoring rules;\nreads the code, so its independence\nis the boundary, not blindness"]
     KT --> STOP
     K8S -- no --> STOP{"loop/goal.md\nstop condition met?"}
     STOP -- no --> LOOP
     STOP -- yes --> I["DONE"]
     classDef oracle fill:#eef7ee,stroke:#4a7
-    class TD,TI oracle
+    class TD,TI,KT oracle
 ```
 
 **Why the oracle sits between decomposition and implementation, and why half of it moved up into

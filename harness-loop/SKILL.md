@@ -292,7 +292,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Target is a Kubernetes-deployed microservice and Docker isn't available for Level 3 testing:
   [references/k8s-integration-testing.md](references/k8s-integration-testing.md) — a
   namespace-per-run Helm deploy/test/collect-diagnostics/teardown script
-  (`templates/k8s/tools/k8s-test-env.sh`), the `k8s-integration-tester` agent that fills in the
+  (`templates/k8s/tools/k8s-test-env.sh`), the `k8s-integration-tester` agent — a **test-layer**
+  node owning Level 3, held to the same authoring rules as the other test agents (a traceability
+  header, a named `falsifier`, a red run recorded before the green one), which fills in the
   chart, writes and runs real Level 3 tests against it, and diagnoses failures
   (`templates/k8s/prompts/k8s-integration-tester.md` +
   `templates/k8s/.kiro/agents/k8s-integration-tester.json`) — all copied in deliberately, not part

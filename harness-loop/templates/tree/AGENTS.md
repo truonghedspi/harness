@@ -36,7 +36,7 @@ state ownership — is `docs/reference/graph.md`.
 | `test-designer` → `test-implementer` | a feature has no `falsifier`, or its oracle is unwritten | the oracle — **neither reads the implementation** (`docs/reference/test-authoring.md`) |
 | `maker` | a feature is eligible | implementation. **Cannot set `status: done`** |
 | `checker` | a feature is `readyForCheck` | judgement — the only agent that may set `done` |
-| `k8s-integration-tester` | the verification deploys to a real cluster | implementation, cluster lifecycle |
+| `k8s-integration-tester` | the verification deploys to a real cluster | **integration** — Level 3 proof across a real service boundary. A test-layer node: same authoring rules, but it *does* read the code, so its independence is the boundary, not blindness |
 | `harness-setup` | the environment is not ready | toolchain and baseline |
 
 `harness-onboarder` is not here: it runs once, before this scaffold existed, to adopt an existing
