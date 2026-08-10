@@ -272,6 +272,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   [references/design-engineering.md](references/design-engineering.md)
 - What each mechanism in this skill is actually defending against — the LLM failure-mode taxonomy,
   including the ones still uncountered: [references/llm-failure-modes.md](references/llm-failure-modes.md)
+- What "good" means at each step, as a rubric rather than a mood — the criteria to apply at an
+  approval gate, and the two test failure modes that look like diligence:
+  [references/step-acceptance.md](references/step-acceptance.md)
 - Spending the one resource that does not renew — the exhaustion ladder before any question
   reaches a person, what is genuinely irreducible, and why under-asking is worse than over-asking:
   [references/human-attention.md](references/human-attention.md)

@@ -22,7 +22,8 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
 | `tools/agent-context.mjs` | code | Claude Code only — injects an agent's `resources` at spawn (`SubagentStart`) | `agents.manifest.json`, the listed files | nothing (emits context) |
 | `tools/guard-write.mjs` | code | Claude Code only — denies an edit outside an agent's `writes` (`PreToolUse`) | `agents.manifest.json`, the tool payload | nothing (allow/deny) |
-| `loop/route.mjs` | code | **the dispatcher** — reads shared state, returns the next node + its layer + why | `feature_list.json`, `docs/assumptions.md` | nothing (pure) |
+| `loop/route.mjs` | code | **the router** — reads shared state, returns the next node + its layer + why | `feature_list.json`, `docs/assumptions.md` | nothing (pure) |
+| `loop/run-loop.sh` | code | **the dispatcher** — runs the node the router named, on kiro-cli or Claude Code (`HARNESS_RUNTIME`, else detected) | `route.mjs` output | nothing directly; the agent it spawns writes |
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
