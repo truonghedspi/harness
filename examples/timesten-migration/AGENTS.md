@@ -2,14 +2,18 @@
 
 > **Status: dormant.** Scaffolded 2026-07-30 and untouched since; all 9 features in
 > `feature_list.json` are still `not-started`. This was the repository's original project, before
-> the repo became the home of the `harness-loop` skill. It is kept because it is a real worked
-> example of the harness applied to a hard migration — and because its scaffold (`init.sh`,
-> `feature_list.json`, `inventory/`, `loop/`, `.kiro/agents/`, `trace/`) is still on disk at the
-> repo root and would be orphaned without this file.
+> the repo became the home of the `harness-loop` skill. It is kept as a real worked example of the
+> harness applied to a hard migration.
 >
-> This file **was** the repo's root `AGENTS.md`. If you resume the migration, read this as its
-> router; the repo-level router is now [`../AGENTS.md`](../AGENTS.md) and describes the harness
-> assets instead. Paths below are relative to the repository root.
+> **This directory is a self-contained harness root.** `cd` here and Kiro picks up this file plus
+> `.kiro/agents/` (`maker`, `checker`, `harness-setup`); every path below is relative to
+> *this directory*, not the repository root. The repo-level router is
+> [`../../AGENTS.md`](../../AGENTS.md) and describes the harness assets instead.
+>
+> Moved here from the repo root on 2026-08-10, when three of its four agent configs turned out to
+> have broken `file://` URIs — kiro resolves them relative to `.kiro/agents/`, so `file://./loop/…`
+> pointed nowhere and the agents were silently falling back to the unrestricted default. Fixed
+> during the move; nobody had noticed because the project is dormant.
 
 This project migrates the core financial logic of a production system from Oracle TimesTen
 (PL/SQL + SQL) to a deterministic Java service on Aeron Cluster. The repository is the system
@@ -149,10 +153,8 @@ existing exported copies requested per D-009; no replay of any kind ever execute
 
 ## Install (Kiro / kiro-cli)
 
-1. This repo root IS the harness root, and the custom agents live in `.kiro/agents/`.
-   **Changed since this was written:** the root `AGENTS.md` Kiro auto-loads now describes the
-   harness assets, not this migration. To resume the migration, point the agents at *this* file
-   as their router — or restore it to the root under a name Kiro picks up.
+1. `cd examples/timesten-migration` — this directory is the harness root. Kiro picks up this
+   `AGENTS.md` and the three custom agents in `.kiro/agents/` automatically.
 2. Configure the TimesTen MCP server in `.kiro/settings/mcp.json` (replace the
    placeholders), pointing at a reference instance — never production.
 3. Run the bundled setup agent: `kiro-cli chat --agent harness-setup`. It verifies the

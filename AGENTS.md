@@ -18,7 +18,7 @@ skill that teaches a discipline it does not follow is not evidence of anything.
 | `harness-loop/scripts/` | The tooling: create, verify, improve, plus the analysis tools copied into targets |
 | `harness-loop/harness-issues.jsonl` | Known defects in this skill, their status, and where each was seen |
 | `test-design.skill/` | The test-design skill pack (vendored into targets as `skills/test-design/`) |
-| `docs/timesten-aeron-migration.md` | The dormant migration project whose scaffold still sits at the repo root |
+| `examples/timesten-migration/` | A dormant worked example — a real migration under this harness, self-contained |
 
 ## Startup Workflow (start of session — clock in)
 
@@ -85,8 +85,11 @@ deliberately, and asserts each gate catches what it claims to.
 
 ## Also in this repo
 
-The repo root still holds the scaffold of a **dormant** project — the TimesTen → Aeron Cluster
-migration (`init.sh`, `feature_list.json`, `inventory/`, `loop/`, `.kiro/agents/`, `trace/`,
-`docs/0*.md`, `progress.md`). Its router is [`docs/timesten-aeron-migration.md`](docs/timesten-aeron-migration.md).
-Do not treat those files as the harness's own — `feature_list.json` at the root is the migration's
-scope, not this skill's.
+`examples/timesten-migration/` is a **dormant** worked example: a real TimesTen → Aeron Cluster
+migration under this harness, self-contained with its own `AGENTS.md`, `init.sh`,
+`feature_list.json`, `loop/`, `tools/`, `inventory/` and `.kiro/`. `cd` into it and Kiro loads its
+three agents; from the repo root Kiro loads only `harness-improver`, which is the harness's own.
+
+It is an example, not this repo's scope. Read it for what a filled-in harness looks like on a hard
+problem — the per-unit pipeline, the parity-evidence Definition of Done, the exclusion register
+that requires a human `approvedBy`.

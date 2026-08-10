@@ -27,13 +27,12 @@ This repository holds the agent-harness assets for the team:
   cluster access — see `harness-loop/references/k8s-integration-testing.md`.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
-- **A dormant TimesTen → Aeron Cluster migration** whose scaffold still occupies the repo root
-  (`init.sh`, `feature_list.json`, `inventory/`, `loop/`, `.kiro/agents/`, `trace/`, `docs/0*.md`).
-  Scaffolded 2026-07-30, untouched since, all 9 features `not-started`. Kept as a real worked
-  example of the harness on a hard migration — see
-  [`docs/timesten-aeron-migration.md`](docs/timesten-aeron-migration.md) for its router and
-  full README. **Its `feature_list.json` at the repo root is the migration's scope, not this
-  skill's.**
+- **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster
+  migration under this harness, self-contained (its own `AGENTS.md`, `init.sh`, `feature_list.json`,
+  `loop/`, `tools/`, `inventory/`, `.kiro/`). Scaffolded 2026-07-30, untouched since, all 9
+  features `not-started`. Read it for what a filled-in harness looks like on a hard problem —
+  the per-unit pipeline, parity-evidence Definition of Done, and an exclusion register that
+  requires a human `approvedBy`.
 
 ---
 

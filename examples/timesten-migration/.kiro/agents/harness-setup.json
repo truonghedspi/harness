@@ -1,0 +1,21 @@
+{
+  "name": "harness-setup",
+  "description": "Set up and validate the TimesTen\u2192Aeron migration harness against the real environment: toolchain, TimesTen MCP connectivity, sources.yaml, green baseline.",
+  "prompt": "file://../../prompts/harness-setup.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "resources": [
+    "file://../../AGENTS.md",
+    "file://../../inventory/sources.yaml",
+    "file://../../feature_list.json"
+  ],
+  "welcomeMessage": "Harness setup: I will verify toolchain, TimesTen MCP connectivity, fill sources.yaml, and get ./init.sh green. Setup only \u2014 no migration work."
+}
