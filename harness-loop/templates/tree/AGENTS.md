@@ -21,6 +21,30 @@
 - `progress.md` / `DECISIONS.md` — where we left off, and why decisions were made
 - `loop/goal.md` — the autonomous loop's objective and stopping condition
 
+## Agents — who does what, and who decides who runs next
+
+**Don't choose by hand.** `node loop/route.mjs` reads the state and names the next node, the layer
+it belongs to, and why. `loop/run-loop.sh` dispatches on it. Routing markers live in
+`feature_list.json`'s `checkerNotes` and in `docs/assumptions.md`; the full graph — nodes, edges,
+state ownership — is `docs/reference/graph.md`.
+
+| Agent | Runs when | Layer it owns |
+|---|---|---|
+| `context-interviewer` | a `needs-human` row sits in `docs/assumptions.md` | spec — facts the repo cannot contain |
+| `designer` → `design-reviewer` | `checkerNotes` starts `NEEDS DESIGN:` | design — components, cited claims, assumptions |
+| `feature-planner` | `checkerNotes` starts `NEEDS RE-PLAN:` | decomposition — re-cutting `feature_list.json` |
+| `test-designer` → `test-implementer` | a feature has no `falsifier`, or its oracle is unwritten | the oracle — **neither reads the implementation** (`docs/reference/test-authoring.md`) |
+| `maker` | a feature is eligible | implementation. **Cannot set `status: done`** |
+| `checker` | a feature is `readyForCheck` | judgement — the only agent that may set `done` |
+| `k8s-integration-tester` | the verification deploys to a real cluster | implementation, cluster lifecycle |
+| `harness-setup` | the environment is not ready | toolchain and baseline |
+
+`harness-onboarder` is not here: it runs once, before this scaffold existed, to adopt an existing
+repo (`docs/reference/adopting-an-existing-project.md`). Its output is everything you are reading.
+
+Two nodes are plain code, not agents: `tools/verify-harness.mjs --promote` (replays evidence) and
+`loop/approval-gate.mjs` (stops for a human before `done` becomes terminal).
+
 ## Startup Readiness
 
 Before any work, these four must hold (Lesson 6). If any fails, fixing it is the whole task:

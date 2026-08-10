@@ -385,6 +385,23 @@ mv "$T2/.kiro/agents/maker.json.bak" "$T2/.kiro/agents/maker.json"
 node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q "agent-missing-constraints" "$T2/trace/verify-report.json"; AMC=$?
 [ "$AMC" != "0" ]; expect "restoring the resource clears it — and the scaffold ships clean" $?
+# An agent nobody can reach is an agent nobody runs — the defect that left ten nodes with three
+# executable incoming edges (references/graph.md).
+grep -q '"id": "agent-unrouted"' "$T2/trace/verify-report.json"; AUR=$?
+[ "$AUR" != "0" ]; expect "the scaffold's router names every agent it ships — no unrouted node" $?
+cp "$T2/.kiro/agents/checker.json" "$T2/.kiro/agents/ghost.json"
+node -e "
+const fs=require('fs'); const p='$T2/.kiro/agents/ghost.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8')); j.name='ghost-agent';
+fs.writeFileSync(p, JSON.stringify(j,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='agent-unrouted');
+process.exit(f && f.evidence.includes('ghost-agent') ? 0 : 1);
+"; expect "an agent no router and no routing rule names is flagged" $?
+rm -f "$T2/.kiro/agents/ghost.json"
 
 step 23 "config/prompt agreement: an agent told to write a file it cannot write is caught"
 node -e "

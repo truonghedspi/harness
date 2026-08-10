@@ -528,6 +528,25 @@ function gateLoop() {
       remedy: "generator/evaluator separation: only the checker may flip done — fix the template",
     });
   }
+  // An agent nobody can reach is an agent nobody runs. The router (AGENTS.md/CLAUDE.md) is the
+  // first file every session reads (Lesson 4), so an agent it never names is discoverable only by
+  // listing .kiro/agents/ and guessing — which is how ten nodes ended up with three executable
+  // incoming edges (docs/reference/graph.md, "The seven implicit edges"). Warn, because a node may
+  // legitimately be dispatched only by loop/route.mjs; being named in either is enough.
+  const routerText = (read(P("AGENTS.md")) || "") + (read(P("CLAUDE.md")) || "") +
+    (read(P("loop", "route.mjs")) || "");
+  const agentNames = lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))
+    .map((f) => (readJSON(P(".kiro", "agents", f)) || {}).name).filter(Boolean);
+  const unnamed = agentNames.filter((n) => !routerText.includes(n));
+  if (agentNames.length && unnamed.length) {
+    add({
+      gate: "loop", id: "agent-unrouted", layer: "project", severity: "warn", count: unnamed.length,
+      symptom: `${unnamed.length} of ${agentNames.length} agent(s) are named by neither the router nor loop/route.mjs — nothing tells a session they exist or when to run them`,
+      remedy: "name each in the router's agent table with the condition that selects it, or give it a rule in loop/route.mjs. An agent reachable only by guessing is a node with no incoming edge (docs/reference/graph.md)",
+      evidence: unnamed.slice(0, 6).join(", ") + (unnamed.length > 6 ? ", …" : ""),
+    });
+  }
+
   for (const rel of lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))) {
     const j = readJSON(P(".kiro", "agents", rel));
     // An agent that can write but never loads the rulebook will violate rules it has never seen —
