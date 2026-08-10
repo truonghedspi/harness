@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # run-loop.sh — headless maker–checker loop via kiro-cli (the automation / heartbeat, Lesson 13).
 # Usage: loop/run-loop.sh [iterations]   (default 1)
-# Requires: KIRO_API_KEY set for headless auth. Verify flags with `kiro-cli chat --help`.
+# Requires: kiro-cli logged in (or KIRO_API_KEY), or the `claude` CLI. See dispatch() below.
 #
-# --trust-all-tools grants tools without confirmation — safe only because each agent's JSON
-# config + AGENTS.md invariants bound what it may do (checker is write-restricted to state files,
-# MCP connectors read-only). Tighten to --trust-tools=read,write,shell if policy requires.
+# Runs on kiro-cli or Claude Code. Set HARNESS_RUNTIME=kiro|claude to force one; otherwise it is
+# detected from which agent directory exists. Both are generated from agents.manifest.json, so the
+# same roles, resources and write restrictions apply either way — see docs/reference/runtimes.md
+# for the two places the runtimes genuinely differ.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,12 +42,42 @@ if all_settled; then
   exit 0
 fi
 
-# Auth: an API key OR an existing kiro-cli login both work — found via real use (the CLI was
-# logged in interactively; demanding the env var anyway blocked a perfectly runnable loop).
-if [ -z "${KIRO_API_KEY:-}" ] && ! kiro-cli whoami >/dev/null 2>&1; then
-  echo "no auth — set KIRO_API_KEY or log in first (kiro-cli login)." >&2
-  exit 1
+# --- runtime selection -------------------------------------------------------------------------
+RUNTIME="${HARNESS_RUNTIME:-}"
+if [ -z "$RUNTIME" ]; then
+  if   command -v kiro-cli >/dev/null 2>&1 && [ -d .kiro/agents ];   then RUNTIME=kiro
+  elif command -v claude   >/dev/null 2>&1 && [ -d .claude/agents ]; then RUNTIME=claude
+  else
+    echo "no runtime — install kiro-cli with .kiro/agents/, or claude with .claude/agents/." >&2
+    echo "Generate the missing one: node tools/gen-agents.mjs --target . --runtime both" >&2
+    exit 1
+  fi
 fi
+
+case "$RUNTIME" in
+  kiro)
+    # Auth: an API key OR an existing kiro-cli login both work — found via real use (the CLI was
+    # logged in interactively; demanding the env var anyway blocked a perfectly runnable loop).
+    if [ -z "${KIRO_API_KEY:-}" ] && ! kiro-cli whoami >/dev/null 2>&1; then
+      echo "no auth — set KIRO_API_KEY or log in first (kiro-cli login)." >&2; exit 1
+    fi ;;
+  claude)
+    [ -d .claude/agents ] || { echo "runtime=claude but .claude/agents/ is missing." >&2; exit 1; } ;;
+  *) echo "unknown HARNESS_RUNTIME=$RUNTIME (expected kiro or claude)" >&2; exit 1 ;;
+esac
+echo "runtime: $RUNTIME"
+
+# One entry point for both. --trust-all-tools / --dangerously-skip-permissions grant tools without
+# confirmation, which is safe only because each agent's generated config bounds what it may do:
+# on kiro via toolsSettings.write.allowedPaths, on Claude Code via the per-agent PreToolUse hook
+# (tools/guard-write.mjs). Those are not decoration — they are what stops the checker fixing the
+# maker's work and passing it off as the maker's.
+dispatch() {  # dispatch <agent> <message>
+  case "$RUNTIME" in
+    kiro)   kiro-cli chat --agent "$1" --no-interactive --trust-all-tools "$2" ;;
+    claude) claude -p "$2" --agent "$1" --dangerously-skip-permissions < /dev/null ;;
+  esac
+}
 
 for i in $(seq 1 "$ITERATIONS"); do
   if all_settled; then
@@ -72,7 +103,7 @@ for i in $(seq 1 "$ITERATIONS"); do
   esac
 
   if [ "$KIND" = "agent" ]; then
-    kiro-cli chat --agent "$NODE" --no-interactive --trust-all-tools \
+    dispatch "$NODE" \
       "You are running HEADLESS under loop/run-loop.sh — no human can answer questions, so commit directly instead of asking. The router selected you because: $WHY. Run exactly one iteration per your instructions and loop/goal.md. Honor every stop condition." \
       || { echo "$NODE failed — stopping loop"; exit 1; }
   fi
@@ -111,7 +142,7 @@ for i in $(seq 1 "$ITERATIONS"); do
   fi
 
   echo "=== iteration $i/$ITERATIONS — checker ==="
-  kiro-cli chat --agent checker --no-interactive --trust-all-tools \
+  dispatch checker \
     "Check every feature with readyForCheck=true per your instructions. Verdicts and reasons only." \
     || { echo "checker failed — stopping loop"; exit 1; }
 

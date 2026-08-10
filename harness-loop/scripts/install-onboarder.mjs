@@ -36,11 +36,25 @@ const AGENT = {
   resources: ["file://../../prompts/harness-onboarder.md"],
 };
 
+const CLAUDE_AGENT = `---
+name: harness-onboarder
+description: ${JSON.stringify(AGENT.description)}
+tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
+---
+
+`;
+
 const files = [
   ["prompts/harness-onboarder.md",
     readFileSync(path.join(skillRoot, "prompts", "harness-onboarder.md"), "utf8")
       .replaceAll("<skill>", skillRoot)],
   [".kiro/agents/harness-onboarder.json", JSON.stringify(AGENT, null, 2) + "\n"],
+  // Both runtimes, because we do not know which one this repo's owner uses and asking is a worse
+  // first impression than two small files. Claude Code has no prompt-file field: the body IS the
+  // system prompt, so the prompt is inlined here rather than referenced.
+  [".claude/agents/harness-onboarder.md", CLAUDE_AGENT +
+    readFileSync(path.join(skillRoot, "prompts", "harness-onboarder.md"), "utf8")
+      .replaceAll("<skill>", skillRoot)],
 ];
 
 const written = [], skipped = [];
@@ -57,7 +71,8 @@ for (const f of written) console.log(`  + ${f}`);
 for (const f of skipped) console.log(`  · ${f} (exists — re-run with --force to overwrite)`);
 console.log(`\nNothing else was touched. Next:\n`);
 console.log(`  cd ${TARGET}`);
-console.log(`  kiro-cli chat --agent harness-onboarder\n`);
+console.log(`  kiro-cli chat --agent harness-onboarder      # or:`);
+console.log(`  claude -p "Onboard this repository onto the harness." --agent harness-onboarder\n`);
 console.log(`It will survey the repo, ask you a single round of questions with recommended answers,`);
 console.log(`and only then scaffold — never overwriting what is already there.`);
 console.log(`Contract: ${path.join(skillRoot, "references", "adopting-an-existing-project.md")}\n`);

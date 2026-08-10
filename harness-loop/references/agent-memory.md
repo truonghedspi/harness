@@ -14,7 +14,7 @@ it*.
 Every other piece of state in this skill (`progress.md`, `DECISIONS.md`, `feature_list.json`,
 `trace/trace.jsonl`) is a plain file, git-diffable, readable without special tooling, and portable
 across whatever runtime drives the loop (Kiro today, something else tomorrow — see
-`references/kiro-loop-runtime.md`'s "Adapting to another runtime"). A memory library (Mem0, a
+`references/runtimes.md`). A memory library (Mem0, a
 vector store) would add a runtime dependency and an opaque store that breaks that pattern for no
 benefit at this scale — an agent's memory here is dozens of entries, not millions; grep and a
 markdown index are the right-sized tool. The *shape* of what's stored below is still grounded in

@@ -2,7 +2,7 @@
 name: harness-loop
 description: >-
   Set up a complete agent harness AND an autonomous maker–checker loop on top of any project,
-  targeting Kiro (kiro-cli). Scaffolds AGENTS.md, feature_list.json, init.sh, progress.md,
+  targeting kiro-cli and Claude Code from one agent manifest. Scaffolds AGENTS.md, feature_list.json, init.sh, progress.md,
   DECISIONS.md, session-handoff.md, docs/ topic files, tools/trace.mjs observability, and a
   loop/ (goal + maker/checker prompts + run-loop.sh) plus .kiro/ custom agents. Every artifact
   maps to one of the 13 Learn-Harness-Engineering lessons, and a bundled coverage checker proves
@@ -264,8 +264,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - The full per-lesson check contract: [references/13-lesson-coverage.md](references/13-lesson-coverage.md)
 - Lesson 13 in depth (six primitives, `/goal` vs `/loop`, generator/evaluator separation, four
   silent costs, maturity ladder): [references/loop-engineering.md](references/loop-engineering.md)
-- How the Kiro runtime wires together (agent JSON, hooks, `run-loop.sh`, MCP connectors):
-  [references/kiro-loop-runtime.md](references/kiro-loop-runtime.md)
+- Running on kiro-cli **and** Claude Code from one `agents.manifest.json` — the field mapping, the
+  two places the runtimes genuinely differ, and what was verified by running it:
+  [references/runtimes.md](references/runtimes.md)
 - Automating design without inheriting the agent's blind spots (cited claims, the assumption
   registry, spikes, adversarial design review, and where the human is actually needed):
   [references/design-engineering.md](references/design-engineering.md)
@@ -354,7 +355,13 @@ After setup, the target project should contain:
       ([references/llm-failure-modes.md](references/llm-failure-modes.md))
 - [ ] `tools/cross-cutting-audit.mjs` — finds concerns nobody owns (`unowned`) and registered
       decisions still waiting on a human (`open-decision`)
-- [ ] `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer,test-designer,test-implementer}.json`
+- [ ] `agents.manifest.json` — the single source for every agent, from which
+      `.kiro/agents/*.json` **and** `.claude/agents/*.md` are generated (`tools/gen-agents.mjs`);
+      Claude Code's two missing fields are covered by `tools/agent-context.mjs` (per-agent
+      resources) and `tools/guard-write.mjs` (per-agent write limits)
+      ([references/runtimes.md](references/runtimes.md))
+- [ ] `.kiro/agents/*.json` and/or `.claude/agents/*.md` for
+      {maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer,test-designer,test-implementer}
       (+ `.kiro/settings/mcp.json`)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
 - [ ] `verify-harness.mjs --run-features` reports 0 blockers (not just structural coverage)

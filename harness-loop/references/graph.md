@@ -20,6 +20,8 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
+| `tools/agent-context.mjs` | code | Claude Code only — injects an agent's `resources` at spawn (`SubagentStart`) | `agents.manifest.json`, the listed files | nothing (emits context) |
+| `tools/guard-write.mjs` | code | Claude Code only — denies an edit outside an agent's `writes` (`PreToolUse`) | `agents.manifest.json`, the tool payload | nothing (allow/deny) |
 | `loop/route.mjs` | code | **the dispatcher** — reads shared state, returns the next node + its layer + why | `feature_list.json`, `docs/assumptions.md` | nothing (pure) |
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
@@ -27,8 +29,13 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json` | chart, tests, `feature_list.json` |
 
 `maker`, `test-implementer`, `harness-setup` and `k8s-integration-tester` write unrestricted; every
-other agent is confined by `toolsSettings.write.allowedPaths`. **That confinement is the edge set**:
-an agent cannot create a handoff it has no write access to.
+other agent is confined by its `writes` list in `agents.manifest.json` — enforced on kiro by
+`toolsSettings.write.allowedPaths` and on Claude Code by the `guard-write.mjs` hook
+(`runtimes.md`). **That confinement is the edge set**: an agent cannot create a handoff it has no
+write access to.
+
+Every agent node above is generated from `agents.manifest.json` into both runtimes. Adding one
+means adding a manifest entry, not writing two config files.
 
 ## Shared state — one owner per field
 

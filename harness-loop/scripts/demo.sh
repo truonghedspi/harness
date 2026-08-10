@@ -811,7 +811,62 @@ process.exit((b.debt['falsifier-missing']||0) < $BASE0 ? 0 : 1);
 "; expect "--ratchet lowers the baseline so paid-down debt cannot come back" $?
 rm -f /tmp/demo-ab.$$
 
-step "32/33" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 32 "two runtimes from one manifest: kiro-cli and Claude Code stay in step"
+TR="$WORK/runtime-target"; rm -rf "$TR" && mkdir -p "$TR"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$TR" --name "RuntimeDemo" --purpose "runtime parity" >/dev/null
+node -e "
+const fs=require('fs');
+const kiro=fs.readdirSync('$TR/.kiro/agents').filter(f=>f.endsWith('.json')).map(f=>f.replace('.json',''));
+const cc=fs.readdirSync('$TR/.claude/agents').filter(f=>f.endsWith('.md')).map(f=>f.replace('.md',''));
+const man=require('$TR/agents.manifest.json').agents.filter(a=>!a.optional).map(a=>a.name);
+const same=(a,b)=>a.length===b.length&&a.every(x=>b.includes(x));
+process.exit(same(kiro,man)&&same(cc,man)?0:1);
+"; expect "one manifest emits both formats, with the same agent set" $?
+node -e "
+const fs=require('fs');
+// the two things Claude Code has no field for are carried by per-agent hooks
+const md=fs.readFileSync('$TR/.claude/agents/checker.md','utf8');
+process.exit(/SubagentStart:[\s\S]*agent-context\.mjs checker/.test(md) &&
+             /PreToolUse:[\s\S]*guard-write\.mjs checker/.test(md) ? 0 : 1);
+"; expect "the checker's Claude config carries the resource-injection and write-guard hooks" $?
+node -e "
+// the write restriction must actually restrict — this is what makes 'the maker never grades
+// itself' a property of the config rather than a line in a prompt
+const {execFileSync}=require('child_process');
+const run=(agent,file)=>JSON.parse(execFileSync('node',['tools/guard-write.mjs',agent],
+  {cwd:'$TR',input:JSON.stringify({tool_input:{file_path:file}}),encoding:'utf8'}))
+  .hookSpecificOutput.permissionDecision;
+process.exit(run('checker','feature_list.json')==='allow' &&
+             run('checker','src/Foo.java')==='deny' &&
+             run('maker','src/Foo.java')==='allow' ? 0 : 1);
+"; expect "guard-write allows the checker its state files and denies it source; the maker is free" $?
+node -e "
+const {execFileSync}=require('child_process');
+const out=JSON.parse(execFileSync('node',['tools/agent-context.mjs','checker'],
+  {cwd:'$TR',input:'{}',encoding:'utf8'}));
+const ctx=out.hookSpecificOutput.additionalContext;
+// resources are read at spawn, so they cannot be stale — and constraints.md must be among them
+process.exit(out.hookSpecificOutput.hookEventName==='SubagentStart' &&
+             ctx.includes('<file path=\"docs/constraints.md\">') ? 0 : 1);
+"; expect "agent-context injects the checker's resources at spawn, rulebook included" $?
+node -e "
+const fs=require('fs'); const p='$TR/.claude/agents/maker.md';
+fs.writeFileSync(p, fs.readFileSync(p,'utf8').replace('name: maker','name: maker # hand-edited'));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$TR" --skip-baseline --quiet
+node -e "
+const r=require('$TR/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='agent-generated-stale');
+process.exit(f && f.evidence.includes('maker.md') ? 0 : 1);
+"; expect "hand-editing a generated agent is caught — the runtimes must not diverge silently" $?
+node "$SCRIPTS/gen-agents.mjs" --target "$TR" --runtime both >/dev/null
+node "$SCRIPTS/verify-harness.mjs" --target "$TR" --skip-baseline --quiet
+node -e "
+const r=require('$TR/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='agent-generated-stale') ? 1 : 0);
+"; expect "regenerating from the manifest clears it" $?
+
+step "33/34" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

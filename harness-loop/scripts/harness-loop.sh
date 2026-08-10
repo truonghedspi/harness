@@ -23,6 +23,17 @@ SKILL_ROOT="$(cd "$SCRIPTS/.." && pwd)"
 
 TARGET=""; ITERATIONS=3; RUNNER="none"; DO_SETUP=0
 VERIFY_ARGS=(); SETUP_ARGS=()
+# Runs the improver on whichever runtime is available. Both agent formats are generated from
+# agents.manifest.json, so the role is identical either way (docs/reference/runtimes.md).
+harness_dispatch() {  # harness_dispatch <agent> <message>
+  local agent="$1"; shift
+  if [ "${HARNESS_RUNTIME:-}" = "claude" ] || { [ -z "${HARNESS_RUNTIME:-}" ] && ! command -v kiro-cli >/dev/null 2>&1 && command -v claude >/dev/null 2>&1; }; then
+    claude -p "$*" --agent "$agent" --dangerously-skip-permissions < /dev/null
+  else
+    kiro-cli chat --agent "$agent" --no-interactive --trust-all-tools "$*"
+  fi
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --target)        TARGET="$2"; shift 2 ;;
@@ -81,7 +92,7 @@ for i in $(seq 1 "$ITERATIONS"); do
     if [ "$RUNNER" = "kiro" ]; then
       PROMPT="$(node "$SCRIPTS/improve-harness.mjs" --prompt)"
       echo "--- dispatching harness-improver ---"
-      ( cd "$SKILL_ROOT/.." && kiro-cli chat --agent harness-improver --no-interactive --trust-all-tools \
+      ( cd "$SKILL_ROOT/.." && harness_dispatch harness-improver \
           "$PROMPT
 
 The affected target is $TARGET. After fixing the template, apply the same fix to that target's copy

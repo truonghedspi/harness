@@ -64,7 +64,7 @@ harness-loop/
 ├── references/
 │   ├── 13-lesson-coverage.md     the contract check-coverage.mjs implements
 │   ├── loop-engineering.md       Lesson 13 in depth (6 primitives, /goal vs /loop, 4 costs)
-│   └── kiro-loop-runtime.md      how the Kiro pieces wire together
+│   └── runtimes.md               kiro-cli and Claude Code from one manifest
 ├── scripts/
 │   ├── setup-harness-loop.mjs    scaffolder
 │   └── check-coverage.mjs        13-lesson coverage auditor

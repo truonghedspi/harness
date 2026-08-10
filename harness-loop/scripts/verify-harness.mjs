@@ -118,6 +118,46 @@ function runCmd(cmd, { cwd = TARGET, timeout = TIMEOUT_MS, shell = true } = {}) 
   };
 }
 
+
+// Agents exist in two formats — .kiro/agents/*.json and .claude/agents/*.md — both generated from
+// agents.manifest.json. Every gate that inspects agents reads them through here, so a project
+// scaffolded for either runtime is checked identically. Returns a normalised shape.
+function readAgents() {
+  const out = [];
+  for (const f of lsSafe(P(".kiro", "agents")).filter((x) => x.endsWith(".json"))) {
+    const j = readJSON(P(".kiro", "agents", f));
+    if (!j) { out.push({ file: `.kiro/agents/${f}`, runtime: "kiro", broken: true }); continue; }
+    out.push({
+      file: `.kiro/agents/${f}`, runtime: "kiro", name: j.name,
+      uris: [j.prompt, ...(Array.isArray(j.resources) ? j.resources : [])]
+        .filter((u) => typeof u === "string" && u.startsWith("file://")),
+      resources: (j.resources || []).map((u) => String(u).replace(/^file:\/\/(\.\.\/)*/, "")),
+      canWrite: (j.tools || []).includes("write") || (j.tools || []).includes("*"),
+      writes: (j.toolsSettings && j.toolsSettings.write && j.toolsSettings.write.allowedPaths) || null,
+      text: read(P(".kiro", "agents", f)) || "",
+    });
+  }
+  for (const f of lsSafe(P(".claude", "agents")).filter((x) => x.endsWith(".md"))) {
+    const text = read(P(".claude", "agents", f)) || "";
+    const fm = /^---\n([\s\S]*?)\n---/.exec(text);
+    const field = (k) => { const m = new RegExp(`^${k}:\\s*(.+)$`, "m").exec(fm ? fm[1] : ""); return m ? m[1].trim() : null; };
+    const name = (field("name") || f.replace(/\.md$/, "")).replace(/^["']|["']$/g, "");
+    // Resources are injected by the SubagentStart hook, so the manifest — not the file — is the
+    // authority on what this agent loads. Read it from there.
+    const man = readJSON(P("agents.manifest.json"));
+    const entry = ((man && man.agents) || []).find((a) => a.name === name);
+    out.push({
+      file: `.claude/agents/${f}`, runtime: "claude", name,
+      uris: [],   // no file:// URIs in this format; the prompt is the body
+      resources: (entry && entry.resources) || [],
+      canWrite: /\bWrite\b|\bEdit\b/.test(field("tools") || "Write"),
+      writes: (entry && entry.writes) || null,
+      text,
+    });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Gate 1 — structural coverage (delegates to check-coverage.mjs)
 // ---------------------------------------------------------------------------------------------
@@ -535,8 +575,7 @@ function gateLoop() {
   // legitimately be dispatched only by loop/route.mjs; being named in either is enough.
   const routerText = (read(P("AGENTS.md")) || "") + (read(P("CLAUDE.md")) || "") +
     (read(P("loop", "route.mjs")) || "");
-  const agentNames = lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))
-    .map((f) => (readJSON(P(".kiro", "agents", f)) || {}).name).filter(Boolean);
+  const agentNames = [...new Set(readAgents().map((a) => a.name).filter(Boolean))];
   const unnamed = agentNames.filter((n) => !routerText.includes(n));
   if (agentNames.length && unnamed.length) {
     add({
@@ -555,77 +594,64 @@ function gateLoop() {
   // a live loop (HI-005), once on three of four agents in a dormant project nobody had run in ten
   // days. Blocker, not a warning — a write-capable agent with no rulebook loaded is not a
   // degraded harness, it is no harness.
-  for (const rel of lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))) {
-    const j = readJSON(P(".kiro", "agents", rel));
-    if (!j) {
+  for (const a of readAgents()) {
+    if (a.broken) {
       add({
-        gate: "loop", id: `agent-unparseable:${rel}`, layer: "project",
-        symptom: `.kiro/agents/${rel} is not valid JSON — kiro cannot load this agent at all`,
-        remedy: "fix the JSON. A malformed agent config is skipped silently, so the agent you think you are running does not exist",
+        gate: "loop", id: `agent-unparseable:${path.basename(a.file)}`, layer: "project",
+        symptom: `${a.file} is not valid JSON — the runtime cannot load this agent at all`,
+        remedy: "fix the JSON, or regenerate: node tools/gen-agents.mjs --target . A malformed agent config is skipped silently, so the agent you think you are running does not exist",
       });
       continue;
     }
-    const uris = [j.prompt, ...(Array.isArray(j.resources) ? j.resources : [])]
-      .filter((u) => typeof u === "string" && u.startsWith("file://"));
-    const broken = uris.filter((u) => !exists(path.resolve(P(".kiro", "agents"), u.slice("file://".length))));
+    // kiro only: Claude Code agents carry their prompt in the body, so there is no URI to break.
+    const broken = a.uris.filter((u) => !exists(path.resolve(P(".kiro", "agents"), u.slice("file://".length))));
     if (broken.length) {
       add({
-        gate: "loop", id: `agent-uri-broken:${j.name || rel}`, layer: "project", count: broken.length,
-        symptom: `${broken.length} file:// URI(s) in .kiro/agents/${rel} resolve to nothing — kiro resolves them relative to .kiro/agents/, so this agent starts without its prompt/resources and silently behaves as the unrestricted default`,
-        remedy: "prefix repo-root-relative paths with ../../ (file://../../loop/maker-prompt.md, not file://./loop/… or file://loop/…). Then re-check: a broken URI never raises an error, it just gives you a different agent",
+        gate: "loop", id: `agent-uri-broken:${a.name}`, layer: "project", count: broken.length,
+        symptom: `${broken.length} file:// URI(s) in ${a.file} resolve to nothing — kiro resolves them relative to .kiro/agents/, so this agent starts without its prompt/resources and silently behaves as the unrestricted default`,
+        remedy: "regenerate from the manifest (node tools/gen-agents.mjs --target .), which always writes ../../-prefixed URIs. A broken URI never raises an error, it just gives you a different agent",
         evidence: broken.slice(0, 5).join(", ") + (broken.length > 5 ? ", …" : ""),
       });
     }
     // An agent that can write but never loads the rulebook will violate rules it has never seen —
     // and the violation looks like ordinary output, so nothing catches it. Any always-remember
     // rule (file-size budget, index requirement, project invariants) lives in docs/constraints.md
-    // precisely because it is auto-loaded; this check is what keeps that guarantee true.
-    if (j && (j.tools || []).includes("write") && Array.isArray(j.resources)
-        && !j.resources.some((r) => String(r).includes("constraints.md"))
+    // precisely because it is auto-loaded; this check is what keeps that guarantee true on both
+    // runtimes (kiro `resources`, Claude Code's SubagentStart injection — same manifest list).
+    if (a.canWrite && a.resources.length && !a.resources.some((r) => r.includes("constraints.md"))
         && exists(P("docs", "constraints.md"))) {
       add({
-        gate: "loop", id: `agent-missing-constraints:${j.name || rel}`, layer: "harness", severity: "warn",
-        symptom: `${j.name || rel} can write files but does not load docs/constraints.md — it cannot follow rules it never sees`,
-        remedy: "add file://../../docs/constraints.md to that agent's resources in templates/tree/.kiro/agents/",
+        gate: "loop", id: `agent-missing-constraints:${a.name}`, layer: "harness", severity: "warn",
+        symptom: `${a.name} can write files but does not load docs/constraints.md — it cannot follow rules it never sees`,
+        remedy: "add docs/constraints.md to that agent's resources in agents.manifest.json, then regenerate",
       });
     }
     // An agent told to update a file it has no write permission for will fail at the moment it
     // matters, in a way no test covers — the instruction reads fine and the config reads fine; only
     // the pair is wrong. Found in the wild: the designer's prompt says "register it in
     // docs/cross-cutting.md" while its allowedPaths omitted that file.
-    if (j && Array.isArray(j.toolsSettings?.write?.allowedPaths)) {
-      const allowed = j.toolsSettings.write.allowedPaths;
-      const covers = (f) => allowed.some((a) =>
-        a === f || (a.endsWith("/**") && f.startsWith(a.slice(0, -2))));
-      const promptRel = String(j.prompt || "").replace(/^file:\/\/(\.\.\/)*/, "");
-      const body = read(P(promptRel)) || "";
+    if (Array.isArray(a.writes)) {
+      const covers = (f) => a.writes.some((w) => w === f || (w.endsWith("/**") && f.startsWith(w.slice(0, -2))));
+      const man = readJSON(P("agents.manifest.json"));
+      const entry = ((man && man.agents) || []).find((x) => x.name === a.name);
+      const body = entry ? (read(P(entry.prompt)) || "") : a.text;
       const WRITE_VERB = /\b(write|writes|writing|register|registers|record|records|update|updates|fill|fills|add(?:ing)? (?:a |one |it )?(?:row|line|entry)?\s*to)\b/i;
-      const wanted = new Set();
-      // "You do NOT write feature_list.json" is an instruction not to — and a path cited in
-      // parentheses is a reference, not a target. Both showed up as false positives on the first run.
       const NEGATED = /\b(not|never|n't|cannot|instead of)\b/i;
+      const wanted = new Set();
       for (const line of body.split("\n")) {
         if (!WRITE_VERB.test(line) || NEGATED.test(line)) continue;
         for (const m of line.matchAll(/`(docs\/[\w./-]+\.md|feature_list\.json|DECISIONS\.md|progress\.md|loop\/[\w.-]+\.md|session-handoff\.md)`/g)) {
-          // docs/reference/** is read-only knowledge copied in by setup — citing it is never a write.
           if (!m[1].startsWith("docs/reference/")) wanted.add(m[1]);
         }
       }
       for (const f of wanted) {
         if (covers(f)) continue;
         add({
-          gate: "loop", id: `agent-cannot-write-instructed:${j.name || rel}:${f}`, layer: "harness", severity: "warn",
-          symptom: `${j.name || rel}'s prompt tells it to write ${f}, but that path is not in its write allowedPaths`,
-          remedy: `either add ${f} to that agent's allowedPaths in templates/tree/.kiro/agents/, or stop instructing it to write there`,
+          gate: "loop", id: `agent-cannot-write-instructed:${a.name}:${f}`, layer: "harness", severity: "warn",
+          symptom: `${a.name}'s prompt tells it to write ${f}, but that path is not in its write list`,
+          remedy: `either add ${f} to that agent's "writes" in agents.manifest.json and regenerate, or stop instructing it to write there`,
         });
       }
-    }
-    if (!j) {
-      add({
-        gate: "loop", id: `agent-json-invalid:${rel}`, layer: "harness",
-        symptom: `.kiro/agents/${rel} is not valid JSON — kiro-cli will refuse to start it`,
-        remedy: "fix the agent template in templates/tree/.kiro/agents/",
-      });
     }
   }
 }
@@ -663,15 +689,17 @@ function gateCleanState() {
 const MEMORY_INDEX_MAX_LINES = 200;
 
 function gateMemory() {
-  for (const rel of lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))) {
-    const j = readJSON(P(".kiro", "agents", rel));
-    if (!j || !Array.isArray(j.resources)) continue;
-    for (const res of j.resources) {
-      // Agent JSONs live in .kiro/agents/, so kiro-cli resolves their file:// URIs relative to
-      // THAT directory — the templates carry a ../../ prefix. Tolerate any depth of it.
-      const m = /^file:\/\/(?:\.\.\/)*(memory\/[^/]+\/MEMORY\.md)$/.exec(res);
-      if (!m) continue;
-      const memPath = m[1];
+  // readAgents() normalises both runtimes' resource lists to plain repo-relative paths, so this
+  // holds whether the project was scaffolded for kiro, Claude Code, or both.
+  const seen = new Set();
+  for (const a of readAgents()) {
+    if (a.broken) continue;
+    for (const memPath of a.resources) {
+      if (!/^memory\/[^/]+\/MEMORY\.md$/.test(memPath)) continue;
+      if (seen.has(a.name + memPath)) continue;
+      seen.add(a.name + memPath);
+      const j = { name: a.name };
+      const rel = a.file;
       if (!exists(P(memPath))) {
         add({
           gate: "memory", id: `memory-missing:${j.name || rel}`, layer: "project", severity: "warn",
@@ -860,13 +888,36 @@ const RULE_BUDGET = 25;
 // the maker was instructed to skip it) that was found only by writing the routing table out by
 // hand. So when the router or an agent config changes and the graph does not, say so.
 // Timestamps only: whether the graph's *content* is right is a human's judgement, not a mtime's.
+// Agent configs are generated from agents.manifest.json. A hand-edit to a generated file is lost
+// on the next generation AND makes the two runtimes disagree while both still start cleanly —
+// the invisible failure class again, one level up from a broken URI.
+function gateGenerated() {
+  if (!exists(P("agents.manifest.json")) || !exists(P("tools", "gen-agents.mjs"))) return;
+  const runtime = exists(P(".kiro", "agents")) && exists(P(".claude", "agents")) ? "both"
+    : exists(P(".claude", "agents")) ? "claude" : "kiro";
+  const r = spawnSync(process.execPath,
+    [P("tools", "gen-agents.mjs"), "--target", TARGET, "--runtime", runtime, "--check"],
+    { encoding: "utf8" });
+  if (r.status !== 0) {
+    const files = (r.stderr || "").split("\n").filter((l) => /^\s{2}\S/.test(l)).map((l) => l.trim());
+    add({
+      gate: "loop", id: "agent-generated-stale", layer: "project", severity: "warn", count: files.length || 1,
+      symptom: `${files.length || "some"} generated agent file(s) no longer match agents.manifest.json`,
+      remedy: `edit agents.manifest.json (the source), then run: node tools/gen-agents.mjs --target . --runtime ${runtime}. Hand-edits to generated agent files are lost silently and make the runtimes diverge`,
+      evidence: files.slice(0, 5).join(", "),
+    });
+  }
+}
+
 function gateGraph() {
   const graph = P("docs", "reference", "graph.md");
   if (!exists(graph)) return;                       // opt-in: projects without the doc are not nagged
   const mtime = (p) => { try { return statSync(p).mtimeMs; } catch { return 0; } };
   const graphAt = mtime(graph);
   const sources = [P("loop", "route.mjs"), P("loop", "run-loop.sh"),
-    ...lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json")).map((f) => P(".kiro", "agents", f))];
+    P("agents.manifest.json"),
+    ...lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json")).map((f) => P(".kiro", "agents", f)),
+    ...lsSafe(P(".claude", "agents")).filter((f) => f.endsWith(".md")).map((f) => P(".claude", "agents", f))];
   const newer = sources.filter((p) => exists(p) && mtime(p) > graphAt)
     .map((p) => path.relative(TARGET, p));
   if (newer.length) {
@@ -939,6 +990,7 @@ gateDesign();
 gateDocs();
 gateRules();
 
+gateGenerated();
 gateGraph();
 gateDigest();
 promoteFeatures();

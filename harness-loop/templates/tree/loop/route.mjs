@@ -23,6 +23,8 @@ const AGENT_ONLY = args.includes("--agent");
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
 const readJSON = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return null; } };
 const has = (p) => existsSync(p);
+// An agent exists if EITHER runtime has it — both are generated from agents.manifest.json.
+const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync(`.claude/agents/${name}.md`);
 
 const fl = readJSON("feature_list.json");
 const features = (fl && fl.features) || [];
@@ -62,7 +64,7 @@ const RULES = [
     node: "test-designer", kind: "agent", layer: "oracle",
     match: () => {
       const missing = open.filter((x) => !String(x.falsifier || "").trim());
-      return missing.length && has(".kiro/agents/test-designer.json")
+      return missing.length && hasAgent("test-designer")
         ? { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id }
         : null;
     },
@@ -73,7 +75,7 @@ const RULES = [
     // and control fell straight through to the maker — which then wrote the test it was supposed
     // to be judged by. The oracle has to EXIST, not merely be specified.
     match: () => {
-      if (!has(".kiro/agents/test-implementer.json")) return null;
+      if (!hasAgent("test-implementer")) return null;
       const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)));
       return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
@@ -88,7 +90,7 @@ const RULES = [
     // blindness to the code.
     node: "k8s-integration-tester", kind: "agent", layer: "integration",
     match: () => {
-      if (!has(".kiro/agents/k8s-integration-tester.json")) return null;
+      if (!hasAgent("k8s-integration-tester")) return null;
       const f = open.find((x) => /k8s-test-env|kubectl|helm |namespace/i.test(String(x.verification || "")) &&
         (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
       return f ? { why: `${f.id} verifies against a real cluster — cluster lifecycle knowledge the maker does not carry`, feature: f.id } : null;
@@ -104,7 +106,7 @@ const RULES = [
         .flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) =>
         !/^NEEDS (DESIGN|RE-PLAN):/.test(notes(x)) && status(x) !== "blocked" &&
-        !(x.kind === "build" && unwritten.has(x.id) && has(".kiro/agents/test-implementer.json")) &&
+        !(x.kind === "build" && unwritten.has(x.id) && hasAgent("test-implementer")) &&
         (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
       return eligible.length ? { why: `${eligible.length} feature(s) eligible; next is ${eligible[0].id}`, feature: eligible[0].id } : null;
     },

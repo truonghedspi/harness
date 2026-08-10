@@ -1,0 +1,338 @@
+{
+  "$comment": "Single source of truth for every agent in this harness. setup-harness-loop.mjs generates BOTH runtimes from it: .kiro/agents/*.json (kiro-cli) and .claude/agents/*.md (Claude Code). Edit this file, then re-run setup with --force, or `node tools/gen-agents.mjs --target .`. Never hand-edit the generated agent files — verify-harness reports agent-generated-stale. Field mapping: prompt -> kiro `prompt` file:// URI / Claude system-prompt body (inlined at generation); resources -> kiro `resources` / Claude SubagentStart hook injecting them as additionalContext (computed at spawn, so never stale); writes -> kiro toolsSettings.write.allowedPaths / Claude PreToolUse hook denying edits outside the list (Claude has no per-agent path permission field, and an Edit(...) rule in settings.json is session-wide, so the hook is the only per-agent enforcement); trace -> lifecycle hooks.",
+  "runtimes": [
+    "kiro",
+    "claude"
+  ],
+  "agents": [
+    {
+      "name": "checker",
+      "description": "Checker in the maker-checker loop: re-runs evidence, tries to falsify, and is the only agent allowed to set status=done. Write-restricted to state files.",
+      "prompt": "loop/checker-prompt.md",
+      "tools": [
+        "read",
+        "write",
+        "shell"
+      ],
+      "mcp": true,
+      "writes": [
+        "feature_list.json",
+        "progress.md",
+        "session-handoff.md",
+        "trace/**",
+        "memory/checker/**"
+      ],
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/INDEX.md",
+        "feature_list.digest.md",
+        "docs/testing-standards.md",
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "docs/definition-of-done.md",
+        "DECISIONS.md",
+        "loop/goal.md",
+        "memory/checker/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": []
+    },
+    {
+      "name": "context-interviewer",
+      "description": "Elicits the knowledge that cannot exist in the repo — deployment facts, business intent, risk appetite — one question at a time, always with a recommended answer, and always after looking up whatever is discoverable. Persists every answer into assumptions.md / cross-cutting.md / docs/context/, never into chat alone. The only role allowed to ask the human questions.",
+      "prompt": "prompts/context-interviewer.md",
+      "tools": [
+        "read",
+        "write",
+        "shell"
+      ],
+      "mcp": false,
+      "writes": [
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "docs/constraints.md",
+        "docs/context/**",
+        "docs/INDEX.md",
+        "DECISIONS.md",
+        "session-handoff.md",
+        "memory/context-interviewer/**"
+      ],
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/reference/design-engineering.md",
+        "docs/INDEX.md",
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "memory/context-interviewer/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [],
+      "spawnCommands": [
+        "node tools/cross-cutting-audit.mjs --target . || true"
+      ],
+      "welcomeMessage": "Context interviewer: I collect only what can't be found in the repo — deployment facts, business intent, risk appetite. I grep/spike anything discoverable myself first, then ask ONE question at a time, each with my recommended answer so you can decide in seconds. Every answer lands in a file (assumptions.md row flipped to verified, a cross-cutting decision with its enforcing rule, or a ≤300-line docs/context/ topic indexed in docs/INDEX.md) — never in chat alone. I start from what the tools already flagged: needs-human assumptions, open cross-cutting decisions, NEEDS DESIGN markers."
+    },
+    {
+      "name": "design-reviewer",
+      "description": "Adversarial reviewer for designs: hunts uncited claims, unwritten load-bearing assumptions, dishonest assumption status, and a too-narrow option space. Asks of every conclusion 'which assumption, if false, flips this?'. Write-restricted so it cannot fix the design itself.",
+      "prompt": "prompts/design-reviewer.md",
+      "tools": [
+        "read",
+        "write",
+        "shell"
+      ],
+      "mcp": false,
+      "writes": [
+        "docs/assumptions.md",
+        "session-handoff.md",
+        "trace/**",
+        "memory/design-reviewer/**"
+      ],
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/reference/design-engineering.md",
+        "docs/INDEX.md",
+        "docs/architecture.md",
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "DECISIONS.md",
+        "memory/design-reviewer/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [],
+      "welcomeMessage": "Design reviewer: I try to falsify a design, not confirm it. For every conclusion I ask 'which assumption, if false, flips this?' — and if that assumption isn't in docs/assumptions.md, I reject. I also check every claim's citation actually exists, run any spikes it cites, flag assumptions marked verified on nothing but confidence, and reject a designer that punts to a human what it could have grepped. Point me at a design doc."
+    },
+    {
+      "name": "designer",
+      "description": "Turns a requirement into a design: named components and boundaries, a claims table where every fact is cited or spiked, a registry of load-bearing assumptions, and rejected alternatives. Stops the loop only on assumptions that cannot be known from the repo. Does not cut features and does not implement.",
+      "prompt": "prompts/designer.md",
+      "tools": [
+        "read",
+        "write",
+        "shell"
+      ],
+      "mcp": false,
+      "writes": [
+        "docs/design/**",
+        "docs/architecture.md",
+        "docs/assumptions.md",
+        "DECISIONS.md",
+        "spikes/**",
+        "memory/designer/**",
+        "docs/cross-cutting.md"
+      ],
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/reference/design-engineering.md",
+        "docs/INDEX.md",
+        "docs/architecture.md",
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "DECISIONS.md",
+        "feature_list.digest.md",
+        "memory/designer/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [
+        "execute_bash",
+        "fs_write"
+      ],
+      "welcomeMessage": "Designer: point me at the requirement. I produce named components + boundaries, a claims table where every library fact is cited to a real file:line or proven by a runnable spike, a registry of load-bearing assumptions (verified / assumed-with-blast-radius / needs-human), and the rejected alternatives. I stop and ask you ONLY about assumptions that cannot be known from the repo — deployment facts, business intent, risk appetite. I don't cut features and I don't implement."
+    },
+    {
+      "name": "feature-planner",
+      "description": "Turns a raw requirement into a right-sized, dependency-ordered feature_list.json. Runs once at setup (and again only when scope changes enough to need re-planning) — not a per-iteration loop role like maker/checker.",
+      "prompt": "prompts/feature-planner.md",
+      "tools": [
+        "read",
+        "write",
+        "shell"
+      ],
+      "mcp": false,
+      "writes": [
+        "feature_list.json",
+        "DECISIONS.md",
+        "docs/constraints.md",
+        "loop/goal.md",
+        "docs/architecture.md",
+        "memory/feature-planner/**"
+      ],
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/INDEX.md",
+        "feature_list.json",
+        "docs/architecture.md",
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "docs/testing-standards.md",
+        "init.sh",
+        "loop/goal.md",
+        "memory/feature-planner/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [],
+      "welcomeMessage": "Feature planner: point me at the requirement (a file, or describe it) and I'll decompose it into a right-sized feature_list.json — build features for named components, prove features mapped to acceptance scenarios, sized so one maker iteration can finish each. I don't implement anything."
+    },
+    {
+      "name": "harness-setup",
+      "description": "Set up and validate the harness against the real environment: toolchain, MCP connectivity, real verification commands, and a green ./init.sh baseline. Setup only — no feature work.",
+      "prompt": "prompts/harness-setup.md",
+      "tools": [
+        "read",
+        "write",
+        "shell",
+        "*"
+      ],
+      "mcp": true,
+      "writes": null,
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "feature_list.digest.md",
+        "docs/architecture.md",
+        "docs/INDEX.md",
+        "docs/cross-cutting.md",
+        "docs/assumptions.md",
+        "memory/harness-setup/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [],
+      "welcomeMessage": "Harness setup: I will verify the toolchain, confirm MCP connectivity, fill in the real verification commands, and get ./init.sh green. Setup only — no feature work."
+    },
+    {
+      "name": "maker",
+      "description": "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done.",
+      "prompt": "loop/maker-prompt.md",
+      "tools": [
+        "read",
+        "write",
+        "shell",
+        "*"
+      ],
+      "mcp": true,
+      "writes": null,
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/INDEX.md",
+        "feature_list.digest.md",
+        "progress.md",
+        "docs/cross-cutting.md",
+        "docs/assumptions.md",
+        "docs/testing-standards.md",
+        "DECISIONS.md",
+        "loop/goal.md",
+        "memory/maker/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [
+        "execute_bash",
+        "fs_write"
+      ],
+      "spawnCommands": [
+        "./init.sh"
+      ]
+    },
+    {
+      "name": "test-designer",
+      "description": "Turns the spec into test conditions WITHOUT reading the implementation. The independent oracle: designs what must be true, so the test cannot become a transcript of the code it judges.",
+      "prompt": "prompts/test-designer.md",
+      "tools": [
+        "read",
+        "write",
+        "shell"
+      ],
+      "mcp": true,
+      "writes": [
+        "tests/design/**",
+        "feature_list.json",
+        "docs/assumptions.md",
+        "progress.md",
+        "session-handoff.md",
+        "trace/**",
+        "memory/test-designer/**"
+      ],
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/INDEX.md",
+        "skills/test-design/SKILL.md",
+        "docs/reference/test-authoring.md",
+        "feature_list.digest.md",
+        "docs/testing-standards.md",
+        "docs/assumptions.md",
+        "loop/goal.md",
+        "memory/test-designer/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": []
+    },
+    {
+      "name": "test-implementer",
+      "description": "Turns validated test conditions into running test code, red first. Writes tests only — never the implementation they judge.",
+      "prompt": "prompts/test-implementer.md",
+      "tools": [
+        "read",
+        "write",
+        "shell",
+        "*"
+      ],
+      "mcp": true,
+      "writes": null,
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "docs/INDEX.md",
+        "skills/test-design/SKILL.md",
+        "skills/test-design/references/anti-patterns.md",
+        "docs/reference/test-authoring.md",
+        "feature_list.digest.md",
+        "docs/testing-standards.md",
+        "loop/goal.md",
+        "memory/test-implementer/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [
+        "execute_bash"
+      ]
+    },
+    {
+      "name": "k8s-integration-tester",
+      "description": "Stands up the project's Helm chart in an isolated namespace, writes and runs real Level-3 (microservice integration/contract) tests against it, and diagnoses failures via read-only cluster access. Never runs helm/kubectl directly itself — tools/k8s-test-env.sh is the only thing that deploys or tears down. A specialized maker: cannot set status=done.",
+      "optional": true,
+      "prompt": "prompts/k8s-integration-tester.md",
+      "tools": [
+        "read",
+        "write",
+        "shell",
+        "*"
+      ],
+      "mcp": true,
+      "writes": null,
+      "resources": [
+        "AGENTS.md",
+        "docs/constraints.md",
+        "tools/k8s-test-env.sh",
+        "docs/cross-cutting.md",
+        "docs/INDEX.md",
+        "feature_list.digest.md",
+        "progress.md",
+        "docs/testing-standards.md",
+        "docs/architecture.md",
+        "loop/goal.md",
+        "memory/k8s-integration-tester/MEMORY.md"
+      ],
+      "trace": true,
+      "traceToolUse": [
+        "execute_bash",
+        "fs_write"
+      ],
+      "welcomeMessage": "K8s integration tester — here's what I do, in order: (0) check the cluster is reachable and start it myself if it's a local minikube/kind that's down (never touch a shared cluster's lifecycle); (1) read/write docs/testing-standards.md's Level 3 definition; (2) point tools/k8s-test-env.sh at the real Helm chart; (3) write a real test that exercises the deployed service over the network, not a mock; (4) run it through the script — I never run helm/kubectl myself, only read-only diagnosis; (5) on failure, read dumped diagnostics + the read-only k8s-readonly MCP server, fix, retry; (6) wire the confirmed command into docs/testing-standards.md; (7) stop a local cluster again when k8s work is done, so it doesn't starve your other test suites. I record evidence like a maker — I cannot set status=done myself, the checker does. Tell me the chart path (or the requirement, if there's no chart yet) to start."
+    }
+  ]
+}

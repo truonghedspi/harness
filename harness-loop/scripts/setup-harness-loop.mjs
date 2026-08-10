@@ -11,7 +11,7 @@
 //   --name "Project X"              project name for templates
 //   --purpose "one line"            one-line project purpose
 //   --force                         overwrite existing files (requires explicit user OK)
-import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
+import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, chmodSync, utimesSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +28,7 @@ const FORCE = flag("--force");
 const NAME = opt("--name", path.basename(targetRoot));
 const PURPOSE = opt("--purpose", "One-line description of what this project does — replace me.");
 const COMMANDS = opt("--commands", null);
+const RUNTIME = opt("--runtime", "both");   // kiro | claude | both — which agent format(s) to emit
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(scriptDir, "..");
@@ -126,6 +127,9 @@ const EXTRA_COPIES = [
   ["scripts/context-budget.mjs", "tools/context-budget.mjs"],
   ["scripts/review-digest.mjs", "tools/review-digest.mjs"],
   ["scripts/adoption-baseline.mjs", "tools/adoption-baseline.mjs"],
+  ["scripts/gen-agents.mjs", "tools/gen-agents.mjs"],
+  ["scripts/agent-context.mjs", "tools/agent-context.mjs"],
+  ["scripts/guard-write.mjs", "tools/guard-write.mjs"],
   ["scripts/replay-parallel.mjs", "tools/replay-parallel.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
@@ -136,6 +140,7 @@ const EXTRA_COPIES = [
   ["references/test-authoring.md", "docs/reference/test-authoring.md"],
   ["references/adopting-an-existing-project.md", "docs/reference/adopting-an-existing-project.md"],
   ["references/graph.md", "docs/reference/graph.md"],
+  ["references/runtimes.md", "docs/reference/runtimes.md"],
 ];
 // Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
 // without the strategy matrix, property catalog and schemas it dispatches to.
@@ -162,6 +167,25 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
   };
   walkDir(".");
 }
+
+// Agent configs are generated, not templated: agents.manifest.json is the source and both runtimes
+// are emitted from it. Hand-maintaining two formats guarantees drift, and a drifted agent config
+// does not error — it silently runs as a different agent (HI-005).
+{
+  const gen = spawnSync(process.execPath,
+    [path.join(targetRoot, "tools", "gen-agents.mjs"), "--target", targetRoot, "--runtime", RUNTIME],
+    { encoding: "utf8" });
+  if (gen.status === 0) {
+    for (const line of (gen.stdout || "").split("\n")) {
+      const m = line.match(/^\s+\+ (.+)$/); if (m) written.push(m[1]);
+    }
+  } else console.error(`  ! could not generate agent configs: ${(gen.stderr || "").trim().slice(0, 300)}`);
+}
+
+// The graph ships describing exactly these agents, but generation writes them after the copy, so
+// their mtimes would make a brand-new scaffold report graph-stale on its first verify. Restamp it.
+{ const g = path.join(targetRoot, "docs", "reference", "graph.md");
+  if (exists(g)) { const now = new Date(); try { utimesSync(g, now, now); } catch {} } }
 
 // Generated, not templated: six agents load feature_list.digest.md as a resource — it is what
 // keeps the full feature list out of every agent's context budget. Shipping those agents without
