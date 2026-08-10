@@ -181,12 +181,16 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    `verified`, a `docs/cross-cutting.md` decision with its enforcing rule, or a ≤300-line
    `docs/context/<topic>.md` indexed in `docs/INDEX.md`. An answer that stays in chat is lost to
    the next session.
-5. **Design before decomposing.** The feature-planner cuts a *design* into features — it does not
+5. **Design before decomposing — including how anyone would know it works.** The feature-planner cuts a *design* into features — it does not
    create one (`references/feature-decomposition.md` Step 1 assumes the requirement "already names
    its parts"). When it doesn't, run the `designer` agent, then `design-reviewer`: named components
    and boundaries, a claims table where every library fact cites a real `path:line` or a runnable
    spike, and `docs/assumptions.md` — a registry of load-bearing assumptions tagged
-   `verified`/`assumed`/`needs-human`. **The loop stops only on `needs-human` assumptions**: the
+   `verified`/`assumed`/`needs-human`. Each component must also state its **observable seam** and
+   the **invariants** it holds for every input: that is a design property, not a testing chore, and
+   a component whose behaviour is only visible from inside has a boundary defect that gets paid for
+   later by whoever writes the test. Those invariants are what step 6 derives each `falsifier`
+   from. **The loop stops only on `needs-human` assumptions**: the
    deployment and business facts that cannot exist in the repo. Everything else proceeds without
    asking. Full contract, and why automating design without this is unsafe:
    [references/design-engineering.md](references/design-engineering.md).
@@ -201,7 +205,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    `loop/goal.md` with the project's real objective + stopping condition to match.
 7. **Author the oracles before the code.** The same agent writing both the implementation and its
    test can be wrong in both directions and still go green — so the acceptance test for a prove
-   feature is designed by an agent that has not read the implementation. Run `test-designer`
+   feature is designed by an agent that has not read the implementation — and `loop/route.mjs`
+   enforces it as an *ordering*: a build feature is not eligible until its prove feature has a
+   recorded red run, because a prompt saying "don't rewrite the test" cannot hold when there is no
+   test to not rewrite. Run `test-designer`
    (spec → conditions under `tests/design/`, plus each feature's `falsifier`: the wrong
    implementation its verification catches) and then `test-implementer` (conditions → failing test
    code). Both follow `skills/test-design/SKILL.md`, scaffolded into the target. Why this is

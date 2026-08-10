@@ -650,6 +650,51 @@ node -e "
 const r=require('$RPT3'); const f=r.findings.find(x=>x.id==='test-untraceable');
 process.exit(f && f.evidence.includes('WidgetTest') && !f.evidence.includes('GadgetTest') ? 0 : 1);
 "; expect "a test with no spec citation is flagged; one citing a requirement section is not" $?
+# The oracle chain as an ORDERING, not advice. Before this, test-designer filled the falsifier,
+# its own rule stopped matching, and control fell through to the maker — which then wrote the very
+# test it was going to be judged by.
+TO="$WORK/oracle-order"; rm -rf "$TO" && mkdir -p "$TO"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$TO" --name "OracleOrder" --purpose "ordering demo" >/dev/null
+sed -i.bak 's/| needs-human |/| verified (demo) |/' "$TO/docs/assumptions.md" && rm -f "$TO/docs/assumptions.md.bak"
+node -e "
+const fs=require('fs'); const p='$TO/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features=[
+ {id:'feat-1',name:'baseline',behavior:'b',verification:'exit 0',falsifier:'x',dependencies:[],status:'done',readyForCheck:false,evidence:'red then green',checkerNotes:'',attempts:1,maxAttempts:3},
+ {id:'feat-b',name:'build',behavior:'b',verification:'exit 0',kind:'build',dependencies:['feat-1'],status:'not-started',readyForCheck:false,evidence:'',checkerNotes:'',attempts:0,maxAttempts:3},
+ {id:'feat-p',name:'prove',behavior:'b',verification:'exit 0',kind:'prove',dependencies:['feat-b'],status:'not-started',readyForCheck:false,evidence:'',checkerNotes:'',attempts:0,maxAttempts:3}];
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+route_node(){ (cd "$TO" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))'); }
+[ "$(route_node)" = "test-designer" ]; expect "a feature with no falsifier routes to test-designer, not the maker" $?
+node -e "
+const fs=require('fs'); const p='$TO/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+for (const f of d.features) if (!f.falsifier) f.falsifier='breaks the conservation invariant';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+[ "$(route_node)" = "test-implementer" ]; expect "a specified-but-unwritten oracle routes to test-implementer" $?
+node -e "
+const fs=require('fs'); const p='$TO/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(f=>f.id==='feat-p').evidence='wrote the test; ran it, FAILED (exit 1) as expected';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+[ "$(route_node)" = "maker" ]; expect "only once the oracle exists does the build feature become eligible" $?
+# The upstream half: the material a falsifier is derived FROM is a design output.
+mkdir -p "$TO/docs/design"
+printf '# Reconciler\n\nIt reads the log and fills the gap.\nIt writes to the sink.\n%.0s' 1 2 3 4 5 6 7 8 > "$TO/docs/design/recon.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='design-untestable:recon.md') ? 0 : 1);
+"; expect "a design doc naming no seam and no invariants is flagged — 'how would we know' is a design question" $?
+printf '\n## Observable seam\n\nThe GapEventSink, externally visible.\n\n## Invariants\n\nEvent count is conserved for every replay; reconcile is idempotent.\n' >> "$TO/docs/design/recon.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='design-untestable:recon.md') ? 1 : 0);
+"; expect "stating the seam and the invariants clears it" $?
 node -e "
 const fs=require('fs');
 // the whole test-design skill must land in the target — SKILL.md alone dispatches to files that

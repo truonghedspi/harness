@@ -57,6 +57,13 @@ once the feature is re-cut.
    one-sentence behavior, one real runnable verification command, dependency ids that already
    one-sentence behavior, one real runnable verification command, a **`falsifier`** naming the
    specific wrong implementation that command would fail on, dependency ids that already
+   — **derive the `falsifier` from the design's invariants, do not invent one.** The design names,
+   per component, an observable seam and what must hold for every input; a `falsifier` is the
+   cheapest way to break one of those invariants. If the design gives you nothing to derive from,
+   that is a design gap: write `NEEDS DESIGN: no invariants stated for <component>` rather than
+   filling the field with something plausible. A `falsifier` you invented is a guess wearing the
+   costume of a requirement.
+   The rest of the checklist: dependency ids that already
    exist in this same pass, and the full state quintuple (`status: "not-started"`,
    `readyForCheck: false`, `evidence: ""`, `checkerNotes: ""`, `attempts: 0`, `maxAttempts: 3`
    unless you have a specific reason to raise it for a feature you already expect to be

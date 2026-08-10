@@ -30,6 +30,23 @@ against the spec — never the spec against reality.
    something already decided without saying why you are reopening it.
 2. **Name the components and the boundaries between them.** This is the axis the feature-planner
    will consume: each component with one responsibility, and the contract at each boundary.
+2b. **For every component, answer "how would we know this works?" — in the design, not later.**
+   Two lines per component, and a design is not finished without them:
+   - **Observable seam.** The boundary a test can attach to, and what is visible across it. If the
+     behaviour can only be seen by reaching inside the component, that is a **design defect, not a
+     testing problem** — change the boundary now. Discovering it after decomposition forces the
+     choice between a bad test and a redesign, and the bad test always wins.
+   - **Invariants.** What must hold for *every* input, not for one example: conservation,
+     idempotency, monotonicity, round-trip, ordering. These become property tests downstream, and
+     they are the raw material the `feature-planner` turns into each feature's `falsifier`.
+     Anything true across components goes to `docs/cross-cutting.md` instead (step 6b).
+
+   Case-level test design is **not** yours — conditions, logic shapes, generators and boundary
+   values need a unit and an interface signature that only exist after decomposition
+   (`skills/test-design/SKILL.md`). You supply the seam and the invariants; the `test-designer`
+   builds cases on them. Measured symptom of skipping this: on this skill's dogfood project every
+   single unfinished feature was missing its `falsifier`, because nobody upstream had produced the
+   invariants to derive one from (`docs/reference/test-authoring.md`).
 3. **Build the claims table — cite everything.** For every factual statement about how a library,
    framework, or external system behaves:
    - Cite `path:line` from a checkout present on this machine (grep it; do not trust recall), or

@@ -68,6 +68,18 @@ const RULES = [
     },
   },
   {
+    node: "test-implementer", kind: "agent", layer: "oracle",
+    // The edge that was missing: test-designer fills the falsifier, its own rule stops matching,
+    // and control fell straight through to the maker — which then wrote the test it was supposed
+    // to be judged by. The oracle has to EXIST, not merely be specified.
+    match: () => {
+      if (!has(".kiro/agents/test-implementer.json")) return null;
+      const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
+        !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)));
+      return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
+    },
+  },
+  {
     node: "k8s-integration-tester", kind: "agent", layer: "implementation",
     match: () => {
       if (!has(".kiro/agents/k8s-integration-tester.json")) return null;
@@ -79,8 +91,14 @@ const RULES = [
   {
     node: "maker", kind: "agent", layer: "implementation",
     match: () => {
+      // Information asymmetry is only real if it is an ORDERING: a build feature whose prove
+      // feature has no test written yet is not eligible, because the maker would write that test.
+      // A prompt saying "don't rewrite the test" cannot hold when there is no test to not rewrite.
+      const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim())
+        .flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) =>
         !/^NEEDS (DESIGN|RE-PLAN):/.test(notes(x)) && status(x) !== "blocked" &&
+        !(x.kind === "build" && unwritten.has(x.id) && has(".kiro/agents/test-implementer.json")) &&
         (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
       return eligible.length ? { why: `${eligible.length} feature(s) eligible; next is ${eligible[0].id}`, feature: eligible[0].id } : null;
     },

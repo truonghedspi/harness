@@ -750,6 +750,29 @@ function gateDesign() {
     }
   }
 
+  // 8b2 — "how would we know this works" is a DESIGN question, and skipping it is invisible until
+  // much later. Measured on this skill's dogfood project: every unfinished feature was missing its
+  // falsifier, not because the planner was lazy but because nobody upstream had produced an
+  // invariant to derive one from. A design with no observable seam is a boundary defect that gets
+  // paid for by whoever writes the test, in the currency of a test coupled to the implementation.
+  const designDocs = lsSafe(P("docs", "design"))
+    .filter((f) => f.endsWith(".md") && f.toLowerCase() !== "readme.md")   // the dir's own index is not a design
+    .map((f) => ({ rel: `docs/design/${f}`, text: read(P("docs", "design", f)) || "" }))
+    .filter((d) => d.text.trim().length > 200);   // skip stubs and READMEs
+  const SEAM = /\b(seam|observable|observability|from outside|externally visible)\b/i;
+  const INVARIANT = /\b(invariant|always|never|for every|conserv|idempoten|monotonic|round[- ]trip)\b/i;
+  for (const d of designDocs) {
+    const missing = [!SEAM.test(d.text) && "observable seam", !INVARIANT.test(d.text) && "invariants"]
+      .filter(Boolean);
+    if (missing.length) {
+      add({
+        gate: "design", id: `design-untestable:${path.basename(d.rel)}`, layer: "project", severity: "warn",
+        symptom: `${d.rel} names no ${missing.join(" and no ")} — the design does not say how anyone would know the thing works`,
+        remedy: "for each component state the boundary a test attaches to and what it can see across it, plus what must hold for EVERY input (conservation, idempotency, ordering, round-trip). Those invariants are what the feature-planner derives each falsifier from (docs/reference/test-authoring.md)",
+      });
+    }
+  }
+
   // 8c — a component named in architecture.md that no feature covers (total-mapping idea).
   const arch = read(P("docs", "architecture.md"));
   if (arch && featureListArray && featureListArray.length) {

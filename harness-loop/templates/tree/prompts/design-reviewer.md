@@ -32,6 +32,13 @@ catch, and it has already cost this skill's own dogfood project a week of a feat
    human statement. Designer confidence is not verification — demote it to `assumed` and say so.
 5. **Blast radius stated?** An `assumed` row with no "if false" consequence is not usable — a
    future reader cannot judge the risk.
+5b. **A component with no observable seam is not designed, it is sketched.** For each named
+   component, the design must say what a test can see from outside it, and what must hold for every
+   input (the invariants). Reject if either is missing — and reject harder if the seam requires
+   reaching inside the component, because that is a boundary defect that will be paid for later by
+   whoever writes the test, in the currency of a test coupled to the implementation.
+   Then check the invariants are actually **universal**: "returns 100 for this input" is an example
+   in disguise. A real invariant says *always* or *never*, and holds across every input.
 6. **Option space too narrow.** One option is a first idea, not a design. Two options that are
    trivial variants of each other are also one option. Name the option that is missing.
 7. **Scope of the human ask.** Every `needs-human` row must survive the exhaustion ladder

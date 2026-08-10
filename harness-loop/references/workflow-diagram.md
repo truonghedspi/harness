@@ -7,30 +7,53 @@ diagram to get oriented fast or to hand to someone who hasn't read the prose yet
 
 ## 1. End-to-end: requirement → DONE
 
-One pass through Floor 1 (harness) then Floor 2 (loop), matching `SKILL.md`'s Setup workflow
-steps 1:1.
+One pass through Floor 1 (harness) then Floor 2 (loop), matching `SKILL.md`'s Setup workflow.
+The **layer** labels are the ones `loop/route.mjs` returns — a rollback goes back to the layer the
+defect came from, not one step back (`graph.md`).
 
 ```mermaid
 flowchart TD
-    A["User requirement\n(doc / plain language)"] --> B["setup-harness-loop.mjs\nscaffold Floor 1 + Floor 2"]
-    B --> C["feature-planner agent\ndecompose requirement into\nfeature_list.json DAG (once;\nre-run on NEEDS RE-PLAN verdicts)"]
-    C --> D{"./init.sh green?"}
-    D -- no --> D1["Fix the baseline\n(only job until green — Lesson 6/9)"]
-    D1 --> D
-    D -- yes --> E{"check-coverage.mjs\n13/13 lessons?"}
-    E -- no --> E1["Fill the missing artifact"]
-    E1 --> E
-    E -- yes --> F{"verify-harness.mjs --run-features\n0 blockers?"}
-    F -- no --> F1["Fix it — layer:project → target repo\nlayer:harness → the skill itself"]
-    F1 --> F
-    F -- yes --> G["Start the maker/checker loop\nloop/run-loop.sh N"]
-    G --> G2{"Feature needs K8s Level-3 testing\n(no Docker, real cluster)?"}
-    G2 -- yes --> G3["k8s-integration-tester (opt-in,\ntemplates/k8s/) — deploy/write-test/\nrun/diagnose via tools/k8s-test-env.sh"]
-    G3 --> H
-    G2 -- no --> H{"loop/goal.md\nstop condition met?"}
-    H -- no --> G
-    H -- yes --> I["DONE"]
+    A["User requirement"] --> ADOPT{"Existing repo\nwith history?"}
+    ADOPT -- yes --> ON["harness-onboarder\nsurvey → ask → scaffold →\nadoption-baseline --record"]
+    ADOPT -- no --> B["setup-harness-loop.mjs"]
+    ON --> CI
+    B --> CI["context-interviewer\nLAYER: spec\nfacts the repo cannot contain"]
+    CI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
+    DS --> FP["feature-planner\nLAYER: decomposition\nbuild/prove DAG; falsifier DERIVED\nfrom the design's invariants"]
+    FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]
+    TD --> TI["test-implementer\nconditions → FAILING test\nred observed and recorded"]
+    TI --> MK["maker\nLAYER: implementation\nmakes the existing oracle pass"]
+    MK --> GATES{"init.sh green ·\ncheck-coverage 13/13 ·\nverify-harness 0 blockers"}
+    GATES -- no --> FIX["layer:project → fix the target\nlayer:harness → fix the SKILL"]
+    FIX --> GATES
+    GATES -- yes --> LOOP["loop/run-loop.sh N\nrouted by loop/route.mjs"]
+    LOOP --> K8S{"needs a real cluster?"}
+    K8S -- yes --> KT["k8s-integration-tester"]
+    KT --> STOP
+    K8S -- no --> STOP{"loop/goal.md\nstop condition met?"}
+    STOP -- no --> LOOP
+    STOP -- yes --> I["DONE"]
+    classDef oracle fill:#eef7ee,stroke:#4a7
+    class TD,TI oracle
 ```
+
+**Why the oracle sits between decomposition and implementation, and why half of it moved up into
+design.** The same agent writing the code and the test can be wrong in both directions and still go
+green. The defence is that the oracle's author has not read the implementation — which only holds
+if the test exists *first*, so `route.mjs` refuses to make a build feature eligible until its prove
+feature has a recorded red run.
+
+But *case-level* test design needs a unit and an interface, which do not exist before decomposition,
+while *"how would we know this works"* — the observable seam and the invariants — is a property of
+the design itself. A component whose behaviour can only be seen by reaching inside it is a boundary
+defect, and discovering that at test-writing time forces the choice between a bad test and a
+redesign; the bad test always wins. So the designer states seam + invariants, the planner derives
+each `falsifier` from them, and the test-designer builds cases on top
+([test-authoring.md](test-authoring.md)).
+
+Measured symptom of the version without this: on the dogfood project **every** unfinished feature
+was missing its `falsifier` — not because the planner was lazy, but because nobody upstream had
+produced an invariant to derive one from.
 
 ## 2. Inside one loop iteration — generator/evaluator separation (Lesson 9/13)
 

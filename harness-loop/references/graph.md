@@ -14,9 +14,9 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 |---|---|---|---|---|
 | `init.sh` | code | baseline gate — build + test + constraint gates | repo | exit code |
 | `context-interviewer` | agent | ask only what the repo cannot answer; persist every answer | `assumptions.md`, audit output | `assumptions.md`, `cross-cutting.md`, `constraints.md`, `docs/context/**`, `DECISIONS.md` |
-| `designer` | agent | components, cited claims, assumption registry | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
+| `designer` | agent | components, cited claims, assumption registry, **observable seam + invariants per component** | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
 | `design-reviewer` | agent | falsify the design; verify claims by citation | `docs/design/**` | `assumptions.md`, `session-handoff.md` |
-| `feature-planner` | agent | cut the design into a build/prove DAG | `requirement.md`, design | `feature_list.json`, `goal.md`, `constraints.md` |
+| `feature-planner` | agent | cut the design into a build/prove DAG; derive each `falsifier` from the design's invariants | `requirement.md`, design | `feature_list.json`, `goal.md`, `constraints.md` |
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
@@ -49,6 +49,11 @@ an agent cannot create a handoff it has no write access to.
 if init.sh red                            → maker (repair is its whole iteration)
 if feature.checkerNotes ^ "NEEDS DESIGN:" → designer
 if feature.checkerNotes ^ "NEEDS RE-PLAN:"→ feature-planner
+if an open feature has no falsifier       → test-designer
+if a prove feature has a falsifier
+   but no recorded test run               → test-implementer
+if a build feature's prove feature
+   has no test yet                        → NOT eligible (the maker would write it)
 if feature.verification touches k8s       → k8s-integration-tester
 if feature.attempts >= maxAttempts        → blocked (stop retrying)
 if assumption.status == needs-human       → context-interviewer   [STOPS the loop]
@@ -95,16 +100,19 @@ human read a report and typed the next command.
 
 | # | Edge | Written by | Read by | Dispatched by | Consequence |
 |---|---|---|---|---|---|
-| 1 | `NEEDS DESIGN:` → `designer` | maker, checker, test-designer | designer | **nothing** | feature parked forever |
-| 2 | `NEEDS RE-PLAN:` → `feature-planner` | checker | feature-planner | **nothing** | mis-cut feature never re-cut |
-| 3 | `needs-human` assumption → `context-interviewer` | designer, design-reviewer | context-interviewer | **nothing** | the one rule that is supposed to *stop* the loop cannot |
-| 4 | k8s feature → `k8s-integration-tester` | maker (skips it) | — | **nothing** | k8s features starve |
-| 5 | conditions → `test-implementer` | test-designer | test-implementer | **nothing** | oracles designed, never written |
+| 1 | `NEEDS DESIGN:` → `designer` | maker, checker, test-designer | designer | ~~nothing~~ **`route.mjs`** | *closed* |
+| 2 | `NEEDS RE-PLAN:` → `feature-planner` | checker | feature-planner | ~~nothing~~ **`route.mjs`** | *closed* |
+| 3 | `needs-human` assumption → `context-interviewer` | designer, design-reviewer | context-interviewer | ~~nothing~~ **`route.mjs`** | *closed* |
+| 4 | k8s feature → `k8s-integration-tester` | maker (skips it) | — | ~~nothing~~ **`route.mjs`** | *closed* |
+| 5 | conditions → `test-implementer` | test-designer | test-implementer | ~~nothing~~ **`route.mjs`** | *closed 2026-08-10* — with it open, the maker wrote the test it was to be judged by |
 | 6 | `design-reviewer` REJECT → `designer` | design-reviewer | designer | **nothing** | review findings die in `session-handoff.md` |
 | 7 | baseline red → `maker` repair | `init.sh` | maker step 2 | **contradicted** | `run-loop.sh` exits on red *before* the repair node runs |
 
-Of the eleven nodes, **three** (`maker`, `--promote`, `checker`) have an incoming edge any script
-executes. The other eight are reachable only by a human typing `kiro-cli chat --agent …`.
+**Status, 2026-08-10.** Five of the seven are closed by `loop/route.mjs`, which turned the routing
+table into executable code. Two remain: #6 (`design-reviewer` REJECT has no return edge) and #7
+(`run-loop.sh` exits on a red baseline *before* the maker's repair step can run). Gate
+`agent-unrouted` now fails any agent that neither the router nor `route.mjs` names, so this class
+cannot silently return.
 
 ### Edges 1–3 compose into a livelock, reproduced
 
