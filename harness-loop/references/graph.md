@@ -20,6 +20,8 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
+| `loop/route.mjs` | code | **the dispatcher** — reads shared state, returns the next node + its layer + why | `feature_list.json`, `docs/assumptions.md` | nothing (pure) |
+| `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
 | `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json` | chart, tests, `feature_list.json` |
@@ -42,6 +44,8 @@ an agent cannot create a handoff it has no write access to.
 | `docs/cross-cutting.md` | `context-interviewer`, `designer` | all | a row closes only with mechanism + owner + enforcing rule |
 | `progress.md` / `session-handoff.md` | `maker`, `checker` | next session | append |
 | `trace/**`, `memory/<agent>/**` | each agent, its own dir only | that agent at spawn | append |
+| `loop/approval.md` | **the human** | `approval-gate.mjs` | first line is the verdict; a verdict with no reason is treated as a rejection |
+| `loop/approval-log.jsonl` | `approval-gate.mjs` | audit | append-only |
 
 ## Routing rules
 
@@ -67,30 +71,39 @@ if every feature done|blocked-with-reason → exit
 
 ```mermaid
 flowchart TD
-  I([init.sh]) -->|green| M[maker]
-  I -->|red| M
-  CI[context-interviewer] --> D[designer]
+  I([init.sh]) --> R{{"loop/route.mjs<br/>picks the next node + layer"}}
+  R -->|spec| CI[context-interviewer]
+  R -->|design| D[designer]
+  R -->|decomposition| FP[feature-planner]
+  R -->|oracle| TD[test-designer]
+  R -->|oracle| TI[test-implementer]
+  R -->|integration| K["k8s-integration-tester<br/>Level 3"]
+  R -->|implementation| M[maker]
+  CI --> R
   D --> DR[design-reviewer]
-  DR -->|claims uncited| D
-  DR --> FP[feature-planner]
-  FP --> TD[test-designer]
-  TD --> TI[test-implementer]
-  TI --> M
-  M -->|readyForCheck| P[["verify-harness --promote"]]
+  DR -.->|"REJECT — no return edge yet"| D
+  DR --> R
+  FP --> R
+  TD --> TI
+  TI --> R
+  M -->|readyForCheck| A[["loop/approval-gate.mjs<br/>human, only when judgement is owed"]]
+  K --> A
+  A -->|approved| P[["verify-harness --promote"]]
+  A -->|rejected / timeout| C
   P --> C{checker}
   C -->|APPROVE| DONE([done])
-  C -->|REJECT| M
-  C -->|NEEDS DESIGN| D
-  C -->|NEEDS RE-PLAN| FP
-  M -.->|NEEDS DESIGN| D
-  M -.->|k8s feature| K["k8s-integration-tester<br/>integration / Level 3"]
-  K --> C
-  D -.->|needs-human| CI
+  C -->|"REJECT (implementation)"| R
+  C -->|"NEEDS DESIGN (design)"| R
+  C -->|"NEEDS RE-PLAN (decomposition)"| R
   classDef code fill:#eef,stroke:#446
-  class I,P code
+  class I,R,A,P code
 ```
 
-Dotted edges are the ones no automation executes — see below.
+Every rollback returns through `route.mjs`, which is the point: a verdict names the **layer** the
+defect came from, and the router — not the checker, and not the next agent — decides who that is.
+
+The one dotted edge is the one still unrouted: a `design-reviewer` REJECT has no return path to
+the designer (implicit edge #6 below).
 
 ## The seven implicit edges
 

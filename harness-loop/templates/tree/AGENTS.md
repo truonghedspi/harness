@@ -42,6 +42,12 @@ state ownership — is `docs/reference/graph.md`.
 `harness-onboarder` is not here: it runs once, before this scaffold existed, to adopt an existing
 repo (`docs/reference/adopting-an-existing-project.md`). Its output is everything you are reading.
 
+**If you change the workflow, update `docs/reference/graph.md` in the same commit** — a new agent,
+a new routing rule in `loop/route.mjs`, a node changing layer, a new writer for a shared-state
+field. That file is the only place this project's whole control flow is written down, and a graph
+that lags the code is worse than no graph, because it is read as authoritative.
+`verify-harness.mjs` reports `graph-stale` when the router or an agent config is newer than it.
+
 Two nodes are plain code, not agents: `tools/verify-harness.mjs --promote` (replays evidence) and
 `loop/approval-gate.mjs` (stops for a human before `done` becomes terminal).
 

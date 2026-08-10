@@ -42,6 +42,15 @@ skill that teaches a discipline it does not follow is not evidence of anything.
   on everything teaches people to ignore it, which is worse than no gate — it photographs as
   coverage. Check it against a fresh scaffold (should be silent) and a real repo (should find the
   real gap).
+- **Any change to the workflow updates `harness-loop/references/graph.md` in the same commit.**
+  Adding or renaming an agent, adding a routing rule, changing a node's layer, introducing a code
+  node, changing who writes a shared-state field — all of it. The graph is the only place the whole
+  control flow is written down; a graph that lags the code is worse than none, because it is read
+  as authoritative. `verify-harness.mjs` reports `graph-stale` when `route.mjs` or an agent config
+  is newer than the graph, but it can only see the timestamp — whether the *content* is right is
+  yours. Nine gates and 80 demo assertions did not find the livelock that writing this file did
+  ([graph.md](harness-loop/references/graph.md)): they inspect file content, none inspects which
+  node runs next.
 - **Keep every document ≤300 lines** and indexed. This repo's own rule, applied to itself
   (`harness-loop/references/knowledge-layout.md`). An indexed archive directory is exempt.
 - **`SKILL.md` is a router, not a manual.** Detail goes in `references/`; the skill file links.
@@ -63,6 +72,8 @@ deliberately, and asserts each gate catches what it claims to.
 - [ ] A `demo.sh` assertion covers it, and fails when the change is reverted
 - [ ] `bash harness-loop/scripts/demo.sh` is green
 - [ ] Any new gate calibrated on at least one real repo, with the numbers recorded
+- [ ] If the workflow changed: `references/graph.md` (node table, shared state, routing rules,
+      mermaid) and `references/workflow-diagram.md` both updated
 - [ ] Docs updated: `SKILL.md` (link + one line), the relevant `references/*.md`, `README.md` if
       the surface changed
 - [ ] Any defect this fixes is resolved in `harness-issues.jsonl` with a note saying how it was

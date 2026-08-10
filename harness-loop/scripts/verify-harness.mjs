@@ -853,6 +853,32 @@ function gateDocs() {
 // ---------------------------------------------------------------------------------------------
 const RULE_BUDGET = 25;
 
+// The graph is the only place the whole control flow is written down, and it is the one artifact
+// no other gate can substitute for: every check here inspects the CONTENT of a file, none inspects
+// which node runs next. That blind spot is not theoretical — nine gates and a green demo coexisted
+// with a livelock (a NEEDS DESIGN feature is neither done nor blocked, so the loop never exited and
+// the maker was instructed to skip it) that was found only by writing the routing table out by
+// hand. So when the router or an agent config changes and the graph does not, say so.
+// Timestamps only: whether the graph's *content* is right is a human's judgement, not a mtime's.
+function gateGraph() {
+  const graph = P("docs", "reference", "graph.md");
+  if (!exists(graph)) return;                       // opt-in: projects without the doc are not nagged
+  const mtime = (p) => { try { return statSync(p).mtimeMs; } catch { return 0; } };
+  const graphAt = mtime(graph);
+  const sources = [P("loop", "route.mjs"), P("loop", "run-loop.sh"),
+    ...lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json")).map((f) => P(".kiro", "agents", f))];
+  const newer = sources.filter((p) => exists(p) && mtime(p) > graphAt)
+    .map((p) => path.relative(TARGET, p));
+  if (newer.length) {
+    add({
+      gate: "docs", id: "graph-stale", layer: "project", severity: "warn", count: newer.length,
+      symptom: `${newer.length} workflow file(s) are newer than docs/reference/graph.md — the routing may have changed without the graph saying so`,
+      remedy: "update the node table, shared-state owners, routing rules and mermaid in docs/reference/graph.md, then commit both together. A graph that lags the code is worse than no graph: it is read as authoritative",
+      evidence: newer.slice(0, 5).join(", ") + (newer.length > 5 ? ", …" : ""),
+    });
+  }
+}
+
 function gateDigest() {
   if (!exists(P("feature_list.digest.md")) || !exists(P("tools", "feature-digest.mjs"))) return;
   const r = spawnSync(process.execPath, [P("tools", "feature-digest.mjs"), "--target", TARGET, "--check"],
@@ -912,6 +938,8 @@ gateMemory();
 gateDesign();
 gateDocs();
 gateRules();
+
+gateGraph();
 gateDigest();
 promoteFeatures();
 

@@ -689,6 +689,33 @@ const src=fs.readFileSync('$TO/loop/route.mjs','utf8');
 const m=src.match(/node: \"k8s-integration-tester\"[^}]*?layer: \"(\w+)\"/s);
 process.exit(m && m[1]==='integration' ? 0 : 1);
 "; expect "k8s-integration-tester routes as layer:integration, not layer:implementation" $?
+# The graph is the one artifact no other gate substitutes for: every check here inspects file
+# CONTENT, none inspects which node runs next. Nine gates and a green demo coexisted with a
+# livelock that only writing the routing table out by hand exposed.
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='graph-stale') ? 1 : 0);
+"; expect "a fresh scaffold's graph is not reported stale" $?
+touch "$TO/loop/route.mjs"
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='graph-stale');
+process.exit(f && f.evidence.includes('route.mjs') ? 0 : 1);
+"; expect "changing the router without the graph is caught as graph-stale" $?
+touch "$TO/docs/reference/graph.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='graph-stale') ? 1 : 0);
+"; expect "updating the graph clears it" $?
+node -e "
+const fs=require('fs');
+// the rule has to be where an agent will actually see it, not only in the gate
+const t=fs.readFileSync('$TO/AGENTS.md','utf8');
+process.exit(/graph\.md.*same commit|same commit.*graph\.md/s.test(t) && /graph-stale/.test(t) ? 0 : 1);
+"; expect "the router file states the rule, so an agent meets it before the gate does" $?
 node -e "
 const fs=require('fs');
 const p='$SCRIPTS/../templates/k8s/prompts/k8s-integration-tester.md';
