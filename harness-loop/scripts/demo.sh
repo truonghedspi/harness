@@ -666,6 +666,15 @@ d.features=[
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
 route_node(){ (cd "$TO" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))'); }
+# Precedence is deeper-first, and it has to hold against the GATE, not only against a marker.
+# Found on a real project: a design that simply never said how anyone would know the thing works
+# did not register as a design problem, so the router jumped to the oracle layer and sent
+# test-designer to derive falsifiers from invariants nobody had written (HI-014).
+mkdir -p "$TO/docs/design"
+printf '# Reconciler\n\nIt reads the log and fills the gap. It writes to the sink.\n%.0s' 1 2 3 4 5 6 7 8 > "$TO/docs/design/recon.md"
+[ "$(route_node)" = "designer" ]; expect "a design stating no seam and no invariants outranks the oracle layer" $?
+printf '\n## Observable seam\n\nThe GapEventSink, externally visible.\n\n## Invariants\n\nEvent count is conserved for every replay; reconcile is idempotent.\n' >> "$TO/docs/design/recon.md"
+[ "$(route_node)" = "test-designer" ]; expect "once the design states them, routing falls through to test-designer" $?
 [ "$(route_node)" = "test-designer" ]; expect "a feature with no falsifier routes to test-designer, not the maker" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';

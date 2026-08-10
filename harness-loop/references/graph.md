@@ -59,6 +59,8 @@ means adding a manifest entry, not writing two config files.
 ```
 if init.sh red                            → maker (repair is its whole iteration)
 if feature.checkerNotes ^ "NEEDS DESIGN:" → designer
+if a design doc states no seam or
+   no invariants                          → designer   [the gate, not just the marker]
 if feature.checkerNotes ^ "NEEDS RE-PLAN:"→ feature-planner
 if an open feature has no falsifier       → test-designer
 if a prove feature has a falsifier

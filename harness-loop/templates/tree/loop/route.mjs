@@ -15,7 +15,7 @@
 //   node loop/route.mjs                 # print the next node + why (human-readable)
 //   node loop/route.mjs --json          # same, machine-readable
 //   node loop/route.mjs --agent         # print just the agent name, or nothing when it is code
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const JSON_OUT = args.includes("--json");
@@ -23,6 +23,7 @@ const AGENT_ONLY = args.includes("--agent");
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
 const readJSON = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return null; } };
 const has = (p) => existsSync(p);
+const lsSafe = (d) => { try { return readdirSync(d); } catch { return []; } };
 // An agent exists if EITHER runtime has it — both are generated from agents.manifest.json.
 const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync(`.claude/agents/${name}.md`);
 
@@ -51,6 +52,27 @@ const RULES = [
     match: () => {
       const f = open.find((x) => /^NEEDS DESIGN:/.test(notes(x)));
       return f ? { why: `${f.id} raised a design question the maker is forbidden to answer inline`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+    },
+  },
+  {
+    node: "designer", kind: "agent", layer: "design",
+    // Same predicate as verify-harness's design-untestable gate. Without this rule the router
+    // matched only the NEEDS DESIGN: marker, so a design that simply never said how anyone would
+    // know the thing works did not register as a design problem at all — and the loop went
+    // straight to the oracle layer to derive falsifiers from invariants nobody had written.
+    // That is the router jumping its own deeper-first precedence (HI-014, found on aeron-demo).
+    match: () => {
+      const SEAM = /\b(seam|observable|observability|from outside|externally visible)\b/i;
+      const INV = /\b(invariant|always|never|for every|conserv|idempoten|monotonic|round[- ]trip)\b/i;
+      for (const f of lsSafe("docs/design").filter((x) => x.endsWith(".md") && x.toLowerCase() !== "readme.md")) {
+        const text = read(`docs/design/${f}`);
+        if (!text || text.trim().length < 200) continue;      // stubs are not designs
+        const missing = [!SEAM.test(text) && "no observable seam", !INV.test(text) && "no invariants"].filter(Boolean);
+        if (missing.length) {
+          return { why: `docs/design/${f} states ${missing.join(" and ")} — nothing downstream can derive a falsifier from it`, detail: f };
+        }
+      }
+      return null;
     },
   },
   {
