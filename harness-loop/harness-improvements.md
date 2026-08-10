@@ -1,6 +1,6 @@
 # Harness improvement plan
 
-Generated 2026-08-09 16:50:28 from `harness-issues.jsonl`.
+Generated 2026-08-10 02:16:04 from `harness-issues.jsonl`.
 Ranked by `occurrences × severity × distinct targets` (regressions doubled) — fix top-down,
 one per iteration, and close each with `--reverify`.
 
@@ -11,8 +11,8 @@ one per iteration, and close each with `--reverify`.
 ## HI-001 — ./init.sh exited 127 — init.sh calls a build tool that is not on PATH while a wrapper may exist
 
 - **Gate:** `baseline`  **Severity:** blocker  **Score:** 3
-- **Seen:** 1x, first 2026-08-09, last 2026-08-09
-- **Targets:** /var/folders/3z/np7bbr2910zg9tml74w1gyjh0000gn/T/tmp.yAsppk7Rmm/demo-target
+- **Seen:** 1x, first 2026-08-10, last 2026-08-10
+- **Targets:** /var/folders/3z/np7bbr2910zg9tml74w1gyjh0000gn/T/tmp.Sgkte1Smc9/demo-target
 - **Remedy:** init.sh should prefer ./mvnw / ./gradlew when a wrapper exists — fix templates/tree/init.sh
 - **Fix where:** templates/tree/init.sh → VERIFICATION block (stack detection)
 
