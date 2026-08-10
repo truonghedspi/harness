@@ -54,16 +54,57 @@ for i in $(seq 1 "$ITERATIONS"); do
     exit 0
   fi
 
-  echo "=== iteration $i/$ITERATIONS — maker ==="
-  kiro-cli chat --agent maker --no-interactive --trust-all-tools \
-    "You are running HEADLESS under loop/run-loop.sh — no human can answer questions, so commit directly per your step 10 instead of asking. Run exactly one maker iteration per your instructions and loop/goal.md. Honor every stop condition." \
-    || { echo "maker failed — stopping loop"; exit 1; }
+  # Which node runs is a routing decision, not a constant. Before loop/route.mjs existed this line
+  # always said "maker", while the prompts described eleven nodes — so a feature marked
+  # NEEDS DESIGN: parked forever and the loop burned a paid session per iteration skipping it
+  # (docs/reference/graph.md, "The seven implicit edges").
+  NEXT_JSON="$(node loop/route.mjs --json 2>/dev/null)" || true
+  NEXT="$(printf '%s' "$NEXT_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.node+"\t"+j.kind+"\t"+j.layer+"\t"+j.why)}catch{console.log("maker\tagent\timplementation\t(router unavailable — defaulting)")}})')"
+  NODE="$(printf '%s' "$NEXT" | cut -f1)"; KIND="$(printf '%s' "$NEXT" | cut -f2)"
+  LAYER="$(printf '%s' "$NEXT" | cut -f3)"; WHY="$(printf '%s' "$NEXT" | cut -f4)"
+  echo "=== iteration $i/$ITERATIONS — route → $NODE [layer: $LAYER] ==="
+  echo "    $WHY"
+
+  case "$NODE" in
+    exit)  echo "router: nothing left to route — exiting."; exit 0 ;;
+    human) echo "router: features are open but no rule routes them — a human must look."
+           echo "        $WHY" >> session-handoff.md; exit 3 ;;
+  esac
+
+  if [ "$KIND" = "agent" ]; then
+    kiro-cli chat --agent "$NODE" --no-interactive --trust-all-tools \
+      "You are running HEADLESS under loop/run-loop.sh — no human can answer questions, so commit directly instead of asking. The router selected you because: $WHY. Run exactly one iteration per your instructions and loop/goal.md. Honor every stop condition." \
+      || { echo "$NODE failed — stopping loop"; exit 1; }
+  fi
+
+  # Only a maker iteration produces claims to check. Any other node (designer, planner,
+  # test-designer, k8s-tester) changes the routing inputs instead — re-route immediately.
+  if [ "$NODE" != "maker" ] && [ "$NODE" != "k8s-integration-tester" ]; then
+    continue
+  fi
 
   # Mechanical half of the checker's job first (cheap script, not an LLM session): replay every
   # readyForCheck feature's evidence and promote the ones that reproduce in an otherwise
   # blocker-free report. The checker then spends its judgment only on what's left — semantic
   # review, scope bleed, rejected claims. Never touches status:blocked. Non-fatal if it can't run.
-  if [ -f tools/verify-harness.mjs ]; then
+  # Human-approval node, on the one edge nobody was judging: --promote makes `done` terminal, and
+  # `done` is the state no later node revisits. Selective by design — it stops only when the batch
+  # carries judgement actually owed, because a gate that always fires trains a rubber stamp.
+  PROMOTE=1
+  if [ -f loop/approval-gate.mjs ]; then
+    if ! node loop/approval-gate.mjs --check; then
+      echo "=== iteration $i/$ITERATIONS — HUMAN APPROVAL required before promote ==="
+      if node loop/approval-gate.mjs --wait --timeout-min "${APPROVAL_TIMEOUT_MIN:-0}" --on-timeout "${APPROVAL_ON_TIMEOUT:-reject}"; then
+        echo "approved — promoting."
+      else
+        echo "not approved — skipping promote; features stay readyForCheck for the checker."
+        PROMOTE=0
+      fi
+      rm -f loop/approval.md loop/approval-request.md
+    fi
+  fi
+
+  if [ -f tools/verify-harness.mjs ] && [ "$PROMOTE" = "1" ]; then
     echo "=== iteration $i/$ITERATIONS — mechanical evidence replay (verify-harness --promote) ==="
     node tools/verify-harness.mjs --target . --skip-baseline --run-features --promote --quiet \
       || echo "promote pass reported findings — leaving them for the checker"

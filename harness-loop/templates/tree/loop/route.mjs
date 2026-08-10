@@ -1,0 +1,112 @@
+#!/usr/bin/env node
+// route.mjs — the routing table, as executable code instead of prose.
+//
+// Before this existed, `run-loop.sh` dispatched three nodes (maker, --promote, checker) while the
+// prompts described eleven. The other eight were reachable only by a human reading a report and
+// typing `kiro-cli chat --agent …`. Worse, three of those unrouted edges composed into a livelock:
+// a feature marked `NEEDS DESIGN:` is neither done nor blocked, so the loop's all-settled check
+// never fires, and the maker is instructed to skip it — so every iteration spawned a paid session
+// that changed nothing, and every log line looked healthy (references/graph.md).
+//
+// A rollback is not "go back one step". It names the LAYER the defect came from — decomposition,
+// design, spec, implementation — and returns there. That attribution is what the marker carries.
+//
+// Usage:
+//   node loop/route.mjs                 # print the next node + why (human-readable)
+//   node loop/route.mjs --json          # same, machine-readable
+//   node loop/route.mjs --agent         # print just the agent name, or nothing when it is code
+import { readFileSync, existsSync } from "node:fs";
+
+const args = process.argv.slice(2);
+const JSON_OUT = args.includes("--json");
+const AGENT_ONLY = args.includes("--agent");
+const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
+const readJSON = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return null; } };
+const has = (p) => existsSync(p);
+
+const fl = readJSON("feature_list.json");
+const features = (fl && fl.features) || [];
+const notes = (f) => String(f.checkerNotes || "").trim();
+const status = (f) => String(f.status || f.state || "");
+const open = features.filter((f) => !["done", "passing"].includes(status(f)));
+
+// Routing rules, highest precedence first. Each returns {node, kind, layer, why, feature}.
+// Precedence is deliberate: a question about the SPEC outranks one about the DESIGN, which
+// outranks one about the CUT, which outranks implementation — because answering the deeper one
+// can dissolve the shallower ones, and doing it the other way round wastes the work.
+const RULES = [
+  {
+    node: "context-interviewer", kind: "agent", layer: "spec",
+    // The one condition that is supposed to STOP the loop. It could not, before this file.
+    match: () => {
+      const rows = read("docs/assumptions.md").split("\n")
+        .filter((l) => l.startsWith("|") && /needs-human/i.test(l));
+      return rows.length ? { why: `${rows.length} assumption(s) are needs-human — a fact the repo cannot contain is holding up a design`, detail: rows[0].slice(0, 160) } : null;
+    },
+  },
+  {
+    node: "designer", kind: "agent", layer: "design",
+    match: () => {
+      const f = open.find((x) => /^NEEDS DESIGN:/.test(notes(x)));
+      return f ? { why: `${f.id} raised a design question the maker is forbidden to answer inline`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+    },
+  },
+  {
+    node: "feature-planner", kind: "agent", layer: "decomposition",
+    match: () => {
+      const f = open.find((x) => /^NEEDS RE-PLAN:/.test(notes(x)));
+      return f ? { why: `${f.id} was ruled mis-cut by the checker; re-cutting is not the maker's job`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+    },
+  },
+  {
+    node: "test-designer", kind: "agent", layer: "oracle",
+    match: () => {
+      const missing = open.filter((x) => !String(x.falsifier || "").trim());
+      return missing.length && has(".kiro/agents/test-designer.json")
+        ? { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id }
+        : null;
+    },
+  },
+  {
+    node: "k8s-integration-tester", kind: "agent", layer: "implementation",
+    match: () => {
+      if (!has(".kiro/agents/k8s-integration-tester.json")) return null;
+      const f = open.find((x) => /k8s-test-env|kubectl|helm |namespace/i.test(String(x.verification || "")) &&
+        (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
+      return f ? { why: `${f.id} verifies against a real cluster — cluster lifecycle knowledge the maker does not carry`, feature: f.id } : null;
+    },
+  },
+  {
+    node: "maker", kind: "agent", layer: "implementation",
+    match: () => {
+      const eligible = open.filter((x) =>
+        !/^NEEDS (DESIGN|RE-PLAN):/.test(notes(x)) && status(x) !== "blocked" &&
+        (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
+      return eligible.length ? { why: `${eligible.length} feature(s) eligible; next is ${eligible[0].id}`, feature: eligible[0].id } : null;
+    },
+  },
+];
+
+let hit = null;
+for (const r of RULES) {
+  const m = r.match();
+  if (m) { hit = { node: r.node, kind: r.kind, layer: r.layer, ...m }; break; }
+}
+
+// Nothing routable. Distinguish "finished" from "stuck", because they need opposite responses:
+// finished exits 0 and the loop stops; stuck exits 3 and a human is told exactly what is stuck.
+if (!hit) {
+  const stuck = open.filter((f) => status(f) !== "blocked");
+  hit = stuck.length
+    ? { node: "human", kind: "human", layer: "unknown", why: `${stuck.length} feature(s) open but none routable — every rule declined`, detail: stuck.slice(0, 5).map((f) => f.id).join(", ") }
+    : { node: "exit", kind: "code", layer: "-", why: "every feature is done, or blocked with a recorded reason" };
+}
+
+if (AGENT_ONLY) { console.log(hit.kind === "agent" ? hit.node : ""); process.exit(0); }
+if (JSON_OUT) { console.log(JSON.stringify(hit, null, 2)); process.exit(0); }
+console.log(`next node : ${hit.node}  (${hit.kind})`);
+console.log(`layer     : ${hit.layer}`);
+console.log(`why       : ${hit.why}`);
+if (hit.feature) console.log(`feature   : ${hit.feature}`);
+if (hit.detail) console.log(`detail    : ${hit.detail}`);
+process.exit(hit.node === "exit" ? 0 : hit.node === "human" ? 3 : 0);
