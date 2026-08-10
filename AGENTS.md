@@ -1,100 +1,92 @@
-# AGENTS.md — TimesTen → Aeron Cluster Migration
+# AGENTS.md — harness assets
 
-This repository migrates the core financial logic of a production system from Oracle TimesTen
-(PL/SQL + SQL) to a deterministic Java service on Aeron Cluster. The repository is the system
-of record: everything you need is in files here, never in chat history.
+Router for agents working in **this** repo (Lesson 4): what lives here, the rules that hold, and
+where to read next. This repo *builds* the harness, so it is held to the harness's own rules — a
+skill that teaches a discipline it does not follow is not evidence of anything.
 
-**Goal invariant: 100% of the old system's logic is either migrated with parity evidence, or
-explicitly excluded with a human-approved justification. Nothing is silently dropped.**
+> **This repo is a skill, not an application.** There is no product to run. The deliverable is
+> `harness-loop/`, and the way you prove a change to it works is `harness-loop/scripts/demo.sh`.
 
-## Startup workflow (every session)
+## Map (read these when relevant)
 
-1. `pwd` — confirm you are at the repo root.
-2. Run `./init.sh` — environment + baseline verification. If it fails, fixing it IS your task.
-3. Read `progress.md` (last session state), then `feature_list.json`.
-4. `git log --oneline -5`.
-5. Pick exactly ONE feature whose dependencies are all `done`. Never work two at once.
-
-## The per-unit pipeline
-
-Every logic unit advances through these states in order (field `pipeline` on its feature):
-
-`inventoried → specced → golden-mastered → implemented → parity-verified → done`
-
-No skipping states. Exit criteria per state: `docs/00-migration-playbook.md`.
-
-## Invariants — never violate
-
-- A unit is never `done` without parity evidence (Definition of Done below).
-- Never edit `inventory/inventory.json` by hand — it is machine-extracted (docs/01).
-- Excluding a unit requires an entry in `inventory/exclusions.json` with a written reason AND
-  a human `approvedBy`. Agents may propose exclusions; only humans approve them.
-- All cluster-service Java must pass `tools/check-determinism.sh`. Forbidden inside the
-  service: wall-clock time, RNG, thread creation, blocking I/O, float/double for money.
-  Full rules: docs/03-aeron-determinism-rules.md.
-- Money and quantities are fixed-point longs (or scaled decimals) with documented scale and
-  rounding mode. Never float/double.
-- When TimesTen behavior and "clean" Java behavior differ (rounding, NULLs, ordering, locking
-  anomalies, sequence gaps): never resolve silently. Record the decision in
-  `docs/04-decision-log.md` first, then implement what was decided.
-- TimesTen access goes through the read-only MCP server declared in `inventory/sources.yaml`
-  — SELECT/dictionary queries and capture only, never DML/DDL on shared data, never a
-  production instance. The parity runner never calls TimesTen; it replays stored vectors.
-- Baseline red = stop feature work and repair the baseline first.
-
-## Definition of Done (per unit feature)
-
-- [ ] Spec in `specs/<unit-id>.md`: inputs, outputs, side effects, NULL handling, error
-      paths, edge cases, and any uncaptured behavior explicitly listed
-- [ ] Golden-master vectors in `vectors/<unit-id>/` meeting the minimums in docs/02
-- [ ] Java implementation with domain unit tests, all green
-- [ ] Parity run green: vectors replayed against the new service, field-by-field match
-- [ ] `tools/check-determinism.sh` clean
-- [ ] `node tools/coverage-check.mjs` passes
-- [ ] Evidence recorded in `feature_list.json`: exact command, result summary, output digest, date
-- [ ] Checker approval (second agent via `loop/checker-prompt.md`, or a human)
-
-## End of session
-
-1. Update `progress.md` and `feature_list.json`.
-2. `./init.sh` must pass before you stop.
-3. Commit with a descriptive message. If mid-unit, fill `session-handoff.md`.
-
-## Doc map (read on demand — do not preload everything)
-
-| Doc | When to read |
+| Path | When to read |
 |---|---|
-| `docs/00-migration-playbook.md` | Before starting any unit; phase overview and exit criteria |
-| `docs/01-logic-inventory.md` | Working on inventory extraction or coverage gaps |
-| `docs/02-parity-testing.md` | Capturing vectors or writing/debugging parity tests |
-| `docs/03-aeron-determinism-rules.md` | Writing or reviewing any service Java |
-| `docs/04-decision-log.md` | Hitting any TimesTen ↔ Java semantic difference |
-| `docs/05-capture-replay.md` | Building or operating input capture, tapes, replay rigs |
+| `harness-loop/SKILL.md` | **Start here.** What the skill does, the 13-lesson contract, setup + adoption workflow |
+| `harness-loop/references/graph.md` | Who runs next and why — nodes, edges, shared-state ownership, the routing table |
+| `harness-loop/references/*.md` | One topic each: test authoring, agent memory, design engineering, LLM failure modes, human attention, knowledge layout, feature decomposition, k8s testing, adoption |
+| `harness-loop/templates/tree/` | What every scaffolded project receives. **Fix bugs here, not in a target.** |
+| `harness-loop/scripts/` | The tooling: create, verify, improve, plus the analysis tools copied into targets |
+| `harness-loop/harness-issues.jsonl` | Known defects in this skill, their status, and where each was seen |
+| `test-design.skill/` | The test-design skill pack (vendored into targets as `skills/test-design/`) |
+| `docs/timesten-aeron-migration.md` | The dormant migration project whose scaffold still sits at the repo root |
 
-## Escalation
+## Startup Workflow (start of session — clock in)
 
-- Semantic decision with no entry in docs/04 → propose one, mark feature `blocked`, move on.
-- Same failure twice across sessions → write it up in `session-handoff.md`, flag for human.
-- Anything touching production TimesTen or cutover → human-only. Agents work against the
-  reference instance defined in `inventory/sources.yaml`.
+1. `pwd` — confirm the repo root.
+2. `git log --oneline -5` — what landed last.
+3. `node harness-loop/scripts/harness-issue.mjs list` — open defects in the skill.
+4. Read `harness-loop/SKILL.md`'s section for whatever you are changing. Do **not** preload the
+   references; open the one the task names.
 
-## Task trace (observability)
+## Working Rules
 
-`trace/trace.jsonl` is the append-only decision-path record of the whole migration — who
-did what, when, and why, replayable after the fact. Two collection layers:
+- **Fix the template, never the target.** A bug found while a target is being scaffolded belongs to
+  `templates/tree/**` or `scripts/*.mjs`. Patching the one target hides the defect from every future
+  project — that is what `layer: harness` findings exist to route.
+- **Every behaviour change gets a `demo.sh` step that would fail without it.** The demo is this
+  repo's verification; a change it does not exercise is unverified, whatever the reasoning says.
+- **Record a defect before fixing it:** `harness-issue.mjs add`, then fix, then
+  `improve-harness.mjs --reverify`. An issue is closed by the defect no longer reproducing, never
+  by a claim that it was fixed.
+- **A mechanical gate must be calibrated against real targets before it ships.** A gate that fires
+  on everything teaches people to ignore it, which is worse than no gate — it photographs as
+  coverage. Check it against a fresh scaffold (should be silent) and a real repo (should find the
+  real gap).
+- **Keep every document ≤300 lines** and indexed. This repo's own rule, applied to itself
+  (`harness-loop/references/knowledge-layout.md`). An indexed archive directory is exempt.
+- **`SKILL.md` is a router, not a manual.** Detail goes in `references/`; the skill file links.
 
-- **Harness-collected (automatic, not optional):** `./init.sh` logs every baseline result;
-  Kiro agent hooks log session start/end and tool use. You cannot turn these off.
-- **Agent-logged decision points (mandatory):** feature picked, pipeline transition,
-  blocked, verify-failed (maker); evidence re-run, verdict (checker) — via
-  `node tools/trace.mjs <actor> <event> <feature> "<detail>"`.
+## Verification Commands
 
-Never edit or delete existing trace lines; append only. Commit the trace with your work.
-When diagnosing "how did this unit get to done?", read the trace before reading progress.md.
+```bash
+bash harness-loop/scripts/demo.sh          # the real gate: every feature, end to end
+node harness-loop/scripts/check-coverage.mjs --target <a scaffolded project>
+node harness-loop/scripts/verify-harness.mjs --target <a scaffolded project> --run-features
+```
 
-## Agent runtime (Kiro / kiro-cli)
+`demo.sh` green is the bar for any change to the skill. It scaffolds throwaway targets, breaks them
+deliberately, and asserts each gate catches what it claims to.
 
-- Custom agents live in `.kiro/agents/`: `harness-setup` (environment bootstrap),
-  `maker` and `checker` (the migration loop). TimesTen MCP config: `.kiro/settings/mcp.json`.
-- Autonomous operation: `loop/run-loop.sh N` alternates maker and checker headlessly and
-  stops on any red baseline or stop condition in `loop/goal.md`.
+## Definition of Done (per change to the skill)
+
+- [ ] The behaviour exists in `templates/tree/**` or `scripts/**`, not only in a target
+- [ ] A `demo.sh` assertion covers it, and fails when the change is reverted
+- [ ] `bash harness-loop/scripts/demo.sh` is green
+- [ ] Any new gate calibrated on at least one real repo, with the numbers recorded
+- [ ] Docs updated: `SKILL.md` (link + one line), the relevant `references/*.md`, `README.md` if
+      the surface changed
+- [ ] Any defect this fixes is resolved in `harness-issues.jsonl` with a note saying how it was
+      confirmed
+
+## End of Session (clock out — leave clean state)
+
+1. `demo.sh` green.
+2. Docs and `harness-issues.jsonl` updated.
+3. Commit with a message that states what was found, not only what was changed.
+4. Anything mid-flight → `session-handoff.md`.
+
+## Escalation (human checkpoints — never automated)
+
+- **Weakening a gate.** Making a check quieter is a judgement about what may go unverified.
+- **Anything that changes what a scaffolded project receives by default** — every future target
+  inherits it.
+- **A finding you cannot classify** as `layer: project` vs `layer: harness`. Guessing sends the fix
+  to the wrong place, and the wrong place is usually the one that hides it.
+
+## Also in this repo
+
+The repo root still holds the scaffold of a **dormant** project — the TimesTen → Aeron Cluster
+migration (`init.sh`, `feature_list.json`, `inventory/`, `loop/`, `.kiro/agents/`, `trace/`,
+`docs/0*.md`, `progress.md`). Its router is [`docs/timesten-aeron-migration.md`](docs/timesten-aeron-migration.md).
+Do not treat those files as the harness's own — `feature_list.json` at the root is the migration's
+scope, not this skill's.
