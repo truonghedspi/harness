@@ -547,8 +547,35 @@ function gateLoop() {
     });
   }
 
+  // The most expensive failure in this harness's real history, and the only one that is
+  // INVISIBLE while it happens: kiro resolves a `file://` URI relative to `.kiro/agents/`, not the
+  // repo root. A URI that resolves to nothing does not error — the agent starts, silently WITHOUT
+  // its prompt and resources, i.e. as the unrestricted default. It runs, it just is not the agent
+  // you configured, and its output looks like ordinary work. Seen twice for real: once mid-run on
+  // a live loop (HI-005), once on three of four agents in a dormant project nobody had run in ten
+  // days. Blocker, not a warning — a write-capable agent with no rulebook loaded is not a
+  // degraded harness, it is no harness.
   for (const rel of lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"))) {
     const j = readJSON(P(".kiro", "agents", rel));
+    if (!j) {
+      add({
+        gate: "loop", id: `agent-unparseable:${rel}`, layer: "project",
+        symptom: `.kiro/agents/${rel} is not valid JSON — kiro cannot load this agent at all`,
+        remedy: "fix the JSON. A malformed agent config is skipped silently, so the agent you think you are running does not exist",
+      });
+      continue;
+    }
+    const uris = [j.prompt, ...(Array.isArray(j.resources) ? j.resources : [])]
+      .filter((u) => typeof u === "string" && u.startsWith("file://"));
+    const broken = uris.filter((u) => !exists(path.resolve(P(".kiro", "agents"), u.slice("file://".length))));
+    if (broken.length) {
+      add({
+        gate: "loop", id: `agent-uri-broken:${j.name || rel}`, layer: "project", count: broken.length,
+        symptom: `${broken.length} file:// URI(s) in .kiro/agents/${rel} resolve to nothing — kiro resolves them relative to .kiro/agents/, so this agent starts without its prompt/resources and silently behaves as the unrestricted default`,
+        remedy: "prefix repo-root-relative paths with ../../ (file://../../loop/maker-prompt.md, not file://./loop/… or file://loop/…). Then re-check: a broken URI never raises an error, it just gives you a different agent",
+        evidence: broken.slice(0, 5).join(", ") + (broken.length > 5 ? ", …" : ""),
+      });
+    }
     // An agent that can write but never loads the rulebook will violate rules it has never seen —
     // and the violation looks like ordinary output, so nothing catches it. Any always-remember
     // rule (file-size budget, index requirement, project invariants) lives in docs/constraints.md

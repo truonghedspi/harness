@@ -84,7 +84,11 @@ was fixed*, not because the one target was patched around:
    [references/llm-failure-modes.md](references/llm-failure-modes.md)), test-authoring hygiene (a
    green feature whose evidence never shows a red run, a verification with no `falsifier`, a build
    feature no prove feature judges, a test file that traces to no requirement —
-   [references/test-authoring.md](references/test-authoring.md)), and clean-state hygiene. **Every
+   [references/test-authoring.md](references/test-authoring.md)), agent-config integrity (a
+   `file://` URI that resolves to nothing — kiro resolves them relative to `.kiro/agents/`, and a
+   dead one silently starts the *unrestricted default* agent instead, which is the only failure in
+   this harness that is invisible while it happens), agents no router or routing rule names, and
+   clean-state hygiene. **Every
    finding is tagged
    `layer: project` (the target repo needs work) or `layer: harness` (the skill itself is the
    defect)** — that tag is what routes the fix to the right place instead of to a one-off patch.

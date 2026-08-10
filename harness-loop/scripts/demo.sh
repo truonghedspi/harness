@@ -389,6 +389,37 @@ grep -q "agent-missing-constraints" "$T2/trace/verify-report.json"; AMC=$?
 # executable incoming edges (references/graph.md).
 grep -q '"id": "agent-unrouted"' "$T2/trace/verify-report.json"; AUR=$?
 [ "$AUR" != "0" ]; expect "the scaffold's router names every agent it ships — no unrouted node" $?
+# The invisible failure: kiro resolves file:// relative to .kiro/agents/, and a URI resolving to
+# nothing does not error — the agent starts as the unrestricted default and its output looks
+# ordinary. Cost a live run once (HI-005) and sat broken in 3 of 4 agents of a dormant project.
+# On a PRISTINE scaffold — T2 has had docs deliberately deleted by earlier steps, and a URI
+# pointing at a file another test removed is that test's doing, not a template defect.
+TU="$WORK/uri-target"; rm -rf "$TU" && mkdir -p "$TU"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$TU" --name "UriDemo" --purpose "uri demo" >/dev/null
+node "$SCRIPTS/verify-harness.mjs" --target "$TU" --skip-baseline --quiet
+node -e "
+const r=require('$TU/trace/verify-report.json');
+const bad=r.findings.filter(f=>String(f.id).startsWith('agent-uri-broken'));
+if (bad.length) console.log('   ', bad.map(f=>f.id+' → '+f.evidence).join('\n    '));
+process.exit(bad.length ? 1 : 0);
+"; expect "every agent the scaffold ships has file:// URIs that actually resolve" $?
+node -e "
+// the digest 6 agents load is GENERATED, not templated — shipping them without it was a real bug
+process.exit(require('fs').existsSync('$TU/feature_list.digest.md') ? 0 : 1);
+"; expect "setup generates feature_list.digest.md, so the agents that load it find it" $?
+node -e "
+const fs=require('fs'); const p='$TU/.kiro/agents/maker.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.prompt='file://./loop/maker-prompt.md';   // the exact wrong form seen in the wild
+fs.writeFileSync(p, JSON.stringify(j,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$TU" --skip-baseline --quiet
+node -e "
+const r=require('$TU/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='agent-uri-broken:maker');
+// blocker, not warn: a write-capable agent with no rulebook loaded is not a degraded harness
+process.exit(f && f.severity==='blocker' && f.evidence.includes('loop/maker-prompt.md') ? 0 : 1);
+"; expect "a file://./ URI that resolves to nothing is caught as a BLOCKER" $?
 cp "$T2/.kiro/agents/checker.json" "$T2/.kiro/agents/ghost.json"
 node -e "
 const fs=require('fs'); const p='$T2/.kiro/agents/ghost.json';

@@ -12,6 +12,7 @@
 //   --purpose "one line"            one-line project purpose
 //   --force                         overwrite existing files (requires explicit user OK)
 import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -161,6 +162,19 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
   };
   walkDir(".");
 }
+
+// Generated, not templated: six agents load feature_list.digest.md as a resource — it is what
+// keeps the full feature list out of every agent's context budget. Shipping those agents without
+// generating it means each one starts missing a file kiro will not complain about
+// (references/llm-failure-modes.md, and the agent-uri-broken gate that caught this).
+const digestPath = path.join(targetRoot, "feature_list.digest.md");
+if (!exists(digestPath) || FORCE) {
+  const gen = spawnSync(process.execPath,
+    [path.join(targetRoot, "tools", "feature-digest.mjs"), "--target", targetRoot],
+    { encoding: "utf8" });
+  if (gen.status === 0 && exists(digestPath)) written.push("feature_list.digest.md");
+  else console.error(`  ! could not generate feature_list.digest.md — run: node tools/feature-digest.mjs --target ${targetRoot}`);
+} else skipped.push("feature_list.digest.md");
 
 // --- report ---------------------------------------------------------------------------------
 console.log(`\nHarness loop scaffolded into: ${targetRoot}`);
