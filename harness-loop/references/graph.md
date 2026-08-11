@@ -14,7 +14,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 |---|---|---|---|---|
 | `init.sh` | code | baseline gate — build + test + constraint gates | repo | exit code |
 | `context-interviewer` | agent | ask only what the repo cannot answer; persist every answer | `assumptions.md`, audit output | `assumptions.md`, `cross-cutting.md`, `constraints.md`, `docs/context/**`, `DECISIONS.md` |
-| `designer` | agent | components, cited claims, assumption registry, **observable seam + invariants per component** | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
+| `designer` | agent | components, cited claims, assumption registry, **observable seam + invariants per component**, and a `## Feature impact` table (its only way to hand scope work over — it may not write `feature_list.json`) | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
 | `design-reviewer` | agent | falsify the design; verify claims by citation | `docs/design/**` | `assumptions.md`, `session-handoff.md` |
 | `feature-planner` | agent | cut the design into a build/prove DAG; derive each `falsifier` from the design's invariants | `requirement.md`, design | `feature_list.json`, `goal.md`, `constraints.md` |
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
@@ -63,6 +63,9 @@ if feature.checkerNotes ^ "NEEDS DESIGN:" → designer
 if a design doc states no seam or
    no invariants                          → designer   [the gate, not just the marker]
 if feature.checkerNotes ^ "NEEDS RE-PLAN:"→ feature-planner
+if a design's Feature-impact table marks
+   change/new and is newer than the
+   feature list                           → feature-planner  [the design moved, the cut did not]
 if an open feature has no falsifier       → test-designer
 if a prove feature has a falsifier
    but no recorded test run               → test-implementer

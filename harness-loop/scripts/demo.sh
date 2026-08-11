@@ -674,7 +674,23 @@ mkdir -p "$TO/docs/design"
 printf '# Reconciler\n\nIt reads the log and fills the gap. It writes to the sink.\n%.0s' 1 2 3 4 5 6 7 8 > "$TO/docs/design/recon.md"
 [ "$(route_node)" = "designer" ]; expect "a design stating no seam and no invariants outranks the oracle layer" $?
 printf '\n## Observable seam\n\nThe GapEventSink, externally visible.\n\n## Invariants\n\nEvent count is conserved for every replay; reconcile is idempotent.\n' >> "$TO/docs/design/recon.md"
-[ "$(route_node)" = "test-designer" ]; expect "once the design states them, routing falls through to test-designer" $?
+# A design that changes what a feature MEANS leaves feature_list.json a version behind, and the
+# designer is (correctly) not allowed to write scope — so route on what it can write: its own
+# Feature impact table. Without this the router jumped decomposition and sent the oracle layer to
+# write falsifiers for features that were about to be re-cut.
+cat >> "$TO/docs/design/recon.md" <<'MD'
+
+## Feature impact
+
+| `feat-b` | **change** | the seam moved; this feature means something else now |
+| `feat-1` | keep | untouched |
+MD
+[ "$(route_node)" = "feature-planner" ]; expect "a design marking a feature change/new outranks the oracle layer" $?
+node -e "
+const fs=require('fs');const p='$TO/feature_list.json';
+fs.writeFileSync(p, fs.readFileSync(p,'utf8'));   // planner catches up = feature_list is newer
+"
+[ "$(route_node)" = "test-designer" ]; expect "once the cut catches up, routing falls through to test-designer" $?
 [ "$(route_node)" = "test-designer" ]; expect "a feature with no falsifier routes to test-designer, not the maker" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';

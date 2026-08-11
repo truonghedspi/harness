@@ -71,6 +71,22 @@ against the spec — never the spec against reality.
    the choice to a human (`context-interviewer` collects it). You are good at *finding* that a
    cross-cutting decision is being made by accident; you are not the one to make it. A row is only
    closed when it names the mechanism, the owner+date, and the rule that enforces it.
+6c. **Say what your design does to the features that already exist** — a `## Feature impact`
+   section in the design doc, one row per affected feature, exactly this shape so the router can
+   read it:
+
+   ```
+   | `feat-trace-dsl` | **change** | grammar opens `watched`; adds TIMELINE/CAUSE |
+   | `feat-tr-1`      | keep       | untouched by this design |
+   | (new)            | **new**    | §8.1 timeline scenario — feature-planner to cut |
+   ```
+
+   Verdicts are `keep`, `change`, `new`. **You may not edit `feature_list.json` yourself** — scope
+   belongs to the `feature-planner`, and an agent that both designs and re-cuts scope can quietly
+   design around its own decomposition. This table is how you hand the work over: `loop/route.mjs`
+   routes to the planner when a design naming `change`/`new` is newer than `feature_list.json`.
+   A design that silently changes what a feature means, without a row here, strands the feature
+   list one version behind the design and nothing detects it.
 7. **Write the design doc** to `docs/design/<topic>.md` and update `docs/architecture.md` so a
    fresh session can answer the five Fresh-Session-Test questions from the repo alone.
 8. **Run your own gate before reporting:**

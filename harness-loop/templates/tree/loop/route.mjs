@@ -15,7 +15,7 @@
 //   node loop/route.mjs                 # print the next node + why (human-readable)
 //   node loop/route.mjs --json          # same, machine-readable
 //   node loop/route.mjs --agent         # print just the agent name, or nothing when it is code
-import { readFileSync, existsSync, readdirSync , writeSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync, writeSync } from "node:fs";
 
 // stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
 // past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
@@ -84,6 +84,34 @@ const RULES = [
     match: () => {
       const f = open.find((x) => /^NEEDS RE-PLAN:/.test(notes(x)));
       return f ? { why: `${f.id} was ruled mis-cut by the checker; re-cutting is not the maker's job`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+    },
+  },
+  {
+    node: "feature-planner", kind: "agent", layer: "decomposition",
+    // A design that changes what a feature means, or implies new ones, leaves feature_list.json a
+    // version behind — and nothing marks it, because the designer is (correctly) not allowed to
+    // write scope. So route on what it CAN write: its own `## Feature impact` table. Without this
+    // the router jumped decomposition and sent the oracle layer to write falsifiers for features
+    // that were about to be re-cut.
+    match: () => {
+      // Narrow, deliberately: a blanket catch here once swallowed a ReferenceError (statSync was
+      // unimported) and the rule silently never fired. Only a missing file is an expected miss.
+      let fl = 0;
+      try { fl = statSync("feature_list.json").mtimeMs; }
+      catch (e) { if (e.code === "ENOENT") return null; throw e; }
+      for (const f of lsSafe("docs/design").filter((x) => x.endsWith(".md") && x.toLowerCase() !== "readme.md")) {
+        let st;
+        try { st = statSync(`docs/design/${f}`); }
+        catch (e) { if (e.code === "ENOENT") continue; throw e; }
+        if (st.mtimeMs <= fl) continue;                 // planner already caught up
+        const text = read(`docs/design/${f}`) || "";
+        // tolerate the markdown a designer actually writes: `id`, **id**, (new), **change** (note)
+        const rows = [...text.matchAll(/^\|[\s`*(]*([\w-]+)[\s`*)]*\|[\s`*]*(change|new)\b/gim)];
+        if (rows.length) {
+          return { why: `docs/design/${f} marks ${rows.length} feature(s) change/new and is newer than feature_list.json — the cut has not caught up with the design`, detail: rows.slice(0, 4).map((m) => `${m[1]}:${m[2].toLowerCase()}`).join(", ") };
+        }
+      }
+      return null;
     },
   },
   {
