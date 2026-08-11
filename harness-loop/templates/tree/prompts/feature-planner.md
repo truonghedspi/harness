@@ -54,17 +54,16 @@ once the feature is re-cut.
    test is written from the spec and seen failing before the build feature makes it pass. Say so in
    the prove feature's behavior sentence so the maker doesn't discover it late.
 4. **Apply the Definition-of-Ready checklist** (reference doc Step 5) to every feature: id,
-   one-sentence behavior, one real runnable verification command, dependency ids that already
-   one-sentence behavior, one real runnable verification command, a **`falsifier`** naming the
-   specific wrong implementation that command would fail on, dependency ids that already
-   — **derive the `falsifier` from the design's invariants, do not invent one.** The design names,
+   one-sentence behavior, one real runnable verification command, and a **`falsifier`** naming the
+   specific wrong implementation that command would fail on.
+   **Derive the `falsifier` from the design's invariants, do not invent one.** The design names,
    per component, an observable seam and what must hold for every input; a `falsifier` is the
    cheapest way to break one of those invariants. If the design gives you nothing to derive from,
    that is a design gap: write `NEEDS DESIGN: no invariants stated for <component>` rather than
    filling the field with something plausible. A `falsifier` you invented is a guess wearing the
    costume of a requirement.
-   The rest of the checklist: dependency ids that already
-   exist in this same pass, and the full state quintuple (`status: "not-started"`,
+
+   The rest of the checklist: dependency ids that already exist in this same pass, and the full state quintuple (`status: "not-started"`,
    `readyForCheck: false`, `evidence: ""`, `checkerNotes: ""`, `attempts: 0`, `maxAttempts: 3`
    unless you have a specific reason to raise it for a feature you already expect to be
    exploratory).
@@ -77,10 +76,25 @@ once the feature is re-cut.
    should be able to tell WHY it's shaped this way, not just what shape it is.
 7. **Self-check mechanically before reporting.** Run
    `node tools/verify-harness.mjs --target . --skip-baseline --quiet` and read the `features`-gate
-   findings in `trace/verify-report.json`: a `scope-smell` warning on a feature you just wrote
-   means Step 2's sizing failed for it — split it now, while you still hold the full decomposition
-   in context, instead of letting a maker burn its `attempts` budget discovering it later. The
-   sizing checks exist precisely to catch the planner; don't skip your own gate.
+   findings in `trace/verify-report.json`.
+
+   **"0 blockers" is not your bar.** Every check that exists to catch *the planner* is a
+   **warning**, deliberately — `falsifier-missing`, `build-unproven` and `scope-smell` are warnings
+   so that adopting an existing repo isn't a wall of failures
+   (`docs/reference/adopting-an-existing-project.md`). A planner that reads only the blocker count
+   passes its own gate while leaving the whole oracle layer nothing to work from. That has already
+   happened on this project: a re-plan reported "0 blockers throughout" and shipped **54 features,
+   zero falsifiers, zero `kind` tags**.
+
+   So check these three by name, on the features you just wrote:
+
+   | Finding | What it means you skipped |
+   |---|---|
+   | `falsifier-missing` | Step 4 — no wrong implementation named, so nothing downstream can judge the verification |
+   | `build-unproven` | Step 3 — a build feature with no prove feature judging it |
+   | `scope-smell` | Step 2 — sizing failed; split it now while you still hold the decomposition in context |
+
+   Pre-existing warnings on features you did not touch are not yours. New ones are.
 8. **Report back**, don't just silently write the file: how many build vs. prove features, the
    DAG depth, any `scope-smell` findings you resolved (or deliberately accepted, with the reason),
    and any open questions you had to leave as human checkpoints because the requirement didn't
