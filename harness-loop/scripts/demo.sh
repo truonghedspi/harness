@@ -154,6 +154,23 @@ fs.writeFileSync(p, JSON.stringify(fl, null, 2));
 node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q '"id": "over-budget:feat-002"' "$T2/trace/verify-report.json"
 expect "attempts>=maxAttempts with status!=blocked is flagged" $?
+# Finishing ON the last allowed attempt is the timebox working, not being violated. This fired on a
+# feature the checker had just approved and turned a success into a blocker (HI-019).
+node -e "
+const fs=require('fs'); const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+const f=fl.features.find(x=>x.id==='feat-002'); f.status='done'; f.evidence='ran it, red then green';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+grep -q '"id": "over-budget:feat-002"' "$T2/trace/verify-report.json"; OB=$?
+[ "$OB" != "0" ]; expect "succeeding on the last attempt is not over-budget — done is not retrying" $?
+node -e "
+const fs=require('fs'); const p='$T2/feature_list.json';
+const fl=JSON.parse(fs.readFileSync(p,'utf8'));
+const f=fl.features.find(x=>x.id==='feat-002'); f.status='in-progress'; f.evidence='';
+fs.writeFileSync(p, JSON.stringify(fl,null,2));
+"
 
 step 13 "blocked without a reason is rejected; the same blocked WITH a reason is not"
 node -e "

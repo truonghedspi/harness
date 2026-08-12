@@ -355,7 +355,11 @@ function gateFeatures() {
     const maxAttempts = Number(f.maxAttempts);
     const attempts = Number(f.attempts);
     if (Number.isFinite(maxAttempts) && maxAttempts > 0 && Number.isFinite(attempts) &&
-        attempts >= maxAttempts && String(f.status || f.state) !== "blocked") {
+        attempts >= maxAttempts &&
+        // `blocked` is the honest give-up. `done`/`passing` is finishing ON the last allowed
+        // attempt, which is the timebox working, not being violated — this check once fired on a
+        // feature the checker had just approved, turning a success into a blocker (HI-019).
+        !["blocked", "done", "passing"].includes(String(f.status || f.state))) {
       add({
         gate: "features", id: `over-budget:${f.id}`, layer: "project",
         symptom: `feature ${f.id} has attempts=${attempts} >= maxAttempts=${maxAttempts} but status is "${f.status}", not "blocked"`,
