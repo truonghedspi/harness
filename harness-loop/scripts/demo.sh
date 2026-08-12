@@ -781,6 +781,47 @@ node -e "
 const r=require('$TO/trace/verify-report.json');
 process.exit(r.findings.some(f=>f.id==='design-untestable:recon.md') ? 1 : 0);
 "; expect "stating the seam and the invariants clears it" $?
+# The handoff design->planner was prose until this contract: design-untestable only checked that
+# the WORDS seam and invariant appeared. The planner was told to derive each falsifier from a
+# stated invariant and nothing verified it — it could invent every one and stay green.
+# Checked in both directions, because forward alone still passes a citation to nothing (ISO 29148).
+cat >> "$TO/docs/design/recon.md" <<'MD'
+
+| Id | Component | Invariant | Observable seam |
+|---|---|---|---|
+| `INV-RECON-1` | GapReconciler | Reconcile is idempotent for every input | R_gap contents |
+| `INV-RECON-2` | GapReconciler | Event count is conserved across every replay | downstream stream |
+MD
+node -e "
+const fs=require('fs'); const p='$TO/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(f=>f.id==='feat-b').falsifier='a reconciler that duplicates on replay [INV-RECON-1]';
+d.features.find(f=>f.id==='feat-p').falsifier='a reconciler that drops events [INV-RECON-404]';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+const u=r.findings.find(f=>f.id==='invariant-uncovered');
+process.exit(u && u.evidence.includes('INV-RECON-2') && !u.evidence.includes('INV-RECON-1') ? 0 : 1);
+"; expect "forward: an invariant no falsifier cites is flagged, a cited one is not" $?
+node -e "
+const r=require('$TO/trace/verify-report.json');
+const o=r.findings.find(f=>f.id==='falsifier-orphan');
+// the direction that catches an INVENTED falsifier — a citation to something never stated
+process.exit(o && o.evidence.includes('INV-RECON-404') ? 0 : 1);
+"; expect "backward: a falsifier citing an invariant nobody stated is flagged as orphan" $?
+node -e "
+const fs=require('fs'); const p='$TO/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(f=>f.id==='feat-p').falsifier='a reconciler that drops events [INV-RECON-2]';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+process.exit(r.findings.some(f=>/invariant-uncovered|falsifier-orphan/.test(f.id)) ? 1 : 0);
+"; expect "citing the real id clears both directions" $?
 node -e "
 const fs=require('fs');
 // the whole test-design skill must land in the target — SKILL.md alone dispatches to files that

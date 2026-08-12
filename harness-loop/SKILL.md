@@ -76,7 +76,8 @@ was fixed*, not because the one target was patched around:
    matching `DECISIONS.md` entry), agent-memory hygiene (a referenced `memory/<agent>/MEMORY.md`
    missing, or grown past its index budget —
    [references/agent-memory.md](references/agent-memory.md)), design hygiene (an uncited claim, a
-   blocked feature resting on an unverified assumption, a named component no feature covers —
+   blocked feature resting on an unverified assumption, a named component no feature covers, an
+   invariant no falsifier cites, a falsifier citing an invariant nobody stated —
    [references/design-engineering.md](references/design-engineering.md)), knowledge layout (a
    document past the 300-line budget an agent can actually hold —
    [references/knowledge-layout.md](references/knowledge-layout.md)), instruction load (rule count
@@ -272,6 +273,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   [references/design-engineering.md](references/design-engineering.md)
 - What each mechanism in this skill is actually defending against — the LLM failure-mode taxonomy,
   including the ones still uncountered: [references/llm-failure-modes.md](references/llm-failure-modes.md)
+- The design → decomposition handoff as a checkable contract — invariant ids, falsifiers that cite
+  them, and why both traceability directions are gated:
+  [references/invariant-contract.md](references/invariant-contract.md)
 - What "good" means at each step, as a rubric rather than a mood — the criteria to apply at an
   approval gate, and the two test failure modes that look like diligence:
   [references/step-acceptance.md](references/step-acceptance.md)

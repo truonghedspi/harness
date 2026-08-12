@@ -36,10 +36,25 @@ against the spec — never the spec against reality.
      behaviour can only be seen by reaching inside the component, that is a **design defect, not a
      testing problem** — change the boundary now. Discovering it after decomposition forces the
      choice between a bad test and a redesign, and the bad test always wins.
-   - **Invariants.** What must hold for *every* input, not for one example: conservation,
-     idempotency, monotonicity, round-trip, ordering. These become property tests downstream, and
-     they are the raw material the `feature-planner` turns into each feature's `falsifier`.
+   - **Invariants, each with an id.** What must hold for *every* input, not for one example:
+     conservation, idempotency, monotonicity, round-trip, ordering, exactly-once, all-or-nothing.
      Anything true across components goes to `docs/cross-cutting.md` instead (step 6b).
+
+     Give every invariant an id — `INV-<AREA>-<N>`, uppercase area, unique per area — and put one
+     **row per invariant**, not per component, in a table in the design doc:
+
+     ```
+     | Id | Component | Invariant — must hold for EVERY input | Observable seam |
+     |---|---|---|---|
+     | `INV-BOD-1` | `applyBod` | A rejected BOD leaves state exactly as it was | before/after state |
+     ```
+
+     Those ids are the contract with the planner: each `falsifier` cites the invariant it breaks,
+     and `verify-harness` checks both directions — an invariant nobody cites, and a citation to an
+     invariant nobody stated. Full rules, including that ids are permanent and never reused:
+     `docs/reference/invariant-contract.md`. **An invariant you cannot finish the sentence "an
+     implementation that … would violate this" for is a wish, not an invariant — do not give it an
+     id, remove it.**
 
    Case-level test design is **not** yours — conditions, logic shapes, generators and boundary
    values need a unit and an interface signature that only exist after decomposition

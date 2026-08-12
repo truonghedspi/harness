@@ -142,6 +142,7 @@ const EXTRA_COPIES = [
   ["references/graph.md", "docs/reference/graph.md"],
   ["references/runtimes.md", "docs/reference/runtimes.md"],
   ["references/step-acceptance.md", "docs/reference/step-acceptance.md"],
+  ["references/invariant-contract.md", "docs/reference/invariant-contract.md"],
 ];
 // Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
 // without the strategy matrix, property catalog and schemas it dispatches to.

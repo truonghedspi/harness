@@ -56,7 +56,15 @@ once the feature is re-cut.
 4. **Apply the Definition-of-Ready checklist** (reference doc Step 5) to every feature: id,
    one-sentence behavior, one real runnable verification command, and a **`falsifier`** naming the
    specific wrong implementation that command would fail on.
-   **Derive the `falsifier` from the design's invariants, do not invent one.** The design names,
+   **Derive the `falsifier` from the design's invariants, and cite the id.** Put the id in square
+   brackets anywhere in the string — `"An applyBod that clears before validating [INV-BOD-1]"`.
+   `verify-harness` checks both directions: `invariant-uncovered` for a stated invariant nobody
+   cites, `falsifier-orphan` for a citation to an invariant that exists in no design.
+
+   **Never add a citation to satisfy the gate.** A citation you attached afterwards is worse than
+   none: it converts an honest gap into a false claim of coverage, and the gate then reports green
+   on a feature nobody checked. Cite the id you actually derived from, or write NEEDS DESIGN.
+   Contract: `docs/reference/invariant-contract.md`. The design names,
    per component, an observable seam and what must hold for every input; a `falsifier` is the
    cheapest way to break one of those invariants. If the design gives you nothing to derive from,
    that is a design gap: write `NEEDS DESIGN: no invariants stated for <component>` rather than

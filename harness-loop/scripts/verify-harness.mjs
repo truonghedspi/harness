@@ -805,6 +805,48 @@ function gateDesign() {
     }
   }
 
+  // 8b3 — the invariant -> falsifier contract, checked in BOTH directions
+  // (references/invariant-contract.md). Forward alone is not enough: it lets the planner cite
+  // nothing, or cite an id it invented, and still pass. ISO/IEC/IEEE 29148's point exactly —
+  // forward shows coverage, backward surfaces artifacts that justify nothing.
+  // Opt-in on the first INV- id, so adopting a repo whose designs have none stays silent.
+  {
+    const stated = new Map();          // INV-id -> which design doc states it
+    for (const f of lsSafe(P("docs", "design")).filter((x) => x.endsWith(".md"))) {
+      const text = read(P("docs", "design", f)) || "";
+      for (const m of text.matchAll(/\bINV-[A-Z]+-\d+\b/g)) {
+        if (!stated.has(m[0])) stated.set(m[0], f);
+      }
+    }
+    const cited = new Map();           // INV-id -> feature ids citing it
+    for (const ft of (featureListArray || [])) {
+      for (const m of String(ft.falsifier || "").matchAll(/\bINV-[A-Z]+-\d+\b/g)) {
+        if (!cited.has(m[0])) cited.set(m[0], []);
+        cited.get(m[0]).push(ft.id);
+      }
+    }
+    if (stated.size || cited.size) {   // the opt-in
+      const uncovered = [...stated.keys()].filter((id) => !cited.has(id));
+      if (uncovered.length) {
+        add({
+          gate: "design", id: "invariant-uncovered", layer: "project", severity: "warn", count: uncovered.length,
+          symptom: `${uncovered.length} invariant(s) are stated in a design but no feature's falsifier cites them — the design says it must always hold and nothing would catch a violation`,
+          remedy: "give each one a feature whose verification would fail on a violation, and cite the id in that feature's falsifier. If none is needed, the invariant does not belong in the design (docs/reference/invariant-contract.md)",
+          evidence: uncovered.slice(0, 6).map((id) => `${id} (${stated.get(id)})`).join(", "),
+        });
+      }
+      const orphans = [...cited.keys()].filter((id) => !stated.has(id));
+      if (orphans.length) {
+        add({
+          gate: "design", id: "falsifier-orphan", layer: "project", severity: "warn", count: orphans.length,
+          symptom: `${orphans.length} falsifier(s) cite an invariant id that exists in no design document — the citation is to something that was never stated`,
+          remedy: "either the id is a typo, or the falsifier was written first and the citation added to satisfy the gate. The second is worse than no citation: it reports coverage nobody checked. Fix the id, or write NEEDS DESIGN and let the designer state the invariant",
+          evidence: orphans.slice(0, 6).map((id) => `${id} ← ${cited.get(id).slice(0, 2).join(",")}`).join("; "),
+        });
+      }
+    }
+  }
+
   // 8c — a component named in architecture.md that no feature covers (total-mapping idea).
   const arch = read(P("docs", "architecture.md"));
   if (arch && featureListArray && featureListArray.length) {
