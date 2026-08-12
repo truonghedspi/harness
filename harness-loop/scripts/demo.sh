@@ -987,7 +987,50 @@ try { const j=JSON.parse(r.stdout); process.exit(Array.isArray(j.findings)?0:1);
 catch(e){ console.log('     stdout was', (r.stdout||'').length, 'bytes:', e.message); process.exit(1); }
 "; expect "a --json report read through spawnSync parses whole" $?
 
-step "34/35" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 35 "multi-service collection: a service is a directory, and not every module is one"
+# The registry the integration layer needs. Every assertion below encodes something a survey of
+# seven real repos forced — see references/multi-service.md.
+MS="$WORK/multiservice"; rm -rf "$MS"
+mkdir -p "$MS/monorepo/svc-a/src/main/java/com/acme/deep/pkg" "$MS/monorepo/lib-b/src/main/java/com/acme" "$MS/scriptsvc"
+printf '<project><modelVersion>4.0.0</modelVersion></project>' > "$MS/monorepo/svc-a/pom.xml"
+printf 'package com.acme.deep.pkg;\npublic class App { public static void main(String[] a) {} }\n' \
+  > "$MS/monorepo/svc-a/src/main/java/com/acme/deep/pkg/App.java"
+printf '<project><packaging>jar</packaging></project>' > "$MS/monorepo/lib-b/pom.xml"
+printf 'package com.acme;\npublic class Codec {}\n' > "$MS/monorepo/lib-b/src/main/java/com/acme/Codec.java"
+printf 'import x from "y";\nconst s = http.createServer();\n' > "$MS/scriptsvc/server.js"
+node "$SCRIPTS/collect-services.mjs" --roots "$MS/monorepo","$MS/scriptsvc" --out "$MS/services.manifest.json" >/dev/null
+node -e "
+const m=require('$MS/services.manifest.json');
+const by=Object.fromEntries(m.services.map(s=>[s.id,s]));
+const svcA=Object.values(by).find(s=>/svc-a/.test(s.id));
+const libB=Object.values(by).find(s=>/lib-b/.test(s.id));
+// one repo, two entries — the unit is a directory, not a repository
+process.exit(svcA && libB && m.services.length>=3 ? 0 : 1);
+"; expect "one repo with two modules yields two entries — the unit is a directory" $?
+node -e "
+const m=require('$MS/services.manifest.json');
+const svcA=m.services.find(s=>/svc-a/.test(s.id)), libB=m.services.find(s=>/lib-b/.test(s.id));
+// a main() 7 levels down must still be found — a shallow walk misclassified exactly this
+process.exit(svcA.kind==='service' && libB.kind==='library' ? 0 : 1);
+"; expect "a jar with no entry point is a library; a main() deep in a package tree is still found" $?
+node -e "
+const m=require('$MS/services.manifest.json');
+const s=m.services.find(x=>/scriptsvc/.test(x.id));
+// no manifest at all is a real shape: no build step, but a start command
+process.exit(s && s.kind==='service' && s.build===null && /node server\.js/.test(s.start||'') ? 0 : 1);
+"; expect "a service with no build manifest gets build=null and a real start command" $?
+node -e "
+const m=require('$MS/services.manifest.json');
+// health and dependsOn are never guessed — a fabricated health check makes the env report ready
+process.exit(m.services.every(s=>s.health===null && s.dependsOn===null) ? 0 : 1);
+"; expect "health and dependsOn are left for a human, never invented" $?
+node -e "
+const m=require('$MS/services.manifest.json');
+// an absent image is reported as absent, not filled in with something plausible
+process.exit(m.services.every(s=>s.image===null) ? 0 : 1);
+"; expect "no Dockerfile means image=null — prerequisite work, not a blank to invent" $?
+
+step "36/37" "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

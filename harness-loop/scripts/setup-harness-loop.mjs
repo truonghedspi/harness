@@ -131,6 +131,7 @@ const EXTRA_COPIES = [
   ["scripts/agent-context.mjs", "tools/agent-context.mjs"],
   ["scripts/guard-write.mjs", "tools/guard-write.mjs"],
   ["scripts/replay-parallel.mjs", "tools/replay-parallel.mjs"],
+  ["scripts/collect-services.mjs", "tools/collect-services.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],
@@ -143,6 +144,7 @@ const EXTRA_COPIES = [
   ["references/runtimes.md", "docs/reference/runtimes.md"],
   ["references/step-acceptance.md", "docs/reference/step-acceptance.md"],
   ["references/invariant-contract.md", "docs/reference/invariant-contract.md"],
+  ["references/multi-service.md", "docs/reference/multi-service.md"],
 ];
 // Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
 // without the strategy matrix, property catalog and schemas it dispatches to.

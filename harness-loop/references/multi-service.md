@@ -94,6 +94,21 @@ recommended answer, and the loop stops on them exactly as it does today — a fa
 is worse than none, because the environment then reports ready and the test fails somewhere less
 obvious.
 
+### Running it
+
+```bash
+node tools/collect-services.mjs --roots ~/work/repo-a,~/work/repo-b --out services.manifest.json
+```
+
+Calibrated against the real workspace while being written, and it earned two corrections there:
+
+- A `main()` seven levels down a Java package tree was missed by a depth-4 walk, and a real service
+  was filed as a library. **Third time in this codebase a bounded walk has been set too shallow for
+  Java** — the collector now starts at 12 and says so in a comment.
+- `fix-adapter/gateway` carries three Spring Boot dependencies, one config class, and no entry
+  point. It is neither a library nor a running service, so it reports as **`incomplete`**. Labelling
+  it either way would have been tidy and would have hidden work nobody has done.
+
 ## `k8s-test-env.sh`, plural
 
 Today it takes one chart as `$1` and derives one release name. It needs to take a set: bring them up
