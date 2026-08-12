@@ -299,6 +299,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Giving an agent its own persistent, self-reorganizing memory (world-standard grounding, entry
   schema, read/write lifecycle, the `memory-consolidate.mjs` mechanical reorganize pass):
   [references/agent-memory.md](references/agent-memory.md)
+- More than one service has to be running for the test to mean anything — the service registry, why
+  the unit is a directory rather than a repository, and the four things a survey of seven real repos
+  changed about the design: [references/multi-service.md](references/multi-service.md)
 - Target is a Kubernetes-deployed microservice and Docker isn't available for Level 3 testing:
   [references/k8s-integration-testing.md](references/k8s-integration-testing.md) — a
   namespace-per-run Helm deploy/test/collect-diagnostics/teardown script
