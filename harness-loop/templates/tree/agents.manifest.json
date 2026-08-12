@@ -1,5 +1,5 @@
 {
-  "$comment": "Single source of truth for every agent in this harness. setup-harness-loop.mjs generates BOTH runtimes from it: .kiro/agents/*.json (kiro-cli) and .claude/agents/*.md (Claude Code). Edit this file, then re-run setup with --force, or `node tools/gen-agents.mjs --target .`. Never hand-edit the generated agent files \u2014 verify-harness reports agent-generated-stale. Field mapping: prompt -> kiro `prompt` file:// URI / Claude system-prompt body (inlined at generation); resources -> kiro `resources` / Claude SubagentStart hook injecting them as additionalContext (computed at spawn, so never stale); writes -> kiro toolsSettings.write.allowedPaths / Claude PreToolUse hook denying edits outside the list (Claude has no per-agent path permission field, and an Edit(...) rule in settings.json is session-wide, so the hook is the only per-agent enforcement); trace -> lifecycle hooks; model -> per-runtime model, null meaning \"the runtime default\". Evaluator roles (checker, design-reviewer) get the strongest model available because their whole job is to catch what a cheaper model produced; executors run cheap. kiro offers no Opus on this account (kiro-cli chat --list-models), so its evaluators use claude-sonnet-4.5, the strongest it has.",
+  "$comment": "Single source of truth for every agent in this harness. setup-harness-loop.mjs generates BOTH runtimes from it: .kiro/agents/*.json (kiro-cli) and .claude/agents/*.md (Claude Code). Edit this file, then re-run setup with --force, or `node tools/gen-agents.mjs --target .`. Never hand-edit the generated agent files \u2014 verify-harness reports agent-generated-stale. Field mapping: prompt -> kiro `prompt` file:// URI / Claude system-prompt body (inlined at generation); resources -> kiro `resources` / Claude SubagentStart hook injecting them as additionalContext (computed at spawn, so never stale); writes -> kiro toolsSettings.write.allowedPaths / Claude PreToolUse hook denying edits outside the list (Claude has no per-agent path permission field, and an Edit(...) rule in settings.json is session-wide, so the hook is the only per-agent enforcement); trace -> lifecycle hooks; model -> per-runtime model, null meaning \"the runtime default\". Evaluator roles (checker, design-reviewer) get the strongest model available because their whole job is to catch what a cheaper model produced; executors run cheap. kiro offers no Opus on this account (kiro-cli chat --list-models), so its evaluators use claude-sonnet-4.5, the strongest it has. Executors are PINNED to claude-sonnet-4 rather than left on kiro's `auto`: on 2026-08-12 `auto` returned \"temporarily unavailable\" mid-run and killed a maker part-way through a fix. `auto` is a router, not a model, and it can route to nothing.",
   "runtimes": [
     "kiro",
     "claude"
@@ -79,7 +79,7 @@
       "welcomeMessage": "Context interviewer: I collect only what can't be found in the repo \u2014 deployment facts, business intent, risk appetite. I grep/spike anything discoverable myself first, then ask ONE question at a time, each with my recommended answer so you can decide in seconds. Every answer lands in a file (assumptions.md row flipped to verified, a cross-cutting decision with its enforcing rule, or a \u2264300-line docs/context/ topic indexed in docs/INDEX.md) \u2014 never in chat alone. I start from what the tools already flagged: needs-human assumptions, open cross-cutting decisions, NEEDS DESIGN markers.",
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     },
     {
@@ -156,7 +156,7 @@
       "welcomeMessage": "Designer: point me at the requirement. I produce named components + boundaries, a claims table where every library fact is cited to a real file:line or proven by a runnable spike, a registry of load-bearing assumptions (verified / assumed-with-blast-radius / needs-human), and the rejected alternatives. I stop and ask you ONLY about assumptions that cannot be known from the repo \u2014 deployment facts, business intent, risk appetite. I don't cut features and I don't implement.",
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     },
     {
@@ -195,7 +195,7 @@
       "welcomeMessage": "Feature planner: point me at the requirement (a file, or describe it) and I'll decompose it into a right-sized feature_list.json \u2014 build features for named components, prove features mapped to acceptance scenarios, sized so one maker iteration can finish each. I don't implement anything.",
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     },
     {
@@ -225,7 +225,7 @@
       "welcomeMessage": "Harness setup: I will verify the toolchain, confirm MCP connectivity, fill in the real verification commands, and get ./init.sh green. Setup only \u2014 no feature work.",
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     },
     {
@@ -263,7 +263,7 @@
       ],
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     },
     {
@@ -301,7 +301,7 @@
       "traceToolUse": [],
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     },
     {
@@ -334,7 +334,7 @@
       ],
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     },
     {
@@ -371,7 +371,7 @@
       "welcomeMessage": "K8s integration tester \u2014 here's what I do, in order: (0) check the cluster is reachable and start it myself if it's a local minikube/kind that's down (never touch a shared cluster's lifecycle); (1) read/write docs/testing-standards.md's Level 3 definition; (2) point tools/k8s-test-env.sh at the real Helm chart; (3) write a real test that exercises the deployed service over the network, not a mock; (4) run it through the script \u2014 I never run helm/kubectl myself, only read-only diagnosis; (5) on failure, read dumped diagnostics + the read-only k8s-readonly MCP server, fix, retry; (6) wire the confirmed command into docs/testing-standards.md; (7) stop a local cluster again when k8s work is done, so it doesn't starve your other test suites. I record evidence like a maker \u2014 I cannot set status=done myself, the checker does. Tell me the chart path (or the requirement, if there's no chart yet) to start.",
       "model": {
         "claude": "sonnet",
-        "kiro": null
+        "kiro": "claude-sonnet-4"
       }
     }
   ]

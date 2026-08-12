@@ -67,7 +67,7 @@ Set in the manifest, per runtime, and generated into both configs:
 
 | Role kind | Claude Code | kiro |
 |---|---|---|
-| **executors** — maker, designer, feature-planner, test-designer, test-implementer, context-interviewer, harness-setup, k8s-integration-tester | `sonnet` | the runtime default (no `model` field) |
+| **executors** — maker, designer, feature-planner, test-designer, test-implementer, context-interviewer, harness-setup, k8s-integration-tester | `sonnet` | `claude-sonnet-4` — **pinned, not `auto`** |
 | **evaluators** — checker, design-reviewer | `claude-opus-5` | `claude-sonnet-4.5` |
 
 The split follows the same line as generator/evaluator separation: catching what a cheaper model
@@ -86,8 +86,8 @@ session on 2026-08-12, kiro produced two hard stops:
 - **The default model went away mid-run.** `auto` returned "temporarily unavailable" while the maker
   was part-way through a fix. It had completed the change and died before committing — recoverable
   only because the work was on disk. Pinning kiro's executors to a named model instead of `auto`
-  would have avoided it; the manifest currently leaves them on the default, which is a deliberate
-  choice worth revisiting.
+  would have avoided it, so they are now pinned to `claude-sonnet-4`. `auto` is a router, not a
+  model, and a router can route to nothing.
 - **The monthly request quota ran out.** `Monthly request limit reached … limits reset on 09/01`,
   three weeks away. That is not a retry-and-continue failure; it ends the runtime for the period.
 

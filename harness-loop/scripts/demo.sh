@@ -851,11 +851,14 @@ node -e "
 const fs=require('fs');
 // Cheap model for producing, strong model for judging — the same line as generator/evaluator
 // separation, because catching what a cheaper model got wrong IS the evaluator's job.
+// Both kiro roles name a model rather than riding `auto`: on 2026-08-12 `auto` returned
+// "temporarily unavailable" mid-run and killed a maker part-way through a fix. A router can
+// route to nothing.
 const cc=(n)=>(fs.readFileSync('$TR/.claude/agents/'+n+'.md','utf8').match(/^model: (.+)\$/m)||[])[1];
 const kiro=(n)=>require('$TR/.kiro/agents/'+n+'.json').model;
 process.exit(cc('checker')==='claude-opus-5' && cc('design-reviewer')==='claude-opus-5' &&
              cc('maker')==='sonnet' && cc('test-designer')==='sonnet' &&
-             kiro('checker')==='claude-sonnet-4.5' && kiro('maker')===undefined ? 0 : 1);
+             kiro('checker')==='claude-sonnet-4.5' && kiro('maker')==='claude-sonnet-4' ? 0 : 1);
 "; expect "evaluators get the strongest model each runtime offers; executors run cheap" $?
 node -e "
 const fs=require('fs');
