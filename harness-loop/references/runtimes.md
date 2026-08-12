@@ -78,6 +78,26 @@ Opus on this account — `kiro-cli chat --list-models` tops out at `claude-sonne
 checker is a weaker evaluator than a Claude Code checker. If that matters for a given project, run
 the checking half on Claude Code.
 
+## Why both, and not just the better one
+
+Keeping two runtimes looked like optional generality until it was load-bearing. Inside one working
+session on 2026-08-12, kiro produced two hard stops:
+
+- **The default model went away mid-run.** `auto` returned "temporarily unavailable" while the maker
+  was part-way through a fix. It had completed the change and died before committing — recoverable
+  only because the work was on disk. Pinning kiro's executors to a named model instead of `auto`
+  would have avoided it; the manifest currently leaves them on the default, which is a deliberate
+  choice worth revisiting.
+- **The monthly request quota ran out.** `Monthly request limit reached … limits reset on 09/01`,
+  three weeks away. That is not a retry-and-continue failure; it ends the runtime for the period.
+
+Both were survivable because the same agents exist for Claude Code, generated from the same
+manifest, and `HARNESS_RUNTIME=claude` resumes the loop where it stopped. A single-runtime harness
+would have stopped the project until September.
+
+The general point: a runtime is a dependency with an availability budget, not a constant. The
+manifest costs almost nothing to carry and converts an outage into a flag.
+
 ## Verified, not assumed
 
 Every row above was checked by running it, because the failure mode here is silence — a
