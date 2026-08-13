@@ -1,6 +1,6 @@
 # Harness improvement plan
 
-Generated 2026-08-13 11:56:18 from `harness-issues.jsonl`.
+Generated 2026-08-13 12:06:18 from `harness-issues.jsonl`.
 Ranked by `occurrences × severity × distinct targets` (regressions doubled) — fix top-down,
 one per iteration, and close each with `--reverify`.
 
@@ -12,7 +12,7 @@ one per iteration, and close each with `--reverify`.
 
 - **Gate:** `baseline`  **Severity:** blocker  **Score:** 3
 - **Seen:** 1x, first 2026-08-13, last 2026-08-13
-- **Targets:** /var/folders/3z/np7bbr2910zg9tml74w1gyjh0000gn/T/tmp.UCrERtF40R/demo-target
+- **Targets:** /var/folders/3z/np7bbr2910zg9tml74w1gyjh0000gn/T/tmp.tt4XvjcYfV/demo-target
 - **Remedy:** init.sh should prefer ./mvnw / ./gradlew when a wrapper exists — fix templates/tree/init.sh
 - **Fix where:** templates/tree/init.mjs → VERIFICATION block (stack detection); init.sh/init.cmd are wrappers and carry no logic
 

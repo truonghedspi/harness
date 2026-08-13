@@ -1665,6 +1665,45 @@ const t=require('fs').readFileSync('$DP/prompts/orchestrator.md','utf8').replace
 process.exit(/loop\/dispatch\.sh designer/.test(t) && /only when a human has already decided/.test(t) ? 0 : 1);
 "; expect "and the orchestrator is told to use it only once a human has decided — the router still owns the rest" $?
 
+# setup never overwrites, --force overwrites everything including the project's own work. Neither
+# is an upgrade, so targets get hand-synced file by file — which is how one ended up with
+# check-coverage.mjs at both the repo root and tools/, the stale copy shadowing the newer one.
+UP="$WORK/upgrade"; rm -rf "$UP"; mkdir -p "$UP"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$UP" --name "Aged" --purpose "upgrade path" >/dev/null
+node "$SCRIPTS/upgrade-harness.mjs" --target "$UP" --dry-run --json > "$UP/fresh.json" 2>/dev/null
+node -e "
+const j=require('$UP/fresh.json');
+// setup substitutes {{PROJECT_NAME}}: a byte comparison marks every prompt on a minute-old scaffold
+// as customised, and a report nobody reads is worse than none
+process.exit(j.changed.length===0 && j.added.length===0 && j.drifted.length===0 && j.same>0 ? 0 : 1);
+"; expect "a freshly scaffolded target needs no upgrade and reports no drift" $?
+# age it the way a real target ages
+printf '#!/usr/bin/env bash\necho old\n' > "$UP/loop/route.mjs"
+rm -f "$UP/loop/dispatch.sh" "$UP/tools/feature.mjs"
+printf '\n<!-- this project: never touch the ledger -->\n' >> "$UP/prompts/designer.md"
+node "$SCRIPTS/upgrade-harness.mjs" --target "$UP" --json > "$UP/aged.json" 2>/dev/null
+node -e "
+const j=require('$UP/aged.json');
+process.exit(j.changed.includes('loop/route.mjs') && j.added.includes('loop/dispatch.sh')
+  && j.added.includes('tools/feature.mjs') ? 0 : 1);
+"; expect "stale machinery is refreshed and missing machinery is added" $?
+node -e "
+const j=require('$UP/aged.json');
+// the customised prompt is REPORTED, never overwritten — merge, don't overwrite
+process.exit(j.drifted.includes('prompts/designer.md') ? 0 : 1);
+"; expect "a customised prompt is reported as drift, not silently replaced" $?
+grep -q "never touch the ledger" "$UP/prompts/designer.md"
+expect "and the customisation is still there afterwards" $?
+node -e "
+const fs=require('fs');
+process.exit(fs.readFileSync('$UP/loop/route.mjs','utf8').includes('echo old') ? 1 : 0);
+"; expect "while the ancient router really was replaced" $?
+node -e "
+const j=require('$UP/aged.json');
+// generated files must be regenerated, or the refresh is only half applied
+process.exit(j.regenerated.some(r=>/gen-agents/.test(r)) && j.regenerated.some(r=>/feature-digest/.test(r)) ? 0 : 1);
+"; expect "and the generated agents and digest are rebuilt, so the refresh actually takes effect" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

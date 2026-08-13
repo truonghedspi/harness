@@ -360,6 +360,23 @@ technique and a worked bad-vs-good example.
 It is also the one agent `route.mjs` never dispatches — it is the node that *reads* the router, so
 giving the loop an edge into its own front door would let it recurse.
 
+## Upgrading a target that already exists
+
+```bash
+node harness-loop/scripts/upgrade-harness.mjs --target /path/to/project [--dry-run]
+```
+
+`setup-harness-loop.mjs` never overwrites and `--force` overwrites everything including the
+project's own work, so neither is an upgrade. This splits the tree in two: **machinery the skill
+owns** (`tools/**`, `docs/reference/**`, `loop/route.mjs`, `run-loop.sh`, `dispatch.sh`,
+`approval-gate.mjs`, the init wrappers) is refreshed, and **files a project legitimately
+customises** (prompts, `AGENTS.md`, `agents.manifest.json`, `init.mjs`'s verification block) are
+reported as drift for a human to merge — never replaced. It then regenerates the agents and the
+digest, so the refresh actually takes effect, and names any agent the skill has added that the
+target's manifest has never heard of.
+
+Drift is compared placeholder-tolerantly, so a target scaffolded a minute ago reports nothing.
+
 ## Reading scope without paying for it
 
 Two tools, one job each. `feature_list.digest.md` (generated, auto-loaded by every agent) is every
