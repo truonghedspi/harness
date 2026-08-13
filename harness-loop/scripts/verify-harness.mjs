@@ -1025,6 +1025,41 @@ function gateMcp() {
   }
 }
 
+// A prompt that tells an agent to edit `FOO_BAR` in a script that has no FOO_BAR sends it looking
+// for something that does not exist — and an agent that cannot find it improvises. This is the same
+// failure class as a broken file:// URI: the prompt still reads plausibly, and only the behaviour is
+// wrong. Caught here because it happened: the k8s prompt named three config variables that had been
+// removed from the script it named.
+function gatePromptVars() {
+  const bad = [];
+  for (const f of lsSafe(P("prompts")).filter((x) => x.endsWith(".md"))) {
+    const lines = (read(P("prompts", f)) || "").split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const scripts = [...lines[i].matchAll(/`?(tools\/[\w.-]+\.(?:sh|mjs))`?/g)].map((m) => m[1]);
+      if (!scripts.length) continue;
+      // Variables are often listed on the following line or two, not the one naming the script.
+      const window = lines.slice(i, i + 3).join("\n");
+      const vars = [...window.matchAll(/`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,})`/g)].map((m) => m[1]);
+      if (!vars.length) continue;
+      for (const sc of scripts) {
+        const body = read(P(sc));
+        if (body === null) continue;             // agent-uri-broken / other gates own missing files
+        for (const v of new Set(vars)) {
+          if (!body.includes(v)) bad.push(`prompts/${f}:${i + 1} names ${v} in ${sc}`);
+        }
+      }
+    }
+  }
+  if (bad.length) {
+    add({
+      gate: "loop", id: "prompt-cites-missing-var", layer: "project", severity: "warn", count: bad.length,
+      symptom: `${bad.length} prompt reference(s) name a variable the script does not define`,
+      remedy: "update the prompt to match the script, or the script to match the prompt. An agent told to fill in a variable that does not exist will improvise something that looks like an answer",
+      evidence: bad.slice(0, 4).join("; "),
+    });
+  }
+}
+
 function gateDigest() {
   if (!exists(P("feature_list.digest.md")) || !exists(P("tools", "feature-digest.mjs"))) return;
   const r = spawnSync(process.execPath, [P("tools", "feature-digest.mjs"), "--target", TARGET, "--check"],
@@ -1088,6 +1123,7 @@ gateRules();
 gateGenerated();
 gateGraph();
 gateK8s();
+gatePromptVars();
 gateMcp();
 gateDigest();
 promoteFeatures();

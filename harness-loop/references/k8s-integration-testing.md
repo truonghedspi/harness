@@ -168,8 +168,8 @@ issue.
    `.mcp.json`) with the read-only server already in it, so the agent can self-diagnose a failure
    without shelling out blind. Gate `mcp-runtime-skew` fails them if they later diverge.
 3. Run the agent — `kiro-cli chat --agent k8s-integration-tester` — and point it at the real Helm
-   chart. It does steps that used to be manual: fills the script's `CHART_PATH` / `RELEASE_NAME` /
-   `NAMESPACE_LABEL_SELECTOR_FOR_READINESS`, writes real Level 3 tests against the deployed
+   chart. There is nothing in the script to fill in — it takes the chart, or the whole registry,
+   as an argument. The agent writes real Level 3 tests against the deployed
    service, runs them through the script, and points `docs/testing-standards.md`'s Level 3 command
    at the confirmed-working invocation
    (`tools/k8s-test-env.sh charts/my-service -- ./run-cross-service-tests.sh`). It behaves like a

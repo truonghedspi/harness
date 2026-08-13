@@ -1120,6 +1120,19 @@ test "$CYC" = "2" && grep -q "cycle among" "$MS/run3.log"
 expect "a dependsOn cycle is refused with the cycle named, not resolved arbitrarily" $?
 grep -q "nothing was deployed\|cycle among" "$MS/run3.log"; expect "and nothing is deployed before the plan is known to be satisfiable" $?
 
+# The prompt is the agent's only instruction sheet, and it drifts silently: this exact case was a
+# prompt telling the agent to fill in three config variables the script no longer had.
+PV="$WORK/promptvar"; rm -rf "$PV"; mkdir -p "$PV/prompts" "$PV/tools"
+cp "$SCRIPTS/../templates/k8s/tools/k8s-test-env.sh" "$PV/tools/"
+printf '# t\n\nFill `tools/k8s-test-env.sh`'"'"'s `NAMESPACE_LABEL_SELECTOR_FOR_READINESS` and `DEPLOY_TIMEOUT_S`.\n' > "$PV/prompts/p.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$PV" --skip-baseline --quiet
+node -e "
+const r=require('$PV/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='prompt-cites-missing-var');
+// and only the missing one: DEPLOY_TIMEOUT_S is real, flagging it would train people to ignore this
+process.exit(f && /NAMESPACE_LABEL_SELECTOR/.test(f.evidence) && !/DEPLOY_TIMEOUT_S/.test(f.evidence) ? 0 : 1);
+"; expect "a prompt naming a config variable its script does not define is caught — and the real one is not" $?
+
 step 37 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

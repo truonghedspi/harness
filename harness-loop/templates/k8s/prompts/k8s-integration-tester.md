@@ -44,10 +44,18 @@ fixing, not a reason to route around it.
    in `feature_list.json` you're advancing tells you what cross-service behavior must hold. If
    Level 3 isn't filled in yet for this project, write it now (three levels: unit / in-service
    integration / microservice integration — Lesson 10) before writing a single test.
-2. **Point the script at the real chart**, if not already done: fill
-   `tools/k8s-test-env.sh`'s `CHART_PATH` / `RELEASE_NAME` /
-   `NAMESPACE_LABEL_SELECTOR_FOR_READINESS` for this project's actual Helm chart. Confirm the
-   chart's values file(s) — don't guess service/port names, read them.
+2. **Work out what has to be standing up.** The script takes the chart (or the registry) as an
+   argument — there is nothing in it to edit. Confirm the chart's values file(s) — don't guess
+   service/port names, read them.
+   - **One service:** `tools/k8s-test-env.sh charts/<name> -- <cmd>`.
+   - **A scenario spanning services:** `tools/k8s-test-env.sh --services services.manifest.json
+     [--only <id>] -- <cmd>`. The registry comes from `tools/collect-services.mjs`
+     (`docs/reference/multi-service.md`). Install order comes from `dependsOn`.
+   - If a service in the plan logs `readiness UNVERIFIED`, its `health` field is empty. **Fill it
+     in** — a command that proves the service *serves*, not that its pod is Running. Until you do,
+     a green test may have been running against a service that was never up, and that is exactly the
+     kind of pass this harness treats as no evidence at all. If you cannot determine the right check
+     from the chart, say so in `checkerNotes` rather than writing a plausible one.
 3. **Write the test**, using the project's real test framework/language (detected from the
    manifest already on disk — never invent a new one). A Level 3 test is not a unit test with a
    longer timeout: it must exercise the deployed service over the network the way a real caller
@@ -81,13 +89,15 @@ fixing, not a reason to route around it.
 4. **Run it for real**, always through the script:
    ```bash
    tools/k8s-test-env.sh <chart-path> -- <your real test command>
+   tools/k8s-test-env.sh --services services.manifest.json -- <your real test command>
    ```
    Never call `helm`/`kubectl` directly to stand up or tear down the environment. Record the
    command's actual output as `evidence` in `feature_list.json` — not "ran locally, looked fine."
 5. **On failure, diagnose before retrying blind.** In order of speed: (a) the diagnostics report
    `k8s-test-env.sh` dumps before teardown (`kubectl get events --sort-by=.lastTimestamp` first —
    `FailedScheduling`/`BackOff`/`Unhealthy`/`FailedMount` are the fastest signal, faster than
-   reading logs), (b) the read-only `k8s-readonly` MCP server if configured, to inspect current
+   reading logs; in multi-service mode read `READ-THIS-FIRST.txt` first — it ranks the dump by
+   likely cause, and the service that failed is usually not the one whose logs are loudest), (b) the read-only `k8s-readonly` MCP server if configured, to inspect current
    cluster state directly. Never ask for broader cluster permissions to "just go fix it" —
    diagnose, fix the chart/test/code, and re-run through the script again.
 6. **Point `docs/testing-standards.md`'s Level 3 command at the exact script invocation** you
