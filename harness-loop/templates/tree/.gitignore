@@ -1,5 +1,5 @@
 
 
-# Checker probes: a sanctioned place for a throwaway verification, so it cannot be mistaken
-# for project code and cannot survive as unmaintained proof (loop/checker-prompt.md).
-trace/scratch/
+# Run output, including trace/scratch/ — the sanctioned home for a checker's throwaway probe, so it
+# cannot be mistaken for project code or survive as unmaintained proof (loop/checker-prompt.md).
+trace/

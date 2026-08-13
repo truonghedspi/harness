@@ -41,6 +41,10 @@ const K8S = opt("--k8s", "auto");
 // multi-service environment. Each service repo keeps its own harness for in-service work
 // (references/multi-service.md).
 const INTEGRATION = opt("--integration", null);
+// --gitignore-harness: keep the skill's MACHINERY out of the product repo. Off by default, because
+// a repo that ignores it cannot run the loop until someone re-installs the harness — a real cost
+// that has to be chosen, not inherited.
+const IGNORE_MACHINERY = args.includes("--gitignore-harness");
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(scriptDir, "..");
@@ -191,6 +195,45 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
     }
   };
   walkDir(".");
+}
+
+// --- .gitignore ------------------------------------------------------------------------------
+// Three categories, and conflating them breaks the harness:
+//
+//   EPHEMERAL   run output. Always ignored — it is regenerated every run and only creates diff noise.
+//   STATE       feature_list.json, progress.md, DECISIONS.md, session-handoff.md, memory/**, the
+//               docs. NEVER ignored. This is the externalised memory the whole design rests on, and
+//               gates read it out of git: `feature-field-lost` compares against
+//               `git show HEAD:feature_list.json`, so ignoring it turns a blocker into a no-op.
+//   MACHINERY   tools/, prompts/, the generated agent dirs, docs/reference/. Ignored only with
+//               --gitignore-harness, because a clone that ignores them cannot run the loop until
+//               the harness is re-installed.
+{
+  const gi = path.join(targetRoot, ".gitignore");
+  const existing = exists(gi) ? readFileSync(gi, "utf8") : "";
+  const want = [
+    ["# --- harness: run output. Regenerated every run; committing it is pure diff noise.", null],
+    ["trace/", "ephemeral"],
+    ["loop/current.json", "ephemeral"],
+    ["loop/route-log.jsonl", "ephemeral"],
+  ];
+  if (IGNORE_MACHINERY) {
+    want.push(
+      ["", null],
+      ["# --- harness: machinery (--gitignore-harness). Re-install before running the loop here.", null],
+      ["tools/", "machinery"], ["prompts/", "machinery"], [".kiro/", "machinery"],
+      [".claude/", "machinery"], [".codex/", "machinery"], ["docs/reference/", "machinery"],
+      ["check-coverage.mjs", "machinery"], ["loop/*.mjs", "machinery"], ["loop/*.sh", "machinery"],
+      ["!loop/goal.md", "machinery"],
+    );
+  }
+  const lines = existing.split("\n");
+  const missing = want.filter(([l]) => l === "" || !lines.some((x) => x.trim() === l.trim()));
+  if (missing.length && (!exists(gi) || FORCE || true)) {
+    const add = missing.map(([l]) => l).join("\n");
+    writeFileSync(gi, (existing ? existing.replace(/\n*$/, "\n\n") : "") + add + "\n");
+    written.push(".gitignore" + (IGNORE_MACHINERY ? " (+ machinery)" : ""));
+  }
 }
 
 // --- Kubernetes layer ---------------------------------------------------------------------------

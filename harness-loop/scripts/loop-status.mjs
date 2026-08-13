@@ -74,6 +74,30 @@ function collect() {
   const g = spawnSync("git", ["status", "--porcelain"], { cwd: TARGET, encoding: "utf8" });
   out.uncommitted = (g.stdout || "").split("\n").filter(Boolean).map((l) => l.trim()).slice(0, 12);
 
+  // Cold start: "what happened while I was away, and why did it stop?" The digest answers what is
+  // DONE; nothing answered what the last session was doing. session-handoff.md exists precisely for
+  // this and no agent read it — the orchestrator can write it and never loads it.
+  out.since = { commits: [], handoff: null, handoffStale: false };
+  const gl = spawnSync("git", ["log", "-5", "--format=%h\u001f%cr\u001f%s"], { cwd: TARGET, encoding: "utf8" });
+  if (gl.status === 0) {
+    out.since.commits = (gl.stdout || "").split("\n").filter(Boolean)
+      .map((l) => { const [sha, when, subject] = l.split("\u001f"); return { sha, when, subject }; });
+  }
+  const handoff = read(P("session-handoff.md"));
+  if (handoff) {
+    // "Written" means somebody filled something in, not that the file exists. Line-filtering the
+    // template's prose is fragile — its intro paragraph reads like content. A filled bullet
+    // (`- Goal: something`) or a ticked box is the unambiguous signal, so look for exactly that.
+    const filled = handoff.split("\n")
+      .map((l) => l.trim())
+      .filter((l) => /^-\s*\[x\]\s*\S/i.test(l) || /^-\s*[^:]{1,40}:\s*\S/.test(l));
+    out.since.handoff = filled.length ? filled.slice(0, 3).join(" · ").slice(0, 220) : null;
+    // A handoff older than the newest commit describes a session that has since been overtaken.
+    const at = (() => { try { return statSync(P("session-handoff.md")).mtimeMs; } catch { return 0; } })();
+    const lastCommit = spawnSync("git", ["log", "-1", "--format=%ct"], { cwd: TARGET, encoding: "utf8" });
+    if (lastCommit.status === 0 && at) out.since.handoffStale = at < Number(lastCommit.stdout.trim()) * 1000;
+  }
+
   const vr = readJSON(P("trace", "verify-report.json"));
   if (vr) {
     const blockers = (vr.findings || []).filter((f) => f.severity === "blocker");
@@ -117,6 +141,14 @@ function render(s) {
     L.push(`  verify    ${s.verify.blockers} blocker(s), ${s.verify.warnings} warning(s)` +
       (s.verify.ageMs !== null ? `   (report is ${dur(s.verify.ageMs)} old)` : "") +
       (s.verify.topBlockers.length ? `   ${s.verify.topBlockers.join(", ")}` : ""));
+  }
+  if (s.since && (s.since.commits.length || s.since.handoff)) {
+    L.push("  since you were last here");
+    for (const c of s.since.commits.slice(0, 3)) L.push(`      ${c.when.padEnd(14)} ${c.subject.slice(0, 62)}`);
+    if (s.since.handoff) {
+      L.push(`      handoff: ${s.since.handoff.slice(0, 100)}`);
+      if (s.since.handoffStale) L.push(`      !! the handoff predates the last commit — it describes a session already overtaken`);
+    } else L.push(`      handoff: EMPTY — nothing recorded where the last session stopped`);
   }
   if (s.uncommitted.length) {
     L.push(`  uncommitted (${s.uncommitted.length})`);

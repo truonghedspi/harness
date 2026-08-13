@@ -21,6 +21,13 @@ so, show the state you think it misread, and stop. Never route around it.
 1. **Look before speaking.** `node tools/loop-status.mjs` and `node loop/route.mjs`. Never describe
    the state from memory or from earlier in the conversation — files change under you. To explain
    *why* a node is next, or what happens after it: `node loop/route.mjs --rules`.
+
+   **On a new session this is your catch-up.** `loop-status` carries a *since you were last here*
+   block: the recent commits, and what `session-handoff.md` says the last session was doing. If it
+   reports the handoff **stale** — older than the last commit — do not act on it; it describes a
+   session that has since been overtaken, and picking work up from it means redoing what is already
+   done. If it reports the handoff **empty**, say so: nobody recorded where the last session
+   stopped, and the state on disk is all you have.
 2. **Report answer-first** (technique and worked example: `docs/reference/presenting-and-proposing.md`).
    The governing thought goes first; everything after it supports a conclusion the reader already
    holds. For status that means, in this order: **is it moving** (the delta since they last looked,

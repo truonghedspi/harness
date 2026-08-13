@@ -1781,6 +1781,74 @@ const t=require('fs').readFileSync('$RR/AGENTS.md','utf8').replace(/\s+/g,' ');
 process.exit(/tools\/feature\.mjs <id>/.test(t) && /Do not write an inline script to filter/.test(t) ? 0 : 1);
 "; expect "and it names tools/feature.mjs too, so nobody writes an inline filter over feature_list.json" $?
 
+# Cold start: a new session's first question is "what happened while I was away, and why did it
+# stop?" The digest answers what is DONE. Nothing answered the other half — session-handoff.md
+# exists precisely for it, and the orchestrator could WRITE it while never reading it.
+CS="$WORK/coldstart"; rm -rf "$CS"; mkdir -p "$CS"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$CS" --name "Cold" --purpose "catch up" >/dev/null
+( cd "$CS" && git init -q . && git add -A && git -c user.email=a@b -c user.name=a commit -qm "first commit" ) >/dev/null 2>&1
+node "$SCRIPTS/loop-status.mjs" --target "$CS" --json > "$CS/s1.json" 2>/dev/null
+node -e "
+const j=require('$CS/s1.json');
+// an untouched handoff is the template's empty bullets — say 'nobody wrote one', do not print blanks
+process.exit(j.since && j.since.commits.length===1 && j.since.handoff===null ? 0 : 1);
+"; expect "a cold start sees recent commits, and an untouched handoff reports as empty rather than as content" $?
+node -e "
+const fs=require('fs');
+fs.writeFileSync('$CS/session-handoff.md', '# Handoff\n\n## Current Objective\n\n- Goal: finish feat-x oracle\n- Current status: stopped on a schema question\n');
+"
+node "$SCRIPTS/loop-status.mjs" --target "$CS" --json > "$CS/s2.json" 2>/dev/null
+node -e "
+const j=require('$CS/s2.json');
+process.exit(/stopped on a schema question/.test(j.since.handoff||'') && j.since.handoffStale===false ? 0 : 1);
+"; expect "a written handoff is surfaced, and is not stale when it is newer than the last commit" $?
+( cd "$CS" && git add -A && git -c user.email=a@b -c user.name=a commit -qm "work done after the handoff was written" ) >/dev/null 2>&1
+( cd "$CS" && touch -t 202001010000 session-handoff.md )
+node "$SCRIPTS/loop-status.mjs" --target "$CS" --json > "$CS/s3.json" 2>/dev/null
+node -e "
+const j=require('$CS/s3.json');
+// a handoff older than the newest commit describes a session already overtaken — trusting it is
+// how a new session picks up work that is already finished
+process.exit(j.since.handoffStale===true ? 0 : 1);
+"; expect "a handoff older than the last commit is flagged stale, not read as the current situation" $?
+node "$SCRIPTS/loop-status.mjs" --target "$CS" 2>/dev/null | grep -q "since you were last here"
+expect "and it all lands in the one screen the orchestrator is told to run before it speaks" $?
+
+# "Ignore all the harness files" would break the harness: feature-field-lost compares against
+# `git show HEAD:feature_list.json`, and progress/DECISIONS/memory ARE the cross-session memory.
+# Three categories, and conflating them is the bug.
+GI="$WORK/gitignore"; rm -rf "$GI"; mkdir -p "$GI"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$GI" --name "GI" --purpose "three categories" >/dev/null
+node -e "
+const g=require('fs').readFileSync('$GI/.gitignore','utf8');
+const has=(p)=>g.split('\n').some(l=>l.trim()===p);
+// ephemeral: always ignored
+process.exit(has('trace/') && has('loop/current.json') && has('loop/route-log.jsonl') ? 0 : 1);
+"; expect "run output is ignored by default — it is regenerated every run and only creates diff noise" $?
+node -e "
+const g=require('fs').readFileSync('$GI/.gitignore','utf8');
+const bad=['feature_list.json','progress.md','DECISIONS.md','session-handoff.md','memory/','docs/','AGENTS.md']
+  .filter(p=>g.split('\n').some(l=>l.trim()===p||l.trim()===p+'/'));
+// state must stay tracked: a gate reads feature_list.json out of git, and the rest IS the memory
+process.exit(bad.length===0 ? 0 : 1);
+"; expect "but the state a gate reads out of git — and the cross-session memory — is never ignored" $?
+node -e "
+const g=require('fs').readFileSync('$GI/.gitignore','utf8');
+process.exit(/tools\//.test(g) ? 1 : 0);
+"; expect "and machinery stays tracked unless asked for, so a clone can run the loop out of the box" $?
+GM="$WORK/gitignore-m"; rm -rf "$GM"; mkdir -p "$GM"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$GM" --name "GM" --purpose "machinery out" --gitignore-harness >/dev/null
+node -e "
+const g=require('fs').readFileSync('$GM/.gitignore','utf8').split('\n').map(l=>l.trim());
+const has=(p)=>g.includes(p);
+process.exit(has('tools/') && has('prompts/') && has('.kiro/') && has('.claude/') && has('.codex/')
+  && has('!loop/goal.md') ? 0 : 1);
+"; expect "--gitignore-harness keeps the machinery out of the product repo, but not loop/goal.md" $?
+node -e "
+const g=require('fs').readFileSync('$GM/.gitignore','utf8').split('\n').map(l=>l.trim());
+process.exit(['feature_list.json','progress.md','DECISIONS.md','memory/'].some(p=>g.includes(p)) ? 1 : 0);
+"; expect "and even then the state stays tracked — the machinery is replaceable, the memory is not" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

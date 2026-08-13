@@ -360,6 +360,16 @@ technique and a worked bad-vs-good example.
 It is also the one agent `route.mjs` never dispatches — it is the node that *reads* the router, so
 giving the loop an edge into its own front door would let it recurse.
 
+## What the harness commits, and what it ignores
+
+Three categories. Conflating them is how a harness quietly stops working:
+
+| | Examples | Tracked? |
+|---|---|---|
+| **Run output** | `trace/**`, `loop/current.json`, `loop/route-log.jsonl` | **ignored** — regenerated every run, pure diff noise |
+| **State** | `feature_list.json`, `progress.md`, `DECISIONS.md`, `session-handoff.md`, `memory/**`, `docs/**` | **always tracked.** This is the externalised memory the design rests on, and gates read it *out of git* — `feature-field-lost` compares against `git show HEAD:feature_list.json`, so ignoring it turns a blocker into a no-op |
+| **Machinery** | `tools/`, `prompts/`, `.kiro/`, `.claude/`, `.codex/`, `docs/reference/` | tracked by default; `setup --gitignore-harness` keeps it out of a product repo. The cost is real: a clone that ignores it cannot run the loop until the harness is re-installed |
+
 ## Upgrading a target that already exists
 
 ```bash
