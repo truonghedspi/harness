@@ -713,7 +713,16 @@ const d=JSON.parse(fs.readFileSync(p,'utf8'));
 for (const f of d.features) if (!f.falsifier) f.falsifier='breaks the conservation invariant';
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(route_node)" = "test-implementer" ]; expect "a specified-but-unwritten oracle routes to test-implementer" $?
+# test-designer has TWO outputs — the falsifier AND the conditions under tests/design/ — and only
+# the first used to be routed on. Where the feature-planner derives falsifiers from the invariant
+# contract, the designer rule never fires, tests/design/ is never created, and the implementer is
+# dispatched to implement conditions that do not exist. Measured on aeron-demo during a codex run:
+# two paid sessions on one feature, the agent hunting for tests/design/, zero output.
+[ "$(route_node)" = "test-designer" ]; expect "falsifiers filled but no validated conditions still routes to test-designer" $?
+( cd "$TO" && node loop/route.mjs --json ) | grep -q "tests/design/ does not exist"
+expect "and the reason names the missing input rather than the feature" $?
+mkdir -p "$TO/tests/design/plans"
+[ "$(route_node)" = "test-implementer" ]; expect "once the conditions exist, a specified-but-unwritten oracle routes to test-implementer" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -1304,6 +1313,18 @@ const r=require('$LEG/trace/verify-report.json');
 const f=r.findings.find(x=>x.id==='init-swallows-failure');
 process.exit(f && f.severity==='blocker' ? 0 : 1);
 "; expect "a target still on the old bash gate is flagged as a blocker, since setup will not overwrite it" $?
+
+# hasAgent knew two runtimes. On a codex-only target every agent rule evaluated false and the
+# router fell through to `human` with work plainly available.
+CO="$WORK/codex-only"; rm -rf "$CO"; mkdir -p "$CO"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$CO" --name "CodexOnly" --purpose "one runtime" --runtime codex >/dev/null
+test ! -d "$CO/.kiro/agents" -a ! -d "$CO/.claude/agents" -a -d "$CO/.codex/agents"
+expect "a codex-only target really has only the codex agent directory" $?
+( cd "$CO" && node loop/route.mjs --json > "$CO/route.json" 2>/dev/null )
+node -e "
+const r=require('$CO/route.json');
+process.exit(r.kind==='agent' && r.node!=='human' ? 0 : 1);
+"; expect "and the router still names an agent node there instead of escalating to a human" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"

@@ -153,8 +153,9 @@ human read a report and typed the next command.
 | 6 | `design-reviewer` REJECT → `designer` | design-reviewer | designer | **nothing** | review findings die in `session-handoff.md` |
 | 7 | baseline red → `maker` repair | `init.sh` | maker step 2 | **contradicted** | `run-loop.sh` exits on red *before* the repair node runs |
 | 8 | chart present → `k8s-integration-tester` **exists** | the repo itself | setup | ~~nothing — a manual copy~~ **`setup-harness-loop.mjs --k8s auto`** | *closed 2026-08-13* — the node was reachable by the router and installable only by hand, so on every project that never ran that copy, rule 4 routed to an agent that did not exist |
+| 9 | conditions **absent** → `test-designer` | — | test-implementer | ~~nothing — the rule keyed on the falsifier only~~ **`route.mjs`** | *closed 2026-08-13* — test-designer has two outputs (`falsifier` and `tests/design/**`) and only the first was routed on. Where the feature-planner derives falsifiers from the invariant contract, the designer rule never fires, `tests/design/` is never created, and the implementer is dispatched to implement conditions that do not exist. Measured on aeron-demo: two paid Codex sessions on `feat-sit-2`, zero output |
 
-**Status, 2026-08-13.** Six of the eight are closed by `loop/route.mjs`, which turned the routing
+**Status, 2026-08-13.** Seven of the nine are closed by `loop/route.mjs`, which turned the routing
 table into executable code. Two remain: #6 (`design-reviewer` REJECT has no return edge) and #7
 (`run-loop.sh` exits on a red baseline *before* the maker's repair step can run). Gate
 `agent-unrouted` now fails any agent that neither the router nor `route.mjs` names, so this class

@@ -155,7 +155,11 @@ for i in $(seq 1 "$ITERATIONS"); do
     "Check every feature with readyForCheck=true per your instructions. Verdicts and reasons only." \
     || { echo "checker failed — stopping loop"; exit 1; }
 
-  ./init.sh || { echo "baseline red after iteration $i — stopping loop"; exit 1; }
+  # The gate is init.mjs; init.sh/init.cmd are wrappers. Call node directly so this line works
+  # under Git Bash on Windows too, and fall back for targets scaffolded before the port.
+  if [ -f init.mjs ]; then BASELINE_CMD="node init.mjs"; else BASELINE_CMD="./init.sh"; fi
+  $BASELINE_CMD || { echo "baseline red after iteration $i — stopping loop"; exit 1; }
+  BASELINE_CHECKED=1
 done
 
 # Memory hygiene report (report-only, never fails the loop): surfaces oversized indexes, orphan
@@ -173,4 +177,13 @@ if [ -f tools/cross-cutting-audit.mjs ]; then
   node tools/cross-cutting-audit.mjs --target . || true
 fi
 
-echo "loop finished: $ITERATIONS iteration(s), baseline green."
+# Say what actually happened. This line used to be the literal string "baseline green", asserted
+# unconditionally — and every non-maker node `continue`s past the baseline run above, so a loop that
+# never verified anything still signed off as green. Observed for real: a codex test-implementer
+# iteration stopped BECAUSE the baseline was red, and this line then reported it green.
+if [ "${BASELINE_CHECKED:-0}" = "1" ]; then
+  echo "loop finished: $ITERATIONS iteration(s), baseline green."
+else
+  echo "loop finished: $ITERATIONS iteration(s). Baseline NOT re-checked this run — no maker"
+  echo "  iteration ran, and only those trigger it. Run the gate yourself before trusting this."
+fi

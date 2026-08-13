@@ -29,7 +29,12 @@ const readJSON = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } ca
 const has = (p) => existsSync(p);
 const lsSafe = (d) => { try { return readdirSync(d); } catch { return []; } };
 // An agent exists if EITHER runtime has it — both are generated from agents.manifest.json.
-const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync(`.claude/agents/${name}.md`);
+// All three runtimes. Missing codex here meant that on a codex-only target every agent rule
+// evaluated to false and the router fell through to `human` with work plainly available.
+const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync(`.claude/agents/${name}.md`)
+  || existsSync(`.codex/agents/${name}.toml`);
+// The test-designer's second output. Its absence is what makes test-implementer un-dispatchable.
+const conditionsRootExists = () => existsSync("tests/design");
 
 const fl = readJSON("feature_list.json");
 const features = (fl && fl.features) || [];
@@ -116,11 +121,27 @@ const RULES = [
   },
   {
     node: "test-designer", kind: "agent", layer: "oracle",
+    // Two outputs, so two reasons to route here: the `falsifier` in feature_list.json, AND the
+    // condition files under tests/design/. Only the first used to be checked, and on a project
+    // where the feature-planner derives falsifiers from the invariant contract that rule never
+    // fires — so tests/design/ was never created, and test-implementer was dispatched to implement
+    // conditions that did not exist. Measured on aeron-demo: two paid sessions on feat-sit-2, the
+    // agent hunting for tests/design/, zero output. A node handed a missing input does not fail; it
+    // improvises or stalls.
     match: () => {
       const missing = open.filter((x) => !String(x.falsifier || "").trim());
-      return missing.length && hasAgent("test-designer")
-        ? { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id }
-        : null;
+      if (missing.length && hasAgent("test-designer")) {
+        return { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id };
+      }
+      // Guard against the livelock this rule could otherwise create: if the designer has already
+      // been sent here for this feature and tests/design/ is STILL absent, that is a human problem,
+      // not another session. The marker is written below via `why`, and checkerNotes carries it.
+      if (hasAgent("test-designer") && !conditionsRootExists()) {
+        const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
+          !String(x.evidence || "").trim() && !/test-designer dispatched/.test(notes(x)));
+        if (f) return { why: `tests/design/ does not exist, so ${f.id} has a falsifier but no validated test conditions to implement from — test-designer dispatched`, feature: f.id };
+      }
+      return null;
     },
   },
   {
@@ -130,6 +151,9 @@ const RULES = [
     // to be judged by. The oracle has to EXIST, not merely be specified.
     match: () => {
       if (!hasAgent("test-implementer")) return null;
+      // A falsifier alone is not enough to implement from — the validated conditions are the input.
+      // Without this the router sends the implementer at a project that has no tests/design/ at all.
+      if (!conditionsRootExists()) return null;
       const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)));
       return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
