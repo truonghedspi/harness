@@ -334,6 +334,25 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   doesn't crash the MCP server before the connection handshake, so the agent
   can diagnose a failed deploy without holding write access to a shared cluster.
 
+## The front door
+
+`orchestrator` is the agent a human talks to, and the role a session takes when nobody names one
+(`AGENTS.md` says so, and all three runtimes read it). It reports where the loop is, dispatches the
+node the router named, and brings decisions back — translated, with numbered options and a
+recommendation.
+
+Its safety is two mechanical constraints, not two sentences of good intent:
+
+- **It cannot choose the next node.** `loop/route.mjs` does. A router it disagrees with is a harness
+  defect to report, never to route around — otherwise the deterministic, reviewable control flow
+  quietly becomes an LLM's judgement call.
+- **It cannot write a product file.** No source, tests, `feature_list.json` or design docs — enforced
+  by `guard-write.mjs` on Claude Code and Codex, `allowedPaths` on kiro. It dispatches; the agent
+  that owns the file writes it.
+
+It is also the one agent `route.mjs` never dispatches — it is the node that *reads* the router, so
+giving the loop an edge into its own front door would let it recurse.
+
 ## Watching a run
 
 `loop/run-loop.sh` is **attended by default** — it pauses after each iteration, shows the diff and

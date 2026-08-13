@@ -662,8 +662,17 @@ function gateLoop() {
       const body = entry ? (read(P(entry.prompt)) || "") : a.text;
       const WRITE_VERB = /\b(write|writes|writing|register|registers|record|records|update|updates|fill|fills|add(?:ing)? (?:a |one |it )?(?:row|line|entry)?\s*to)\b/i;
       const NEGATED = /\b(not|never|n't|cannot|instead of)\b/i;
+      // Negation is not always in the sentence. "## What you must not do" scopes every bullet under
+      // it, and a prohibition section is a normal — desirable — prompt shape: the orchestrator's
+      // whole safety case is a list of things it may not write. Flagging those taught the reader to
+      // ignore the gate, which is worse than not having it.
+      const NEGATED_HEADING = /\b(must not|never|do not|don't|forbidden|may not|out of scope|not your)\b/i;
       const wanted = new Set();
+      let inProhibition = false;
       for (const line of body.split("\n")) {
+        const h = /^#{1,6}\s+(.*)$/.exec(line);
+        if (h) inProhibition = NEGATED_HEADING.test(h[1]);
+        if (inProhibition) continue;
         if (!WRITE_VERB.test(line) || NEGATED.test(line)) continue;
         for (const m of line.matchAll(/`(docs\/[\w./-]+\.md|feature_list\.json|DECISIONS\.md|progress\.md|loop\/[\w.-]+\.md|session-handoff\.md)`/g)) {
           if (!m[1].startsWith("docs/reference/")) wanted.add(m[1]);

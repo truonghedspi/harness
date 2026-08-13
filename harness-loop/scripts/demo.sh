@@ -1451,6 +1451,52 @@ expect "with no TTY it falls back to headless and says so, instead of blocking o
 grep -q "ITERATIONS=1" "$LS/args.log"
 expect "a leading --headless is not mistaken for an iteration count" $?
 
+# The front door. A deterministic router is only reviewable if an LLM cannot quietly route around
+# it, so the orchestrator's safety is two mechanical constraints, not two sentences in a prompt.
+OR="$WORK/orch"; rm -rf "$OR"; mkdir -p "$OR"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$OR" --name "Orch" --purpose "front door" >/dev/null
+test -f "$OR/.kiro/agents/orchestrator.json" -a -f "$OR/.claude/agents/orchestrator.md" -a -f "$OR/.codex/agents/orchestrator.toml"
+expect "the orchestrator is generated for all three runtimes from the one manifest" $?
+node -e "
+const {execFileSync}=require('child_process');
+const run=(f)=>JSON.parse(execFileSync('node',['tools/guard-write.mjs','orchestrator'],
+  {cwd:'$OR',input:JSON.stringify({tool_input:{file_path:f}}),encoding:'utf8'}))
+  .hookSpecificOutput.permissionDecision;
+// it dispatches; the agents it dispatches are the ones that write
+process.exit(run('src/Foo.java')==='deny' && run('feature_list.json')==='deny' &&
+             run('docs/design/x.md')==='deny' && run('session-handoff.md')==='allow' ? 0 : 1);
+"; expect "it cannot write source, scope or design — only the handoff files it needs to talk to a human" $?
+grep -q "orchestrator" "$OR/loop/route.mjs" && ORROUTE=1 || ORROUTE=0
+test "$ORROUTE" = "0"; expect "route.mjs never dispatches it — it is the node that READS the router, not one the loop can recurse into" $?
+node "$SCRIPTS/verify-harness.mjs" --target "$OR" --skip-baseline --quiet
+node -e "
+const r=require('$OR/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='agent-unrouted');
+// unreachable from route.mjs on purpose, so AGENTS.md naming it is what keeps it discoverable
+process.exit(f && /orchestrator/.test(f.evidence||'') ? 1 : 0);
+"; expect "and it is still not 'unrouted', because AGENTS.md names it as the default role" $?
+node -e "
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8');
+process.exit(/You do not choose the next node/.test(t) && /harness defect, not an override/.test(t)
+             && /Never answer it yourself/.test(t) ? 0 : 1);
+"; expect "its prompt forbids choosing a node, overriding the router, and answering the human's question for them" $?
+# A prohibition SECTION is a normal prompt shape — the orchestrator's whole safety case is a list of
+# things it may not write. The gate read the heading's negation as an instruction and flagged it,
+# which is how a gate teaches people to ignore it.
+node -e "
+const r=require('$OR/trace/verify-report.json');
+process.exit(r.findings.some(f=>/agent-cannot-write-instructed:orchestrator/.test(f.id)) ? 1 : 0);
+"; expect "a 'What you must not do' section is not read as an instruction to write those files" $?
+node -e "
+const fs=require('fs');
+fs.appendFileSync('$OR/prompts/orchestrator.md', '\n## Extra duties\n\nAlways update \`feature_list.json\` with the outcome.\n');
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$OR" --skip-baseline --quiet
+node -e "
+const r=require('$OR/trace/verify-report.json');
+process.exit(r.findings.some(f=>/agent-cannot-write-instructed:orchestrator/.test(f.id)) ? 0 : 1);
+"; expect "but a real instruction to write a file it cannot write is still caught" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

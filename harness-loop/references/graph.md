@@ -28,6 +28,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `loop/route.mjs` | code | **the router** — reads shared state, returns the next node + its layer + why (+ the marker hash, when a marker drove it) | `feature_list.json`, `docs/assumptions.md`, `loop/route-log.jsonl` | nothing (pure) |
 | `loop/run-loop.sh` | code | **the dispatcher** — runs the node the router named, on kiro-cli, Claude Code or Codex (`HARNESS_RUNTIME`, else detected) | `route.mjs` output | nothing directly; the agent it spawns writes |
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
+| `orchestrator` | agent | **the front door** — reports state, dispatches the node `route.mjs` names, escalates decisions to the human. The default role when a human names none. **Never chooses the node**, and writes no product file | `AGENTS.md`, `graph.md`, `loop-status.mjs`, `route.mjs` | `session-handoff.md`, `progress.md`, `loop/approval.md`, `memory/orchestrator/**` |
 | `tools/loop-status.mjs` | code | **the live view** — where the loop is *right now*: in-flight node + elapsed, escalations, dispatch trail, livelock warning. Read-only, safe against a running loop | `loop/current.json`, `route.mjs`, `feature_list.json`, `route-log.jsonl`, git | nothing |
 | the human, between iterations | human | attended mode: `run-loop.sh` pauses after every iteration and waits. This is the **default**; `--headless` is what you graduate to | the diff, `loop-status.mjs` | continue / stop |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
@@ -39,6 +40,13 @@ other agent is confined by its `writes` list in `agents.manifest.json` — enfor
 `toolsSettings.write.allowedPaths` and on Claude Code by the `guard-write.mjs` hook
 (`runtimes.md`). **That confinement is the edge set**: an agent cannot create a handoff it has no
 write access to.
+
+**The orchestrator is the one agent with no incoming edge from `route.mjs`, deliberately.** It is
+the node that *reads* the router; if the router could dispatch it, the loop could recurse into its
+own front door. It is reachable only from a human, and `AGENTS.md` naming it is what satisfies the
+`agent-unrouted` gate. Its safety comes from two constraints, both mechanical rather than
+instructional: it may not choose a node (it runs `route.mjs`), and its `writes` list contains no
+product file (`guard-write.mjs` enforces it on Claude Code and Codex, `allowedPaths` on kiro).
 
 Every agent node above is generated from `agents.manifest.json` into all three runtimes. Adding one
 means adding a manifest entry, not writing three config files.

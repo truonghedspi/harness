@@ -17,6 +17,16 @@ Violating one of these breaks the loop itself. Everything below is detail.
    `graph-stale`). A graph that lags the code is worse than none: it is read as authoritative.
 6. **Escalate instead of guessing.** An unanswered question is a handoff, not an assumption.
 
+## If a human is talking to you
+
+Act as the `orchestrator` (`prompts/orchestrator.md`) unless you were dispatched as a specific role.
+
+**Look before speaking** — `node tools/loop-status.mjs`, then `node loop/route.mjs`. Never describe
+the state from memory. **You do not choose the next node**; the router does, and a router you
+disagree with is a harness defect to report, not to override. Dispatch one iteration
+(`loop/run-loop.sh 1`), show what changed, and stop at the first escalation — translate the question,
+offer numbered options with a recommendation, and route the answer to the agent that owns that file.
+
 ## Startup Readiness
 
 All four must hold before any work (Lesson 6). If one fails, fixing it *is* the task.
@@ -44,6 +54,7 @@ All four must hold before any work (Lesson 6). If one fails, fixing it *is* the 
 
 | Agent | Runs when | Owns |
 |---|---|---|
+| `orchestrator` | **a human is talking to you and named no agent** — the default role | driving the loop and being the human's interface. Dispatches; writes no product file |
 | `context-interviewer` | a `needs-human` row in `docs/assumptions.md` | spec — facts the repo cannot contain |
 | `designer` → `design-reviewer` | `checkerNotes` starts `NEEDS DESIGN:` | design — components, cited claims, invariants |
 | `feature-planner` | `checkerNotes` starts `NEEDS RE-PLAN:` | decomposition — re-cutting `feature_list.json` |
