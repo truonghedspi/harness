@@ -1601,6 +1601,46 @@ const t=require('fs').readFileSync('$FQ/feature_list.digest.md','utf8');
 process.exit(/tools\/feature\.mjs/.test(t) ? 0 : 1);
 "; expect "and the digest itself points at it, so the cheap path is the discoverable one" $?
 
+# The verification field demands a runnable command and never says where it may live, so the cheapest
+# way to satisfy it is a one-off script. That passes every other gate and is not a test: no test run
+# ever executes it again. The harness models the habit — most of its own machinery is .mjs.
+VH="$WORK/vhome"; rm -rf "$VH"; mkdir -p "$VH"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$VH" --name "VHome" --purpose "proof lives somewhere" >/dev/null
+( cd "$VH" && git init -q . && git add -A && git -c user.email=a@b -c user.name=a commit -qm base ) >/dev/null 2>&1
+node -e "
+const fs=require('fs'); const p='$VH/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+const mk=(id,v)=>({id,name:id,kind:'prove',behavior:'b',verification:v,falsifier:'f',dependencies:[],
+  status:'not-started',readyForCheck:false,evidence:'',checkerNotes:'',attempts:0,maxAttempts:3});
+d.features.push(mk('feat-inline','node -e \"process.exit(0)\"'));
+d.features.push(mk('feat-uncommitted','node verify-thing.mjs'));
+d.features.push(mk('feat-rootscript','node scripts/check-it.mjs'));
+d.features.push(mk('feat-realtool','node tools/services-check.mjs'));
+d.features.push(mk('feat-mvn','./mvnw -q verify -Dtest=X'));
+d.features.push(mk('feat-npm','npm test -- feature-x'));
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+fs.mkdirSync('$VH/scripts',{recursive:true}); fs.writeFileSync('$VH/scripts/check-it.mjs','//x');
+"
+( cd "$VH" && git add -A && git -c user.email=a@b -c user.name=a commit -qm two ) >/dev/null 2>&1
+node "$SCRIPTS/verify-harness.mjs" --target "$VH" --skip-baseline --quiet
+node -e "
+const r=require('$VH/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='verification-outside-test-framework');
+const ev=f?f.evidence:'';
+process.exit(f && /feat-inline/.test(ev) && /feat-uncommitted/.test(ev) && /feat-rootscript/.test(ev) ? 0 : 1);
+"; expect "an inline node -e, an uncommitted script, and a script outside tools/ are all flagged as homeless proof" $?
+node -e "
+const r=require('$VH/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='verification-outside-test-framework');
+const ev=f?f.evidence:'';
+// the framework's own runners and maintained tools/ machinery must never be flagged, or the gate
+// becomes noise on every real project
+process.exit(!/feat-mvn|feat-npm|feat-realtool/.test(ev) ? 0 : 1);
+"; expect "but mvnw, npm test and a committed tools/ script are not — the gate stays quiet on real proof" $?
+node -e "
+const t=require('fs').readFileSync('$VH/docs/testing-standards.md','utf8');
+process.exit(/Where a verification lives/.test(t) && /smell that a level is missing/.test(t) ? 0 : 1);
+"; expect "and testing-standards.md says why, so the rule is teachable and not just enforced" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

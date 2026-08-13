@@ -41,3 +41,23 @@ touches. "Unit tests pass" is not "done" for cross-service work — the contract
 When a review comment recurs, promote it into an automated check here (Review Feedback
 Promotion) so the harness self-strengthens. Prefer consumer-driven contract tests where you can,
 so a producer change that breaks a consumer fails fast in the pipeline.
+
+## Where a verification lives
+
+**Proof belongs inside one of the three levels above, run by this project's test framework.**
+
+The `verification` field demands a runnable command and says nothing about where that command may
+live, so the cheapest way to satisfy it is a one-off script — `node -e "..."`, or a `check-thing.mjs`
+dropped at the repo root. That passes every gate and is not a test: no test run executes it again,
+no one maintains it, and it is invisible to coverage. The harness itself models the bad habit —
+most of its own machinery is `.mjs` — so it is worth saying out loud that *harness tooling* and
+*proof of a feature* are different things.
+
+**A one-off verification script is a smell that a level is missing.** If the claim is about one
+unit, it is a Level 1 test. If it crosses a service boundary, it is Level 3. If it genuinely is
+project machinery rather than proof — an environment check, a generator — commit it under `tools/`
+and index it, so it is maintained rather than abandoned.
+
+`verify-harness.mjs` reports `verification-outside-test-framework` for the three shapes with no
+home: an inline `node -e`, a script that is not committed, and a script living outside `tools/`.
+

@@ -1052,6 +1052,56 @@ function gateK8s() {
 //
 // Only non-empty → empty counts. Clearing a NEEDS DESIGN: marker by REPLACING it with a resolution
 // note keeps checkerNotes non-empty, which is the behaviour we want and must not flag.
+// A feature's `verification` must be a runnable command — and the harness never says WHERE that
+// command may live. So when a claim is not naturally expressible in the project's test framework
+// ("the digest is smaller than its source"), the cheapest runnable thing is a one-off script, and
+// the harness models exactly that: 23 of its own tools are .mjs and its demo is 161 `node -e`
+// assertions. The result satisfies every existing gate while sitting outside docs/testing-standards.md
+// — unmaintained proof that no test run will ever execute again.
+//
+// Deliberately a WARNING and deliberately narrow. The three shapes below are the ones that have no
+// home; a committed tool under tools/ is maintained infrastructure and is not one of them.
+function gateVerificationHome() {
+  const fl = readJSON(P("feature_list.json"));
+  if (!fl) return;
+  // Git-tracked files, so "this script is not even committed" is answerable.
+  const tracked = new Set((() => {
+    const r = spawnSync("git", ["ls-files"], { cwd: TARGET, encoding: "utf8" });
+    return r.status === 0 ? (r.stdout || "").split("\n").filter(Boolean) : [];
+  })());
+  const RUNNER = /^(\.\/)?(mvnw(\.cmd)?|mvn|gradlew(\.bat)?|gradle|npm|pnpm|yarn|bun|npx|pytest|python3?|go|cargo|dotnet|make|bash|sh)$/;
+  const findings = [];
+  for (const f of fl.features || []) {
+    const cmd = String(f.verification || "").trim();
+    if (!cmd) continue;                                   // a missing command is a different gate
+    // 1. An inline one-liner: proof with no file, so nothing can maintain or re-read it.
+    if (/\bnode\s+-e\b/.test(cmd)) {
+      findings.push(`${f.id}: inline \`node -e\``); continue;
+    }
+    const first = cmd.split(/\s+/)[0];
+    const isBaseline = /^(\.\/)?init\.(sh|cmd)$/.test(first) || /^node\s+init\.mjs/.test(cmd);
+    if (isBaseline || RUNNER.test(first)) continue;
+    // 2. A script argument that is not committed — evidence that will not exist for the next run.
+    const scriptArg = cmd.split(/\s+/).find((t) => /\.(mjs|js|cjs|sh|py)$/.test(t));
+    const rel = scriptArg ? scriptArg.replace(/^\.\//, "") : null;
+    if (rel && !tracked.has(rel) && tracked.size) {
+      findings.push(`${f.id}: ${rel} is not committed`); continue;
+    }
+    // 3. A script outside tools/ — tools/ is where maintained project machinery lives and is
+    //    indexed; a root-level or scratch script is the ad-hoc case.
+    if (rel && !rel.startsWith("tools/")) findings.push(`${f.id}: ${rel} lives outside tools/`);
+  }
+  if (findings.length) {
+    add({
+      gate: "features", id: "verification-outside-test-framework", layer: "project", severity: "warn",
+      count: findings.length,
+      symptom: `${findings.length} feature(s) verify with a one-off script rather than through the project's test framework`,
+      remedy: "move the assertion into the framework docs/testing-standards.md names for its level. A one-off script is a smell that a level is missing: it satisfies 'runnable command' while nobody's test run ever executes it again. If it is real project machinery, commit it under tools/ and index it",
+      evidence: findings.slice(0, 5).join("; "),
+    });
+  }
+}
+
 function gateFieldLoss() {
   if (!exists(P("feature_list.json"))) return;
   const prevRaw = spawnSync("git", ["show", "HEAD:feature_list.json"], { cwd: TARGET, encoding: "utf8" });
@@ -1294,6 +1344,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateVerificationHome();
 gateFieldLoss();
 gateRouterBudget();
 gateInitSwallows();
