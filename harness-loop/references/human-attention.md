@@ -107,6 +107,36 @@ wall in a different shape. Ranking by *judgement still owed* (a verified assumpt
 question; a closed policy is not a question) and grouping identical findings brought it to 18, with
 10 shown.
 
+## Attended first — automation is what you graduate to
+
+The loop shipped headless-first, and that is backwards for a project the harness has not been
+tuned against yet. A command that runs N iterations and prints at the end gives a human exactly one
+decision point, after the money is spent. The early value of this loop is the opposite: a person
+watching it take a wrong turn, stopping it, and fixing the *harness* so it cannot take that turn
+again. Every routing defect in `graph.md` was found that way, and none of them by reading a
+finished log.
+
+So `loop/run-loop.sh` is **attended by default**: it pauses after each iteration, shows what
+changed and where the router is heading, and waits. `--headless` (or `HARNESS_ATTENDED=0`) is for
+CI and cron. With no TTY it falls back to headless and says so, rather than blocking on a prompt
+nobody can answer.
+
+| Rung | You are here when | Run it as |
+|---|---|---|
+| **1. Attended** | the routing or the gates still surprise you | the default — pause, look, fix the harness |
+| **2. Watched** | iterations are mostly right, but you want to catch a bad one early | `--headless` in one terminal, `node tools/loop-status.mjs --watch` in another |
+| **3. Unattended** | a full run has gone by without you wanting to intervene | `--headless`, read `tools/run-report.mjs` afterwards |
+
+Climbing early is the expensive mistake, and it is the tempting one, because rung 3 looks like the
+finished product. It is the finished product *for a harness that has stopped being wrong*.
+
+`tools/loop-status.mjs` answers the question the other tools do not. `verify-harness.mjs` says what
+is structurally wrong; `run-report.mjs` says what happened afterwards; neither says **where the loop
+is right now**. It is read-only, safe to run against a live loop from a second terminal, and it
+surfaces the three things worth interrupting for: the in-flight node and how long it has been
+there, any `NEEDS DESIGN:` / `NEEDS RE-PLAN:` escalation, and four identical dispatches in a row —
+which is a livelock, named as one.
+
 ## Mechanical support, and its limits
 
 `verify-harness.mjs` reports `escalation-without-evidence:<id>` (gate `features`, warn) when a

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # run-loop.sh — headless maker–checker loop via kiro-cli (the automation / heartbeat, Lesson 13).
-# Usage: loop/run-loop.sh [iterations]   (default 1)
+# Usage: loop/run-loop.sh [iterations] [--headless]   (default 1, attended)
+#
+# Attended is the default ON PURPOSE. The early value of this loop is a human watching it go wrong
+# and fixing the harness; unattended is what you graduate to. Watch a headless run from a second
+# terminal with: node tools/loop-status.mjs --watch
 # Requires: kiro-cli logged in (or KIRO_API_KEY), or the `claude` CLI. See dispatch() below.
 #
 # Runs on kiro-cli or Claude Code. Set HARNESS_RUNTIME=kiro|claude to force one; otherwise it is
@@ -11,7 +15,28 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-ITERATIONS="${1:-1}"
+case "${1:-}" in ""|--*) ITERATIONS=1 ;; *) ITERATIONS="$1" ;; esac
+
+# --- attended by default -------------------------------------------------------------------------
+# A loop you cannot watch is a loop you cannot correct. Early on, the whole value is a human seeing
+# where it goes wrong and fixing the harness; unattended running is what you graduate to once the
+# routing and the gates have stopped surprising you. So: pause between iterations, show what
+# changed, and let a human look before spending the next session.
+#
+# --headless (or HARNESS_ATTENDED=0) for CI, cron, and anything without a terminal. With no TTY on
+# stdin there is nobody to prompt, so it falls back to headless and SAYS so rather than blocking
+# forever on a read that can never return.
+ATTENDED="${HARNESS_ATTENDED:-1}"
+for a in "$@"; do
+  case "$a" in
+    --headless) ATTENDED=0 ;;
+    --attended) ATTENDED=1 ;;
+  esac
+done
+if [ "$ATTENDED" = "1" ] && [ ! -t 0 ]; then
+  echo "no TTY on stdin — running headless. Watch it with: node tools/loop-status.mjs --watch"
+  ATTENDED=0
+fi
 
 # Mechanical goal check: every feature done, or blocked WITH a recorded reason (checkerNotes, or
 # a DECISIONS.md entry naming the feature — the same justification rule verify-harness's
@@ -124,9 +149,38 @@ for i in $(seq 1 "$ITERATIONS"); do
   esac
 
   if [ "$KIND" = "agent" ]; then
+    # Publish the in-flight node for tools/loop-status.mjs. A stale entry with no live process is
+    # itself a signal: that iteration crashed or was killed.
+    node -e '
+      const fs=require("fs");
+      fs.writeFileSync("loop/current.json", JSON.stringify({
+        node: process.argv[1], feature: process.argv[2] || null,
+        iteration: Number(process.argv[3]) || null, startedAt: Date.now(),
+      }, null, 2));
+    ' "$NODE" "$(printf '%s' "$NEXT_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(JSON.parse(s).feature||"")}catch{}})')" "$i" 2>/dev/null || true
     dispatch "$NODE" \
       "You are running HEADLESS under loop/run-loop.sh — no human can answer questions, so commit directly instead of asking. The router selected you because: $WHY. Run exactly one iteration per your instructions and loop/goal.md. Honor every stop condition." \
       || { echo "$NODE failed — stopping loop"; exit 1; }
+    node -e 'const fs=require("fs");try{const j=JSON.parse(fs.readFileSync("loop/current.json","utf8"));j.finishedAt=Date.now();fs.writeFileSync("loop/current.json",JSON.stringify(j,null,2));}catch{}' 2>/dev/null || true
+  fi
+
+  # The checkpoint. Everything a human needs to decide "keep going or stop and fix the harness",
+  # in one screen, before the next paid session starts.
+  if [ "$ATTENDED" = "1" ]; then
+    echo ""
+    echo "── after iteration $i/$ITERATIONS: $NODE ──"
+    git --no-pager diff --stat HEAD 2>/dev/null | tail -8
+    [ -f tools/loop-status.mjs ] && node tools/loop-status.mjs --target . 2>/dev/null
+    printf 'continue? [Enter]=yes  s=full status  d=diff  q=quit : '
+    while read -r ans; do
+      case "$ans" in
+        q|Q) echo "stopped by the human after iteration $i."; exit 0 ;;
+        s|S) node tools/loop-status.mjs --target . 2>/dev/null ;;
+        d|D) git --no-pager diff HEAD 2>/dev/null | head -120 ;;
+        *)   break ;;
+      esac
+      printf 'continue? [Enter]=yes  s=full status  d=diff  q=quit : '
+    done
   fi
 
   # Only a maker iteration produces claims to check. Any other node (designer, planner,

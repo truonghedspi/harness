@@ -334,6 +334,15 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   doesn't crash the MCP server before the connection handshake, so the agent
   can diagnose a failed deploy without holding write access to a shared cluster.
 
+## Watching a run
+
+`loop/run-loop.sh` is **attended by default** — it pauses after each iteration, shows the diff and
+the router's next move, and waits. `--headless` is for CI and cron; with no TTY it falls back to
+headless and says so. From a second terminal, `node tools/loop-status.mjs --watch` shows the
+in-flight node and its elapsed time, features in flight, open escalations, the dispatch trail, and
+a livelock warning when the same node hits the same feature four times running. The reasoning and
+the three-rung ladder: [references/human-attention.md](references/human-attention.md).
+
 ## Platform support
 
 The baseline gate is **`init.mjs`**; `init.sh` and `init.cmd` are one-line wrappers around it. So the

@@ -1420,6 +1420,37 @@ fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
 [ "$(route_of)" != "designer" ] && [ "$(route_of)" != "human" ]; expect "clearing the marker returns the loop to ordinary routing" $?
 
+# A loop you cannot watch is a loop you cannot correct. Early on the whole value is a human seeing
+# where it goes wrong and fixing the harness; unattended is what you graduate to.
+LS="$WORK/status"; rm -rf "$LS"; mkdir -p "$LS"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$LS" --name "Status" --purpose "visibility" >/dev/null
+test -f "$LS/tools/loop-status.mjs"; expect "every scaffold gets a live status view, not only the after-the-fact report" $?
+node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" --json > "$LS/st.json" 2>/dev/null
+node -e "
+const s=require('$LS/st.json');
+// the question a human has mid-run: where is it, and where is it going next
+process.exit(s.next && typeof s.features.total==='number' && Array.isArray(s.dispatched) ? 0 : 1);
+"; expect "it answers where the loop is and what the router would do next" $?
+mkdir -p "$LS/loop"
+for i in 1 2 3 4; do echo '{"node":"designer","feature":"feat-x","hash":"abc"}' >> "$LS/loop/route-log.jsonl"; done
+node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -q "livelock"
+expect "four identical dispatches in a row are called a livelock, in the view a human is already reading" $?
+node -e "
+const fs=require('fs');
+fs.writeFileSync('$LS/loop/current.json', JSON.stringify({node:'maker',feature:'feat-x',iteration:2,startedAt:Date.now()-90000}));
+"
+node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -qE "RUNNING +maker on feat-x +1m30s"
+expect "an in-flight agent shows what it is, on what, and for how long" $?
+# Attended by default, and it must never block where nobody can answer.
+grep -q 'ATTENDED="${HARNESS_ATTENDED:-1}"' "$LS/loop/run-loop.sh"
+expect "the loop is attended by default — unattended is the thing you graduate to" $?
+( cd "$LS" && HARNESS_RUNTIME=kiro bash loop/run-loop.sh 1 < /dev/null 2>&1 | head -2 ) > "$LS/notty.log"
+grep -q "no TTY on stdin — running headless" "$LS/notty.log"
+expect "with no TTY it falls back to headless and says so, instead of blocking on a prompt nobody can answer" $?
+( cd "$LS" && bash -x loop/run-loop.sh --headless 2>&1 | grep -m1 "ITERATIONS=" ) > "$LS/args.log" 2>&1
+grep -q "ITERATIONS=1" "$LS/args.log"
+expect "a leading --headless is not mistaken for an iteration count" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
