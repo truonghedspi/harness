@@ -12,7 +12,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 
 | Node | Kind | Responsibility | Reads | Writes |
 |---|---|---|---|---|
-| `init.sh` | code | baseline gate — build + test + constraint gates | repo | exit code |
+| `init.mjs` | code | baseline gate — build + test + constraint gates. `init.sh`/`init.cmd` are wrappers so the same gate runs on POSIX shells and cmd.exe | repo | exit code |
 | `tools/collect-services.mjs` | code | integration targets only — survey N repos into the registry; fills what is discoverable, marks the rest `needs-human` | the service repos | `services.manifest.json` |
 | `tools/services-check.mjs` | code | integration targets only — the registry's own verification: exits non-zero while a deployable service lacks chart/image/health/`dependsOn` | `services.manifest.json` | exit code |
 | `context-interviewer` | agent | ask only what the repo cannot answer; persist every answer | `assumptions.md`, audit output | `assumptions.md`, `cross-cutting.md`, `constraints.md`, `docs/context/**`, `DECISIONS.md` |

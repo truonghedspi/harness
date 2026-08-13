@@ -46,7 +46,7 @@ const ROUTES = [
   [/^structure\//, "templates/tree/ (missing artifact) or scripts/setup-harness-loop.mjs (not written)"],
   [/^placeholders\/.*\{\{|unsubstituted/, "scripts/setup-harness-loop.mjs → substitute()"],
   [/^placeholders\//, "templates/tree/<file> — make the placeholder impossible to miss, or ask for the value at setup"],
-  [/^baseline\//, "templates/tree/init.sh → VERIFICATION block (stack detection)"],
+  [/^baseline\//, "templates/tree/init.mjs → VERIFICATION block (stack detection); init.sh/init.cmd are wrappers and carry no logic"],
   [/^features\//, "templates/tree/feature_list.json + loop/checker-prompt.md (evidence contract)"],
   [/^loop\/agent-json/, "templates/tree/.kiro/agents/*.json"],
   [/^loop\//, "templates/tree/loop/ (goal / maker / checker prompts)"],

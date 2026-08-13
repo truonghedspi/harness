@@ -30,7 +30,9 @@ const fl = readJSON(P("feature_list.json"));
 const features = fl && Array.isArray(fl.features) ? fl.features : null;
 const VALID_STATES = new Set(["not-started", "not_started", "active", "in-progress", "blocked", "passing", "done"]);
 
-const initSh = read(P("init.sh"));
+// The gate itself is init.mjs; init.sh/init.cmd are wrappers. Read whichever exists so this
+// works both on targets scaffolded before the port and on ones scaffolded after.
+const initSh = read(P("init.mjs")) || read(P("init.sh"));
 const agentJsonFiles = readdirSyncSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"));
 const agentJsonBlob = agentJsonFiles.map((f) => read(P(".kiro", "agents", f)) || "").join("\n");
 
@@ -79,10 +81,16 @@ const CHECKS = [
     return ok("progress + decisions + clock-in/out present");
   }],
   ["L6  Init phase", () => {
-    if (!exists(P("init.sh"))) return no("missing init.sh");
-    if (!isExec(P("init.sh"))) return no("init.sh is not executable (chmod +x)");
+    if (!exists(P("init.mjs")) && !exists(P("init.sh"))) return no("missing init.mjs (and no legacy init.sh)");
+    // Windows has no exec bit and cmd.exe cannot run a .sh at all, so requiring both there reports a
+    // failure the user cannot fix. What matters per platform is that a runnable entry point exists.
+    if (process.platform === "win32") {
+      if (exists(P("init.mjs")) && !exists(P("init.cmd"))) return no("init.cmd missing — cmd.exe/PowerShell cannot run init.sh");
+    } else if (exists(P("init.sh")) && !isExec(P("init.sh"))) {
+      return no("init.sh is not executable (chmod +x)");
+    }
     if (!agent || !/startup readiness/i.test(agent)) return no(`${agentFile} lacks a Startup Readiness section`);
-    return ok("executable init.sh + readiness checklist");
+    return ok("runnable init entry point + readiness checklist");
   }],
   ["L7  WIP = 1", () => {
     if (!agent) return no("no AGENTS.md/CLAUDE.md");
@@ -115,8 +123,8 @@ const CHECKS = [
     ];
     const gaps = levels.filter(([re]) => !re.test(t)).map(([, n]) => n);
     if (gaps.length) return no("testing-standards.md missing level(s): " + gaps.join(", ") + " — name the level after the tests this project actually has; if they exist under another name, relabel the section, do not invent a level");
-    if (!initSh || !/(test|build|check|verify|pytest|gradle|mvn|cargo|dotnet)/i.test(initSh)) return no("init.sh does not run a build/test/check step");
-    return ok("3 levels documented + init.sh runs the pipeline");
+    if (!initSh || !/(test|build|check|verify|pytest|gradle|mvn|cargo|dotnet)/i.test(initSh)) return no("init does not run a build/test/check step");
+    return ok("3 levels documented + init runs the pipeline");
   }],
   ["L11 Observability", () => {
     if (!exists(P("tools/trace.mjs"))) return no("missing tools/trace.mjs");

@@ -61,14 +61,17 @@ const PM = detectPM();
 const PRIMARY_CMD = "./init.sh    # full baseline gate (Lesson 6/9/12)";
 
 // Custom verification block for init.sh, if --commands given.
+// The verification block lives in init.mjs (init.sh and init.cmd are wrappers), so a custom block
+// is JavaScript now. Each command still goes through run(), which means a non-zero exit stops the
+// gate — the bash version this replaces wrapped these in `|| true` and could not go red.
 function customVerificationBlock() {
   if (!COMMANDS) return null;
   const cmds = COMMANDS.split(",").map((c) => c.trim()).filter(Boolean);
   return [
-    "# >>> VERIFICATION  (custom, provided at setup)",
-    'echo "=== Custom verification ==="',
-    ...cmds,
-    "# <<< VERIFICATION",
+    "// >>> VERIFICATION  (custom, provided at setup)",
+    'say("=== Custom verification ===");',
+    ...cmds.map((c) => `run(${JSON.stringify(c)});`),
+    "// <<< VERIFICATION",
   ].join("\n");
 }
 
@@ -83,11 +86,11 @@ function substitute(content, relPath) {
   // Rename the router if a different agent file was requested, and fix in-text references.
   if (AGENT_FILE !== "AGENTS.md") out = out.replaceAll("AGENTS.md", AGENT_FILE);
 
-  // Swap the init.sh verification block when custom commands were provided.
-  if (relPath === "init.sh") {
+  // Swap the verification block when custom commands were provided.
+  if (relPath === "init.mjs") {
     const custom = customVerificationBlock();
     if (custom) {
-      out = out.replace(/# >>> VERIFICATION[\s\S]*?# <<< VERIFICATION/, custom);
+      out = out.replace(/\/\/ >>> VERIFICATION[\s\S]*?\/\/ <<< VERIFICATION/, custom);
     }
   }
   return out;
@@ -110,7 +113,7 @@ function walk(dir, rel = "") {
     if (exists(dest) && !FORCE) { skipped.push(path.relative(targetRoot, dest)); continue; }
     mkdirSync(path.dirname(dest), { recursive: true });
     writeFileSync(dest, substitute(readFileSync(abs, "utf8"), childRel));
-    if (/\.sh$/.test(dest)) chmodSync(dest, 0o755);
+    if (/\.(sh|mjs)$/.test(dest) && /init\.mjs$|\.sh$/.test(dest)) chmodSync(dest, 0o755);
     written.push(path.relative(targetRoot, dest));
   }
 }
@@ -217,7 +220,7 @@ if (k8sOn) {
       if (exists(dest) && !FORCE) { skipped.push(childRel); continue; }
       mkdirSync(path.dirname(dest), { recursive: true });
       writeFileSync(dest, readFileSync(path.join(k8sRoot, childRel), "utf8"));
-      if (/\.sh$/.test(dest)) chmodSync(dest, 0o755);
+      if (/\.(sh|mjs)$/.test(dest) && /init\.mjs$|\.sh$/.test(dest)) chmodSync(dest, 0o755);
       written.push(childRel);
     }
   };

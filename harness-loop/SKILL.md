@@ -2,7 +2,7 @@
 name: harness-loop
 description: >-
   Set up a complete agent harness AND an autonomous maker–checker loop on top of any project,
-  targeting kiro-cli, Claude Code and Codex CLI from one agent manifest. Scaffolds AGENTS.md, feature_list.json, init.sh, progress.md,
+  targeting kiro-cli, Claude Code and Codex CLI from one agent manifest. Scaffolds AGENTS.md, feature_list.json, a cross-platform init gate, progress.md,
   DECISIONS.md, session-handoff.md, docs/ topic files, tools/trace.mjs observability, and a
   loop/ (goal + maker/checker prompts + run-loop.sh) plus .kiro/ custom agents. Every artifact
   maps to one of the 13 Learn-Harness-Engineering lessons, and a bundled coverage checker proves
@@ -42,7 +42,7 @@ becomes a fact you can prove, not a claim.
 | 3 | Repo = single source of truth → Fresh Session Test | `docs/architecture.md` answering the 5 questions | doc answers What/How-organized/Run/Verify/Where-now |
 | 4 | One giant instruction file fails → router + topic docs | short `AGENTS.md` (≤200 lines) linking `docs/*.md` | AGENTS.md within budget AND links topic docs |
 | 5 | Long tasks lose continuity → external state | `progress.md` + `DECISIONS.md` + clock-in/out in `init.sh`/`AGENTS.md` | both files present; AGENTS.md has clock-in/out |
-| 6 | Init needs its own phase → readiness checklist | Startup Readiness section in `AGENTS.md`; runnable `init.sh` | init.sh executable; readiness section present |
+| 6 | Init needs its own phase → readiness checklist | Startup Readiness section in `AGENTS.md`; runnable `init.mjs` (+ `init.sh`/`init.cmd` wrappers) | a runnable entry point for this platform; readiness section present |
 | 7 | Overreach/under-finish → WIP=1 + executable completion evidence | Work Rules (WIP=1) in `AGENTS.md`; `state` per feature | WIP=1 rule present |
 | 8 | Feature lists are harness primitives → triple + 4-state | `feature_list.json` (behavior+verification+state+evidence) | every feature has verification + valid state |
 | 9 | Declaring victory too early → externalized termination | `loop/checker-prompt.md`; only checker/script flips `passing`/`done` | checker artifact present; features carry `evidence` |
@@ -224,7 +224,7 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    implementation its verification catches) and then `test-implementer` (conditions → failing test
    code). Both follow `skills/test-design/SKILL.md`, scaffolded into the target. Why this is
    structural rather than advisory: [references/test-authoring.md](references/test-authoring.md).
-8. **Get the baseline green.** Run `./init.sh` in the target. If red, that is the only work until
+8. **Get the baseline green.** Run `./init.sh` (or `node init.mjs` anywhere, `init.cmd` on Windows) in the target. If red, that is the only work until
    it is green (Lesson 6/9). A loop on a red baseline just amplifies failure.
 9. **Prove coverage:**
 
@@ -333,6 +333,29 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   through `templates/k8s/tools/mcp-k8s-readonly-wrapper.sh` so a stopped local cluster's kubeconfig
   doesn't crash the MCP server before the connection handshake, so the agent
   can diagnose a failed deploy without holding write access to a shared cluster.
+
+## Platform support
+
+The baseline gate is **`init.mjs`**; `init.sh` and `init.cmd` are one-line wrappers around it. So the
+gate runs on macOS, Linux, WSL, Git Bash, cmd.exe and PowerShell, and `feature_list.json` verifies it
+as `node init.mjs` rather than `./init.sh`. Node was already a hard dependency — every tool here is a
+`.mjs` — so this adds nothing to install, and it avoids a PowerShell twin that would drift toward
+whichever copy the person making the change happens to run.
+
+**Do not put logic in the wrappers.** `improve-harness.mjs` routes every `baseline/*` finding to
+`templates/tree/init.mjs` for the same reason.
+
+What is **not** portable yet, stated plainly rather than discovered later:
+
+| Component | Windows |
+|---|---|
+| `init.mjs` + wrappers, and every `tools/*.mjs` | works natively |
+| `loop/run-loop.sh` — the autonomous loop driver | **bash only.** Needs Git Bash or WSL. The router (`loop/route.mjs`) and dispatch (`tools/codex-dispatch.mjs`) are already Node; it is the driver shell around them that is not |
+| `tools/k8s-test-env.sh`, `tools/mcp-k8s-readonly-wrapper.sh` | bash only — Git Bash or WSL |
+| `scripts/demo.sh`, `scripts/harness-loop.sh` | bash only (developer-facing, not shipped into a target) |
+
+So on Windows a human can run the harness end to end today, and the *autonomous* loop needs Git Bash
+or WSL until `run-loop.sh` is ported.
 
 ## Deliverable checklist
 

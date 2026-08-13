@@ -83,7 +83,8 @@ const withExclusive = (fn) => {
 
 const run = (cmd, cwd) => new Promise((resolve) => {
   const started = Date.now();
-  exec(cmd, { cwd, timeout: TIMEOUT_MS, maxBuffer: 32e6, shell: "/bin/bash" }, (err, stdout, stderr) => {
+  exec(cmd, { cwd, timeout: TIMEOUT_MS, maxBuffer: 32e6, // true, not "/bin/bash": that path does not exist on Windows, where the default shell is cmd.exe
+    shell: true }, (err, stdout, stderr) => {
     resolve({
       code: err ? (typeof err.code === "number" ? err.code : 1) : 0,
       ms: Date.now() - started,

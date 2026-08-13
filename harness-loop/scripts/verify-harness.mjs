@@ -267,9 +267,11 @@ function gatePlaceholders() {
 let baseline = null;
 function gateBaseline() {
   if (SKIP_BASELINE) { baseline = { skipped: true }; return; }
-  if (!exists(P("init.sh"))) return; // already reported by the structure gate
+  // Prefer init.mjs directly: `./init.sh` is a POSIX invocation and cmd.exe cannot run it, so on
+  // Windows the baseline gate would report "could not run" rather than a real verdict.
+  if (!exists(P("init.mjs")) && !exists(P("init.sh"))) return; // already reported by the structure gate
   const started = Date.now();
-  const r = runCmd("./init.sh");
+  const r = exists(P("init.mjs")) ? runCmd(`"${process.execPath}" init.mjs`) : runCmd("./init.sh");
   baseline = { code: r.code, ms: Date.now() - started, timedOut: !!r.timedOut, tail: r.tail };
 
   // A gate that cannot go red is not a gate. Exit 0 while verifying nothing is worse than exit 1:
@@ -1022,6 +1024,30 @@ function gateK8s() {
 // harness means no write confinement, while every role still behaves plausibly because its prompt
 // tells it to. Shipped that defect once ($comment, harmless in every other config here) and only
 // caught it by reading codex's stderr, so it is a gate now.
+// The bash init.sh this harness shipped for months wrote `has lint && { run lint; } || true`. The
+// `|| true` was meant to skip a script that does not exist; it cannot tell that apart from a script
+// that ran and failed. Measured: a project with a failing lint AND a failing test printed
+// "=== Baseline green ===" and exited 0. The baseline gate — the one thing the loop refuses to run
+// on red — could not go red for any Node project.
+//
+// Setup never overwrites an existing file, so every target scaffolded before the port still has it.
+// This finds them.
+function gateInitSwallows() {
+  if (exists(P("init.mjs"))) return;                 // ported: the gate is JS and run() exits non-zero
+  const sh = read(P("init.sh"));
+  if (!sh) return;
+  const bad = sh.split("\n")
+    .map((l, i) => [i + 1, l])
+    .filter(([, l]) => /\|\|\s*true\s*$/.test(l) && /\b(run|npm|pnpm|yarn|bun|test|lint|build|check|typecheck|verify)\b/.test(l));
+  if (!bad.length) return;
+  add({
+    gate: "baseline", id: "init-swallows-failure", layer: "harness", severity: "blocker", count: bad.length,
+    symptom: `init.sh has ${bad.length} verification step(s) ending in \`|| true\` — a failing step is swallowed and the baseline reports green`,
+    remedy: "re-scaffold the gate: it now lives in init.mjs (with init.sh/init.cmd as wrappers), where a non-zero exit stops the run. `|| true` cannot distinguish 'this script does not exist' from 'this script failed', and only the first was intended",
+    evidence: bad.slice(0, 3).map(([n, l]) => `init.sh:${n} ${l.trim().slice(0, 60)}`).join("; "),
+  });
+}
+
 function gateCodexHooks() {
   const raw = read(P(".codex", "hooks.json"));
   if (raw === null) {
@@ -1195,6 +1221,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateInitSwallows();
 gateCodexHooks();
 gateMcp();
 gateDigest();

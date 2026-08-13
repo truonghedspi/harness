@@ -12,9 +12,9 @@
     {
       "id": "feat-001",
       "name": "Baseline green",
-      "behavior": "Project installs deps, runs ./init.sh to green, and starts from a clean checkout",
-      "verification": "./init.sh",
-      "falsifier": "an init.sh that exits 0 without running anything \u2014 the baseline gate must be able to go red",
+      "behavior": "Project installs deps, runs the baseline gate to green, and starts from a clean checkout",
+      "verification": "node init.mjs",
+      "falsifier": "a gate that exits 0 without running anything \u2014 or one that runs a failing step and swallows it, which the bash version did \u2014 the baseline must be able to go red",
       "dependencies": [],
       "status": "not-started",
       "readyForCheck": false,

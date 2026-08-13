@@ -48,19 +48,17 @@ cat /tmp/demo-verify.$$; rm -f /tmp/demo-verify.$$
 [ "$(json "$T/trace/verify-report.json" "r.counts.projectLayer")" -gt 0 ]; expect "placeholders are classified layer=project" $?
 
 step 5 "inject a known harness-layer defect and catch it (pre-fix: bare mvn, no wrapper preference)"
-cp "$T/init.sh" "$T/init.sh.bak"
+# The gate is init.mjs now; init.sh is a wrapper. Inject into the file that actually decides.
+cp "$T/init.mjs" "$T/init.mjs.bak"
 echo '<project><modelVersion>4.0.0</modelVersion></project>' > "$T/pom.xml"
 printf '#!/usr/bin/env bash\necho "real mvnw would run here"\n' > "$T/mvnw"; chmod +x "$T/mvnw"
-python3 - "$T/init.sh" <<'PY'
-import sys
-p = sys.argv[1]
-s = open(p).read()
-s = s.replace(
-'''  echo "=== Maven verification ==="
-  if [ -x ./mvnw ]; then ./mvnw -q verify; else mvn -q verify; fi''',
-'''  echo "=== Maven verification ==="; mvn -q verify''')
-open(p, "w").write(s)
-PY
+node -e "
+const fs=require('fs'); const p='$T/init.mjs';
+let s=fs.readFileSync(p,'utf8');
+// strip the wrapper preference: call bare mvn, which is not on PATH on this machine
+s=s.replace(/const mvn = IS_WIN[^;]*;/s, 'const mvn = \"mvn\";');
+fs.writeFileSync(p,s);
+"
 rm -rf "$T/trace"
 node "$SCRIPTS/verify-harness.mjs" --target "$T" --quiet
 node -e "
@@ -76,7 +74,7 @@ expect "HI-* opened for the injected defect" $?
 
 step 7 "rank it"
 node "$SCRIPTS/improve-harness.mjs" --top 5 >/tmp/demo-rank.$$ 2>&1
-grep -q "templates/tree/init.sh" /tmp/demo-rank.$$; expect "ranking routes to templates/tree/init.sh" $?
+grep -q "templates/tree/init" /tmp/demo-rank.$$; expect "ranking routes to the template that owns the gate" $?
 tail -6 /tmp/demo-rank.$$; rm -f /tmp/demo-rank.$$
 
 step 8 "generate an agent-ready prompt"
@@ -84,7 +82,7 @@ PROMPT="$(node "$SCRIPTS/improve-harness.mjs" --prompt)"
 echo "$PROMPT" | grep -q "never just the one target repo"; expect "prompt states the template-not-target rule" $?
 
 step 9 "apply the fix and close the loop: --reverify --auto-resolve"
-mv "$T/init.sh.bak" "$T/init.sh"
+mv "$T/init.mjs.bak" "$T/init.mjs"
 node "$SCRIPTS/improve-harness.mjs" --reverify --auto-resolve --target "$T" >/tmp/demo-rv.$$ 2>&1
 cat /tmp/demo-rv.$$
 grep -q "no longer reproduce" /tmp/demo-rv.$$; RV1=$?; rm -f /tmp/demo-rv.$$
@@ -1236,7 +1234,78 @@ fs.writeFileSync('services.manifest.json', JSON.stringify(m,null,2));
 " && node tools/services-check.mjs >/dev/null 2>&1 ); test "$?" = "0"
 expect "answering the two open fields turns it green — the gate closes on answers, not on assertions" $?
 
-step 38 "meta loop: dispatch on the right layer, stop when nothing moves"
+step 38 "the baseline gate runs on Windows, and can actually go red"
+WIN="$WORK/windows"; rm -rf "$WIN"; mkdir -p "$WIN"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$WIN" --name "WinDemo" --purpose "cross-platform gate" >/dev/null
+test -f "$WIN/init.mjs" -a -f "$WIN/init.sh" -a -f "$WIN/init.cmd"
+expect "one gate, three entry points: init.mjs plus a wrapper for POSIX shells and one for cmd.exe" $?
+node -e "
+const fs=require('fs');
+// The wrappers must stay wrappers. A second implementation of the gate is a second thing to drift,
+// and it drifts toward whichever one the person making the change happens to run.
+const sh=fs.readFileSync('$WIN/init.sh','utf8'), cmd=fs.readFileSync('$WIN/init.cmd','utf8');
+const shLogic=sh.split('\n').filter(l=>l.trim() && !l.trim().startsWith('#')).length;
+process.exit(/exec node .*init\.mjs/.test(sh) && /node .*init\.mjs/.test(cmd) && shLogic<=5 ? 0 : 1);
+"; expect "both wrappers just exec init.mjs — no second copy of the verification logic" $?
+# The bug this port found. The old bash gate wrote: has lint && { run lint; } || true
+# The || true was meant to skip a script that does not exist. It cannot tell that apart from one
+# that ran and failed, so a project with failing lint AND failing tests printed "Baseline green".
+cat > "$WIN/package.json" <<'JSON'
+{ "name":"wt","private":true,"scripts":{"lint":"node -e \"process.exit(1)\"","test":"node -e \"process.exit(0)\""} }
+JSON
+( cd "$WIN" && ./init.sh >"$WIN/red.log" 2>&1 ); test "$?" = "1"
+expect "a failing lint script turns the baseline RED — the gate the whole loop depends on can fail" $?
+grep -q "Baseline is RED" "$WIN/red.log"; expect "and it names the command that failed instead of just exiting" $?
+node -e "
+const fs=require('fs'); const p='$WIN/package.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8')); j.scripts.lint='node -e \"process.exit(0)\"';
+fs.writeFileSync(p, JSON.stringify(j));
+"
+( cd "$WIN" && ./init.sh >/dev/null 2>&1 ); test "$?" = "0"
+expect "with every script passing it is green — 'can go red' is not 'always red'" $?
+# A script that is ABSENT must still be skipped, which is what the || true was there for.
+node -e "
+const fs=require('fs'); const p='$WIN/package.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8')); delete j.scripts.lint; delete j.scripts.test;
+fs.writeFileSync(p, JSON.stringify(j));
+"
+( cd "$WIN" && ./init.sh >/dev/null 2>&1 ); test "$?" = "0"
+expect "a package.json with no lint or test script is still green — absent and failing stay different" $?
+# Exercise the win32 branches for real rather than trusting that they were written.
+cat > "$WORK/aswin.mjs" <<'EOF'
+Object.defineProperty(process, "platform", { value: "win32" });
+await import(process.argv[2]);
+EOF
+# Output to a file, then grep it. This script runs under `set -o pipefail`, so piping straight into
+# grep returns CHECK-COVERAGE's exit code — which is non-zero exactly when the lesson we want to see
+# fail does fail. The assertion would have been measuring the wrong process.
+node "$WORK/aswin.mjs" "$SCRIPTS/check-coverage.mjs" --target "$WIN" >"$WORK/win-cov.log" 2>&1
+grep -q "PASS  L6" "$WORK/win-cov.log"
+expect "under win32 the coverage check passes on init.cmd, not on a POSIX exec bit that cannot exist there" $?
+mv "$WIN/init.cmd" "$WIN/init.cmd.off"
+node "$WORK/aswin.mjs" "$SCRIPTS/check-coverage.mjs" --target "$WIN" >"$WORK/win-cov2.log" 2>&1
+grep -q "init.cmd missing" "$WORK/win-cov2.log"
+expect "and without init.cmd it fails, because cmd.exe cannot run a .sh at all" $?
+mv "$WIN/init.cmd.off" "$WIN/init.cmd"
+node -e "
+// verify-harness must not invoke the gate as ./init.sh: cmd.exe cannot, and the run would report
+// 'could not execute' rather than a verdict about the project.
+const src=require('fs').readFileSync('$SCRIPTS/verify-harness.mjs','utf8');
+process.exit(/runCmd\(\`\"\\\$\{process\.execPath\}\" init\.mjs\`\)/.test(src) ? 0 : 1);
+"; expect "verify-harness runs the gate through node, not through a POSIX shell invocation" $?
+# Targets scaffolded before the port keep their old init.sh — setup never overwrites. Find them.
+LEG="$WORK/legacy-init"; rm -rf "$LEG"; mkdir -p "$LEG"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$LEG" --name "Legacy" --purpose "pre-port" >/dev/null
+rm -f "$LEG/init.mjs"
+printf '#!/usr/bin/env bash\nset -euo pipefail\nhas test && { npm test; } || true\n' > "$LEG/init.sh"
+node "$SCRIPTS/verify-harness.mjs" --target "$LEG" --skip-baseline --quiet
+node -e "
+const r=require('$LEG/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='init-swallows-failure');
+process.exit(f && f.severity==='blocker' ? 0 : 1);
+"; expect "a target still on the old bash gate is flagged as a blocker, since setup will not overwrite it" $?
+
+step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash
