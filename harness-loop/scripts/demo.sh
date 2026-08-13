@@ -1641,6 +1641,30 @@ const t=require('fs').readFileSync('$VH/docs/testing-standards.md','utf8');
 process.exit(/Where a verification lives/.test(t) && /smell that a level is missing/.test(t) ? 0 : 1);
 "; expect "and testing-standards.md says why, so the rule is teachable and not just enforced" $?
 
+# The orchestrator is told to hand a human's answer to the agent that owns that file — and could
+# not: dispatch() was a private function inside run-loop.sh, which only ever runs the node the
+# ROUTER named. Only Codex had a standalone path, so the gap was invisible on that runtime.
+DP="$WORK/dispatch"; rm -rf "$DP"; mkdir -p "$DP/bin"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$DP" --name "Disp" --purpose "named dispatch" >/dev/null
+test -x "$DP/loop/dispatch.sh"; expect "every scaffold ships a runtime-agnostic way to dispatch one named agent" $?
+printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh designer "decided" ) > "$DP/d.log" 2>&1
+grep -q "agent=designer" "$DP/d.log"; expect "it runs the agent the caller named, not the one the router would have picked" $?
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh ghost "x" ) > "$DP/g.log" 2>&1
+GC=$?; grep -q "no agent" "$DP/g.log" && [ "$GC" = "2" ]
+expect "an agent that is not in the manifest is refused, rather than dispatched into nothing" $?
+node -e "
+const fs=require('fs');
+// one implementation of 'how do I start an agent here'. Two copies is two things to drift, and the
+// runtimes are exactly where drift is invisible.
+const rl=fs.readFileSync('$DP/loop/run-loop.sh','utf8');
+process.exit(/\. loop\/dispatch\.sh/.test(rl) && !/kiro-cli chat --agent/.test(rl) ? 0 : 1);
+"; expect "run-loop.sh sources it instead of keeping a second copy of the runtime case statement" $?
+node -e "
+const t=require('fs').readFileSync('$DP/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+process.exit(/loop\/dispatch\.sh designer/.test(t) && /only when a human has already decided/.test(t) ? 0 : 1);
+"; expect "and the orchestrator is told to use it only once a human has decided — the router still owns the rest" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

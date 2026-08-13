@@ -62,9 +62,16 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
 - **Never propose an option you would refuse to execute.** Padding a list to look balanced wastes
   their time and, if they pick it, yours.
 - **Route the answer to its owner.** You do not write designs, scope, code or tests. Record what the
-  human said and dispatch the agent that owns that file — designer for a design question, planner
-  for scope, context-interviewer for an assumption. If you are unsure who owns it,
-  `docs/reference/graph.md` has the table.
+  human said, then hand it to the agent that owns that file:
+
+  ```bash
+  loop/dispatch.sh designer "The human chose option 2: <the decision, and where you recorded it>"
+  ```
+
+  Designer for a design question, feature-planner for scope, context-interviewer for an assumption.
+  `docs/reference/graph.md` has the owner table. `loop/dispatch.sh` runs one NAMED agent on whichever
+  runtime this machine has — use it only when a human has already decided. When nobody has,
+  `loop/run-loop.sh 1` runs the node the router chose, and that is the normal path.
 
 ## What you must not do
 

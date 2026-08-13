@@ -67,51 +67,11 @@ if all_settled; then
   exit 0
 fi
 
-# --- runtime selection -------------------------------------------------------------------------
-RUNTIME="${HARNESS_RUNTIME:-}"
-if [ -z "$RUNTIME" ]; then
-  if   command -v kiro-cli >/dev/null 2>&1 && [ -d .kiro/agents ];   then RUNTIME=kiro
-  elif command -v claude   >/dev/null 2>&1 && [ -d .claude/agents ]; then RUNTIME=claude
-  elif command -v codex    >/dev/null 2>&1 && [ -d .codex/agents ];  then RUNTIME=codex
-  else
-    echo "no runtime — install kiro-cli, claude or codex, with the matching agents directory." >&2
-    echo "Generate the missing one: node tools/gen-agents.mjs --target . --runtime all" >&2
-    exit 1
-  fi
-fi
-
-case "$RUNTIME" in
-  kiro)
-    # Auth: an API key OR an existing kiro-cli login both work — found via real use (the CLI was
-    # logged in interactively; demanding the env var anyway blocked a perfectly runnable loop).
-    if [ -z "${KIRO_API_KEY:-}" ] && ! kiro-cli whoami >/dev/null 2>&1; then
-      echo "no auth — set KIRO_API_KEY or log in first (kiro-cli login)." >&2; exit 1
-    fi ;;
-  claude)
-    [ -d .claude/agents ] || { echo "runtime=claude but .claude/agents/ is missing." >&2; exit 1; } ;;
-  codex)
-    # .codex/agents is for interactive use; headless dispatch assembles the role itself, so the file
-    # that actually has to exist is the guard's hook config — without it a write-restricted role
-    # runs unrestricted and nothing says so.
-    [ -f .codex/hooks.json ] || { echo "runtime=codex but .codex/hooks.json is missing — write restrictions would not be enforced. Run: node tools/gen-agents.mjs --target . --runtime codex" >&2; exit 1; }
-    codex login status >/dev/null 2>&1 || { echo "codex is not logged in (codex login)." >&2; exit 1; } ;;
-  *) echo "unknown HARNESS_RUNTIME=$RUNTIME (expected kiro, claude or codex)" >&2; exit 1 ;;
-esac
+# Runtime selection and dispatch() live in loop/dispatch.sh, sourced here — the same code a human
+# or the orchestrator runs to hand work to a NAMED agent. Two copies of "how do I start an agent on
+# this machine" is two things to drift, and the runtimes are exactly where drift is invisible.
+. loop/dispatch.sh
 echo "runtime: $RUNTIME"
-
-# One entry point for all three. --trust-all-tools / --dangerously-skip-permissions grant tools
-# without confirmation, which is safe only because each agent's generated config bounds what it may
-# do: on kiro via toolsSettings.write.allowedPaths, on Claude Code via the per-agent PreToolUse hook,
-# on Codex via the project-level hook plus HARNESS_AGENT (tools/guard-write.mjs). Those are not
-# decoration — they are what stops the checker fixing the maker's work and passing it off as the
-# maker's. Codex has no --agent flag, so its role is assembled by tools/codex-dispatch.mjs.
-dispatch() {  # dispatch <agent> <message>
-  case "$RUNTIME" in
-    kiro)   kiro-cli chat --agent "$1" --no-interactive --trust-all-tools "$2" ;;
-    claude) claude -p "$2" --agent "$1" --dangerously-skip-permissions < /dev/null ;;
-    codex)  node tools/codex-dispatch.mjs "$1" "$2" ;;
-  esac
-}
 
 for i in $(seq 1 "$ITERATIONS"); do
   if all_settled; then
