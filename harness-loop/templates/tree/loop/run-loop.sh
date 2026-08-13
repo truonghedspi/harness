@@ -47,9 +47,10 @@ RUNTIME="${HARNESS_RUNTIME:-}"
 if [ -z "$RUNTIME" ]; then
   if   command -v kiro-cli >/dev/null 2>&1 && [ -d .kiro/agents ];   then RUNTIME=kiro
   elif command -v claude   >/dev/null 2>&1 && [ -d .claude/agents ]; then RUNTIME=claude
+  elif command -v codex    >/dev/null 2>&1 && [ -d .codex/agents ];  then RUNTIME=codex
   else
-    echo "no runtime — install kiro-cli with .kiro/agents/, or claude with .claude/agents/." >&2
-    echo "Generate the missing one: node tools/gen-agents.mjs --target . --runtime both" >&2
+    echo "no runtime — install kiro-cli, claude or codex, with the matching agents directory." >&2
+    echo "Generate the missing one: node tools/gen-agents.mjs --target . --runtime all" >&2
     exit 1
   fi
 fi
@@ -63,19 +64,27 @@ case "$RUNTIME" in
     fi ;;
   claude)
     [ -d .claude/agents ] || { echo "runtime=claude but .claude/agents/ is missing." >&2; exit 1; } ;;
-  *) echo "unknown HARNESS_RUNTIME=$RUNTIME (expected kiro or claude)" >&2; exit 1 ;;
+  codex)
+    # .codex/agents is for interactive use; headless dispatch assembles the role itself, so the file
+    # that actually has to exist is the guard's hook config — without it a write-restricted role
+    # runs unrestricted and nothing says so.
+    [ -f .codex/hooks.json ] || { echo "runtime=codex but .codex/hooks.json is missing — write restrictions would not be enforced. Run: node tools/gen-agents.mjs --target . --runtime codex" >&2; exit 1; }
+    codex login status >/dev/null 2>&1 || { echo "codex is not logged in (codex login)." >&2; exit 1; } ;;
+  *) echo "unknown HARNESS_RUNTIME=$RUNTIME (expected kiro, claude or codex)" >&2; exit 1 ;;
 esac
 echo "runtime: $RUNTIME"
 
-# One entry point for both. --trust-all-tools / --dangerously-skip-permissions grant tools without
-# confirmation, which is safe only because each agent's generated config bounds what it may do:
-# on kiro via toolsSettings.write.allowedPaths, on Claude Code via the per-agent PreToolUse hook
-# (tools/guard-write.mjs). Those are not decoration — they are what stops the checker fixing the
-# maker's work and passing it off as the maker's.
+# One entry point for all three. --trust-all-tools / --dangerously-skip-permissions grant tools
+# without confirmation, which is safe only because each agent's generated config bounds what it may
+# do: on kiro via toolsSettings.write.allowedPaths, on Claude Code via the per-agent PreToolUse hook,
+# on Codex via the project-level hook plus HARNESS_AGENT (tools/guard-write.mjs). Those are not
+# decoration — they are what stops the checker fixing the maker's work and passing it off as the
+# maker's. Codex has no --agent flag, so its role is assembled by tools/codex-dispatch.mjs.
 dispatch() {  # dispatch <agent> <message>
   case "$RUNTIME" in
     kiro)   kiro-cli chat --agent "$1" --no-interactive --trust-all-tools "$2" ;;
     claude) claude -p "$2" --agent "$1" --dangerously-skip-permissions < /dev/null ;;
+    codex)  node tools/codex-dispatch.mjs "$1" "$2" ;;
   esac
 }
 

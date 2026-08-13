@@ -894,24 +894,27 @@ process.exit((b.debt['falsifier-missing']||0) < $BASE0 ? 0 : 1);
 "; expect "--ratchet lowers the baseline so paid-down debt cannot come back" $?
 rm -f /tmp/demo-ab.$$
 
-step 32 "two runtimes from one manifest: kiro-cli and Claude Code stay in step"
+step 32 "three runtimes from one manifest: kiro-cli, Claude Code and Codex stay in step"
 TR="$WORK/runtime-target"; rm -rf "$TR" && mkdir -p "$TR"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$TR" --name "RuntimeDemo" --purpose "runtime parity" >/dev/null
 node -e "
 const fs=require('fs');
 const kiro=fs.readdirSync('$TR/.kiro/agents').filter(f=>f.endsWith('.json')).map(f=>f.replace('.json',''));
 const cc=fs.readdirSync('$TR/.claude/agents').filter(f=>f.endsWith('.md')).map(f=>f.replace('.md',''));
+const cx=fs.readdirSync('$TR/.codex/agents').filter(f=>f.endsWith('.toml')).map(f=>f.replace('.toml',''));
 const man=require('$TR/agents.manifest.json').agents.filter(a=>!a.optional).map(a=>a.name);
 const same=(a,b)=>a.length===b.length&&a.every(x=>b.includes(x));
-process.exit(same(kiro,man)&&same(cc,man)?0:1);
-"; expect "one manifest emits both formats, with the same agent set" $?
+process.exit(same(kiro,man)&&same(cc,man)&&same(cx,man)?0:1);
+"; expect "one manifest emits all three formats, with the same agent set" $?
 node -e "
 const fs=require('fs');
 // Cheap model for producing, strong model for judging — the same line as generator/evaluator
 // separation, because catching what a cheaper model got wrong IS the evaluator's job.
-// Both kiro roles name a model rather than riding `auto`: on 2026-08-12 `auto` returned
-// "temporarily unavailable" mid-run and killed a maker part-way through a fix. A router can
-// route to nothing.
+// Both kiro roles name a model rather than riding auto: on 2026-08-12 auto returned
+// temporarily-unavailable mid-run and killed a maker part-way through a fix. A router can
+// route to nothing. (No backticks in this comment: it sits inside a double-quoted shell
+// string, where a backtick is command substitution — that is why the demo used to print
+// auto: command not found.)
 const cc=(n)=>(fs.readFileSync('$TR/.claude/agents/'+n+'.md','utf8').match(/^model: (.+)\$/m)||[])[1];
 const kiro=(n)=>require('$TR/.kiro/agents/'+n+'.json').model;
 process.exit(cc('checker')==='claude-opus-5' && cc('design-reviewer')==='claude-opus-5' &&
@@ -936,6 +939,74 @@ process.exit(run('checker','feature_list.json')==='allow' &&
              run('checker','src/Foo.java')==='deny' &&
              run('maker','src/Foo.java')==='allow' ? 0 : 1);
 "; expect "guard-write allows the checker its state files and denies it source; the maker is free" $?
+node -e "
+const fs=require('fs');
+// Codex's own sandbox is used where it can carry the rule (a role that never writes), and the hook
+// only where it cannot: sandbox_mode is directory-granular, a writes list is glob-granular.
+const t=fs.readFileSync('$TR/.codex/agents/checker.toml','utf8');
+process.exit(/^name = \"checker\"/m.test(t) && /^model = \"gpt-5\.6-terra\"/m.test(t) &&
+             /^model_reasoning_effort = \"high\"/m.test(t) &&
+             /developer_instructions = /.test(t) && /## Read these before you do anything else/.test(t) ? 0 : 1);
+"; expect "the Codex agent carries the inlined prompt, the evaluator model, and its resource list" $?
+node -e "
+const fs=require('fs');
+// Codex agent TOML has no hooks field, so confinement lives in ONE project-level file. Codex accepts
+// only description and hooks there: any other key and it rejects the whole file, logs one warning
+// line, and runs with no hooks at all. Shipped exactly that bug once (\$comment) — hence the gate.
+const j=JSON.parse(fs.readFileSync('$TR/.codex/hooks.json','utf8'));
+const keys=Object.keys(j);
+process.exit(keys.every(k=>['description','hooks'].includes(k)) &&
+             /guard-write\.mjs --from-env/.test(JSON.stringify(j.hooks)) ? 0 : 1);
+"; expect "Codex hooks.json uses only the two keys Codex accepts, and wires the write guard" $?
+node -e "
+// Codex's edit tool is apply_patch and its payload has NO file_path — just a patch envelope. The
+// guard parsed only file_path at first, found none, and returned ALLOW: confinement absent while
+// every log line said the hook ran. All four of these are the Codex shape.
+const {execFileSync}=require('child_process');
+const run=(env,cmd)=>JSON.parse(execFileSync('node',['tools/guard-write.mjs','--from-env'],
+  {cwd:'$TR',input:JSON.stringify({tool_name:'apply_patch',tool_input:{command:cmd}}),encoding:'utf8',
+   env:{...process.env,...(env?{HARNESS_AGENT:env}:{HARNESS_AGENT:''})}}))
+  .hookSpecificOutput;
+const patch=(...lines)=>'*** Begin Patch\n'+lines.join('\n')+'\n*** End Patch';
+const a=run('checker',patch('*** Update File: feature_list.json'));
+const b=run('checker',patch('*** Add File: src/Sneak.java'));
+const c=run('checker',patch('*** Update File: progress.md','*** Add File: src/Sneak.java'));
+const d=run('',patch('*** Add File: src/Sneak.java'));
+process.exit(a.permissionDecision==='allow' && b.permissionDecision==='deny' &&
+             c.permissionDecision==='deny' &&
+             d.permissionDecision==='allow' && /NO ROLE IDENTIFIED/.test(d.permissionDecisionReason) ? 0 : 1);
+"; expect "the guard reads Codex apply_patch envelopes, sinks a whole patch for one bad path, and says so when it cannot identify the role" $?
+node -e "
+// A payload that arrives and will not parse used to become {} and then a cheerful 'nothing to check'
+// allow. If the guard cannot read the request it cannot police it.
+const {execFileSync}=require('child_process');
+const out=JSON.parse(execFileSync('node',['tools/guard-write.mjs','--from-env'],
+  {cwd:'$TR',input:'not json',encoding:'utf8',env:{...process.env,HARNESS_AGENT:'checker'}}));
+process.exit(out.hookSpecificOutput.permissionDecision==='deny' ? 0 : 1);
+"; expect "an unparseable hook payload is denied, not silently allowed" $?
+node -e "
+const fs=require('fs');
+// three configs, one server set — an agent that can reach a connector under one runtime and not
+// another returns two different verdicts for the same feature
+const toml=fs.readFileSync('$TR/.codex/config.toml','utf8');
+const names=[...toml.matchAll(/^\[mcp_servers\.([^\]]+)\]/gm)].map(m=>m[1]);
+const claude=Object.keys(require('$TR/.mcp.json').mcpServers);
+const kiro=Object.keys(require('$TR/.kiro/settings/mcp.json').mcpServers);
+process.exit(JSON.stringify(names)===JSON.stringify(claude) && JSON.stringify(claude)===JSON.stringify(kiro) ? 0 : 1);
+"; expect "MCP is written for all three runtimes from one source, with identical server sets" $?
+# An unrecognised --runtime used to match no branch, leaving an empty wanted-set, after which the
+# cleanup pass deleted every generated agent in the repo. A typo must not disarm the harness.
+BEFORE=$(ls "$TR/.kiro/agents" | wc -l | tr -d ' ')
+node "$SCRIPTS/gen-agents.mjs" --target "$TR" --runtime kodex >/dev/null 2>&1
+AFTER=$(ls "$TR/.kiro/agents" | wc -l | tr -d ' ')
+test "$BEFORE" = "$AFTER" -a "$BEFORE" != "0"; expect "a misspelled --runtime is refused instead of deleting every generated agent" $?
+# Generating ONE runtime must not delete the others. The cleanup pass removes files for agents the
+# manifest no longer declares, and "not in the wanted set" looked identical to that — so
+# --runtime kiro deleted every Claude agent. Latent since the second runtime; a third exposed it.
+CXB=$(ls "$TR/.codex/agents" | wc -l | tr -d ' ')
+node "$SCRIPTS/gen-agents.mjs" --target "$TR" --runtime both >/dev/null
+CXA=$(ls "$TR/.codex/agents" 2>/dev/null | wc -l | tr -d ' ')
+test "$CXB" = "$CXA" -a "$CXB" != "0"; expect "generating two runtimes leaves the third's agents alone" $?
 node -e "
 const {execFileSync}=require('child_process');
 const out=JSON.parse(execFileSync('node',['tools/agent-context.mjs','checker'],
@@ -1056,8 +1127,10 @@ process.exit(r.findings.some(f=>f.id==='k8s-agent-missing') ? 0 : 1);
 node -e "
 const r=require('$K8T/trace/verify-report.json');
 const f=r.findings.find(f=>f.id==='mcp-runtime-skew');
-process.exit(f && /kiro only/.test(f.evidence||'') ? 0 : 1);
-"; expect "an MCP server present for one runtime and not the other is caught — same agent, two verdicts" $?
+// names the server AND which runtimes are missing it — with three runtimes, "one of them differs"
+// is not actionable on its own
+process.exit(f && /k8s-readonly \(missing from claude\)/.test(f.evidence||'') ? 0 : 1);
+"; expect "an MCP server present for some runtimes and not others is caught, naming which — same agent, two verdicts" $?
 
 step 36 "multi-service k8s: dependsOn order, health that is not 'Running', ranked diagnostics"
 MS="$WORK/multi-svc"; rm -rf "$MS"; mkdir -p "$MS/tools" "$MS/charts/api" "$MS/charts/db" "$MS/charts/cache" "$MS/stub"

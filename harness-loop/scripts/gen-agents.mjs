@@ -1,27 +1,39 @@
 #!/usr/bin/env node
-// gen-agents.mjs — one manifest, two runtimes.
+// gen-agents.mjs — one manifest, three runtimes.
 //
-// The harness targets kiro-cli and Claude Code. Their agent configs express the same five things
-// in different shapes, and hand-maintaining both guarantees drift — the kind that is invisible,
-// because a misconfigured agent still runs, just not as the agent you configured (HI-005).
-// So `agents.manifest.json` is the source and both formats are generated from it.
+// The harness targets kiro-cli, Claude Code and Codex CLI. Their agent configs express the same
+// five things in different shapes, and hand-maintaining them guarantees drift — the kind that is
+// invisible, because a misconfigured agent still runs, just not as the agent you configured
+// (HI-005). So `agents.manifest.json` is the source and every format is generated from it.
 //
-//   concept          kiro                                  Claude Code
-//   ---------------  ------------------------------------  ----------------------------------------
-//   system prompt    prompt: file://../../<path>            the .md body (inlined at generation)
-//   auto-loaded      resources: [file://…]                  SubagentStart hook -> additionalContext
-//     context                                               (computed at spawn, so never stale)
-//   write limits     toolsSettings.write.allowedPaths       PreToolUse hook -> permissionDecision:deny
-//   lifecycle        hooks.agentSpawn / stop                hooks.SubagentStart / Stop (frontmatter,
-//                                                           scoped to that subagent)
-//   MCP              includeMcpJson (all or nothing)        mcpServers (per server) — left to settings
+//   concept        kiro                              Claude Code                  Codex CLI
+//   -------------  --------------------------------  ---------------------------  ----------------------------
+//   system prompt  prompt: file://../../<path>       the .md body (inlined)       developer_instructions (inlined)
+//   auto-loaded    resources: [file://…]             SubagentStart -> additional  listed in the instructions;
+//     context                                        Context (computed at spawn)  inlined by codex-dispatch.mjs
+//   write limits   toolsSettings.write.allowedPaths  PreToolUse -> deny, declared PreToolUse in .codex/hooks.json,
+//                                                    per-agent in frontmatter     PROJECT-wide + HARNESS_AGENT
+//   lifecycle      hooks.agentSpawn / stop           hooks.SubagentStart / Stop   hooks.SessionStart / Stop
+//   MCP            includeMcpJson (all or nothing)   mcpServers (per server)      [mcp_servers.x] in config.toml
+//
+// The Codex column is where the shapes genuinely stop matching, and all three differences were
+// established by running codex 0.147.0, not by reading its documentation:
+//
+//   1. Agent TOML has NO hooks field, so per-agent write confinement cannot be expressed there.
+//      Hooks are project-wide, so the hook must be told which role is running. Verified that env
+//      vars propagate from the codex process into hook subprocesses, so HARNESS_AGENT carries it.
+//   2. `codex exec` has NO --agent flag. The role is injected at dispatch instead
+//      (tools/codex-dispatch.mjs), which is why the resource list is inlined rather than hooked.
+//   3. Hooks require persisted trust, and WITHOUT it they are silently skipped — no error, no
+//      warning, writes simply unguarded. Headless dispatch therefore passes
+//      --dangerously-bypass-hook-trust; read runtimes.md before deciding that is acceptable to you.
 //
 // Claude Code has no per-agent path-permission field, and an `Edit(...)` rule in settings.json is
 // session-wide, so the PreToolUse hook is the ONLY way to give one agent a narrower write surface
 // than another. That matters here: the checker being unable to write source is what makes
 // "the maker never grades itself" a property of the configuration rather than a line in a prompt.
 //
-// Usage: node gen-agents.mjs --target DIR [--runtime kiro|claude|both] [--check]
+// Usage: node gen-agents.mjs --target DIR [--runtime kiro|claude|codex|both|all|<a,b>] [--check]
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 
@@ -111,16 +123,100 @@ function claudeAgent(a) {
   return `${fm}\n\n${GEN_HEADER(a.prompt)}\n${welcome}${body}`;
 }
 
+// --- Codex CLI --------------------------------------------------------------------------------
+// TOML multi-line LITERAL strings take no escapes at all, which is exactly what a markdown prompt
+// full of backslashes and quotes needs. The only sequence they cannot hold is their own delimiter,
+// so that one case falls back to a basic string with the escapes TOML requires.
+const L = "'".repeat(3), B = '"'.repeat(3);
+function tomlBlock(text) {
+  if (!text.includes(L)) return `${L}\n${text}\n${L}`;
+  const esc = text.replace(/\\/g, "\\\\").replace(new RegExp(B, "g"), '\\"\\"\\"');
+  return `${B}\n${esc}\n${B}`;
+}
+function codexAgent(a) {
+  const body = read(P(a.prompt));
+  if (body === null) return null;
+  // Codex exposes no `resources` mechanism to an agent file, so the list becomes an instruction.
+  // tools/codex-dispatch.mjs inlines the same files for headless runs; together that is what makes
+  // an interactively-spawned Codex agent load the same context as the other two runtimes.
+  const resources = a.resources.length
+    ? "\n\n## Read these before you do anything else\n\n" +
+      a.resources.map((r) => `- \`${r}\``).join("\n") +
+      "\n\nThese are your context. Skipping them is how a role does confident work on stale facts.\n"
+    : "";
+  const welcome = a.welcomeMessage ? `> **What this role does:** ${a.welcomeMessage}\n\n` : "";
+  const instructions = `${GEN_HEADER(a.prompt)}\n${welcome}${body}${resources}`;
+  const lines = [
+    "# GENERATED from agents.manifest.json by tools/gen-agents.mjs. Do not hand-edit.",
+    `name = ${JSON.stringify(a.name)}`,
+    `description = ${JSON.stringify(a.description)}`,
+  ];
+  if (a.model && a.model.codex) lines.push(`model = ${JSON.stringify(a.model.codex)}`);
+  if (a.codexReasoningEffort) lines.push(`model_reasoning_effort = ${JSON.stringify(a.codexReasoningEffort)}`);
+  // A role that never writes gets Codex's OWN sandbox rather than a hook — enforcement by the
+  // runtime beats enforcement by a script we ship. Roles with a `writes` list need write access to
+  // part of the tree, and Codex's sandbox is directory-granular while `writes` is glob-granular, so
+  // those still depend on the PreToolUse hook below.
+  const canWrite = a.tools.includes("write") || a.tools.includes("*");
+  lines.push(`sandbox_mode = ${JSON.stringify(canWrite ? "workspace-write" : "read-only")}`);
+  lines.push(`developer_instructions = ${tomlBlock(instructions)}`);
+  return lines.join("\n") + "\n";
+}
+
+// One project-level hook file, because Codex agent TOML cannot carry hooks. Every role shares it and
+// guard-write.mjs resolves which one is running from HARNESS_AGENT.
+function codexHooks(list) {
+  if (!list.some((a) => a.writes)) return null;
+  // `description` and `hooks` are the ONLY fields Codex accepts here. A `$comment` key — harmless in
+  // every other config this harness writes — makes Codex reject the whole file with a one-line
+  // warning on stderr and run with NO hooks at all. Found by running it: the agent still refused the
+  // out-of-lane write, because its prompt told it to, so the run looked like proof of enforcement
+  // while nothing was enforcing anything.
+  return JSON.stringify({
+    description: "GENERATED by tools/gen-agents.mjs from agents.manifest.json. Codex hooks are " +
+      "project-wide (agent TOML has no hooks field), so the guard identifies the running role from " +
+      "the HARNESS_AGENT environment variable that tools/codex-dispatch.mjs sets. Hooks require " +
+      "persisted trust: without it Codex SKIPS them silently and every write goes unguarded.",
+    hooks: {
+      PreToolUse: [{
+        matcher: ".*",
+        hooks: [{ type: "command", command: "node tools/guard-write.mjs --from-env" }],
+      }],
+    },
+  }, null, 2) + "\n";
+}
+
 // --- emit ------------------------------------------------------------------------------------------
+// `both` predates Codex and still means kiro+claude, so existing targets keep generating exactly
+// what they generated before. `all` is every runtime; a comma list is exactly what it says.
+// An unrecognised value used to fall through to an EMPTY wanted-set, and the cleanup pass below then
+// deleted every generated agent file in the repo. A typo must not be a way to disarm the harness.
+const RUNTIMES = RUNTIME === "both" ? ["kiro", "claude"]
+  : RUNTIME === "all" ? ["kiro", "claude", "codex"]
+  : RUNTIME.split(",").map((r) => r.trim()).filter(Boolean);
+const UNKNOWN = RUNTIMES.filter((r) => !["kiro", "claude", "codex"].includes(r));
+if (!RUNTIMES.length || UNKNOWN.length) {
+  console.error(`unknown runtime: ${UNKNOWN.join(", ") || "(empty)"} — expected kiro, claude, codex, both, all, or a comma list`);
+  process.exit(2);
+}
+
 const wanted = new Map();
-if (RUNTIME === "kiro" || RUNTIME === "both") {
+if (RUNTIMES.includes("kiro")) {
   for (const a of agents) wanted.set(path.join(".kiro", "agents", `${a.name}.json`), kiroAgent(a));
 }
-if (RUNTIME === "claude" || RUNTIME === "both") {
+if (RUNTIMES.includes("claude")) {
   for (const a of agents) {
     const c = claudeAgent(a);
     if (c) wanted.set(path.join(".claude", "agents", `${a.name}.md`), c);
   }
+}
+if (RUNTIMES.includes("codex")) {
+  for (const a of agents) {
+    const c = codexAgent(a);
+    if (c) wanted.set(path.join(".codex", "agents", `${a.name}.toml`), c);
+  }
+  const h = codexHooks(agents);
+  if (h) wanted.set(path.join(".codex", "hooks.json"), h);
 }
 
 if (CHECK) {
@@ -138,7 +234,15 @@ if (CHECK) {
 // Remove generated files for agents the manifest no longer declares — an agent that keeps running
 // after being deleted from the source is the same class of defect as one nobody routes to.
 const declared = new Set(agents.map((a) => a.name));
-for (const [dir, ext] of [[path.join(".kiro", "agents"), ".json"], [path.join(".claude", "agents"), ".md"]]) {
+// ONLY the runtimes being generated. Sweeping all of them meant `--runtime kiro` deleted every
+// Claude agent and `--runtime both` deleted every Codex one: they are declared in the manifest but
+// absent from `wanted`, which is the same test as "no longer declared". Latent since the second
+// runtime existed; it surfaced the moment a third made `both` a partial selection.
+const CLEAN_DIRS = [["kiro", path.join(".kiro", "agents"), ".json"],
+                    ["claude", path.join(".claude", "agents"), ".md"],
+                    ["codex", path.join(".codex", "agents"), ".toml"]]
+  .filter(([r]) => RUNTIMES.includes(r)).map(([, dir, ext]) => [dir, ext]);
+for (const [dir, ext] of CLEAN_DIRS) {
   if (!existsSync(P(dir))) continue;
   for (const f of readdirSync(P(dir))) {
     if (!f.endsWith(ext)) continue;

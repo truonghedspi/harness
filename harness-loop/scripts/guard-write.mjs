@@ -14,11 +14,26 @@
 // A trap worth knowing, and the reason this is a hook rather than a settings rule: Claude Code
 // consults `Edit(path)` rules only. A `Write(docs/**)` rule is accepted and never applied.
 //
+// CODEX CLI uses the same hook contract — verified by running codex 0.147.0 — with two differences
+// that both fail SILENTLY if unhandled:
+//
+//   1. Its edit tool is `apply_patch`, and the payload carries NO file_path. `tool_input` is a patch
+//      envelope: {"command": "*** Begin Patch\n*** Add File: hello.txt\n+hi\n*** End Patch"}. The
+//      original version of this script looked for file_path, found none, and returned ALLOW — so on
+//      Codex the confinement was absent while every log line said the hook ran. The envelope is
+//      parsed below.
+//   2. Codex agent TOML has no hooks field, so the hook is declared project-wide in
+//      .codex/hooks.json and cannot be told the role via argv. Env vars DO propagate from the codex
+//      process into hook subprocesses (verified), so tools/codex-dispatch.mjs exports HARNESS_AGENT
+//      and `--from-env` reads it.
+//
 // Usage (as a hook): node tools/guard-write.mjs <agent-name>    # payload on stdin
+//                    node tools/guard-write.mjs --from-env      # role from $HARNESS_AGENT (Codex)
 import { readFileSync, writeSync } from "node:fs";
 import path from "node:path";
 
-const agentName = process.argv[2];
+const arg = process.argv[2];
+const agentName = arg === "--from-env" ? (process.env.HARNESS_AGENT || null) : arg;
 const root = process.cwd();
 
 const decide = (decision, reason) => {
@@ -32,12 +47,48 @@ const decide = (decision, reason) => {
 let raw = "";
 try { raw = readFileSync(0, "utf8"); } catch { /* no stdin */ }
 let payload = {};
-try { payload = JSON.parse(raw || "{}"); } catch { /* not JSON */ }
+if (raw.trim()) {
+  // A payload that arrived but would not parse used to fall through to `{}` and then to
+  // "nothing to check" — an ALLOW indistinguishable from a real one. If the guard cannot read the
+  // request it cannot police it, and silently waving it through is the failure mode this whole
+  // mechanism exists to prevent.
+  try { payload = JSON.parse(raw); }
+  catch (e) {
+    decide("deny", `guard-write could not parse the hook payload (${e.message}). Refusing the write: ` +
+      `an unreadable request cannot be checked, and allowing it would leave the role unconfined while ` +
+      `every log line still says the guard ran. Report this as a harness-layer issue.`);
+  }
+}
 
-// The path the tool is about to touch. Shapes differ per tool; take the first that looks like one.
+// The path(s) the tool is about to touch. Shapes differ per tool AND per runtime; collect them all,
+// because one denied path in a multi-file patch has to sink the whole patch.
 const input = payload.tool_input || payload.toolInput || {};
-const target = input.file_path || input.path || input.notebook_path || input.filePath;
-if (!target) decide("allow", "no file path in the tool input — nothing to check");
+const targets = [];
+for (const k of ["file_path", "path", "notebook_path", "filePath"]) if (input[k]) targets.push(input[k]);
+
+// Codex `apply_patch`: one envelope, any number of files, no file_path field anywhere.
+const envelope = typeof input.command === "string" ? input.command
+  : Array.isArray(input.command) ? input.command.join(" ") : "";
+if (/\*\*\* (Begin Patch|Add File|Update File|Delete File)/.test(envelope)) {
+  for (const m of envelope.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)) targets.push(m[1].trim());
+  // A rename writes the destination as much as the source.
+  for (const m of envelope.matchAll(/^\*\*\* Move to: (.+)$/gm)) targets.push(m[1].trim());
+  if (!targets.length) {
+    decide("deny", "this looks like an apply_patch envelope but no file path could be read from it. " +
+      "Refusing rather than guessing: an unparsed patch is exactly how a write-restricted role ends " +
+      "up writing anywhere. Report this payload as a harness-layer issue.");
+  }
+}
+
+if (!targets.length) decide("allow", "no file path in the tool input — nothing to check");
+
+if (!agentName) {
+  // Codex, interactive: hooks are project-wide and nothing identifies the role, so the per-path
+  // restriction genuinely cannot be applied. Say so out loud instead of implying a check ran.
+  decide("allow", "NO ROLE IDENTIFIED (HARNESS_AGENT unset) — per-agent write restrictions were NOT " +
+    "applied to this write. Under Codex that is expected outside tools/codex-dispatch.mjs; see " +
+    "docs/reference/runtimes.md. Do not treat this run as evidence that a role stayed in its lane.");
+}
 
 let manifest;
 try { manifest = JSON.parse(readFileSync(path.join(root, "agents.manifest.json"), "utf8")); }
@@ -49,19 +100,21 @@ const agent = (manifest.agents || []).find((a) => a.name === agentName);
 if (!agent || !agent.writes) decide("allow", `${agentName} has no write restriction in agents.manifest.json`);
 
 // Glob subset: ** (any depth), * (one segment). Enough for the path shapes the manifest uses.
-const rel = path.relative(root, path.resolve(root, target));
 const toRe = (g) => new RegExp("^" + g.split("**").map((s) =>
   s.split("*").map((x) => x.replace(/[.+^${}()|[\]\\]/g, "\\$&")).join("[^/]*")).join(".*") + "$");
-const allowed = agent.writes.some((g) => toRe(g).test(rel) || rel === g);
 
-if (rel.startsWith("..")) {
-  decide("deny", `${agentName} may only write inside the project; ${target} is outside it.`);
+const rels = targets.map((t) => path.relative(root, path.resolve(root, t)));
+const outside = rels.filter((r) => r.startsWith(".."));
+if (outside.length) {
+  decide("deny", `${agentName} may only write inside the project; ${outside.join(", ")} is outside it.`);
 }
-if (!allowed) {
+const blocked = rels.filter((r) => !agent.writes.some((g) => toRe(g).test(r) || r === g));
+if (blocked.length) {
   decide("deny",
-    `${agentName} is write-restricted by agents.manifest.json and ${rel} is not in its list ` +
+    `${agentName} is write-restricted by agents.manifest.json and ${blocked.join(", ")} ` +
+    `${blocked.length > 1 ? "are" : "is"} not in its list ` +
     `(${agent.writes.join(", ")}). This is deliberate: it is what stops this role from doing ` +
     `another role's work and presenting the result as that role's. If the restriction is genuinely ` +
     `wrong, change the manifest and regenerate — do not work around it.`);
 }
-decide("allow", `${rel} is within ${agentName}'s allowed paths`);
+decide("allow", `${rels.join(", ")} ${rels.length > 1 ? "are" : "is"} within ${agentName}'s allowed paths`);

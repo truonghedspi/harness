@@ -155,6 +155,25 @@ function readAgents() {
       text,
     });
   }
+  // Codex: .codex/agents/<name>.toml. Only the fields other gates actually read are pulled out —
+  // a full TOML parser is not worth shipping for four keys, and `name` is what everything keys on.
+  // Note what is NOT here: `writes`. Codex agent TOML cannot express a per-path write list at all,
+  // so the manifest stays the authority and .codex/hooks.json + HARNESS_AGENT do the enforcing.
+  for (const f of lsSafe(P(".codex", "agents")).filter((x) => x.endsWith(".toml"))) {
+    const text = read(P(".codex", "agents", f)) || "";
+    const key = (k) => { const m = new RegExp(`^${k}\\s*=\\s*"([^"]*)"`, "m").exec(text); return m ? m[1] : null; };
+    const name = key("name") || f.replace(/\.toml$/, "");
+    const man = readJSON(P("agents.manifest.json"));
+    const entry = ((man && man.agents) || []).find((a) => a.name === name);
+    out.push({
+      file: `.codex/agents/${f}`, runtime: "codex", name,
+      uris: [],   // the prompt is inlined into developer_instructions
+      resources: (entry && entry.resources) || [],
+      canWrite: /sandbox_mode\s*=\s*"workspace-write"/.test(text),
+      writes: (entry && entry.writes) || null,
+      text,
+    });
+  }
   return out;
 }
 
@@ -939,8 +958,9 @@ const RULE_BUDGET = 25;
 // the invisible failure class again, one level up from a broken URI.
 function gateGenerated() {
   if (!exists(P("agents.manifest.json")) || !exists(P("tools", "gen-agents.mjs"))) return;
-  const runtime = exists(P(".kiro", "agents")) && exists(P(".claude", "agents")) ? "both"
-    : exists(P(".claude", "agents")) ? "claude" : "kiro";
+  const installed = ["kiro", "claude", "codex"].filter((r) => exists(P(`.${r}`, "agents")));
+  if (!installed.length) return;
+  const runtime = installed.join(",");
   const r = spawnSync(process.execPath,
     [P("tools", "gen-agents.mjs"), "--target", TARGET, "--runtime", runtime, "--check"],
     { encoding: "utf8" });
@@ -997,29 +1017,80 @@ function gateK8s() {
 
 // Both runtimes are generated, so both must see the same connectors. One runtime having a server the
 // other lacks is silent: the same agent simply cannot do the same job depending on who launched it.
-function gateMcp() {
-  const kiro = readJSON(P(".kiro", "settings", "mcp.json"));
-  const claude = readJSON(P(".mcp.json"));
-  if (!kiro && !claude) return;
-  if (!kiro || !claude) {
-    // Only a finding when BOTH runtimes are actually installed here.
-    if (!(exists(P(".kiro", "agents")) && exists(P(".claude", "agents")))) return;
+// Codex accepts exactly two keys in hooks.json: `description` and `hooks`. Anything else and it
+// rejects the WHOLE file with a one-line stderr warning and runs with no hooks — which on this
+// harness means no write confinement, while every role still behaves plausibly because its prompt
+// tells it to. Shipped that defect once ($comment, harmless in every other config here) and only
+// caught it by reading codex's stderr, so it is a gate now.
+function gateCodexHooks() {
+  const raw = read(P(".codex", "hooks.json"));
+  if (raw === null) {
+    // Only a finding if some role actually needs enforcing.
+    const man = readJSON(P("agents.manifest.json"));
+    if (!exists(P(".codex", "agents")) || !((man && man.agents) || []).some((a) => a.writes)) return;
     add({
-      gate: "loop", id: "mcp-runtime-skew", layer: "project", severity: "warn",
-      symptom: `agents are generated for both runtimes but only ${kiro ? "kiro" : "Claude Code"} has an MCP config`,
-      remedy: "re-run setup-harness-loop.mjs, which writes .kiro/settings/mcp.json and .mcp.json from one source",
+      gate: "loop", id: "codex-hooks-missing", layer: "project", severity: "warn",
+      symptom: "Codex agents are generated but .codex/hooks.json is absent — no per-agent write restriction is enforced under Codex",
+      remedy: "node tools/gen-agents.mjs --target . --runtime codex. Codex agent TOML cannot express a write list, so this file is the only thing that enforces one",
     });
     return;
   }
-  const ks = Object.keys(kiro.mcpServers || {}).sort();
-  const cs = Object.keys(claude.mcpServers || {}).sort();
-  const only = (a, b) => a.filter((x) => !b.includes(x));
-  const diff = [...only(ks, cs).map((n) => `${n} (kiro only)`), ...only(cs, ks).map((n) => `${n} (Claude only)`)];
+  let j = null;
+  try { j = JSON.parse(raw); } catch (e) {
+    add({
+      gate: "loop", id: "codex-hooks-invalid", layer: "project", severity: "blocker",
+      symptom: `.codex/hooks.json is not valid JSON (${e.message}) — Codex will run with no hooks at all`,
+      remedy: "regenerate with node tools/gen-agents.mjs --target . --runtime codex",
+    });
+    return;
+  }
+  const ALLOWED = new Set(["description", "hooks"]);
+  const bad = Object.keys(j).filter((k) => !ALLOWED.has(k));
+  if (bad.length) {
+    add({
+      gate: "loop", id: "codex-hooks-invalid", layer: "project", severity: "blocker", count: bad.length,
+      symptom: `.codex/hooks.json has ${bad.length} key(s) Codex does not accept (${bad.join(", ")}) — it rejects the entire file and runs with NO hooks`,
+      remedy: "Codex allows only `description` and `hooks` here. The failure is near-invisible: one warning line on stderr, after which write-restricted roles are unrestricted and still look well-behaved because their prompts tell them to be",
+      evidence: bad.join(", "),
+    });
+  }
+}
+
+function gateMcp() {
+  // One entry per runtime: where its MCP config lives, and how to read the server names out of it.
+  // Codex's is TOML, so the names come from the [mcp_servers.<name>] table headers rather than JSON.
+  const codexToml = read(P(".codex", "config.toml"));
+  const runtimes = [
+    { id: "kiro", installed: exists(P(".kiro", "agents")),
+      servers: (() => { const j = readJSON(P(".kiro", "settings", "mcp.json")); return j ? Object.keys(j.mcpServers || {}) : null; })() },
+    { id: "claude", installed: exists(P(".claude", "agents")),
+      servers: (() => { const j = readJSON(P(".mcp.json")); return j ? Object.keys(j.mcpServers || {}) : null; })() },
+    { id: "codex", installed: exists(P(".codex", "agents")),
+      servers: codexToml === null ? null : [...codexToml.matchAll(/^\[mcp_servers\.([^\]]+)\]/gm)].map((m) => m[1].replace(/^"|"$/g, "")) },
+  ].filter((r) => r.installed);
+  if (runtimes.length < 2) return;                 // nothing to be skewed against
+  const configured = runtimes.filter((r) => r.servers !== null);
+  if (!configured.length) return;                  // no MCP anywhere is a choice, not a skew
+  const absent = runtimes.filter((r) => r.servers === null);
+  if (absent.length && configured.some((r) => r.servers.length)) {
+    add({
+      gate: "loop", id: "mcp-runtime-skew", layer: "project", severity: "warn", count: absent.length,
+      symptom: `agents are generated for ${runtimes.length} runtimes but ${absent.map((r) => r.id).join(", ")} ${absent.length > 1 ? "have" : "has"} no MCP config at all`,
+      remedy: "re-run setup-harness-loop.mjs, which writes .kiro/settings/mcp.json, .mcp.json and .codex/config.toml from one source",
+    });
+    return;
+  }
+  const all = [...new Set(configured.flatMap((r) => r.servers))].sort();
+  const diff = [];
+  for (const name of all) {
+    const missing = configured.filter((r) => !r.servers.includes(name)).map((r) => r.id);
+    if (missing.length) diff.push(`${name} (missing from ${missing.join(", ")})`);
+  }
   if (diff.length) {
     add({
       gate: "loop", id: "mcp-runtime-skew", layer: "project", severity: "warn", count: diff.length,
-      symptom: `${diff.length} MCP server(s) are configured for one runtime and not the other`,
-      remedy: "add the server to BOTH .kiro/settings/mcp.json and .mcp.json. An agent that can query a cluster under one runtime and not the other produces two different verdicts for the same feature",
+      symptom: `${diff.length} MCP server(s) are configured for some runtimes and not others`,
+      remedy: "add the server to EVERY installed runtime's config (.kiro/settings/mcp.json, .mcp.json, .codex/config.toml). An agent that can query a cluster under one runtime and not another produces two different verdicts for the same feature",
       evidence: diff.join(", "),
     });
   }
@@ -1124,6 +1195,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateCodexHooks();
 gateMcp();
 gateDigest();
 promoteFeatures();

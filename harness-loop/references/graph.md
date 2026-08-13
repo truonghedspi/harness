@@ -22,10 +22,11 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
-| `tools/agent-context.mjs` | code | Claude Code only — injects an agent's `resources` at spawn (`SubagentStart`) | `agents.manifest.json`, the listed files | nothing (emits context) |
-| `tools/guard-write.mjs` | code | Claude Code only — denies an edit outside an agent's `writes` (`PreToolUse`) | `agents.manifest.json`, the tool payload | nothing (allow/deny) |
+| `tools/agent-context.mjs` | code | injects an agent's `resources` — Claude Code at spawn (`SubagentStart`), Codex via `codex-dispatch` calling the same script | `agents.manifest.json`, the listed files | nothing (emits context) |
+| `tools/guard-write.mjs` | code | denies an edit outside an agent's `writes` (`PreToolUse`) — Claude Code per-agent, Codex project-wide keyed on `HARNESS_AGENT` | `agents.manifest.json`, the tool payload | nothing (allow/deny) |
+| `tools/codex-dispatch.mjs` | code | Codex only — assembles a role (`codex exec` has no `--agent`): prompt + resources on stdin, identity in the environment | `agents.manifest.json`, prompts, `agent-context.mjs` | nothing (spawns codex) |
 | `loop/route.mjs` | code | **the router** — reads shared state, returns the next node + its layer + why | `feature_list.json`, `docs/assumptions.md` | nothing (pure) |
-| `loop/run-loop.sh` | code | **the dispatcher** — runs the node the router named, on kiro-cli or Claude Code (`HARNESS_RUNTIME`, else detected) | `route.mjs` output | nothing directly; the agent it spawns writes |
+| `loop/run-loop.sh` | code | **the dispatcher** — runs the node the router named, on kiro-cli, Claude Code or Codex (`HARNESS_RUNTIME`, else detected) | `route.mjs` output | nothing directly; the agent it spawns writes |
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
@@ -37,8 +38,15 @@ other agent is confined by its `writes` list in `agents.manifest.json` — enfor
 (`runtimes.md`). **That confinement is the edge set**: an agent cannot create a handoff it has no
 write access to.
 
-Every agent node above is generated from `agents.manifest.json` into both runtimes. Adding one
-means adding a manifest entry, not writing two config files.
+Every agent node above is generated from `agents.manifest.json` into all three runtimes. Adding one
+means adding a manifest entry, not writing three config files.
+
+**The edge set is only as real as the runtime makes it.** On kiro and Claude Code the `writes` list
+is enforced per agent. On Codex it is enforced only when `tools/codex-dispatch.mjs` runs the role —
+Codex hooks are project-wide and its agent TOML has no hooks field, so an interactively-spawned
+Codex agent has no enforced confinement and `guard-write.mjs` says so instead of implying a check
+ran (`runtimes.md`). Same graph, weaker edges on one runtime; that is worth knowing before reading a
+Codex session as evidence that a role stayed in its lane.
 
 `k8s-integration-tester` is the one node whose *existence* is decided at setup. It is `optional` in
 the manifest, and `gen-agents.mjs` emits an optional agent exactly when its prompt file is present —
@@ -64,7 +72,7 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `loop/approval-log.jsonl` | `approval-gate.mjs` | audit | append-only |
 | `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; re-running it is a survey, not a reset |
 | `docs/services.md` | `setup-harness-loop.mjs --integration` | designer, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
-| `.kiro/settings/mcp.json` **and** `.mcp.json` | `setup-harness-loop.mjs` | kiro / Claude Code respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not two decisions |
+| `.kiro/settings/mcp.json`, `.mcp.json` **and** `.codex/config.toml` | `setup-harness-loop.mjs` | kiro / Claude Code / Codex respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not three decisions |
 
 ## Routing rules
 

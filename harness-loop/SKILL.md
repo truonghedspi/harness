@@ -2,7 +2,7 @@
 name: harness-loop
 description: >-
   Set up a complete agent harness AND an autonomous maker–checker loop on top of any project,
-  targeting kiro-cli and Claude Code from one agent manifest. Scaffolds AGENTS.md, feature_list.json, init.sh, progress.md,
+  targeting kiro-cli, Claude Code and Codex CLI from one agent manifest. Scaffolds AGENTS.md, feature_list.json, init.sh, progress.md,
   DECISIONS.md, session-handoff.md, docs/ topic files, tools/trace.mjs observability, and a
   loop/ (goal + maker/checker prompts + run-loop.sh) plus .kiro/ custom agents. Every artifact
   maps to one of the 13 Learn-Harness-Engineering lessons, and a bundled coverage checker proves
@@ -173,7 +173,7 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 
    Options: `--agent-file CLAUDE.md`, `--package-manager npm|pnpm|yarn|bun`,
    `--commands "cmd one,cmd two"` (override detected verification), `--name "Project X"`,
-   `--purpose "one line"`, `--runtime kiro|claude|both`, `--k8s auto|on|off`, `--force` (only after
+   `--purpose "one line"`, `--runtime kiro|claude|codex|both|all` (default `all`), `--k8s auto|on|off`, `--force` (only after
    the user OKs overwrites).
 
    `--k8s` defaults to `auto`: on when the target already holds a `Chart.yaml`. A repo that ships a
@@ -273,9 +273,12 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - The full per-lesson check contract: [references/13-lesson-coverage.md](references/13-lesson-coverage.md)
 - Lesson 13 in depth (six primitives, `/goal` vs `/loop`, generator/evaluator separation, four
   silent costs, maturity ladder): [references/loop-engineering.md](references/loop-engineering.md)
-- Running on kiro-cli **and** Claude Code from one `agents.manifest.json` — the field mapping, the
-  two places the runtimes genuinely differ, and what was verified by running it:
-  [references/runtimes.md](references/runtimes.md)
+- Running on kiro-cli, Claude Code **and** Codex CLI from one `agents.manifest.json` — the field
+  mapping, where each runtime genuinely differs, and what was verified by running it rather than by
+  reading docs. Codex needs the most care: `codex exec` has no `--agent` flag (roles are assembled by
+  `tools/codex-dispatch.mjs`), its agent TOML cannot carry hooks (so write confinement is
+  project-wide plus `HARNESS_AGENT`, and is **not enforced** for interactively-spawned agents), and
+  an untrusted hook is skipped *silently*: [references/runtimes.md](references/runtimes.md)
 - Automating design without inheriting the agent's blind spots (cited claims, the assumption
   registry, spikes, adversarial design review, and where the human is actually needed):
   [references/design-engineering.md](references/design-engineering.md)
@@ -381,13 +384,15 @@ After setup, the target project should contain:
 - [ ] `tools/cross-cutting-audit.mjs` — finds concerns nobody owns (`unowned`) and registered
       decisions still waiting on a human (`open-decision`)
 - [ ] `agents.manifest.json` — the single source for every agent, from which
-      `.kiro/agents/*.json` **and** `.claude/agents/*.md` are generated (`tools/gen-agents.mjs`);
-      Claude Code's two missing fields are covered by `tools/agent-context.mjs` (per-agent
-      resources) and `tools/guard-write.mjs` (per-agent write limits)
+      `.kiro/agents/*.json`, `.claude/agents/*.md` **and** `.codex/agents/*.toml` are generated
+      (`tools/gen-agents.mjs`); the fields Claude Code and Codex lack are covered by
+      `tools/agent-context.mjs` (per-agent resources), `tools/guard-write.mjs` (per-agent write
+      limits) and `tools/codex-dispatch.mjs` (Codex has no `--agent` flag)
       ([references/runtimes.md](references/runtimes.md))
-- [ ] `.kiro/agents/*.json` and/or `.claude/agents/*.md` for
+- [ ] `.kiro/agents/*.json`, `.claude/agents/*.md` and/or `.codex/agents/*.toml` for
       {maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer,test-designer,test-implementer}
-      (+ `.kiro/settings/mcp.json`)
+      (+ the MCP config for each installed runtime: `.kiro/settings/mcp.json`, `.mcp.json`,
+      `.codex/config.toml` — and `.codex/hooks.json`, without which no Codex write limit is enforced)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green
 - [ ] `verify-harness.mjs --run-features` reports 0 blockers (not just structural coverage)
 
