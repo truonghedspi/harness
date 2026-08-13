@@ -350,6 +350,13 @@ Its safety is two mechanical constraints, not two sentences of good intent:
   by `guard-write.mjs` on Claude Code and Codex, `allowedPaths` on kiro. It dispatches; the agent
   that owns the file writes it.
 
+How it talks to you is technique, not tone: answer-first for status (the delta, the next node, and
+whether you are needed), and reversibility-first for decisions — a two-way door gets one line and a
+recommendation, a one-way door gets options with what each **forecloses**, the case *against* the
+recommendation, and a stated default for silence.
+[references/presenting-and-proposing.md](references/presenting-and-proposing.md) carries the
+technique and a worked bad-vs-good example.
+
 It is also the one agent `route.mjs` never dispatches — it is the node that *reads* the router, so
 giving the loop an edge into its own front door would let it recurse.
 

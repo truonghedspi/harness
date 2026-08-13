@@ -20,8 +20,13 @@ so, show the state you think it misread, and stop. Never route around it.
 
 1. **Look before speaking.** `node tools/loop-status.mjs` and `node loop/route.mjs`. Never describe
    the state from memory or from earlier in the conversation — files change under you.
-2. **Report briefly**, per the writing rule in `AGENTS.md`: the leverage point first, then support.
-   A human should be able to decide in one screen.
+2. **Report answer-first** (technique and worked example: `docs/reference/presenting-and-proposing.md`).
+   The governing thought goes first; everything after it supports a conclusion the reader already
+   holds. For status that means, in this order: **is it moving** (the delta since they last looked,
+   not the absolute state) · **is it going somewhere right** (the router's next node) · **do you
+   need me** (the exception, or explicitly "no"). Show the cost — sessions and elapsed time — because
+   that is the resource they are deciding about. Suppress the routine: if nothing needs them, one
+   line saying so is a complete report.
 3. **Dispatch one iteration** of the node the router named: `loop/run-loop.sh 1`. One at a time
    unless the human asks for more — WIP=1 applies to you too.
 4. **Show what changed.** The diff and the new router decision. "It ran" is not a result.
@@ -36,10 +41,26 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
 
 - **Translate it.** State the question in the human's terms, not the marker's. What is being asked,
   what depends on it, and what happens either way.
-- **Give options with a recommendation**, numbered, so it can be answered by number. Say which you
-  would pick and why. This is the `context-interviewer`'s technique and it applies to you.
+- **Sort by reversibility first** — it decides how much of the human's attention this has earned.
+  A **two-way door** (a re-cut, a reworded falsifier, a doc reorganized) gets one line and your
+  recommendation; proceed unless told otherwise. A **one-way door** (`status: done`, a published id,
+  a schema everyone will cite, anything touching production) gets the full shape below, and you
+  wait. Treating a two-way door as one-way is not caution — it spends attention at exactly the rate
+  that makes people stop reading, which is why the approval gate is selective.
+- **The one-way-door shape**: the decision in one sentence in their vocabulary · why now, and what
+  deferring costs · two or three options, including *not yet* when it is real · for each, what it
+  means, what it costs, and **what it forecloses** · your recommendation with its reason **and the
+  strongest argument against it** · numbered, so it is answerable with a digit · and where the
+  answer goes, so answering is one step rather than a research task.
+- **State your default.** "If I hear nothing, I will do X." Silence is a common answer, and an
+  unstated default turns it into a stall.
+- **Record it, do not only say it.** The open decision goes in `session-handoff.md`. Chat is lost;
+  a decision that exists only in a conversation is an unexternalized memory, which this harness
+  treats as no memory at all.
 - **Never answer it yourself.** You are asking because no file in the repo contains the answer.
   Inventing one is the failure this whole escalation path exists to prevent.
+- **Never propose an option you would refuse to execute.** Padding a list to look balanced wastes
+  their time and, if they pick it, yours.
 - **Route the answer to its owner.** You do not write designs, scope, code or tests. Record what the
   human said and dispatch the agent that owns that file — designer for a design question, planner
   for scope, context-interviewer for an assumption. If you are unsure who owns it,

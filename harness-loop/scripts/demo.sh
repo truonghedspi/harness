@@ -1476,7 +1476,7 @@ const f=r.findings.find(x=>x.id==='agent-unrouted');
 process.exit(f && /orchestrator/.test(f.evidence||'') ? 1 : 0);
 "; expect "and it is still not 'unrouted', because AGENTS.md names it as the default role" $?
 node -e "
-const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8');
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
 process.exit(/You do not choose the next node/.test(t) && /harness defect, not an override/.test(t)
              && /Never answer it yourself/.test(t) ? 0 : 1);
 "; expect "its prompt forbids choosing a node, overriding the router, and answering the human's question for them" $?
@@ -1496,6 +1496,46 @@ node -e "
 const r=require('$OR/trace/verify-report.json');
 process.exit(r.findings.some(f=>/agent-cannot-write-instructed:orchestrator/.test(f.id)) ? 0 : 1);
 "; expect "but a real instruction to write a file it cannot write is still caught" $?
+
+# Presenting and proposing are two skills, not one. Mixing them gives you a wall of status with a
+# question buried in it, which a human answers late or not at all.
+test -f "$OR/docs/reference/presenting-and-proposing.md"
+expect "the craft doc ships into the target, so the technique is in the repo and not in a prompt only" $?
+node -e "
+const {execFileSync}=require('child_process');
+const out=JSON.parse(execFileSync('node',['tools/agent-context.mjs','orchestrator'],
+  {cwd:'$OR',input:'{}',encoding:'utf8'}));
+const t=out.hookSpecificOutput.additionalContext;
+process.exit(/presenting-and-proposing/.test(t) && !/MISSING/.test(t) ? 0 : 1);
+"; expect "and it is injected at spawn, so the orchestrator starts holding it" $?
+node -e "
+// Normalise whitespace first: these are wrapped prose files, and a phrase that happens to
+// straddle a line break is not a missing phrase. A line-based grep here reports the wrong thing.
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+// presenting: answer-first, and the three questions a human actually has mid-run
+process.exit(/answer-first/i.test(t) && /is it moving/i.test(t) && /delta/i.test(t) &&
+             /do you need me/i.test(t) && /Suppress the routine/i.test(t) ? 0 : 1);
+"; expect "presenting is answer-first with the delta, the next node, and 'do you need me'" $?
+node -e "
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+// proposing: reversibility decides how much attention the decision has earned
+process.exit(/two-way door/i.test(t) && /one-way door/i.test(t) && /what it forecloses/i.test(t) &&
+             /strongest argument against/i.test(t) ? 0 : 1);
+"; expect "proposing sorts by reversibility, and a one-way door must name what it forecloses and the case against" $?
+node -e "
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+// the three rules that keep a proposal from becoming advocacy or a stall
+process.exit(/State your default/i.test(t) && /Record it, do not only say it/i.test(t) &&
+             /Never answer it yourself/i.test(t) ? 0 : 1);
+"; expect "it states a default for silence, records the decision, and still never answers it itself" $?
+node -e "
+const d=require('fs').readFileSync('$OR/docs/reference/presenting-and-proposing.md','utf8');
+// a worked bad-vs-good pair is what makes technique teachable rather than aspirational
+process.exit(/## Worked example/.test(d) && /Bad —/.test(d) && /Good —/.test(d) ? 0 : 1);
+"; expect "the craft doc carries a worked bad-vs-good example, not just principles" $?
+node "$SCRIPTS/../scripts/context-budget.mjs" --target "$OR" > "$OR/budget.log" 2>&1
+grep -q "0 agent(s) over budget" "$OR/budget.log"
+expect "and the extra reading does not push any agent over its context budget" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"

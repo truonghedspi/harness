@@ -155,6 +155,7 @@ const EXTRA_COPIES = [
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],
   ["references/knowledge-layout.md", "docs/reference/knowledge-layout.md"],
   ["references/human-attention.md", "docs/reference/human-attention.md"],
+  ["references/presenting-and-proposing.md", "docs/reference/presenting-and-proposing.md"],
   ["references/llm-failure-modes.md", "docs/reference/llm-failure-modes.md"],
   ["references/test-authoring.md", "docs/reference/test-authoring.md"],
   ["references/adopting-an-existing-project.md", "docs/reference/adopting-an-existing-project.md"],
