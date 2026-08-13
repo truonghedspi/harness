@@ -18,6 +18,13 @@ starting with `NEEDS RE-PLAN:` — those are the checker's explicit re-cut reque
 reasoning; handle them first, and clear the marker (replace it with a short note of what you did)
 once the feature is re-cut.
 
+**You are also the only node that can retire a `NEEDS DESIGN:` marker.** The designer answers the
+question but may not write `feature_list.json` — it is forbidden to write scope — so it cannot clear
+the flag that asked. If the router sent you because a marker "has been answered", read the answer,
+re-cut only if it changed the scope, and **replace the marker with a one-line note of the resolution
+and where it lives**. Leaving it in place is not neutral: the router will keep routing that feature
+to design work that is already done.
+
 ## Inputs
 
 1. The requirement itself. Look for it in order: a file the user names explicitly; a

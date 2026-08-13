@@ -155,7 +155,9 @@ human read a report and typed the next command.
 | 8 | chart present → `k8s-integration-tester` **exists** | the repo itself | setup | ~~nothing — a manual copy~~ **`setup-harness-loop.mjs --k8s auto`** | *closed 2026-08-13* — the node was reachable by the router and installable only by hand, so on every project that never ran that copy, rule 4 routed to an agent that did not exist |
 | 9 | conditions **absent** → `test-designer` | — | test-implementer | ~~nothing — the rule keyed on the falsifier only~~ **`route.mjs`** | *closed 2026-08-13* — test-designer has two outputs (`falsifier` and `tests/design/**`) and only the first was routed on. Where the feature-planner derives falsifiers from the invariant contract, the designer rule never fires, `tests/design/` is never created, and the implementer is dispatched to implement conditions that do not exist. Measured on aeron-demo: two paid Codex sessions on `feat-sit-2`, zero output |
 
-**Status, 2026-08-13.** Seven of the nine are closed by `loop/route.mjs`, which turned the routing
+| 10 | `NEEDS DESIGN:` **answered** → `feature-planner` (clear the marker) | designer | — | ~~nothing — the marker rule kept matching~~ **`route.mjs`** | *closed 2026-08-13* — the marker lives in `feature_list.json`, which the designer may not write, so the node that answers the question cannot clear the flag that asked it. Observed live: the designer settled `feat-sit-2` in `DECISIONS.md`, and the router named the designer again, indefinitely. The fix needs three states, not two — unanswered → designer, answered → planner, answered-but-planner-already-ran → **human**, because without the third the planner's own write makes the answer no longer "newer" and control falls straight back to design |
+
+**Status, 2026-08-13.** Eight of the ten are closed by `loop/route.mjs`, which turned the routing
 table into executable code. Two remain: #6 (`design-reviewer` REJECT has no return edge) and #7
 (`run-loop.sh` exits on a red baseline *before* the maker's repair step can run). Gate
 `agent-unrouted` now fails any agent that neither the router nor `route.mjs` names, so this class

@@ -33,6 +33,30 @@ const lsSafe = (d) => { try { return readdirSync(d); } catch { return []; } };
 // evaluated to false and the router fell through to `human` with work plainly available.
 const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync(`.claude/agents/${name}.md`)
   || existsSync(`.codex/agents/${name}.toml`);
+// When was a NEEDS DESIGN: marker answered, if it was? The marker lives in feature_list.json, which
+// the designer is deliberately forbidden to write — it may not write scope. So the designer can
+// resolve a question and CANNOT clear the flag that asked it, and the marker rule below would then
+// re-dispatch the designer forever. Observed on aeron-demo 2026-08-13: the designer settled
+// feat-sit-2 in DECISIONS.md + gap-reconcile.md, and the router kept naming the designer.
+//
+// The answer lands in a file the designer CAN write, and mentions the feature id. Returns its
+// mtime, or 0 for "not answered".
+const designAnswerAt = (id) => {
+  let newest = 0;
+  const consider = (path) => {
+    let st;
+    try { st = statSync(path); } catch (e) { if (e.code === "ENOENT") return; throw e; }
+    if ((read(path) || "").includes(id)) newest = Math.max(newest, st.mtimeMs);
+  };
+  for (const f of lsSafe("docs/design").filter((x) => x.endsWith(".md"))) consider(`docs/design/${f}`);
+  consider("DECISIONS.md");
+  consider("docs/architecture.md");
+  return newest;
+};
+const featureListAt = () => {
+  try { return statSync("feature_list.json").mtimeMs; }
+  catch (e) { if (e.code === "ENOENT") return 0; throw e; }
+};
 // The test-designer's second output. Its absence is what makes test-implementer un-dispatchable.
 const conditionsRootExists = () => existsSync("tests/design");
 
@@ -59,7 +83,9 @@ const RULES = [
   {
     node: "designer", kind: "agent", layer: "design",
     match: () => {
-      const f = open.find((x) => /^NEEDS DESIGN:/.test(notes(x)));
+      // Unanswered only. An answered marker is a decomposition problem — the planner owns clearing
+      // it, because it is the only node downstream of the designer that may write feature_list.json.
+      const f = open.find((x) => /^NEEDS DESIGN:/.test(notes(x)) && !designAnswerAt(x.id));
       return f ? { why: `${f.id} raised a design question the maker is forbidden to answer inline`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
@@ -82,6 +108,29 @@ const RULES = [
         }
       }
       return null;
+    },
+  },
+  {
+    node: "feature-planner", kind: "agent", layer: "decomposition",
+    // The designer answered; someone has to retire the marker and re-cut if the answer changed the
+    // scope. That is the planner: it is the one node downstream of the designer allowed to write
+    // feature_list.json.
+    match: () => {
+      const fl = featureListAt();
+      const f = open.find((x) => /^NEEDS DESIGN:/.test(notes(x)) && designAnswerAt(x.id) > fl);
+      return f ? { why: `${f.id}'s NEEDS DESIGN: has been answered in a design document newer than feature_list.json — consume the answer, re-cut if it changed the scope, and clear the marker`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+    },
+  },
+  {
+    node: "human", kind: "human", layer: "decomposition",
+    // Terminating case. Without it the previous rule is just a different livelock: the planner runs,
+    // makes feature_list.json the newest file, does NOT clear the marker, and the answer is no
+    // longer "newer" — so the designer rule takes over again. Nobody is left to route to, so say so
+    // instead of spending another session.
+    match: () => {
+      const fl = featureListAt();
+      const f = open.find((x) => /^NEEDS DESIGN:/.test(notes(x)) && designAnswerAt(x.id) && designAnswerAt(x.id) <= fl);
+      return f ? { why: `${f.id} still carries a NEEDS DESIGN: marker although the question was answered and the planner has since written feature_list.json. Nothing else clears it: the designer may not write scope, and the planner already ran. Clear the marker by hand, or say why it is still open.`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
   {

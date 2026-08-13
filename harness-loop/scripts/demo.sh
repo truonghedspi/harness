@@ -1369,6 +1369,44 @@ const r=require('$RB/trace/verify-report.json');
 process.exit(r.findings.some(f=>f.id==='router-no-writing-rule') ? 0 : 1);
 "; expect "deleting the writing rule is caught, not silently tolerated" $?
 
+# The designer answers a NEEDS DESIGN: question but may not write feature_list.json — it is
+# forbidden to write scope — so it cannot clear the marker that asked. Observed live on aeron-demo:
+# the designer settled feat-sit-2 in DECISIONS.md, and the router named the designer again, forever.
+MK="$WORK/marker"; rm -rf "$MK"; mkdir -p "$MK/docs/design"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$MK" --name "Marker" --purpose "stale markers" >/dev/null
+# The spec layer is deeper than design, so a scaffold's own needs-human row would answer every
+# route_of() below. Retire it first: this fixture is about the design→decomposition handoff.
+node -e "
+const fs=require('fs'); const p='$MK/docs/assumptions.md';
+fs.writeFileSync(p, fs.readFileSync(p,'utf8').replace(/needs-human/g, 'verified'));
+"
+node -e "
+const fs=require('fs'); const p='$MK/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.push({id:'feat-q',name:'q',kind:'build',behavior:'b',verification:'echo hi',
+  falsifier:'wrong [INV-Q-1]',dependencies:[],status:'not-started',readyForCheck:false,evidence:'',
+  checkerNotes:'NEEDS DESIGN: which of two readings is this feature?',attempts:0,maxAttempts:3});
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+route_of(){ (cd "$MK" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))'); }
+[ "$(route_of)" = "designer" ]; expect "an UNANSWERED NEEDS DESIGN: marker routes to the designer" $?
+# the designer answers, in a file it is actually allowed to write
+sleep 1; printf '# Q\n\nfeat-q takes the first reading.\n\n## Observable seam\n\nThe Sink.\n\n## Invariants\n\nAlways conserved.\n' > "$MK/docs/design/q.md"
+[ "$(route_of)" = "feature-planner" ]; expect "once answered it routes to the planner — the only node downstream that may write feature_list.json" $?
+( cd "$MK" && node loop/route.mjs --json ) | grep -q "clear the marker"
+expect "and the reason says to clear the marker, so the answer does not have to be guessed at" $?
+# planner runs but forgets to clear it: feature_list.json becomes newest, the answer is no longer
+# "newer", and the naive fix would hand control straight back to the designer. It must terminate.
+sleep 1; touch "$MK/feature_list.json"
+[ "$(route_of)" = "human" ]; expect "a marker left behind after the planner ran escalates to a human instead of looping back to design" $?
+node -e "
+const fs=require('fs'); const p='$MK/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(x=>x.id==='feat-q').checkerNotes='resolved: first reading, see docs/design/q.md';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+[ "$(route_of)" != "designer" ] && [ "$(route_of)" != "human" ]; expect "clearing the marker returns the loop to ordinary routing" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
