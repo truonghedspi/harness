@@ -1900,6 +1900,48 @@ const j=JSON.parse(execFileSync('node',['tools/timeline.mjs','--json'],{cwd:'$TL
 process.exit(j.open.every(f=>typeof f.ageDays==='number') ? 0 : 1);
 "; expect "and every open feature carries how long it has been open" $?
 
+# Every sizing row in feature-decomposition.md guarded against features being too BIG. Nothing
+# caught too SMALL, and the loop's cost per feature is fixed — roughly two dispatches plus a
+# baseline run — so an over-cut list spends its budget on overhead instead of behaviour.
+SZ="$WORK/sizing"; rm -rf "$SZ"; mkdir -p "$SZ"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$SZ" --name "Sizing" --purpose "granularity" >/dev/null
+node -e "
+const fs=require('fs'); const p='$SZ/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+const mk=(id,kind,v)=>({id,name:id,kind,behavior:'b',verification:v,falsifier:'f [INV-X-1]',
+  dependencies:[],status:'not-started',readyForCheck:false,evidence:'',checkerNotes:'',attempts:0,maxAttempts:3});
+// two PROVE features running the identical command: the loop proves the same thing twice
+d.features.push(mk('feat-a','prove','npm test -- shared'));
+d.features.push(mk('feat-b','prove','npm test -- shared'));
+// a build whose only proof is the prove feature's own top-level command
+d.features.push(mk('feat-impl','build','npm run sit -- rotation'));
+d.features.push(mk('feat-accept','prove','npm run sit -- rotation'));
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$SZ" --skip-baseline --quiet
+node -e "
+const r=require('$SZ/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='verification-duplicated');
+process.exit(f && /feat-a \+ feat-b/.test(f.evidence) ? 0 : 1);
+"; expect "two features of the same kind sharing one verification are flagged — the loop pays twice for one proof" $?
+node -e "
+const r=require('$SZ/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='build-proved-only-at-top-level');
+// the build/prove pair is the DELIBERATE exception; telling someone to merge it would undo the one
+// thing keeping the maker off the test it is judged by
+process.exit(f && /feat-impl \+ feat-accept/.test(f.evidence) && /do NOT merge/.test(f.remedy) ? 0 : 1);
+"; expect "but a build/prove pair gets a different finding, and is told NOT to merge" $?
+node -e "
+const r=require('$SZ/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='verification-duplicated');
+process.exit(/feat-impl/.test(f.evidence||'') ? 1 : 0);
+"; expect "and the pair is not double-reported as a plain duplicate" $?
+node -e "
+const t=require('fs').readFileSync('$SZ/docs/reference/feature-decomposition.md','utf8');
+// the economics, so the advice is not 'make them bigger' — small batches also bought fast feedback
+process.exit(/lower bound/i.test(t) && /U-curve/.test(t) && /transaction cost before you merge/.test(t)
+  && /horizontal split in disguise/.test(t) ? 0 : 1);
+"; expect "the reference doc gives the lower bound: cut transaction cost first, then fix shape not size" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

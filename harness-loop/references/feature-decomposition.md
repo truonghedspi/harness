@@ -75,6 +75,46 @@ This is deliberately mechanical. `verify-harness.mjs` runs a cheap, imperfect pr
 two rows automatically (`feature-scope-smell` — see below) precisely so this isn't just a human
 judgment call that erodes under time pressure.
 
+### The lower bound — every row above guards against too BIG
+
+There was no rule against too small, and the loop's cost per feature is fixed, so a list cut too
+fine spends most of its budget on overhead. Measured on aeron-demo: **each feature costs about two
+LLM dispatches** (a maker, then a checker — each re-loading ~1000 lines of context) plus a ~20s
+baseline gate. Sixty-one features is roughly 120 dispatches before anyone writes a line of the
+sixty-second.
+
+**The economics are a U-curve** (Reinertsen, *Principles of Product Development Flow*): total cost
+is transaction cost plus holding cost. Small batches raise the first and lower the second; the
+optimum is the minimum of the sum, not the smallest possible batch.
+
+**So when small features hurt, cut the transaction cost before you merge anything** — merging also
+destroys the fast feedback that small features bought. In this harness, in order of value:
+
+- `verify-harness --promote` replaces the LLM checker with a mechanical evidence replay for
+  features whose verification reproduces. `run-loop.sh` already runs it, which turns the common
+  case from two dispatches into one.
+- The checker is already batched: one checker dispatch judges every `readyForCheck` feature, so
+  several maker iterations can accumulate before it runs.
+- Per-dispatch context is a per-feature tax. `tools/context-budget.mjs` prices it.
+
+**Then fix the shape, not the size.** The story-slicing test applies directly: *if slice one needs
+slice two to function, it is a horizontal split in disguise* (SPIDR). Merge two features when the
+first cannot be demonstrated without the second — that is one feature that was written as two.
+
+| Too-small check | Fail → what to do |
+|---|---|
+| **Independently demonstrable** | If A can only be shown to work once B exists, A and B are one feature |
+| **Distinct proof** | Two features sharing a `verification` command make the loop pay twice to run the same proof — merge them, or give the second a proof of its own (`verification-duplicated`) |
+| **Worth a dispatch** | If implementing it is one edit an agent already holding its sibling's context would make anyway, it is a step, not a feature |
+
+**The build/prove pair is the deliberate exception.** `build-unproven` requires every build feature
+to have a prove feature depending on it, so each unit of behaviour becomes two features. That is a
+chosen trade — it is what stops the maker writing the test it will be judged by — and it is usually
+the largest single reason a list looks over-cut. Do not merge those. Reduce the count the legitimate
+way instead: **one prove feature may cover several build features.** The gate requires each build to
+have *a* prove depending on it, not its own private one, so group builds under a shared acceptance
+scenario.
+
 ## Step 4 — Build the dependency DAG, don't just list features
 
 `feature_list.json`'s `dependencies` array is what makes `maker-prompt.md`'s picking rule work

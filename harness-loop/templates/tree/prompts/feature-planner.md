@@ -48,7 +48,14 @@ to design work that is already done.
    requirement has no explicit scenario list, manufacture one now (reference doc Step 2:
    boundary-crossing decomposition, or the falsifiability question) — do not skip straight to
    build features with no proof plan.
-2. **Size every feature** against the table in reference doc Step 3 before writing it down. If a
+2. **Size every feature** against the table in reference doc Step 3 — **both directions**. Every row
+   there guards against too big; the lower bound matters just as much, because the loop's cost per
+   feature is fixed at roughly two dispatches plus a baseline run. A feature that cannot be
+   demonstrated without its sibling is one feature written as two, and two features sharing a
+   `verification` command make the loop prove the same thing twice (`verification-duplicated`).
+   The build/prove pair is the deliberate exception — never merge those; instead let **one prove
+   feature cover several build features**, which the `build-unproven` gate allows and which is the
+   legitimate way to bring the count down. If a
    behavior sentence needs "and"/"then" to join unrelated clauses, split it into two features
    with a dependency edge between them. If you can't name the 1–3 files a feature will touch, the
    requirement is still too vague for that cut — resolve it (ask the user, or note it as an open

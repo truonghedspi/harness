@@ -1089,6 +1089,51 @@ function gateK8s() {
 //
 // Deliberately a WARNING and deliberately narrow. The three shapes below are the ones that have no
 // home; a committed tool under tools/ is maintained infrastructure and is not one of them.
+// Two features that run the same command make the loop pay twice to prove the same thing — a
+// maker dispatch, a checker dispatch and a baseline gate each, for one proof. Every sizing rule in
+// feature-decomposition.md guarded against features being too BIG; nothing caught too small, and
+// the cost per feature is fixed, so an over-cut list spends its budget on overhead.
+function gateDuplicateVerification() {
+  const fl = readJSON(P("feature_list.json"));
+  if (!fl) return;
+  const byCmd = new Map();
+  for (const f of fl.features || []) {
+    const cmd = String(f.verification || "").trim();
+    if (!cmd || /REPLACE/i.test(cmd)) continue;
+    if (!byCmd.has(cmd)) byCmd.set(cmd, []);
+    byCmd.get(cmd).push(f.id);
+  }
+  const dups = [...byCmd.entries()].filter(([, ids]) => ids.length > 1);
+  if (!dups.length) return;
+  // A build/prove pair sharing one command is the DELIBERATE exception — the split buys oracle
+  // independence and must not be merged. The cost is still real, so name the right fix for each
+  // shape rather than telling someone to undo the one thing holding the maker off its own test.
+  const kindOf = new Map((fl.features || []).map((f) => [f.id, f.kind]));
+  const isPair = (ids) => ids.length === 2 &&
+    new Set(ids.map((i) => kindOf.get(i))).size === 2 &&
+    ids.every((i) => ["build", "prove"].includes(kindOf.get(i)));
+  const pairs = dups.filter(([, ids]) => isPair(ids));
+  const plain = dups.filter(([, ids]) => !isPair(ids));
+  if (plain.length) {
+    add({
+      gate: "features", id: "verification-duplicated", layer: "project", severity: "warn",
+      count: plain.length,
+      symptom: `${plain.length} verification command(s) are shared by features of the same kind — the loop pays full price to run the same proof twice`,
+      remedy: "merge them, or give the second a proof of its own. Two features that prove the same thing with the same command are one feature written as two, and each one costs a maker dispatch, a checker dispatch and a baseline run (docs/reference/feature-decomposition.md, 'The lower bound')",
+      evidence: plain.slice(0, 3).map(([cmd, ids]) => `${ids.join(" + ")} → ${cmd.slice(0, 40)}`).join("; "),
+    });
+  }
+  if (pairs.length) {
+    add({
+      gate: "features", id: "build-proved-only-at-top-level", layer: "project", severity: "warn",
+      count: pairs.length,
+      symptom: `${pairs.length} build feature(s) have no proof of their own — their only verification is the same top-level command as the prove feature above them`,
+      remedy: "do NOT merge these: the build/prove split is what stops the maker writing the test it is judged by. Give the build a cheaper proof at its own level instead (docs/testing-standards.md) so a failure says which of the two broke, and the loop stops running the slowest test twice. If no cheaper level exists — a final class, an unmockable boundary — say so in the behavior sentence and accept it deliberately",
+      evidence: pairs.slice(0, 3).map(([cmd, ids]) => `${ids.join(" + ")} → ${cmd.slice(0, 40)}`).join("; "),
+    });
+  }
+}
+
 function gateVerificationHome() {
   const fl = readJSON(P("feature_list.json"));
   if (!fl) return;
@@ -1372,6 +1417,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateDuplicateVerification();
 gateVerificationHome();
 gateFieldLoss();
 gateRouterBudget();
