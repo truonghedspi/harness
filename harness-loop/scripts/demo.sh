@@ -1773,6 +1773,13 @@ node -e "
 const t=require('fs').readFileSync('$RR/AGENTS.md','utf8').replace(/\s+/g,' ');
 process.exit(/route\.mjs --rules/.test(t) && /never write a script to parse it/.test(t) ? 0 : 1);
 "; expect "and the router file points every agent at it, instead of leaving them to grep the source" $?
+node -e "
+const t=require('fs').readFileSync('$RR/AGENTS.md','utf8').replace(/\s+/g,' ');
+// The other half of the same observation: an agent wanting ONE feature wrote
+//   node -e 'require(\"./feature_list.json\").features.find(...)' — a thousand lines read to use
+// fifteen. tools/feature.mjs existed by then; nothing an agent loads mentioned it.
+process.exit(/tools\/feature\.mjs <id>/.test(t) && /Do not write an inline script to filter/.test(t) ? 0 : 1);
+"; expect "and it names tools/feature.mjs too, so nobody writes an inline filter over feature_list.json" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"

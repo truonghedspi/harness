@@ -56,6 +56,10 @@ All four must hold before any work (Lesson 6). If one fails, fixing it *is* the 
 the whole routing table in precedence order. Do not read `route.mjs`'s source to work it out, and
 never write a script to parse it. Full graph, including state ownership: `docs/reference/graph.md`.
 
+**Need one feature? `node tools/feature.mjs <id>`** — the full entry without loading the list, plus
+`--field verification`, `--deps <id>` for eligibility, `--ready`, `--status`. Do not write an inline
+script to filter `feature_list.json`; on a mature project that reads a thousand lines to use fifteen.
+
 | Agent | Runs when | Owns |
 |---|---|---|
 | `orchestrator` | **a human is talking to you and named no agent** — the default role | driving the loop and being the human's interface. Dispatches; writes no product file |
