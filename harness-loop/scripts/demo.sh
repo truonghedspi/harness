@@ -987,7 +987,7 @@ try { const j=JSON.parse(r.stdout); process.exit(Array.isArray(j.findings)?0:1);
 catch(e){ console.log('     stdout was', (r.stdout||'').length, 'bytes:', e.message); process.exit(1); }
 "; expect "a --json report read through spawnSync parses whole" $?
 
-step 35 "multi-service collection: a service is a directory, and not every module is one"
+step 34 "multi-service collection: a service is a directory, and not every module is one"
 # The registry the integration layer needs. Every assertion below encodes something a survey of
 # seven real repos forced — see references/multi-service.md.
 MS="$WORK/multiservice"; rm -rf "$MS"
@@ -1030,7 +1030,36 @@ const m=require('$MS/services.manifest.json');
 process.exit(m.services.every(s=>s.image===null) ? 0 : 1);
 "; expect "no Dockerfile means image=null — prerequisite work, not a blank to invent" $?
 
-step "36/37" "meta loop: dispatch on the right layer, stop when nothing moves"
+step 35 "k8s: a chart in the repo installs the cluster layer, and both runtimes get the same MCP"
+K8T="$WORK/k8s-auto"; rm -rf "$K8T"; mkdir -p "$K8T/charts/svc"
+printf 'apiVersion: v2\nname: svc\nversion: 0.1.0\n' > "$K8T/charts/svc/Chart.yaml"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$K8T" --name "K8s Demo" --purpose "chart-shaped" >/dev/null
+test -x "$K8T/tools/k8s-test-env.sh"; expect "a Chart.yaml is enough — --k8s auto installs the cluster tooling with the scaffold" $?
+test -f "$K8T/.claude/agents/k8s-integration-tester.md" -a -f "$K8T/.kiro/agents/k8s-integration-tester.json"
+expect "the optional agent appears in BOTH runtimes, from the prompt file's presence alone" $?
+node -e "
+const a=require('$K8T/.mcp.json').mcpServers, b=require('$K8T/.kiro/settings/mcp.json').mcpServers;
+const ka=Object.keys(a).sort().join(','), kb=Object.keys(b).sort().join(',');
+process.exit(ka===kb && ka==='k8s-readonly' && a['k8s-readonly'].type==='stdio' ? 0 : 1);
+"; expect "one source, two files: Claude Code and kiro see the identical read-only cluster server" $?
+NOK8="$WORK/k8s-none"; rm -rf "$NOK8"; mkdir -p "$NOK8"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$NOK8" --name "Plain" --purpose "no chart" >/dev/null
+test ! -e "$NOK8/tools/k8s-test-env.sh"; expect "no chart, no cluster layer — auto-detect does not push k8s onto projects that do not deploy that way" $?
+# Now break it the way a real repo breaks: chart kept, layer never installed (the old manual copy).
+rm -f "$K8T/tools/k8s-test-env.sh"
+node -e "require('fs').writeFileSync('$K8T/.mcp.json', JSON.stringify({mcpServers:{}},null,2))"
+node "$SCRIPTS/verify-harness.mjs" --target "$K8T" --skip-baseline --quiet
+node -e "
+const r=require('$K8T/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='k8s-agent-missing') ? 0 : 1);
+"; expect "a repo that ships a chart and verifies nothing against a cluster is flagged, not assumed fine" $?
+node -e "
+const r=require('$K8T/trace/verify-report.json');
+const f=r.findings.find(f=>f.id==='mcp-runtime-skew');
+process.exit(f && /kiro only/.test(f.evidence||'') ? 0 : 1);
+"; expect "an MCP server present for one runtime and not the other is caught — same agent, two verdicts" $?
+
+step 36 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

@@ -976,6 +976,55 @@ function gateGraph() {
   }
 }
 
+// A project that deploys with Helm and verifies nothing against a cluster is not "not using k8s" —
+// it is untested where it actually runs. Opt-in on the chart: no chart, no finding.
+function gateK8s() {
+  const charts = walk(TARGET).filter((f) => /\/Chart\.ya?ml$/.test(f)).map((f) => path.relative(TARGET, f));
+  if (!charts.length) return;
+  const agents = readAgents();
+  const hasAgent = agents.some((a) => /k8s|kubernetes/i.test(a.name || ""));
+  const hasTool = exists(P("tools", "k8s-test-env.sh"));
+  if (!hasAgent || !hasTool) {
+    add({
+      gate: "loop", id: "k8s-agent-missing", layer: "project", severity: "warn",
+      count: charts.length,
+      symptom: `${charts.length} Helm chart(s) here, but ${!hasAgent && !hasTool ? "no k8s integration layer at all" : !hasAgent ? "no k8s integration agent" : "no tools/k8s-test-env.sh"} — nothing in this harness verifies the deployed shape`,
+      remedy: "re-run setup with --k8s on (or copy templates/k8s/** by hand). The chart is how this ships; a suite that only ever runs in-process cannot catch a broken probe, a missing env var or a chart that will not install",
+      evidence: charts.slice(0, 3).join(", "),
+    });
+  }
+}
+
+// Both runtimes are generated, so both must see the same connectors. One runtime having a server the
+// other lacks is silent: the same agent simply cannot do the same job depending on who launched it.
+function gateMcp() {
+  const kiro = readJSON(P(".kiro", "settings", "mcp.json"));
+  const claude = readJSON(P(".mcp.json"));
+  if (!kiro && !claude) return;
+  if (!kiro || !claude) {
+    // Only a finding when BOTH runtimes are actually installed here.
+    if (!(exists(P(".kiro", "agents")) && exists(P(".claude", "agents")))) return;
+    add({
+      gate: "loop", id: "mcp-runtime-skew", layer: "project", severity: "warn",
+      symptom: `agents are generated for both runtimes but only ${kiro ? "kiro" : "Claude Code"} has an MCP config`,
+      remedy: "re-run setup-harness-loop.mjs, which writes .kiro/settings/mcp.json and .mcp.json from one source",
+    });
+    return;
+  }
+  const ks = Object.keys(kiro.mcpServers || {}).sort();
+  const cs = Object.keys(claude.mcpServers || {}).sort();
+  const only = (a, b) => a.filter((x) => !b.includes(x));
+  const diff = [...only(ks, cs).map((n) => `${n} (kiro only)`), ...only(cs, ks).map((n) => `${n} (Claude only)`)];
+  if (diff.length) {
+    add({
+      gate: "loop", id: "mcp-runtime-skew", layer: "project", severity: "warn", count: diff.length,
+      symptom: `${diff.length} MCP server(s) are configured for one runtime and not the other`,
+      remedy: "add the server to BOTH .kiro/settings/mcp.json and .mcp.json. An agent that can query a cluster under one runtime and not the other produces two different verdicts for the same feature",
+      evidence: diff.join(", "),
+    });
+  }
+}
+
 function gateDigest() {
   if (!exists(P("feature_list.digest.md")) || !exists(P("tools", "feature-digest.mjs"))) return;
   const r = spawnSync(process.execPath, [P("tools", "feature-digest.mjs"), "--target", TARGET, "--check"],
@@ -1038,6 +1087,8 @@ gateRules();
 
 gateGenerated();
 gateGraph();
+gateK8s();
+gateMcp();
 gateDigest();
 promoteFeatures();
 

@@ -173,7 +173,15 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 
    Options: `--agent-file CLAUDE.md`, `--package-manager npm|pnpm|yarn|bun`,
    `--commands "cmd one,cmd two"` (override detected verification), `--name "Project X"`,
-   `--purpose "one line"`, `--force` (only after the user OKs overwrites).
+   `--purpose "one line"`, `--runtime kiro|claude|both`, `--k8s auto|on|off`, `--force` (only after
+   the user OKs overwrites).
+
+   `--k8s` defaults to `auto`: on when the target already holds a `Chart.yaml`. A repo that ships a
+   chart is deployed to a cluster whether or not anything tests it there, so the Kubernetes layer
+   installs with the scaffold rather than waiting for someone to remember a manual copy. `on` forces
+   it, `off` suppresses it. Setup also writes the MCP config for **both** runtimes from one source —
+   `.kiro/settings/mcp.json` and `.mcp.json` — pre-populated with the read-only cluster server when
+   k8s is on; gate `mcp-runtime-skew` fails them if they later diverge.
 
 4. **Collect what the repo cannot contain, before designing.** If the requirement leaves
    deployment facts, business intent, or risk appetite implicit, run the `context-interviewer`
@@ -309,9 +317,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   node owning Level 3, held to the same authoring rules as the other test agents (a traceability
   header, a named `falsifier`, a red run recorded before the green one), which fills in the
   chart, writes and runs real Level 3 tests against it, and diagnoses failures
-  (`templates/k8s/prompts/k8s-integration-tester.md` +
-  `templates/k8s/.kiro/agents/k8s-integration-tester.json`) — all copied in deliberately, not part
-  of the default scaffold — plus a recommended read-only Kubernetes MCP server config, routed
+  (`templates/k8s/prompts/k8s-integration-tester.md`; the agent config itself is generated into both
+  runtimes from `agents.manifest.json`, where it is `optional` — the prompt file's presence is what
+  enables it) — installed by `setup-harness-loop.mjs --k8s auto|on`, no longer a manual copy — plus a
+  read-only Kubernetes MCP server config written for both runtimes, routed
   through `templates/k8s/tools/mcp-k8s-readonly-wrapper.sh` so a stopped local cluster's kubeconfig
   doesn't crash the MCP server before the connection handshake, so the agent
   can diagnose a failed deploy without holding write access to a shared cluster.

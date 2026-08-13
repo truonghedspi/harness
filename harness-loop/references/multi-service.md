@@ -32,10 +32,13 @@ deployable will try to start a jar of SBE codecs.
 started with `node server.js`. Every "detect the build system" heuristic returns nothing, and the
 right answer is not "unsupported" — it is *this service has no build step, only a run step*.
 
-**4. Nothing is containerised.** Seven repositories, zero Dockerfiles, one chart. This is the real
-blocker for a Kubernetes SIT and it is worth saying plainly: **the harness cannot collect its way
-around a missing image.** Producing images is prerequisite work, not a field in a manifest. Any
-design that quietly assumes `image:` exists is describing a system nobody has.
+**4. Nothing here is containerised.** Seven repositories, zero Dockerfiles, one chart — *in this
+local sample*. That is a fact about these seven checkouts and not a claim about any organisation:
+where a team already deploys with Helm and Kubernetes, images exist and this finding simply does not
+apply to them. What survives generalisation is the narrower rule: **the harness cannot collect its
+way around a missing image.** Producing images is prerequisite work, not a field in a manifest, so
+the collector reports an absent `image:` as work to schedule rather than as a blank to fill in. Where
+images do exist, that report is empty and nothing is in the way.
 
 A fifth thing, from `ClusterPorts.java`: services here are **cluster-shaped**, with ports derived
 as `base + nodeId` across three nodes. "One service, one port" is wrong for this domain.
@@ -127,7 +130,8 @@ Two hazards worth naming before they are discovered:
 ## What this does not solve
 
 **The images.** A collector cannot invent a Dockerfile, and no amount of registry design makes a
-Kubernetes SIT possible for services that cannot be built into containers. For this workspace that
-is six services out of seven. It is the first piece of work, it is ordinary engineering rather than
+Kubernetes SIT possible for services that cannot be built into containers. In the local sample that
+is six services out of seven; in a Helm-and-Kubernetes shop it is usually none, and this section is
+then a no-op rather than a project. It is the first piece of work, it is ordinary engineering rather than
 harness engineering, and pretending otherwise would produce a beautifully specified environment
 that has never once started.

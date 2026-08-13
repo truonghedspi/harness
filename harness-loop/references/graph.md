@@ -27,7 +27,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
-| `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json` | chart, tests, `feature_list.json` |
+| `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json`, MCP `k8s-readonly` | chart, tests, `feature_list.json` |
 
 `maker`, `test-implementer`, `harness-setup` and `k8s-integration-tester` write unrestricted; every
 other agent is confined by its `writes` list in `agents.manifest.json` — enforced on kiro by
@@ -37,6 +37,12 @@ write access to.
 
 Every agent node above is generated from `agents.manifest.json` into both runtimes. Adding one
 means adding a manifest entry, not writing two config files.
+
+`k8s-integration-tester` is the one node whose *existence* is decided at setup. It is `optional` in
+the manifest, and `gen-agents.mjs` emits an optional agent exactly when its prompt file is present —
+so `setup-harness-loop.mjs --k8s on` copying `templates/k8s/**` is what puts this node in the graph.
+`--k8s auto` (the default) turns it on when the target already holds a `Chart.yaml`, on the reasoning
+that a repo shipping a chart is deployed to a cluster whether or not anything tests it there.
 
 ## Shared state — one owner per field
 
@@ -54,6 +60,7 @@ means adding a manifest entry, not writing two config files.
 | `trace/**`, `memory/<agent>/**` | each agent, its own dir only | that agent at spawn | append |
 | `loop/approval.md` | **the human** | `approval-gate.mjs` | first line is the verdict; a verdict with no reason is treated as a rejection |
 | `loop/approval-log.jsonl` | `approval-gate.mjs` | audit | append-only |
+| `.kiro/settings/mcp.json` **and** `.mcp.json` | `setup-harness-loop.mjs` | kiro / Claude Code respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not two decisions |
 
 ## Routing rules
 
@@ -133,8 +140,9 @@ human read a report and typed the next command.
 | 5 | conditions → `test-implementer` | test-designer | test-implementer | ~~nothing~~ **`route.mjs`** | *closed 2026-08-10* — with it open, the maker wrote the test it was to be judged by |
 | 6 | `design-reviewer` REJECT → `designer` | design-reviewer | designer | **nothing** | review findings die in `session-handoff.md` |
 | 7 | baseline red → `maker` repair | `init.sh` | maker step 2 | **contradicted** | `run-loop.sh` exits on red *before* the repair node runs |
+| 8 | chart present → `k8s-integration-tester` **exists** | the repo itself | setup | ~~nothing — a manual copy~~ **`setup-harness-loop.mjs --k8s auto`** | *closed 2026-08-13* — the node was reachable by the router and installable only by hand, so on every project that never ran that copy, rule 4 routed to an agent that did not exist |
 
-**Status, 2026-08-10.** Five of the seven are closed by `loop/route.mjs`, which turned the routing
+**Status, 2026-08-13.** Six of the eight are closed by `loop/route.mjs`, which turned the routing
 table into executable code. Two remain: #6 (`design-reviewer` REJECT has no return edge) and #7
 (`run-loop.sh` exits on a red baseline *before* the maker's repair step can run). Gate
 `agent-unrouted` now fails any agent that neither the router nor `route.mjs` names, so this class
