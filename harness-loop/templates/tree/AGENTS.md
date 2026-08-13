@@ -50,7 +50,11 @@ All four must hold before any work (Lesson 6). If one fails, fixing it *is* the 
 
 **`node loop/route.mjs` decides**, reading state and naming the node, its layer, and why.
 `loop/run-loop.sh` dispatches. Markers live in `feature_list.json`'s `checkerNotes` and
-`docs/assumptions.md`. Full graph — nodes, edges, state ownership: `docs/reference/graph.md`.
+`docs/assumptions.md`.
+
+**Want to know what happens after you, or who handles what? `node loop/route.mjs --rules`** —
+the whole routing table in precedence order. Do not read `route.mjs`'s source to work it out, and
+never write a script to parse it. Full graph, including state ownership: `docs/reference/graph.md`.
 
 | Agent | Runs when | Owns |
 |---|---|---|

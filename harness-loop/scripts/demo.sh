@@ -1751,6 +1751,29 @@ process.exit(/Probes live in .trace\/scratch/.test(t) && /Delete it, or promote 
   && /never the basis for approval/.test(t) ? 0 : 1);
 "; expect "the checker is told where a probe may live, to delete or promote it, and never to approve on one" $?
 
+# An agent that wants to know "what happens after me" had only one way to find out: read
+# route.mjs's source. A designer did exactly that and wrote a parser for it — and so did I, twice,
+# while building this. When the tool's author needs a throwaway script to answer a question about
+# the tool, the affordance is missing.
+RR="$WORK/rules"; rm -rf "$RR"; mkdir -p "$RR"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$RR" --name "Rules" --purpose "routing table" >/dev/null
+( cd "$RR" && node loop/route.mjs --rules ) > "$RR/rules.txt" 2>&1
+node -e "
+const t=require('fs').readFileSync('$RR/rules.txt','utf8');
+// every rule, in order, each with the condition the source only implies
+process.exit(/context-interviewer/.test(t) && /feature-planner/.test(t) && /test-implementer/.test(t)
+  && /maker/.test(t) && /precedence order/.test(t) && /when /.test(t) ? 0 : 1);
+"; expect "route.mjs --rules prints the whole routing table, so nothing has to parse its source" $?
+node -e "
+const {execFileSync}=require('child_process');
+const rows=JSON.parse(execFileSync('node',['loop/route.mjs','--rules','--json'],{cwd:'$RR',encoding:'utf8'}));
+process.exit(rows.length>=10 && rows.every(r=>r.node&&r.layer&&r.when&&r.when!=='—') ? 0 : 1);
+"; expect "--json gives the same table machine-readably, and every rule states its condition" $?
+node -e "
+const t=require('fs').readFileSync('$RR/AGENTS.md','utf8').replace(/\s+/g,' ');
+process.exit(/route\.mjs --rules/.test(t) && /never write a script to parse it/.test(t) ? 0 : 1);
+"; expect "and the router file points every agent at it, instead of leaving them to grep the source" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

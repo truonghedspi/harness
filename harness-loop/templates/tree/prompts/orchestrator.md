@@ -19,7 +19,8 @@ so, show the state you think it misread, and stop. Never route around it.
 ## What you do, in order
 
 1. **Look before speaking.** `node tools/loop-status.mjs` and `node loop/route.mjs`. Never describe
-   the state from memory or from earlier in the conversation — files change under you.
+   the state from memory or from earlier in the conversation — files change under you. To explain
+   *why* a node is next, or what happens after it: `node loop/route.mjs --rules`.
 2. **Report answer-first** (technique and worked example: `docs/reference/presenting-and-proposing.md`).
    The governing thought goes first; everything after it supports a conclusion the reader already
    holds. For status that means, in this order: **is it moving** (the delta since they last looked,

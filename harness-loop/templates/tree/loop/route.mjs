@@ -15,6 +15,7 @@
 //   node loop/route.mjs                 # print the next node + why (human-readable)
 //   node loop/route.mjs --json          # same, machine-readable
 //   node loop/route.mjs --agent         # print just the agent name, or nothing when it is code
+//   node loop/route.mjs --rules         # the whole routing table, in precedence order
 import { readFileSync, existsSync, readdirSync, statSync, writeSync } from "node:fs";
 import { createHash } from "node:crypto";
 
@@ -71,6 +72,7 @@ const open = features.filter((f) => !["done", "passing"].includes(status(f)));
 const RULES = [
   {
     node: "context-interviewer", kind: "agent", layer: "spec",
+    when: "a docs/assumptions.md row is still needs-human",
     // The one condition that is supposed to STOP the loop. It could not, before this file.
     match: () => {
       const rows = read("docs/assumptions.md").split("\n")
@@ -80,6 +82,7 @@ const RULES = [
   },
   {
     node: "designer", kind: "agent", layer: "design",
+    when: "a feature's checkerNotes starts NEEDS DESIGN: and the designer has not had a turn on that marker",
     match: () => {
       // Only until the designer has had its turn on THIS marker. Its answer cannot clear the marker,
       // so "marker still present" is not evidence that the designer failed to answer.
@@ -90,6 +93,7 @@ const RULES = [
   },
   {
     node: "designer", kind: "agent", layer: "design",
+    when: "a docs/design/*.md states no observable seam or no invariants",
     // Same predicate as verify-harness's design-untestable gate. Without this rule the router
     // matched only the NEEDS DESIGN: marker, so a design that simply never said how anyone would
     // know the thing works did not register as a design problem at all — and the loop went
@@ -111,6 +115,7 @@ const RULES = [
   },
   {
     node: "feature-planner", kind: "agent", layer: "decomposition",
+    when: "a NEEDS DESIGN: marker the designer has already had a turn on — the planner must clear it",
     // The designer answered; someone has to retire the marker and re-cut if the answer changed the
     // scope. That is the planner: it is the one node downstream of the designer allowed to write
     // feature_list.json.
@@ -125,6 +130,7 @@ const RULES = [
   },
   {
     node: "human", kind: "human", layer: "decomposition",
+    when: "the same marker after both the designer and the planner have had a turn — nobody else can clear it",
     // Terminating case. Without it the previous rule is just a different livelock: the planner runs,
     // makes feature_list.json the newest file, does NOT clear the marker, and the answer is no
     // longer "newer" — so the designer rule takes over again. Nobody is left to route to, so say so
@@ -140,6 +146,7 @@ const RULES = [
   },
   {
     node: "feature-planner", kind: "agent", layer: "decomposition",
+    when: "a feature's checkerNotes starts NEEDS RE-PLAN:",
     match: () => {
       const f = open.find((x) => /^NEEDS RE-PLAN:/.test(notes(x)));
       return f ? { why: `${f.id} was ruled mis-cut by the checker; re-cutting is not the maker's job`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
@@ -147,6 +154,7 @@ const RULES = [
   },
   {
     node: "feature-planner", kind: "agent", layer: "decomposition",
+    when: "a design's ## Feature impact table marks change/new and is newer than feature_list.json",
     // A design that changes what a feature means, or implies new ones, leaves feature_list.json a
     // version behind — and nothing marks it, because the designer is (correctly) not allowed to
     // write scope. So route on what it CAN write: its own `## Feature impact` table. Without this
@@ -175,6 +183,7 @@ const RULES = [
   },
   {
     node: "test-designer", kind: "agent", layer: "oracle",
+    when: "an unfinished feature has no falsifier, or tests/design/ does not exist yet",
     // Two outputs, so two reasons to route here: the `falsifier` in feature_list.json, AND the
     // condition files under tests/design/. Only the first used to be checked, and on a project
     // where the feature-planner derives falsifiers from the invariant contract that rule never
@@ -200,6 +209,7 @@ const RULES = [
   },
   {
     node: "test-implementer", kind: "agent", layer: "oracle",
+    when: "a prove feature has a falsifier and validated conditions but no test written",
     // The edge that was missing: test-designer fills the falsifier, its own rule stops matching,
     // and control fell straight through to the maker — which then wrote the test it was supposed
     // to be judged by. The oracle has to EXIST, not merely be specified.
@@ -221,6 +231,7 @@ const RULES = [
     // a failed deploy, so its independence comes from the boundary it tests across, not from
     // blindness to the code.
     node: "k8s-integration-tester", kind: "agent", layer: "integration",
+    when: "the feature's verification deploys to a real cluster",
     match: () => {
       if (!hasAgent("k8s-integration-tester")) return null;
       const f = open.find((x) => /k8s-test-env|kubectl|helm |namespace/i.test(String(x.verification || "")) &&
@@ -230,6 +241,7 @@ const RULES = [
   },
   {
     node: "maker", kind: "agent", layer: "implementation",
+    when: "a feature is eligible: dependencies done, no blocking marker, within its attempts budget",
     match: () => {
       // Information asymmetry is only real if it is an ORDERING: a build feature whose prove
       // feature has no test written yet is not eligible, because the maker would write that test.
@@ -244,6 +256,28 @@ const RULES = [
     },
   },
 ];
+
+// --rules: the routing table, in precedence order, without reading this file's source. An agent
+// that wants to know "what happens after me" otherwise greps route.mjs and writes a parser — which
+// is exactly what a designer did, and what I did twice while building this. When the tool's author
+// needs a throwaway script to answer a question, the affordance is missing, not the user.
+if (args.includes("--rules")) {
+  const rows = RULES.map((r, i) => ({ n: i + 1, node: r.node, kind: r.kind, layer: r.layer, when: r.when || "—" }));
+  if (JSON_OUT) { writeSync(1, JSON.stringify(rows, null, 2) + "\n"); process.exit(0); }
+  const L = ["", "  Routing rules, in precedence order. The FIRST match wins, so a rule only fires when",
+    "  every rule above it declined — deepest layer first: spec → design → decomposition → oracle →",
+    "  integration → implementation.", ""];
+  for (const r of rows) {
+    L.push(`  ${String(r.n).padStart(2)}. ${r.node.padEnd(22)} [${r.layer}]`);
+    L.push(`      when ${r.when}`);
+  }
+  L.push("");
+  L.push("  Nothing matched at all → `exit` if every feature is settled, `human` if work is open.");
+  L.push("  What the router would pick RIGHT NOW: node loop/route.mjs");
+  L.push("");
+  writeSync(1, L.join("\n") + "\n");
+  process.exit(0);
+}
 
 let hit = null;
 for (const r of RULES) {
