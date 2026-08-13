@@ -97,7 +97,12 @@ function claudeAgent(a) {
   }
   // The only per-agent write restriction Claude Code can express.
   if (a.writes) {
-    hooks.push(`  PreToolUse:\n    - matcher: "Edit|Write|NotebookEdit"\n      command: "node tools/guard-write.mjs ${a.name}"`);
+    // Bash too, not only the edit tools. The matcher used to be Edit|Write|NotebookEdit, so a
+    // write-restricted agent could still `cat > probe.mjs` — the confinement held for the tools it
+    // named and was absent for the one every agent has. Shell inspection is best-effort by nature
+    // (a script can always write through an API), so guard-write catches the common redirect shapes
+    // and clean-state's stray-verification-script catches whatever gets through.
+    hooks.push(`  PreToolUse:\n    - matcher: "Edit|Write|NotebookEdit|Bash"\n      command: "node tools/guard-write.mjs ${a.name}"`);
   }
   if (a.trace) {
     hooks.push(`  SubagentStop:\n    - command: "node tools/trace.mjs ${a.name} session-end"`);

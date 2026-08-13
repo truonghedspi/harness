@@ -66,6 +66,30 @@ const input = payload.tool_input || payload.toolInput || {};
 const targets = [];
 for (const k of ["file_path", "path", "notebook_path", "filePath"]) if (input[k]) targets.push(input[k]);
 
+// A shell command that writes. The edit tools are not the only way to create a file, and a
+// write-restricted role that can run `cat > probe.mjs` is not write-restricted. Best-effort by
+// nature — a script it launches can write through any API — so this catches the shapes an agent
+// actually uses, and clean-state's stray-verification-script catches the rest.
+const shellCmd = typeof input.command === "string" ? input.command
+  : Array.isArray(input.command) ? input.command.join(" ") : "";
+if (shellCmd && !/\*\*\* (Begin Patch|Add File|Update File)/.test(shellCmd)) {
+  for (const re of [/(?:^|[;&|]|\s)(?:>>?)\s*("[^"]+"|'[^']+'|[^\s;&|<>]+)/g,          // > file, >> file
+                    /\btee\s+(?:-a\s+)?("[^"]+"|'[^']+'|[^\s;&|<>]+)/g,                  // tee file
+                    /\b(?:cp|mv)\s+\S+\s+("[^"]+"|'[^']+'|[^\s;&|<>]+)/g]) {            // cp/mv dest
+    for (const m of shellCmd.matchAll(re)) {
+      const t = m[1].replace(/^["']|["']$/g, "");
+      if (t === "/dev/null" || t.startsWith("/dev/")) continue;      // not a file write worth guarding
+      // Ephemeral system temp is allowed for shell redirects. The point of confinement is that this
+      // role cannot alter the REPO — a build log in /tmp cannot, and denying it is the kind of
+      // friction that teaches people to switch the guard off. Edit tools are still denied outside
+      // the project: a file the agent deliberately edits out there is a different act.
+      if (/^(\/tmp\/|\/private\/tmp\/|\/var\/folders\/|\/var\/tmp\/)/.test(t)) continue;
+      if (process.env.TMPDIR && t.startsWith(process.env.TMPDIR)) continue;
+      targets.push(t);
+    }
+  }
+}
+
 // Codex `apply_patch`: one envelope, any number of files, no file_path field anywhere.
 const envelope = typeof input.command === "string" ? input.command
   : Array.isArray(input.command) ? input.command.join(" ") : "";

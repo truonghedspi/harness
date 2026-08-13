@@ -1704,6 +1704,53 @@ const j=require('$UP/aged.json');
 process.exit(j.regenerated.some(r=>/gen-agents/.test(r)) && j.regenerated.some(r=>/feature-digest/.test(r)) ? 0 : 1);
 "; expect "and the generated agents and digest are rebuilt, so the refresh actually takes effect" $?
 
+# Write confinement covered Edit|Write|NotebookEdit and not Bash, so a write-restricted role could
+# still `cat > probe.mjs`. Observed for real: the checker leaving throwaway verification scripts.
+SG="$WORK/shellguard"; rm -rf "$SG"; mkdir -p "$SG"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$SG" --name "Guard" --purpose "shell writes" >/dev/null
+node -e "
+const {execFileSync}=require('child_process');
+const run=(agent,cmd)=>JSON.parse(execFileSync('node',['tools/guard-write.mjs',agent],
+  {cwd:'$SG',input:JSON.stringify({tool_name:'Bash',tool_input:{command:cmd}}),encoding:'utf8'}))
+  .hookSpecificOutput.permissionDecision;
+const cases=[
+  ['checker','cat > probe.mjs','deny'],                    // the observed behaviour
+  ['checker','echo x >> src/Foo.java','deny'],             // the thing confinement exists for
+  ['checker','node t.mjs | tee report.mjs','deny'],
+  ['checker','cp a.txt src/b.txt','deny'],
+  ['checker','echo hi > ../escape.mjs','deny'],
+  ['checker','cat > trace/scratch/p.mjs','allow'],         // the sanctioned probe home
+  ['checker','./mvnw -q verify > /tmp/out.log','allow'],   // cannot touch the repo; denying it
+  ['checker','ls -la > /dev/null','allow'],                //   teaches people to switch the guard off
+  ['checker','./mvnw -q verify','allow'],
+  ['maker','cat > src/Foo.java','allow'],                  // unrestricted BY DESIGN
+];
+for (const [a,c,want] of cases) {
+  const got=run(a,c);
+  if (got!==want) { console.error('  '+a+': '+c+' → '+got+', wanted '+want); process.exit(1); }
+}
+"; expect "the write guard covers shell redirects too — cat/tee/cp into the repo are denied, /tmp and the scratch dir are not" $?
+node -e "
+const fs=require('fs');
+const md=fs.readFileSync('$SG/.claude/agents/checker.md','utf8');
+process.exit(/matcher: \"Edit\|Write\|NotebookEdit\|Bash\"/.test(md) ? 0 : 1);
+"; expect "and the generated hook actually matches Bash, not just the edit tools" $?
+# Whatever slips past the guard still has to be visible afterwards.
+( cd "$SG" && git init -q . && git add -A && git -c user.email=a@b -c user.name=a commit -qm base ) >/dev/null 2>&1
+mkdir -p "$SG/trace/scratch"; echo "// probe" > "$SG/trace/scratch/ok.mjs"; echo "// probe" > "$SG/verify-thing.mjs"
+node "$SCRIPTS/verify-harness.mjs" --target "$SG" --skip-baseline --quiet
+node -e "
+const r=require('$SG/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='stray-verification-script');
+process.exit(f && /verify-thing\.mjs/.test(f.evidence) && !/scratch/.test(f.evidence) ? 0 : 1);
+"; expect "a stray script left in the tree is reported, while a probe in trace/scratch/ is not" $?
+node -e "
+const t=require('fs').readFileSync('$SG/loop/checker-prompt.md','utf8').replace(/\s+/g,' ');
+// the impulse to probe is right; what matters is where it lives and that it does not become evidence
+process.exit(/Probes live in .trace\/scratch/.test(t) && /Delete it, or promote it/.test(t)
+  && /never the basis for approval/.test(t) ? 0 : 1);
+"; expect "the checker is told where a probe may live, to delete or promote it, and never to approve on one" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

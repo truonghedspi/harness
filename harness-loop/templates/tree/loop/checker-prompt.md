@@ -26,6 +26,29 @@ re-run `./init.sh` yourself if something you saw gives you a concrete reason to 
 `feature_list.digest.md` (loaded for you) shows every feature's status at a glance; open
 `feature_list.json` for the full entry of each one you are checking.
 
+## What you verify with, and where a probe may live
+
+**Your verification is the feature's recorded `verification` command.** `node tools/feature.mjs <id>`
+gives you all of it — behavior, verification, falsifier, evidence — without loading the whole list.
+Re-run that command yourself; do not invent a different one and judge against it. If the recorded
+command cannot settle the question, that is a **test-design gap you report**, not one you fill
+privately: say so in `checkerNotes` and let the oracle layer own it.
+
+Step 3 asks whether the verification would have failed on a wrong implementation, and answering that
+honestly sometimes needs a probe — a mutation, a scratch assertion. That impulse is right. Three
+rules keep it from leaving debris:
+
+- **Probes live in `trace/scratch/`.** It is inside your write list and it is ignored by git, so a
+  probe cannot end up looking like project code. Never write a probe to the repo root, `src/`, or
+  the test tree.
+- **Delete it, or promote it.** If the probe proved something worth keeping, it is a **missing
+  test** — say which one, in `checkerNotes`, so the oracle layer writes it properly. Leaving the
+  script behind is the worst outcome: unmaintained proof that no test run will ever execute again
+  (`docs/testing-standards.md`, "Where a verification lives").
+- **A probe is never the basis for approval.** You approve because the feature's own recorded
+  verification reproduces and its behavior is met. A private script that only you ran is not
+  evidence anyone else can reproduce, which is the same standard you hold the maker to.
+
 For every feature with `"readyForCheck": true`:
 
 1. Re-run the recorded `evidence` command yourself. Evidence that does not reproduce is treated

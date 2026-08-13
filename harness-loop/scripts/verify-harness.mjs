@@ -708,6 +708,30 @@ function gateCleanState() {
   }
   const r = runCmd("git status --porcelain", { timeout: 30000 });
   const dirty = r.out.split("\n").map((l) => l.trim()).filter(Boolean);
+
+  // Stray verification scripts. An agent asked "would this test have failed on a wrong
+  // implementation?" answers it by probing — a legitimate impulse — and the probe then stays,
+  // untracked, looking like project code. It is invisible to the verification-outside-test-framework
+  // gate, which reads the `verification` FIELD, and to write confinement, whose PreToolUse matcher
+  // is Edit|Write|NotebookEdit: a shell redirect never passes through it.
+  //
+  // trace/scratch/ is the sanctioned home (gitignored, inside the checker's writes), so anything
+  // script-shaped and untracked OUTSIDE it is debris.
+  const strays = dirty
+    .filter((l) => l.startsWith("??"))
+    .map((l) => l.replace(/^\?\?\s*/, ""))
+    .filter((f) => /\.(mjs|js|cjs|ts|sh|py)$/.test(f))
+    .filter((f) => !f.startsWith("trace/") && !f.startsWith("tools/") && !f.startsWith("scripts/"));
+  if (strays.length) {
+    add({
+      gate: "clean-state", id: "stray-verification-script", layer: "project", severity: "warn",
+      count: strays.length,
+      symptom: `${strays.length} untracked script(s) left in the tree — most likely a throwaway verification`,
+      remedy: "delete it, or promote it into the test framework if it proved something worth keeping. A probe belongs in trace/scratch/ (gitignored); a probe left in the tree is unmaintained proof that no test run will execute again (docs/testing-standards.md, 'Where a verification lives')",
+      evidence: strays.slice(0, 6).join(", "),
+    });
+  }
+
   if (dirty.length > 30) {
     add({
       gate: "clean-state", id: "tree-very-dirty", layer: "project", severity: "warn",
