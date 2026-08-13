@@ -402,7 +402,6 @@
       "resources": [
         "AGENTS.md",
         "docs/constraints.md",
-        "tools/k8s-test-env.sh",
         "docs/cross-cutting.md",
         "docs/INDEX.md",
         "feature_list.digest.md",

@@ -240,6 +240,10 @@ function gatePlaceholders() {
     "session-handoff.md", "init.sh",
     "loop/goal.md", "loop/maker-prompt.md", "loop/checker-prompt.md",
     ...lsSafe(P("docs")).filter((f) => f.endsWith(".md")).map((f) => `docs/${f}`),
+    // prompts/ was missing, and it is the text agents read MOST. Two of them shipped a literal
+    // {{PROJECT_NAME}} to a live project: the pattern was already here, nothing ever looked in the
+    // directory it mattered in.
+    ...lsSafe(P("prompts")).filter((f) => f.endsWith(".md")).map((f) => `prompts/${f}`),
   ];
   for (const rel of candidates) {
     const body = read(P(rel));
@@ -252,7 +256,7 @@ function gatePlaceholders() {
         gate: "placeholders", id: `placeholder:${rel}`, layer,
         symptom: `${rel}:${lineNo} still contains a ${label}`,
         remedy: layer === "harness"
-          ? "setup-harness-loop.mjs substitution missed this token — add it to substitute()"
+          ? "scaffold a throwaway target and check whether it leaks the same token: if it does, setup-harness-loop.mjs's substitute() is missing it; if it does not, this file is residue from an older scaffold or was hand-copied, so substitute it here"
           : `replace the placeholder in ${rel} with the project's real content`,
         evidence: body.split("\n")[lineNo - 1].trim().slice(0, 200),
       });
