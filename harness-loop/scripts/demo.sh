@@ -1389,16 +1389,29 @@ d.features.push({id:'feat-q',name:'q',kind:'build',behavior:'b',verification:'ec
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
 route_of(){ (cd "$MK" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))'); }
-[ "$(route_of)" = "designer" ]; expect "an UNANSWERED NEEDS DESIGN: marker routes to the designer" $?
-# the designer answers, in a file it is actually allowed to write
-sleep 1; printf '# Q\n\nfeat-q takes the first reading.\n\n## Observable seam\n\nThe Sink.\n\n## Invariants\n\nAlways conserved.\n' > "$MK/docs/design/q.md"
-[ "$(route_of)" = "feature-planner" ]; expect "once answered it routes to the planner — the only node downstream that may write feature_list.json" $?
+# The dispatcher logs what it ran; the router reads that back. Simulate a dispatch.
+dispatched(){ (cd "$MK" && node loop/route.mjs --json | node -e '
+  let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);
+  if(j.hash&&j.feature) require("fs").appendFileSync("loop/route-log.jsonl",
+    JSON.stringify({node:j.node,feature:j.feature,hash:j.hash})+"\n");});'); }
+[ "$(route_of)" = "designer" ]; expect "a NEEDS DESIGN: marker the designer has not seen routes to the designer" $?
+dispatched
+# The designer answers but CANNOT clear the marker — it may not write feature_list.json.
+[ "$(route_of)" = "feature-planner" ]; expect "after the designer's turn the same marker routes to the planner, the only node that may clear it" $?
 ( cd "$MK" && node loop/route.mjs --json ) | grep -q "clear the marker"
-expect "and the reason says to clear the marker, so the answer does not have to be guessed at" $?
-# planner runs but forgets to clear it: feature_list.json becomes newest, the answer is no longer
-# "newer", and the naive fix would hand control straight back to the designer. It must terminate.
-sleep 1; touch "$MK/feature_list.json"
-[ "$(route_of)" = "human" ]; expect "a marker left behind after the planner ran escalates to a human instead of looping back to design" $?
+expect "and the reason says so, rather than leaving it to be inferred" $?
+dispatched
+[ "$(route_of)" = "human" ]; expect "with both turns spent and the marker unchanged it escalates instead of cycling" $?
+# A NEW question on the same feature is a new marker: different text, different hash, ladder resets.
+# The first fix keyed on "a design doc mentions this feature", which could not tell the two apart
+# and escalated a live question to a human.
+node -e "
+const fs=require('fs'); const p='$MK/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(x=>x.id==='feat-q').checkerNotes='NEEDS DESIGN: a different question entirely';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+[ "$(route_of)" = "designer" ]; expect "a NEW question on the same feature restarts the ladder at the designer" $?
 node -e "
 const fs=require('fs'); const p='$MK/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));

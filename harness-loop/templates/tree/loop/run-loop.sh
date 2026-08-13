@@ -101,6 +101,18 @@ for i in $(seq 1 "$ITERATIONS"); do
   NEXT_JSON="$(node loop/route.mjs --json 2>/dev/null)" || true
   NEXT="$(printf '%s' "$NEXT_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.node+"\t"+j.kind+"\t"+j.layer+"\t"+j.why)}catch{console.log("maker\tagent\timplementation\t(router unavailable — defaulting)")}})')"
   NODE="$(printf '%s' "$NEXT" | cut -f1)"; KIND="$(printf '%s' "$NEXT" | cut -f2)"
+  # Record what was dispatched, so the router can tell "this node has not had a turn on this marker"
+  # from "it had one and the marker is unchanged". The router stays pure and reads this back; a
+  # marker whose text changes is a NEW question and starts the ladder over.
+  printf '%s' "$NEXT_JSON" | node -e '
+    let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
+      try {
+        const j=JSON.parse(s);
+        if (!j.hash || !j.feature) return;
+        require("fs").appendFileSync("loop/route-log.jsonl",
+          JSON.stringify({ node: j.node, feature: j.feature, hash: j.hash }) + "\n");
+      } catch {}
+    });' 2>/dev/null || true
   LAYER="$(printf '%s' "$NEXT" | cut -f3)"; WHY="$(printf '%s' "$NEXT" | cut -f4)"
   echo "=== iteration $i/$ITERATIONS — route → $NODE [layer: $LAYER] ==="
   echo "    $WHY"
