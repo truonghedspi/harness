@@ -1059,7 +1059,68 @@ const f=r.findings.find(f=>f.id==='mcp-runtime-skew');
 process.exit(f && /kiro only/.test(f.evidence||'') ? 0 : 1);
 "; expect "an MCP server present for one runtime and not the other is caught — same agent, two verdicts" $?
 
-step 36 "meta loop: dispatch on the right layer, stop when nothing moves"
+step 36 "multi-service k8s: dependsOn order, health that is not 'Running', ranked diagnostics"
+MS="$WORK/multi-svc"; rm -rf "$MS"; mkdir -p "$MS/tools" "$MS/charts/api" "$MS/charts/db" "$MS/charts/cache" "$MS/stub"
+cp "$SCRIPTS/../templates/k8s/tools/k8s-test-env.sh" "$MS/tools/"; chmod +x "$MS/tools/k8s-test-env.sh"
+cat > "$MS/services.manifest.json" <<'JSON'
+{"services":[
+ {"id":"api","kind":"service","chart":"charts/api","dependsOn":["db","cache"],"health":"true"},
+ {"id":"db","kind":"service","chart":"charts/db","dependsOn":[],"health":"true"},
+ {"id":"cache","kind":"service","chart":"charts/cache","dependsOn":["db"],"health":null},
+ {"id":"shared","kind":"library","chart":null,"dependsOn":[],"health":null}
+]}
+JSON
+# Stub the cluster. What is under test is the ORDER and the RANKING, neither of which needs a
+# real Kubernetes to be wrong — and a demo that silently skips without one proves nothing.
+cat > "$MS/stub/kubectl" <<'EOF'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "get pods") echo "" ;;
+  *) : ;;
+esac
+exit 0
+EOF
+cat > "$MS/stub/helm" <<'EOF'
+#!/usr/bin/env bash
+# helm upgrade --install <release> <chart> ...
+echo "$3" >> "$ORDER_FILE"
+[ "$3" = "${HELM_FAIL_ON:-}" ] && exit 1
+exit 0
+EOF
+chmod +x "$MS/stub/kubectl" "$MS/stub/helm"
+ORDER="$MS/order.txt"; : > "$ORDER"
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" bash tools/k8s-test-env.sh --services services.manifest.json -- true ) >"$MS/run1.log" 2>&1
+test "$(tr '\n' ' ' < "$ORDER")" = "db cache api "
+expect "installs in dependsOn order — db, then cache, then the api that needs both" $?
+grep -q "cache: no health command in the registry — readiness UNVERIFIED" "$MS/run1.log"
+expect "a service with no health command is reported unverified, not assumed healthy because helm --wait returned" $?
+grep -q "environment up: db, cache, api" "$MS/run1.log"; expect "the test command runs only once every service is up" $?
+# Now fail the last service and check the report ranks by likely cause, not by pod name.
+: > "$ORDER"
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" HELM_FAIL_ON=api bash tools/k8s-test-env.sh \
+    --services services.manifest.json --keep-on-failure -- true ) >"$MS/run2.log" 2>&1
+RPT="$(ls -d "$MS"/trace/k8s-test/*/ 2>/dev/null | tail -1)"
+node -e "
+const fs=require('fs'); const t=fs.readFileSync('${RPT}READ-THIS-FIRST.txt','utf8');
+const iApi=t.indexOf('logs-api'), iDb=t.indexOf('logs-db'), iCache=t.indexOf('logs-cache');
+// the failing service first, then what it was waiting on — five services down produce five walls
+// of logs and only this ordering turns them into a diagnosis
+process.exit(iApi>=0 && iDb>iApi && iCache>iApi && /Failed at: api/.test(t) ? 0 : 1);
+"; expect "on failure the report ranks the failing service first, then its dependencies" $?
+node -e "
+const m=require('$MS/services.manifest.json');
+process.exit(m.services.some(s=>s.kind==='library') ? 0 : 1)
+"; expect "kind=library entries are in the registry but never in the install plan" $?
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" node -e "
+const fs=require('fs'); const m=JSON.parse(fs.readFileSync('services.manifest.json','utf8'));
+m.services.find(s=>s.id==='db').dependsOn=['api']; fs.writeFileSync('cycle.json',JSON.stringify(m));
+" && PATH="$MS/stub:$PATH" bash tools/k8s-test-env.sh --services cycle.json -- true ) >"$MS/run3.log" 2>&1
+CYC=$?
+test "$CYC" = "2" && grep -q "cycle among" "$MS/run3.log"
+expect "a dependsOn cycle is refused with the cycle named, not resolved arbitrarily" $?
+grep -q "nothing was deployed\|cycle among" "$MS/run3.log"; expect "and nothing is deployed before the plan is known to be satisfiable" $?
+
+step 37 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

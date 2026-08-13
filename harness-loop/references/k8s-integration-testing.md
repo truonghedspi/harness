@@ -13,6 +13,19 @@ One script, one contract: **deploy into an isolated namespace, wait for real rea
 test command you give it, collect diagnostics BEFORE tearing anything down, then always clean
 up** — matching the same "verify for real, don't trust a claim" spirit as the rest of this skill.
 
+It takes either a single chart or a whole registry:
+
+```bash
+tools/k8s-test-env.sh charts/my-service -- ./run-tests.sh                       # one chart
+tools/k8s-test-env.sh --services services.manifest.json -- ./run-tests.sh       # a system
+tools/k8s-test-env.sh --services services.manifest.json --only api -- ./run.sh  # api + its deps
+```
+
+Multi-service mode installs in `dependsOn` order, refuses a dependency cycle before deploying
+anything, gates each service on its own `health` command (and says `readiness UNVERIFIED` where the
+registry has none — `--wait` alone only proves Running), and ranks the diagnostics by likely cause.
+The registry and its fields: [multi-service.md](multi-service.md).
+
 ```
 namespace = test-<short-git-sha>-<run-id>        # isolated per run, never reused
   ↓
@@ -142,16 +155,18 @@ issue.
 
 ## How to adopt this in a scaffolded project
 
-1. Copy the opt-in tree into the target: everything under `harness-loop/templates/k8s/` mirrors
-   the target's own layout (`templates/k8s/tools/k8s-test-env.sh` → `tools/k8s-test-env.sh`,
-   `templates/k8s/prompts/k8s-integration-tester.md` → `prompts/k8s-integration-tester.md`,
-   `templates/k8s/.kiro/agents/k8s-integration-tester.json` →
-   `.kiro/agents/k8s-integration-tester.json`, `templates/k8s/memory/` → `memory/`,
-   `templates/k8s/tools/mcp-k8s-readonly-wrapper.sh` → `tools/mcp-k8s-readonly-wrapper.sh`).
+1. **Setup does the copy.** `setup-harness-loop.mjs --k8s auto` (the default) installs this tree
+   when the target already holds a `Chart.yaml`; `--k8s on` forces it. Everything under
+   `harness-loop/templates/k8s/` mirrors the target's own layout, and copying
+   `prompts/k8s-integration-tester.md` is what *enables* the agent — it is `optional` in
+   `agents.manifest.json`, and `gen-agents.mjs` emits an optional agent into both runtimes exactly
+   when its prompt file exists. There is no separate config to hand-write.
    **Also copy THIS document** → `docs/reference/k8s-integration-testing.md` — the agent's prompt
    cites it, and a prompt citing a file that isn't in the repo fails the Fresh Session Test
    (knowledge not in the repo is invisible to the agent, Lesson 3).
-2. Add the MCP config above so the agent can self-diagnose a failure without shelling out blind.
+2. The MCP config is written by setup for **both** runtimes (`.kiro/settings/mcp.json` and
+   `.mcp.json`) with the read-only server already in it, so the agent can self-diagnose a failure
+   without shelling out blind. Gate `mcp-runtime-skew` fails them if they later diverge.
 3. Run the agent — `kiro-cli chat --agent k8s-integration-tester` — and point it at the real Helm
    chart. It does steps that used to be manual: fills the script's `CHART_PATH` / `RELEASE_NAME` /
    `NAMESPACE_LABEL_SELECTOR_FOR_READINESS`, writes real Level 3 tests against the deployed
@@ -159,7 +174,9 @@ issue.
    at the confirmed-working invocation
    (`tools/k8s-test-env.sh charts/my-service -- ./run-cross-service-tests.sh`). It behaves like a
    specialized maker — it records evidence, it does not set `status: done` itself.
-4. `verify-harness.mjs` doesn't have a k8s-specific gate (cluster access can't be assumed present
-   in every environment that runs verify) — the check that matters is the same one that already
+4. `verify-harness.mjs` still runs no gate that needs a *cluster* (cluster access can't be assumed
+   present in every environment that runs verify), but it does gate the two things it can see from
+   the repo: `k8s-agent-missing` (a chart is here and nothing verifies the deployed shape) and
+   `mcp-runtime-skew`. Beyond those the check that matters is the same one that already
    exists: does `docs/testing-standards.md`'s Level 3 command actually get exercised by
    `init.sh`/the loop, and does it have a bounded timeout (`docs/constraints.md`).

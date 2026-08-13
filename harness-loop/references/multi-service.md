@@ -114,18 +114,27 @@ Calibrated against the real workspace while being written, and it earned two cor
 
 ## `k8s-test-env.sh`, plural
 
-Today it takes one chart as `$1` and derives one release name. It needs to take a set: bring them up
-in `dependsOn` order, wait on each one's real health check rather than on `Running`, run the test,
-collect diagnostics **per service** on failure, and tear the whole namespace down together whatever
-happened.
+Built. `--services services.manifest.json [--only a,b]` reads the registry and installs in
+`dependsOn` order; the single-chart form is unchanged and is now just a one-service plan.
 
-Two hazards worth naming before they are discovered:
+| Behaviour | Why it is not a loop over the single-chart mode |
+|---|---|
+| topological install order | a cycle is a **hard error naming the cycle**, before anything is deployed. Picking an order arbitrarily produces a failure whose cause is the manifest, not the code |
+| `--only api` pulls in `db`, `cache` | asking for a service means asking for what it needs; a partial plan fails in the least informative way possible |
+| `health`, not `--wait` | Helm's `--wait` knows only about readiness probes. A chart without one reports ready as soon as the container starts. Where the registry states a health command it is retried to a budget; **where it does not, the run prints `readiness UNVERIFIED`** rather than inventing a check |
+| ranked diagnostics | `READ-THIS-FIRST.txt` orders the dump: failing service, then its dependencies, then events. Five services down otherwise produce five walls of logs |
+| namespace teardown on every path | one namespace per run, so partial bring-up has no separate teardown path to get wrong |
 
-- **Partial bring-up.** If service 3 of 5 never becomes healthy, the run must fail with the
-  diagnostics of *that* service surfaced first, not a wall of five logs. The existing single-service
-  script already collects diagnostics; the multi-service version has to rank them.
-- **Teardown on the failure path.** One namespace per run makes this tractable — delete the
-  namespace and everything in it goes, whatever state the individual services reached.
+Two things the build itself taught:
+
+- **Tab is an IFS whitespace character.** The plan was a TSV; bash collapses runs of IFS whitespace,
+  so a service with `health: null` lost its empty field and `dependsOn` shifted into its place — the
+  script ran the string `db` as a health command and reported the *next* service unhealthy. The
+  separator is now `0x1F`, which preserves empty fields. This is the invisible-failure class again:
+  every step logged success in the wrong column.
+- **An unreachable cluster used to read as a deploy failure.** `kubectl create namespace` was
+  unchecked, so the run continued and blamed the first chart. There is now a preflight that names the
+  context and exits 2 without deploying — an environment problem must not look like a red test.
 
 ## What this does not solve
 
