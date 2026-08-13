@@ -2,103 +2,90 @@
 
 {{PROJECT_PURPOSE}}
 
-> This is the **router** for agents working in this repo (Lesson 4): overview, invariants, and
-> links. Project detail lives in `docs/*.md`, revealed on demand. Keep this file short.
+Router for agents working in this repo (Lesson 4). Detail lives in `docs/`, revealed on demand.
+Lost? Start at [`docs/INDEX.md`](docs/INDEX.md) — every document with a "read it when" line.
 
-## Map (read these when relevant)
+## The six that carry everything
 
-> Don't know which document you need? Start at [`docs/INDEX.md`](docs/INDEX.md) — it lists every
-> document with a "read it when" line, so you can decide what *not* to open.
+Violating one of these breaks the loop itself. Everything below is detail.
 
-- `docs/INDEX.md` — the map of all documents
-- `docs/assumptions.md` — load-bearing design assumptions; a `needs-human` row stops the loop
-- `docs/cross-cutting.md` — policies with an owner and an enforcing rule (retry, identity, timeouts)
-- `docs/architecture.md` — what this is, how it's organized, how to run/verify, where we are
-- `docs/constraints.md` — hard MUST / MUST NOT rules
-- `docs/testing-standards.md` — the three verification levels (unit / in-service integration / cross-service microservice integration)
-- `docs/definition-of-done.md` — what "done" means, concretely
-- `feature_list.json` — the feature state (single source of truth for scope)
-- `progress.md` / `DECISIONS.md` — where we left off, and why decisions were made
-- `loop/goal.md` — the autonomous loop's objective and stopping condition
-
-## Agents — who does what, and who decides who runs next
-
-**Don't choose by hand.** `node loop/route.mjs` reads the state and names the next node, the layer
-it belongs to, and why. `loop/run-loop.sh` dispatches on it. Routing markers live in
-`feature_list.json`'s `checkerNotes` and in `docs/assumptions.md`; the full graph — nodes, edges,
-state ownership — is `docs/reference/graph.md`.
-
-| Agent | Runs when | Layer it owns |
-|---|---|---|
-| `context-interviewer` | a `needs-human` row sits in `docs/assumptions.md` | spec — facts the repo cannot contain |
-| `designer` → `design-reviewer` | `checkerNotes` starts `NEEDS DESIGN:` | design — components, cited claims, assumptions |
-| `feature-planner` | `checkerNotes` starts `NEEDS RE-PLAN:` | decomposition — re-cutting `feature_list.json` |
-| `test-designer` → `test-implementer` | a feature has no `falsifier`, or its oracle is unwritten | the oracle — **neither reads the implementation** (`docs/reference/test-authoring.md`) |
-| `maker` | a feature is eligible | implementation. **Cannot set `status: done`** |
-| `checker` | a feature is `readyForCheck` | judgement — the only agent that may set `done` |
-| `k8s-integration-tester` | the verification deploys to a real cluster | **integration** — Level 3 proof across a real service boundary. A test-layer node: same authoring rules, but it *does* read the code, so its independence is the boundary, not blindness |
-| `harness-setup` | the environment is not ready | toolchain and baseline |
-
-`harness-onboarder` is not here: it runs once, before this scaffold existed, to adopt an existing
-repo (`docs/reference/adopting-an-existing-project.md`). Its output is everything you are reading.
-
-**If you change the workflow, update `docs/reference/graph.md` in the same commit** — a new agent,
-a new routing rule in `loop/route.mjs`, a node changing layer, a new writer for a shared-state
-field. That file is the only place this project's whole control flow is written down, and a graph
-that lags the code is worse than no graph, because it is read as authoritative.
-`verify-harness.mjs` reports `graph-stale` when the router or an agent config is newer than it.
-
-Two nodes are plain code, not agents: `tools/verify-harness.mjs --promote` (replays evidence) and
-`loop/approval-gate.mjs` (stops for a human before `done` becomes terminal).
+1. **Don't pick your own next task** — `node loop/route.mjs` names the next node and why.
+2. **WIP = 1.** One feature `active`. Finish it before touching another.
+3. **The worker never grades itself.** Only the checker sets `status: done`.
+4. **No claim without a run.** Paste the real command output, or it did not happen.
+5. **Change the workflow → update `docs/reference/graph.md` in the same commit** (gate:
+   `graph-stale`). A graph that lags the code is worse than none: it is read as authoritative.
+6. **Escalate instead of guessing.** An unanswered question is a handoff, not an assumption.
 
 ## Startup Readiness
 
-Before any work, these four must hold (Lesson 6). If any fails, fixing it is the whole task:
+All four must hold before any work (Lesson 6). If one fails, fixing it *is* the task.
 
-1. **Can start** — `./init.sh` runs to green from a clean checkout.
-2. **Can test** — at least one verification command runs and reports pass/fail.
-3. **Can see progress** — `feature_list.json` + `progress.md` are current.
-4. **Can pick up next** — the next action is written down (progress.md / session-handoff.md).
+1. **Can start** — the baseline gate runs green from a clean checkout.
+2. **Can test** — at least one verification command reports pass/fail.
+3. **Can see progress** — `feature_list.json` and `progress.md` are current.
+4. **Can pick up next** — the next action is written down.
 
 ## Startup Workflow (start of session — clock in)
 
-1. Confirm working directory with `pwd`.
+1. `pwd` — confirm the working directory.
 2. Read this file, then `docs/architecture.md`.
-3. Run `./init.sh` to verify the environment is healthy.
-4. Read `feature_list.json` for the current feature state, and `progress.md` for context.
-5. Review recent commits: `git log --oneline -5`.
+3. Run the baseline gate: `node init.mjs` (or `./init.sh`; `init.cmd` on Windows).
+4. Read `feature_list.json` and `progress.md`.
+5. `git log --oneline -5`.
 
-If the baseline is red, repair it before adding any new scope.
+**Baseline red → repair it before adding any scope.**
 
-## Working Rules
+## Who runs next
 
-- **Files you write:** every knowledge document stays **≤300 lines** and is listed in
-  `docs/INDEX.md` with a "read it when" line. Over budget → split it the way it grew (topic doc by
-  section, keeping the original filename as a map; append-only log by rotating a frozen dated
-  archive). Method: `docs/reference/knowledge-layout.md`; the binding rules are in
-  `docs/constraints.md`, already loaded for you.
+**`node loop/route.mjs` decides**, reading state and naming the node, its layer, and why.
+`loop/run-loop.sh` dispatches. Markers live in `feature_list.json`'s `checkerNotes` and
+`docs/assumptions.md`. Full graph — nodes, edges, state ownership: `docs/reference/graph.md`.
 
-- **WIP = 1 (one feature at a time):** exactly one feature is `active`. Finish and verify it
-  before activating another. No "while I'm here, also refactor B" (Lesson 7).
-- **Verification required:** never claim done without running the feature's `verification`
-  command. "Looks fine" is not done (Lesson 9).
-- **Stay in scope:** don't modify files unrelated to the active feature.
-- **Externalize memory:** record state in `progress.md` / `feature_list.json`, not just in chat.
-- **The worker does not grade itself:** `status: done` is set only by the checker or a
-  verification script, never by the agent that wrote the code (Lesson 9/13).
-- **Leave clean state:** the next session must be able to run `./init.sh` immediately.
+| Agent | Runs when | Owns |
+|---|---|---|
+| `context-interviewer` | a `needs-human` row in `docs/assumptions.md` | spec — facts the repo cannot contain |
+| `designer` → `design-reviewer` | `checkerNotes` starts `NEEDS DESIGN:` | design — components, cited claims, invariants |
+| `feature-planner` | `checkerNotes` starts `NEEDS RE-PLAN:` | decomposition — re-cutting `feature_list.json` |
+| `test-designer` → `test-implementer` | no `falsifier`, or the oracle is unwritten | the oracle — **neither reads the implementation** |
+| `maker` | a feature is eligible | implementation. **Cannot set `done`** |
+| `checker` | a feature is `readyForCheck` | judgement — **the only agent that may set `done`** |
+| `k8s-integration-tester` | verification deploys to a real cluster | integration — Level 3 across a real service boundary |
+| `harness-setup` | the environment is not ready | toolchain and baseline |
+
+Two nodes are plain code: `tools/verify-harness.mjs --promote` (replays evidence) and
+`loop/approval-gate.mjs` (stops for a human before `done` becomes terminal).
+
+## While you work
+
+- **WIP = 1 (one feature at a time)** — no "while I'm here, also refactor B" (Lesson 7).
+- **Verification required** — run the feature's `verification`; "looks fine" is not done (Lesson 9).
+- **The worker does not grade itself** — `done` comes from the checker or a script (Lesson 9/13).
+- Stay in scope: don't touch files unrelated to the active feature.
+- Externalize memory: state goes in `progress.md` / `feature_list.json`, not chat.
+- Leave the repo runnable from the standard startup path.
+
+## How you write
+
+Applies to every agent, in documents and in what you report back.
+
+- **Brief and concise.** Say it once. Cut preamble, restatement, and hedging.
+- **Lead with the leverage point** — the finding, decision, or blocker first; support after.
+  Bold the few things that change what someone does.
+- **Linear.** One pass, top to bottom. No forward references, no "as mentioned above".
+- **Every knowledge document ≤300 lines**, listed in `docs/INDEX.md` with a "read it when" line.
+  Over budget → split it the way it grew (`docs/reference/knowledge-layout.md`).
 
 ## Definition of Done
 
-A feature is done only when ALL hold (full detail in `docs/definition-of-done.md`, Lesson 1):
+All of these, or it is not done (detail in `docs/definition-of-done.md`, Lesson 1):
 
-- [ ] Target behavior implemented.
-- [ ] The feature's `verification` command actually ran and passed (all three levels required
-      for cross-service change, incl. the microservice-integration/contract level — see
-      `docs/testing-standards.md`, Lesson 10).
-- [ ] Evidence (command + summary + date) recorded in `feature_list.json`.
-- [ ] Repository remains restartable from the standard startup path.
-- [ ] An independent checker approved the transition to `done` (Lesson 9/13).
+- [ ] Behavior implemented.
+- [ ] The feature's `verification` ran and passed — all three levels for a cross-service change
+      (`docs/testing-standards.md`, Lesson 10).
+- [ ] Evidence (command + output summary + date) in `feature_list.json`.
+- [ ] Repo still restartable from the standard startup path.
+- [ ] An independent checker approved the move to `done` (Lesson 9/13).
 
 ## Verification Commands
 
@@ -106,26 +93,34 @@ A feature is done only when ALL hold (full detail in `docs/definition-of-done.md
 {{PRIMARY_VERIFICATION_COMMAND}}
 ```
 
-The full baseline gate is `./init.sh`. Required per-feature checks live in each feature's
-`verification` field in `feature_list.json`.
+Full baseline: `node init.mjs`. Per-feature checks: each feature's `verification` field.
 
 ## End of Session (clock out — leave clean state)
 
-Clean state = these five conditions (Lesson 12). Check them before ending any session:
+1. Baseline green.
+2. Tests pass.
+3. `progress.md` and `feature_list.json` updated.
+4. No stale artifacts (debug logs, `TODO(me)`, temp files, dead branches).
+5. Startup path works from a clean checkout.
 
-1. Build passes (`./init.sh` green).
-2. All tests pass.
-3. `progress.md` and `feature_list.json` are updated.
-4. No stale artifacts left behind (no stray debug logs, `TODO(me)`, temp files, dead branches).
-5. The standard startup path (`./init.sh`) works from a clean checkout.
+Commit with a descriptive message. Mid-feature → update `session-handoff.md`.
 
-Then commit with a descriptive message, and update `session-handoff.md` if work is mid-feature.
+## Escalate (human checkpoints — never automated)
 
-## Escalation (human checkpoints — never automated)
+Write `session-handoff.md` and stop when you hit:
 
-Stop and hand off (write `session-handoff.md`) when you hit:
-
-- An architecture or requirements decision not answered by `docs/`.
-- The same `./init.sh` failure twice in a row for the same cause.
+- An architecture or requirements decision `docs/` does not answer.
+- The same baseline failure twice for the same cause.
 - Any irreversible or production-touching action.
-- Scope ambiguity — re-read `feature_list.json`; if still unclear, escalate.
+- Scope ambiguity that re-reading `feature_list.json` does not resolve.
+
+## Map
+
+`docs/INDEX.md` (all documents) · `docs/assumptions.md` (a `needs-human` row stops the loop) ·
+`docs/cross-cutting.md` (policies with an owner + enforcing rule) · `docs/architecture.md` ·
+`docs/constraints.md` (MUST / MUST NOT) · `docs/testing-standards.md` (three levels) ·
+`docs/definition-of-done.md` · `feature_list.json` (scope) · `progress.md` · `DECISIONS.md` ·
+`loop/goal.md` (objective + stopping condition) · `docs/reference/graph.md` (the control flow)
+
+`harness-onboarder` is absent by design: it runs once, before this scaffold exists, to adopt an
+existing repo (`docs/reference/adopting-an-existing-project.md`). Its output is what you are reading.

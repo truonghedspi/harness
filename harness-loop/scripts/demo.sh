@@ -1326,6 +1326,49 @@ const r=require('$CO/route.json');
 process.exit(r.kind==='agent' && r.node!=='human' ? 0 : 1);
 "; expect "and the router still names an agent node there instead of escalating to a human" $?
 
+# The router is the one file every agent loads, every session. "Keep this file short" was prose,
+# which is the weakest enforcement there is.
+RB="$WORK/router"; rm -rf "$RB"; mkdir -p "$RB"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$RB" --name "Router" --purpose "brevity" >/dev/null
+node -e "
+const t=require('fs').readFileSync('$RB/AGENTS.md','utf8');
+const n=t.split('\n').length;
+// leverage points first, and the writing rule that reaches all ten agents through one file
+process.exit(n<=150 && /The six that carry everything/.test(t) && /Brief and concise/.test(t)
+             && /Lead with the leverage point/.test(t) ? 0 : 1);
+"; expect "the scaffolded router is inside budget and states the leverage points before the detail" $?
+node -e "
+const {execFileSync}=require('child_process');
+const man=require('$RB/agents.manifest.json');
+const all=man.agents.length;
+const load=man.agents.filter(a=>(a.resources||[]).includes('AGENTS.md')).length;
+// one rule, every agent, all three runtimes — that is why it lives here and not in ten prompts
+process.exit(load===all && all>0 ? 0 : 1);
+"; expect "every agent loads it, so the writing rule reaches all of them from one place" $?
+node "$SCRIPTS/verify-harness.mjs" --target "$RB" --skip-baseline --quiet
+node -e "
+const r=require('$RB/trace/verify-report.json');
+process.exit(r.findings.some(f=>/^router-/.test(f.id)) ? 1 : 0);
+"; expect "and a fresh scaffold trips neither router gate" $?
+node -e "
+const fs=require('fs');
+fs.appendFileSync('$RB/AGENTS.md', '\n'+Array(40).fill('padding line').join('\n'));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$RB" --skip-baseline --quiet
+node -e "
+const r=require('$RB/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='router-bloated') ? 0 : 1);
+"; expect "a router that grows past its budget is flagged — brevity is measured, not requested" $?
+node -e "
+const fs=require('fs'); const p='$RB/AGENTS.md';
+fs.writeFileSync(p, fs.readFileSync(p,'utf8').replace(/## How you write[\s\S]*?(?=\n## )/, ''));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$RB" --skip-baseline --quiet
+node -e "
+const r=require('$RB/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='router-no-writing-rule') ? 0 : 1);
+"; expect "deleting the writing rule is caught, not silently tolerated" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

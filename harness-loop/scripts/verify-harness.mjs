@@ -1032,6 +1032,34 @@ function gateK8s() {
 //
 // Setup never overwrites an existing file, so every target scaffolded before the port still has it.
 // This finds them.
+// The router is the one file EVERY agent loads, so its length is a tax on every session. It used to
+// say "Keep this file short" in prose, which is the weakest possible enforcement. A budget is not
+// about tidiness: past ~150 lines the leverage points stop being findable, and an agent that cannot
+// find the rule behaves as if the rule is not there.
+function gateRouterBudget() {
+  const BUDGET = 150;
+  for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+    const raw = read(P(name));
+    if (!raw) continue;
+    const lines = raw.split("\n").length;
+    if (lines > BUDGET) {
+      add({
+        gate: "docs", id: "router-bloated", layer: "project", severity: "warn", count: lines,
+        symptom: `${name} is ${lines} lines (budget ${BUDGET}) — every agent loads it, every session`,
+        remedy: "move detail into docs/ and leave a pointer. The router names what exists and who decides; it is not the place to explain any of it",
+      });
+    }
+    if (!/how you write|brief and concise/i.test(raw)) {
+      add({
+        gate: "docs", id: "router-no-writing-rule", layer: "project", severity: "warn",
+        symptom: `${name} states no writing rule — nothing tells agents to lead with the leverage point and stay brief`,
+        remedy: "add the 'How you write' section from templates/tree/AGENTS.md. It is the one instruction surface every agent loads, so it is the only place this rule reaches all of them at once",
+      });
+    }
+    break;                                          // AGENTS.md wins if both exist
+  }
+}
+
 function gateInitSwallows() {
   if (exists(P("init.mjs"))) return;                 // ported: the gate is JS and run() exits non-zero
   const sh = read(P("init.sh"));
@@ -1221,6 +1249,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateRouterBudget();
 gateInitSwallows();
 gateCodexHooks();
 gateMcp();
