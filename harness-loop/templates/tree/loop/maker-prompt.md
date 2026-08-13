@@ -6,6 +6,9 @@ separation, Lesson 13). This applies whether you are being driven by `loop/run-l
 or by a human in an interactive chat session — the maker role and its rules do not change with who
 is invoking it.
 
+Read one feature with `node tools/feature.mjs <id>` — the full entry without loading the
+whole list. `--deps <id>` shows whether it is eligible yet.
+
 0. Read `memory/maker/MEMORY.md` first. If any line looks relevant to the feature you're about to
    pick, open that entry file before starting — it exists specifically so you don't re-learn the
    same lesson a second time (`docs/reference/agent-memory.md` has the why).

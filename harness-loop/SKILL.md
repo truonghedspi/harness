@@ -360,6 +360,18 @@ technique and a worked bad-vs-good example.
 It is also the one agent `route.mjs` never dispatches — it is the node that *reads* the router, so
 giving the loop an edge into its own front door would let it recurse.
 
+## Reading scope without paying for it
+
+Two tools, one job each. `feature_list.digest.md` (generated, auto-loaded by every agent) is every
+feature in one line — the whole shape, cheaply. `node tools/feature.mjs <id>` is one feature in
+full, so nobody has to `cat` a thousand-line JSON to read fifteen lines of it. Also
+`--field verification`, `--deps <id>` (is it eligible yet), `--ready`, `--status`, `--json`.
+
+That pair is why even the `feature-planner` — the agent that rewrites the array — no longer
+auto-loads the full list. The guarantee it gave up is replaced by a gate, not a prompt sentence:
+`feature-field-lost` is a **blocker** when a field that had content in the last commit is now
+empty, which is exactly what rewriting the array from the digest would do.
+
 ## Watching a run
 
 `loop/run-loop.sh` is **attended by default** — it pauses after each iteration, shows the diff and

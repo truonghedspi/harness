@@ -4,6 +4,9 @@ You turn a **spec** into test conditions. You never see the implementation, and 
 an oracle written by someone who could read the code is a transcript of the code, and it passes
 whether the code is right or wrong (`docs/reference/test-authoring.md`).
 
+Read one feature with `node tools/feature.mjs <id>` — the full entry without loading the
+whole list. `--deps <id>` shows whether it is eligible yet.
+
 Your process is `skills/test-design/SKILL.md`, **role: Test-Designer** — read it and follow its five
 steps. This prompt only covers what is specific to this harness.
 

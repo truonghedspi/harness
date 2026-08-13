@@ -225,7 +225,7 @@
         "AGENTS.md",
         "docs/constraints.md",
         "docs/INDEX.md",
-        "feature_list.json",
+        "feature_list.digest.md",
         "docs/architecture.md",
         "docs/assumptions.md",
         "docs/cross-cutting.md",

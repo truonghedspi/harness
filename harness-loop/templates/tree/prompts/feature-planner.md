@@ -9,6 +9,12 @@ reasoning behind each step).
 
 **You replace `feature_list.json`'s placeholder features. You do not implement anything.**
 
+**Read `feature_list.json` in full before you write it.** You are auto-loaded with
+`feature_list.digest.md` — one line per feature, enough to see the whole shape cheaply — because on
+a mature project the real file is a thousand lines you would pay for on every single spawn. The
+digest is a map, not the source: rewriting the array from it would silently drop every field it
+does not show (evidence, checkerNotes, attempts). Open the real file first, every time.
+
 Read `memory/feature-planner/MEMORY.md` first. If a past re-plan on this project taught something
 non-obvious about how its requirements are shaped, open that entry before cutting features again
 (`docs/reference/agent-memory.md`).

@@ -574,8 +574,37 @@ process.exit(r.includes('feature_list.digest.md') && !r.includes('/feature_list.
 node -e "
 const fs=require('fs');
 const j=JSON.parse(fs.readFileSync('$T2/.kiro/agents/feature-planner.json','utf8'));
-process.exit(j.resources.some(r=>r.endsWith('feature_list.json')) ? 0 : 1);
-"; expect "feature-planner keeps the full list — it is the agent that rewrites it" $?
+const r=j.resources.join(' ');
+// The planner used to auto-load the FULL list because it rewrites the array — a real guarantee,
+// paid on every spawn: 1943 lines on aeron-demo, the heaviest agent by far and growing with the
+// project. It now loads the digest and reads the file on demand.
+process.exit(r.includes('feature_list.digest.md') && !r.includes('/feature_list.json') ? 0 : 1);
+"; expect "even the planner auto-loads the digest — the full list is read on demand, not carried" $?
+node -e "
+const fs=require('fs');
+// Dropping a mechanical guarantee for a prompt sentence is the trade this harness says degrades,
+// so the hazard it protected against is now gated instead: rewriting the array from the digest
+// silently empties the fields the digest does not carry.
+const {execFileSync}=require('child_process');
+const p='$T2/feature_list.json';
+try { execFileSync('git',['init','-q','.'],{cwd:'$T2'}); } catch {}
+execFileSync('git',['add','-A'],{cwd:'$T2'});
+execFileSync('git',['-c','user.email=a@b','-c','user.name=a','commit','-qm','base'],{cwd:'$T2'});
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features[0].checkerNotes='NEEDS DESIGN: which reading?'; d.features[0].evidence='ran it';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+execFileSync('git',['add','-A'],{cwd:'$T2'});
+execFileSync('git',['-c','user.email=a@b','-c','user.name=a','commit','-qm','notes'],{cwd:'$T2'});
+const e=JSON.parse(fs.readFileSync(p,'utf8'));
+e.features[0].checkerNotes=''; e.features[0].evidence='';
+fs.writeFileSync(p, JSON.stringify(e,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+node -e "
+const r=require('$T2/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='feature-field-lost');
+process.exit(f && f.severity==='blocker' && /checkerNotes/.test(f.evidence) ? 0 : 1);
+"; expect "and losing a checkerNotes or evidence that had content is a BLOCKER — a dropped marker stops the loop escalating" $?
 node -e "const fs=require('fs');fs.appendFileSync('$T2/feature_list.digest.md','\n- drifted\n')"
 node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q '"id": "feature-digest-stale"' "$T2/trace/verify-report.json"
@@ -1536,6 +1565,41 @@ process.exit(/## Worked example/.test(d) && /Bad —/.test(d) && /Good —/.test
 node "$SCRIPTS/../scripts/context-budget.mjs" --target "$OR" > "$OR/budget.log" 2>&1
 grep -q "0 agent(s) over budget" "$OR/budget.log"
 expect "and the extra reading does not push any agent over its context budget" $?
+
+# The pair to the digest: the digest is every feature in one line, this is one feature in full —
+# so an agent never has to cat a thousand-line JSON to read fifteen lines of it.
+FQ="$WORK/featq"; rm -rf "$FQ"; mkdir -p "$FQ"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$FQ" --name "FeatQ" --purpose "queries" >/dev/null
+test -f "$FQ/tools/feature.mjs"; expect "every scaffold ships the single-feature query" $?
+node -e "
+const {execFileSync}=require('child_process');
+const j=JSON.parse(execFileSync('node',['tools/feature.mjs','feat-001','--json'],{cwd:'$FQ',encoding:'utf8'}));
+process.exit(j.id==='feat-001' && j.verification ? 0 : 1);
+"; expect "it returns one entry, whole, by id" $?
+node -e "
+const {execFileSync}=require('child_process');
+const v=execFileSync('node',['tools/feature.mjs','feat-001','--field','verification'],{cwd:'$FQ',encoding:'utf8'}).trim();
+// a maker that only needs the command should not pay for the entry, let alone the file
+process.exit(v && !/\n/.test(v) ? 0 : 1);
+"; expect "--field returns just that field, for the common case of wanting the command" $?
+node -e "
+const {execFileSync}=require('child_process');
+const out=execFileSync('node',['tools/feature.mjs','--deps','feat-002'],{cwd:'$FQ',encoding:'utf8'});
+process.exit(/eligible|not eligible/.test(out) ? 0 : 1);
+"; expect "--deps answers eligibility instead of making the caller compare statuses by hand" $?
+node -e "
+const {execFileSync}=require('child_process');
+let code=0, err='';
+try { execFileSync('node',['tools/feature.mjs','feat001'],{cwd:'$FQ',encoding:'utf8',stdio:['pipe','pipe','pipe']}); }
+catch(e){ code=e.status; err=String(e.stderr); }
+// the typo people actually make is a separator, which a plain substring test misses
+process.exit(code===1 && /Did you mean: feat-001/.test(err) ? 0 : 1);
+"; expect "a mistyped id suggests the real one instead of sending you back to the file" $?
+node -e "
+const t=require('fs').readFileSync('$FQ/feature_list.digest.md','utf8');
+// the digest is where an agent learns the command exists
+process.exit(/tools\/feature\.mjs/.test(t) ? 0 : 1);
+"; expect "and the digest itself points at it, so the cheap path is the discoverable one" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"

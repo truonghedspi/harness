@@ -1045,6 +1045,42 @@ function gateK8s() {
 // say "Keep this file short" in prose, which is the weakest possible enforcement. A budget is not
 // about tidiness: past ~150 lines the leverage points stop being findable, and an agent that cannot
 // find the rule behaves as if the rule is not there.
+// The planner rewrites feature_list.json's whole array, and it is auto-loaded with the DIGEST now
+// rather than the full file — 70 lines instead of a thousand on every spawn. That trade is only
+// safe if "rewrote it from the digest and dropped the fields the digest does not show" is caught by
+// something other than a sentence in a prompt. This is that something.
+//
+// Only non-empty → empty counts. Clearing a NEEDS DESIGN: marker by REPLACING it with a resolution
+// note keeps checkerNotes non-empty, which is the behaviour we want and must not flag.
+function gateFieldLoss() {
+  if (!exists(P("feature_list.json"))) return;
+  const prevRaw = spawnSync("git", ["show", "HEAD:feature_list.json"], { cwd: TARGET, encoding: "utf8" });
+  if (prevRaw.status !== 0 || !prevRaw.stdout) return;      // no git, no HEAD, or file is new
+  let prev = null, now = null;
+  try { prev = JSON.parse(prevRaw.stdout); now = readJSON(P("feature_list.json")); } catch { return; }
+  if (!prev || !now) return;
+  const CARRIES_CONTENT = ["evidence", "checkerNotes", "falsifier", "behavior", "verification"];
+  const byId = new Map((now.features || []).map((f) => [f.id, f]));
+  const lost = [];
+  for (const before of prev.features || []) {
+    const after = byId.get(before.id);
+    if (!after) continue;                                    // deletion is a re-cut, not field loss
+    for (const k of CARRIES_CONTENT) {
+      const had = String(before[k] || "").trim();
+      const has = String(after[k] || "").trim();
+      if (had && !has) lost.push(`${before.id}.${k}`);
+    }
+  }
+  if (lost.length) {
+    add({
+      gate: "features", id: "feature-field-lost", layer: "project", severity: "blocker", count: lost.length,
+      symptom: `${lost.length} field(s) that had content in the last commit are now empty — most likely the array was rewritten from the digest, which does not carry them`,
+      remedy: "restore from `git show HEAD:feature_list.json`. A dropped checkerNotes takes its routing marker with it, so the loop silently stops escalating that feature; a dropped evidence unproves a feature nobody will re-check",
+      evidence: lost.slice(0, 6).join(", ") + (lost.length > 6 ? ", …" : ""),
+    });
+  }
+}
+
 function gateRouterBudget() {
   const BUDGET = 150;
   for (const name of ["AGENTS.md", "CLAUDE.md"]) {
@@ -1258,6 +1294,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateFieldLoss();
 gateRouterBudget();
 gateInitSwallows();
 gateCodexHooks();

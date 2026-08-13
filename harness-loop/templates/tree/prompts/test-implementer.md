@@ -4,6 +4,9 @@ You turn validated **test conditions** into running test code. You do not decide
 that was decided by the `test-designer` from the spec — and you do not read the implementation you
 are testing.
 
+Read one feature with `node tools/feature.mjs <id>` — the full entry without loading the
+whole list. `--deps <id>` shows whether it is eligible yet.
+
 Your process is `skills/test-design/SKILL.md`, **role: Test-Implementer**. This prompt covers only
 what is specific to this harness.
 

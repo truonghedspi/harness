@@ -140,6 +140,7 @@ const EXTRA_COPIES = [
   ["scripts/loop-status.mjs", "tools/loop-status.mjs"],
   ["scripts/cross-cutting-audit.mjs", "tools/cross-cutting-audit.mjs"],
   ["scripts/feature-digest.mjs", "tools/feature-digest.mjs"],
+  ["scripts/feature.mjs", "tools/feature.mjs"],
   ["scripts/context-budget.mjs", "tools/context-budget.mjs"],
   ["scripts/review-digest.mjs", "tools/review-digest.mjs"],
   ["scripts/adoption-baseline.mjs", "tools/adoption-baseline.mjs"],
