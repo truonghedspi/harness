@@ -84,6 +84,25 @@ work, and forces a single `init.sh` to be green across seven projects before any
 The integration target is just another target: `setup-harness-loop.mjs` scaffolds it, the router
 routes it, the gates gate it. What is new is the registry and the collector, not the loop.
 
+```bash
+node tools/collect-services.mjs --roots ~/work/a,~/work/b --out services.manifest.json
+node setup-harness-loop.mjs --target ~/work/trading-sit --integration services.manifest.json
+```
+
+`--integration` does three things beyond a normal scaffold, all of them about making the collection
+*load-bearing* rather than a file nobody opens:
+
+- **k8s on regardless of `--k8s auto`.** Running several services together is a cluster job by
+  definition, and the charts live in the service repos, not in this directory — so chart-presence is
+  the wrong signal here.
+- **`docs/services.md`, generated from the registry.** The design surface an agent reads. It marks
+  every unanswered field **needs-human** as prominently as the answered ones, and leaves libraries
+  blank rather than manufacturing gaps in something that is never deployed.
+- **`feat-registry`, a `prove` feature whose verification is `node tools/services-check.mjs`.** It
+  exits non-zero while any deployable service lacks a chart, an image, a health command or an
+  explicit `dependsOn`. That is the difference between collection and a survey: the loop cannot get
+  past an incomplete registry by describing it, and the gate closes when the fields are answered.
+
 ## The collector
 
 `harness-onboarder` already solves the hard half. It surveys a repository nobody documented and

@@ -13,6 +13,8 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | Node | Kind | Responsibility | Reads | Writes |
 |---|---|---|---|---|
 | `init.sh` | code | baseline gate — build + test + constraint gates | repo | exit code |
+| `tools/collect-services.mjs` | code | integration targets only — survey N repos into the registry; fills what is discoverable, marks the rest `needs-human` | the service repos | `services.manifest.json` |
+| `tools/services-check.mjs` | code | integration targets only — the registry's own verification: exits non-zero while a deployable service lacks chart/image/health/`dependsOn` | `services.manifest.json` | exit code |
 | `context-interviewer` | agent | ask only what the repo cannot answer; persist every answer | `assumptions.md`, audit output | `assumptions.md`, `cross-cutting.md`, `constraints.md`, `docs/context/**`, `DECISIONS.md` |
 | `designer` | agent | components, cited claims, assumption registry, **observable seam + invariants per component**, and a `## Feature impact` table (its only way to hand scope work over — it may not write `feature_list.json`) | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
 | `design-reviewer` | agent | falsify the design; verify claims by citation | `docs/design/**` | `assumptions.md`, `session-handoff.md` |
@@ -60,6 +62,8 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `trace/**`, `memory/<agent>/**` | each agent, its own dir only | that agent at spawn | append |
 | `loop/approval.md` | **the human** | `approval-gate.mjs` | first line is the verdict; a verdict with no reason is treated as a rejection |
 | `loop/approval-log.jsonl` | `approval-gate.mjs` | audit | append-only |
+| `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; re-running it is a survey, not a reset |
+| `docs/services.md` | `setup-harness-loop.mjs --integration` | designer, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
 | `.kiro/settings/mcp.json` **and** `.mcp.json` | `setup-harness-loop.mjs` | kiro / Claude Code respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not two decisions |
 
 ## Routing rules

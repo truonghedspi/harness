@@ -309,7 +309,13 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   [references/agent-memory.md](references/agent-memory.md)
 - More than one service has to be running for the test to mean anything — the service registry, why
   the unit is a directory rather than a repository, and the four things a survey of seven real repos
-  changed about the design: [references/multi-service.md](references/multi-service.md)
+  changed about the design: [references/multi-service.md](references/multi-service.md).
+  `tools/collect-services.mjs` surveys N repos into `services.manifest.json`;
+  `setup-harness-loop.mjs --integration <manifest>` scaffolds the target above them, generating
+  `docs/services.md` from the registry and seeding `feat-registry`, whose verification
+  (`tools/services-check.mjs`) stays **red** while any deployable service lacks a chart, an image, a
+  health command or an explicit `dependsOn`; `tools/k8s-test-env.sh --services <manifest>` brings the
+  set up in `dependsOn` order and ranks the diagnostics when one of them does not come up
 - Target is a Kubernetes-deployed microservice and Docker isn't available for Level 3 testing:
   [references/k8s-integration-testing.md](references/k8s-integration-testing.md) — a
   namespace-per-run Helm deploy/test/collect-diagnostics/teardown script

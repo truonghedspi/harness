@@ -1133,7 +1133,37 @@ const f=r.findings.find(x=>x.id==='prompt-cites-missing-var');
 process.exit(f && /NAMESPACE_LABEL_SELECTOR/.test(f.evidence) && !/DEPLOY_TIMEOUT_S/.test(f.evidence) ? 0 : 1);
 "; expect "a prompt naming a config variable its script does not define is caught — and the real one is not" $?
 
-step 37 "meta loop: dispatch on the right layer, stop when nothing moves"
+step 37 "integration target: the registry becomes a design doc and a gate that can be red"
+IT="$WORK/integ"; rm -rf "$IT"; mkdir -p "$IT"
+cat > "$WORK/reg.json" <<'JSON'
+{"services":[
+ {"id":"api","kind":"service","chart":"charts/api","dependsOn":["db"],"health":null,"image":null},
+ {"id":"db","kind":"service","chart":"charts/db","dependsOn":[],"health":"pg_isready","image":{"dockerfiles":["Dockerfile"]}},
+ {"id":"shared","kind":"library","chart":null,"dependsOn":[],"health":null,"image":null}
+]}
+JSON
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$IT" --name "SIT" --purpose "cross-service" --integration "$WORK/reg.json" >/dev/null 2>&1
+test -x "$IT/tools/k8s-test-env.sh"; expect "--integration forces the cluster layer on — the charts live in the service repos, not here" $?
+node -e "
+const t=require('fs').readFileSync('$IT/docs/services.md','utf8');
+// the unanswered fields are as prominent as the known ones; a library is not a pile of gaps
+process.exit(/\| \`api\` \| service \|.*needs-human/.test(t) && /\| \`shared\` \| library \| — \| — \| — \| — \|/.test(t) ? 0 : 1);
+"; expect "the design doc marks unanswered fields per service, and does not manufacture gaps for libraries" $?
+( cd "$IT" && node tools/services-check.mjs >/dev/null 2>&1 ); test "$?" = "1"
+expect "the registry gate is RED while a deployable service has no health command — it is a verification, not a report" $?
+node -e "
+const f=require('$IT/feature_list.json').features.find(x=>x.id==='feat-registry');
+process.exit(f && f.verification==='node tools/services-check.mjs' && f.kind==='prove' ? 0 : 1);
+"; expect "and it is in scope as a feature, so the loop cannot pass it by talking about it" $?
+( cd "$IT" && node -e "
+const fs=require('fs'); const m=JSON.parse(fs.readFileSync('services.manifest.json','utf8'));
+m.services.find(s=>s.id==='api').health='curl -sf http://api:8080/healthz';
+m.services.find(s=>s.id==='api').image={dockerfiles:['Dockerfile']};
+fs.writeFileSync('services.manifest.json', JSON.stringify(m,null,2));
+" && node tools/services-check.mjs >/dev/null 2>&1 ); test "$?" = "0"
+expect "answering the two open fields turns it green — the gate closes on answers, not on assertions" $?
+
+step 38 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash

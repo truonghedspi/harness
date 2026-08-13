@@ -33,6 +33,11 @@ const RUNTIME = opt("--runtime", "both");   // kiro | claude | both — which ag
 // org where Helm and kube ARE the deployment (most of them). `auto` turns it on when the target
 // already has a chart, which is the cheapest true signal that this project is deployed that way.
 const K8S = opt("--k8s", "auto");
+// --integration <services.manifest.json> scaffolds the target ABOVE the individual repos: its scope
+// is the registry, its features are cross-service scenarios, and its Level 3 command is the
+// multi-service environment. Each service repo keeps its own harness for in-service work
+// (references/multi-service.md).
+const INTEGRATION = opt("--integration", null);
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(scriptDir, "..");
@@ -136,6 +141,7 @@ const EXTRA_COPIES = [
   ["scripts/guard-write.mjs", "tools/guard-write.mjs"],
   ["scripts/replay-parallel.mjs", "tools/replay-parallel.mjs"],
   ["scripts/collect-services.mjs", "tools/collect-services.mjs"],
+  ["scripts/services-check.mjs", "tools/services-check.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],
@@ -148,6 +154,7 @@ const EXTRA_COPIES = [
   ["references/runtimes.md", "docs/reference/runtimes.md"],
   ["references/step-acceptance.md", "docs/reference/step-acceptance.md"],
   ["references/invariant-contract.md", "docs/reference/invariant-contract.md"],
+  ["references/multi-service.md", "docs/reference/multi-service.md"],
   ["references/multi-service.md", "docs/reference/multi-service.md"],
 ];
 // Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
@@ -192,6 +199,10 @@ let k8sOn = K8S === "on";
 if (K8S === "auto") {
   try { k8sOn = hasChart(targetRoot); } catch { k8sOn = false; }
 }
+// An integration target exists to run several services together; that is a cluster job by
+// definition, so `auto` there means on regardless of whether a chart happens to sit in this
+// directory (the charts live in the service repos, not here).
+if (INTEGRATION && K8S !== "off") k8sOn = true;
 if (k8sOn) {
   const k8sRoot = path.join(skillRoot, "templates", "k8s");
   const walkK8s = (rel) => {
@@ -207,6 +218,96 @@ if (k8sOn) {
     }
   };
   walkK8s(".");
+}
+
+// --- integration target: seed design and scope from the registry --------------------------------
+// Collection is only worth doing if something downstream reads it. Here the registry becomes two
+// things an agent actually uses: a design document it can read, and a feature whose verification
+// is a real command that stays red while the registry has holes.
+if (INTEGRATION) {
+  const src = path.resolve(INTEGRATION);
+  if (!exists(src)) {
+    console.error(`error: --integration manifest not found: ${src}`);
+    process.exit(2);
+  }
+  let reg;
+  try { reg = JSON.parse(readFileSync(src, "utf8")); }
+  catch (e) { console.error(`error: --integration manifest is not valid JSON — ${e.message}`); process.exit(2); }
+  const svcs = Array.isArray(reg.services) ? reg.services : [];
+  const dst = path.join(targetRoot, "services.manifest.json");
+  if (!exists(dst) || FORCE) {
+    writeFileSync(dst, JSON.stringify(reg, null, 2) + "\n");
+    written.push("services.manifest.json");
+  } else skipped.push("services.manifest.json");
+
+  // The design surface. Generated, so it cannot drift from the registry — and it states what is
+  // unanswered as prominently as what is known, because the unanswered fields are the ones that
+  // make a cross-service test lie.
+  const cell = (v) => (v === null || v === undefined || v === "" ? "**needs-human**" : `\`${String(v)}\``);
+  const healthOf = (x) => (typeof x.health === "string" ? x.health : (x.health && x.health.command) || null);
+  const deployable = svcs.filter((x) => x.kind === "service");
+  const lines = [
+    "# Services in scope",
+    "",
+    "**Generated from `services.manifest.json` by `setup-harness-loop.mjs --integration`. Do not",
+    "hand-edit — edit the registry and re-run, or the two disagree and the agents read this one.**",
+    "",
+    `${deployable.length} deployable service(s) of ${svcs.length} registry entr(ies).`,
+    "",
+    "| Service | Kind | Chart | Image | Health | dependsOn |",
+    "|---|---|---|---|---|---|",
+    // A library is never deployed, so chart/image/health are not gaps in it — marking them
+    // needs-human would manufacture work and bury the rows that are real.
+    ...svcs.map((x) => x.kind !== "service"
+      ? `| \`${x.id}\` | ${x.kind} | — | — | — | — |`
+      : `| \`${x.id}\` | ${x.kind} | ${cell(x.chart)} | ${x.image ? "`yes`" : "**needs-human**"} | ${cell(healthOf(x))} | ${x.dependsOn === null || x.dependsOn === undefined ? "**needs-human**" : (x.dependsOn.length ? x.dependsOn.map((d) => `\`${d}\``).join(", ") : "`none`")} |`),
+    "",
+    "## What **needs-human** means here",
+    "",
+    "These are the fields `collect-services.mjs` refuses to guess. A fabricated health check is worse",
+    "than an empty one: the environment then reports ready and the test fails somewhere less obvious.",
+    "",
+    "- **health** — a command proving the service *serves*. `helm --wait` only proves the pod is Running.",
+    "- **dependsOn** — install order. `[]` is an answer; `null` is a blank.",
+    "- **image** — an absent Dockerfile is prerequisite engineering work, not a field to fill in.",
+    "",
+    "`node tools/services-check.mjs` exits non-zero while any of them is open.",
+    "",
+    "## Scope of this target",
+    "",
+    "Cross-service scenarios only. Anything provable inside one service belongs to that service's own",
+    "harness — see `docs/reference/multi-service.md` for why the alternatives were rejected.",
+    "",
+  ];
+  const sd = path.join(targetRoot, "docs", "services.md");
+  if (!exists(sd) || FORCE) {
+    mkdirSync(path.dirname(sd), { recursive: true });
+    writeFileSync(sd, lines.join("\n"));
+    written.push("docs/services.md");
+  } else skipped.push("docs/services.md");
+
+  // And the scope entry, so the loop cannot proceed past an incomplete registry by talking about it.
+  const flPath = path.join(targetRoot, "feature_list.json");
+  const fl = exists(flPath) ? JSON.parse(readFileSync(flPath, "utf8")) : null;
+  if (fl && Array.isArray(fl.features) && !fl.features.some((f) => f.id === "feat-registry")) {
+    fl.features.splice(1, 0, {
+      id: "feat-registry",
+      name: "Service registry is complete enough to stand the system up",
+      kind: "prove",
+      behavior: "Every deployable service in services.manifest.json has a chart, an image, a health command that proves it serves, and an explicit dependsOn",
+      verification: "node tools/services-check.mjs",
+      falsifier: "a registry where a service's health is null — the environment then reports ready on 'pod is Running' and a green cross-service test proves nothing",
+      dependencies: ["feat-001"],
+      status: "not-started",
+      readyForCheck: false,
+      evidence: "",
+      checkerNotes: "Answers go in services.manifest.json, not here. Do not invent a health command to clear this gate; if the chart does not say, record that instead.",
+      attempts: 0,
+      maxAttempts: 3,
+    });
+    writeFileSync(flPath, JSON.stringify(fl, null, 2) + "\n");
+    written.push("feature_list.json (+ feat-registry)");
+  }
 }
 
 // --- MCP, for BOTH runtimes from one source -------------------------------------------------------
