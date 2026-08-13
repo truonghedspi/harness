@@ -56,6 +56,10 @@ All four must hold before any work (Lesson 6). If one fails, fixing it *is* the 
 the whole routing table in precedence order. Do not read `route.mjs`'s source to work it out, and
 never write a script to parse it. Full graph, including state ownership: `docs/reference/graph.md`.
 
+**How is it going? `node tools/timeline.mjs`** — net progress over the last seven days, what was
+reopened, and how long each open feature has been open. A snapshot cannot tell a moving project
+from a stuck one.
+
 **Need one feature? `node tools/feature.mjs <id>`** — the full entry without loading the list, plus
 `--field verification`, `--deps <id>` for eligibility, `--ready`, `--status`. Do not write an inline
 script to filter `feature_list.json`; on a mature project that reads a thousand lines to use fifteen.

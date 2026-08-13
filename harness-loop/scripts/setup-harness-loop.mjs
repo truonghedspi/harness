@@ -142,6 +142,7 @@ const EXTRA_COPIES = [
   ["scripts/memory-consolidate.mjs", "tools/memory-consolidate.mjs"],
   ["scripts/run-report.mjs", "tools/run-report.mjs"],
   ["scripts/loop-status.mjs", "tools/loop-status.mjs"],
+  ["scripts/timeline.mjs", "tools/timeline.mjs"],
   ["scripts/cross-cutting-audit.mjs", "tools/cross-cutting-audit.mjs"],
   ["scripts/feature-digest.mjs", "tools/feature-digest.mjs"],
   ["scripts/feature.mjs", "tools/feature.mjs"],

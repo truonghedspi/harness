@@ -399,6 +399,18 @@ auto-loads the full list. The guarantee it gave up is replaced by a gate, not a 
 `feature-field-lost` is a **blocker** when a field that had content in the last commit is now
 empty, which is exactly what rewriting the array from the digest would do.
 
+## Is it moving?
+
+`node tools/timeline.mjs` — replayed from git history of `feature_list.json`, because commit dates
+are evidence while the dates agents write into `evidence` are self-reported (22 of 61 had one at
+all on the dogfood project). It gives the **net** change over the last seven days, what was
+**reopened**, a per-day bar of transitions, and how long each open feature has been open.
+`--feature <id>` replays one feature's whole history.
+
+Net, not a count of transitions: a feature finished, reopened and refinished must count once.
+Counting transitions reported "21 finished this week" on a list with 18 done — true, and it reads
+as a bug, which quietly destroys trust in every other number on the screen.
+
 ## Watching a run
 
 `loop/run-loop.sh` is **attended by default** — it pauses after each iteration, shows the diff and

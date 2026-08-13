@@ -22,6 +22,13 @@ so, show the state you think it misread, and stop. Never route around it.
    the state from memory or from earlier in the conversation — files change under you. To explain
    *why* a node is next, or what happens after it: `node loop/route.mjs --rules`.
 
+   **For "how is it going", add `node tools/timeline.mjs`.** `loop-status` is a snapshot and
+   cannot answer whether the project is moving: 18/61 done looks identical whether twelve features
+   finished last week or nothing has finished in a fortnight. The timeline gives the net change over
+   the last seven days, features **reopened** (the signal worth leading with — work that was
+   finished and is not any more), and how long each open feature has been open.
+   `--feature <id>` for one feature's whole history.
+
    **On a new session this is your catch-up.** `loop-status` carries a *since you were last here*
    block: the recent commits, and what `session-handoff.md` says the last session was doing. If it
    reports the handoff **stale** — older than the last commit — do not act on it; it describes a

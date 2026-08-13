@@ -1849,6 +1849,57 @@ const g=require('fs').readFileSync('$GM/.gitignore','utf8').split('\n').map(l=>l
 process.exit(['feature_list.json','progress.md','DECISIONS.md','memory/'].some(p=>g.includes(p)) ? 1 : 0);
 "; expect "and even then the state stays tracked — the machinery is replaceable, the memory is not" $?
 
+# loop-status is a snapshot and cannot answer "is it moving": 18/61 done looks identical whether
+# twelve finished last week or nothing has finished in a fortnight.
+TL="$WORK/timeline"; rm -rf "$TL"; mkdir -p "$TL"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$TL" --name "TL" --purpose "history" >/dev/null
+test -f "$TL/tools/timeline.mjs"; expect "every scaffold ships the timeline view" $?
+( cd "$TL" && node tools/timeline.mjs ) > "$TL/nogit.log" 2>&1; NG=$?
+grep -q "not a git repository" "$TL/nogit.log" && [ "$NG" != "0" ]
+expect "with no history it says so and exits non-zero, instead of inventing a timeline" $?
+( cd "$TL" && git init -q . && git add -A && git -c user.email=a@b -c user.name=a commit -qm "scaffold" ) >/dev/null 2>&1
+# three commits: a feature finishes, is reopened, finishes again — the case that broke my first two
+# attempts at the movement metric.
+node -e "
+const fs=require('fs'); const p='$TL/feature_list.json';
+const set=(id,st)=>{const d=JSON.parse(fs.readFileSync(p,'utf8'));
+  const f=d.features.find(x=>x.id===id); f.status=st; fs.writeFileSync(p,JSON.stringify(d,null,2));};
+set('feat-001','done');
+"
+( cd "$TL" && git commit -aqm "feat-001 done" ) >/dev/null 2>&1
+node -e "
+const fs=require('fs'); const p='$TL/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(x=>x.id==='feat-001').status='in-progress'; fs.writeFileSync(p,JSON.stringify(d,null,2));"
+( cd "$TL" && git commit -aqm "feat-001 reopened" ) >/dev/null 2>&1
+node -e "
+const fs=require('fs'); const p='$TL/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(x=>x.id==='feat-001').status='done'; fs.writeFileSync(p,JSON.stringify(d,null,2));"
+( cd "$TL" && git commit -aqm "feat-001 done again" ) >/dev/null 2>&1
+node -e "
+const {execFileSync}=require('child_process');
+const j=JSON.parse(execFileSync('node',['tools/timeline.mjs','--json'],{cwd:'$TL',encoding:'utf8'}));
+// NET against the state a week ago. Counting transitions said '21 finished' on a list with 18 done
+// — true, and it reads as a bug, which quietly destroys trust in the rest of the screen.
+process.exit(j.summary.doneThisWeek===j.summary.done && j.summary.reopenedThisWeek===1 ? 0 : 1);
+"; expect "a feature finished, reopened and refinished counts once — net progress, never more done than exist" $?
+node -e "
+const {execFileSync}=require('child_process');
+const j=JSON.parse(execFileSync('node',['tools/timeline.mjs','--json'],{cwd:'$TL',encoding:'utf8'}));
+// a reopen is the signal worth leading with: work that WAS finished and is not any more
+process.exit(j.events.some(e=>e.id==='feat-001'&&e.from==='done'&&e.to==='in-progress') ? 0 : 1);
+"; expect "and the reopen is visible as its own transition, not averaged away" $?
+node -e "
+const {execFileSync}=require('child_process');
+const out=execFileSync('node',['tools/timeline.mjs','--feature','feat-001'],{cwd:'$TL',encoding:'utf8'});
+process.exit(/done/.test(out) && /in-progress/.test(out) && /now:/.test(out) ? 0 : 1);
+"; expect "--feature replays one feature's whole history and where it stands now" $?
+node -e "
+const {execFileSync}=require('child_process');
+const j=JSON.parse(execFileSync('node',['tools/timeline.mjs','--json'],{cwd:'$TL',encoding:'utf8'}));
+// aging is the thing a snapshot hides: how long has this been sitting there
+process.exit(j.open.every(f=>typeof f.ageDays==='number') ? 0 : 1);
+"; expect "and every open feature carries how long it has been open" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
