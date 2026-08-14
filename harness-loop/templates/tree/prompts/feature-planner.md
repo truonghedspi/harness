@@ -73,7 +73,12 @@ to design work that is already done.
    Dependency order is *completion* order. **Authoring order is the opposite**: the prove feature's
    test is written from the spec and seen failing before the build feature makes it pass. Say so in
    the prove feature's behavior sentence so the maker doesn't discover it late.
-4. **Apply the Definition-of-Ready checklist** (reference doc Step 5) to every feature: id,
+4. **Record what you already know into `context`.** Sizing the feature forced you to name the 1-3
+   files it touches — write them down: `context: { touches: [...], note: "…" }`, plus the one line
+   the implementer would otherwise rediscover (the seam, the gotcha, the existing helper to reuse).
+   This costs you nothing, because you cannot size a feature without it. Skipping it means every
+   later agent re-reads the codebase to learn what you already knew (`feature-context-missing`).
+5. **Apply the Definition-of-Ready checklist** (reference doc Step 5) to every feature: id,
    one-sentence behavior, one real runnable verification command, and a **`falsifier`** naming the
    specific wrong implementation that command would fail on.
    **Derive the `falsifier` from the design's invariants, and cite the id.** Put the id in square
@@ -95,14 +100,14 @@ to design work that is already done.
    `readyForCheck: false`, `evidence: ""`, `checkerNotes: ""`, `attempts: 0`, `maxAttempts: 3`
    unless you have a specific reason to raise it for a feature you already expect to be
    exploratory).
-5. **Write the file.** Replace `feature_list.json`'s `features` array entirely (keep the
+6. **Write the file.** Replace `feature_list.json`'s `features` array entirely (keep the
    `$comment` and `states` keys as scaffolded). Keep the existing `feat-001` baseline entry if one
    is already there and correct for this project.
-6. **Record the "why" you can't see from the DAG alone.** For any non-obvious cut (you merged two
+7. **Record the "why" you can't see from the DAG alone.** For any non-obvious cut (you merged two
    things the requirement described separately, or split one thing the requirement described as
    one), add a short `DECISIONS.md` entry — a future session re-reading `feature_list.json` cold
    should be able to tell WHY it's shaped this way, not just what shape it is.
-7. **Self-check mechanically before reporting.** Run
+8. **Self-check mechanically before reporting.** Run
    `node tools/verify-harness.mjs --target . --skip-baseline --quiet` and read the `features`-gate
    findings in `trace/verify-report.json`.
 

@@ -2000,6 +2000,47 @@ const out=execFileSync('node',['tools/feature.mjs','feat-structured'],{cwd:'$WR'
 process.exit(/red\s+echo hi/.test(out) && /green\s+echo hi/.test(out) ? 0 : 1);
 "; expect "and one feature's runs render as a readable table instead of a 1700-character line" $?
 
+# Reported from real use: agents re-read the codebase every task, and re-ask what was already
+# settled. The planner is REQUIRED to name the 1-3 files a feature touches in order to size it
+# (feature-decomposition Step 3) — and there was no field to record them, so the knowledge was used
+# once and thrown away. Every later agent rediscovers it.
+CX="$WORK/context"; rm -rf "$CX"; mkdir -p "$CX"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$CX" --name "Ctx" --purpose "handoff" >/dev/null
+node -e "
+const f=require('$CX/feature_list.json').features.find(x=>x.id==='feat-002');
+process.exit(f.context && Array.isArray(f.context.touches) && f.context.note ? 0 : 1);
+"; expect "a feature can carry the handoff into implementation: the files it touches, and the one line to know" $?
+node -e "
+const {execFileSync}=require('child_process');
+const out=execFileSync('node',['tools/feature.mjs','feat-002'],{cwd:'$CX',encoding:'utf8'});
+// the maker reads its task through this tool; the handoff has to surface there or it may as well
+// not exist
+process.exit(/touches/.test(out) && /context/.test(out) ? 0 : 1);
+"; expect "and the tool the implementer reads its task with surfaces it" $?
+node -e "
+const fs=require('fs'); const p='$CX/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+for (const f of d.features) delete f.context;
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$CX" --skip-baseline --quiet
+node -e "
+const r=require('$CX/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='feature-context-missing');
+// ONE finding with a count, not one per feature — 42 separate warnings is the wall review-digest
+// exists to remove
+process.exit(f && f.count>=2 ? 0 : 1);
+"; expect "unfinished features with no context are reported once, with a count, not one warning each" $?
+node -e "
+const m=require('$CX/agents.manifest.json');
+const mk=m.agents.find(a=>a.name==='maker');
+// the designer and planner both loaded the orientation doc; the agent that actually navigates the
+// codebase did not
+process.exit(mk.resources.includes('docs/architecture.md') ? 0 : 1);
+"; expect "the maker loads docs/architecture.md — the map the designer maintains, for the agent that navigates" $?
+node "$SCRIPTS/context-budget.mjs" --target "$CX" > "$CX/budget.log" 2>&1
+grep -q "0 agent(s) over budget" "$CX/budget.log"
+expect "and it still fits: shared context is only cheaper than rediscovery if it is inside the budget" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

@@ -1,5 +1,5 @@
 {
-  "$comment": "Single source of truth for scope (Lesson 8). Every feature carries the triple: behavior + verification + state, plus evidence. Only the checker/verification script flips status to passing/done (Lesson 9). Replace these placeholders with real features whose verification is a runnable command. attempts/maxAttempts is a timebox: the maker increments attempts on every iteration it works a feature and MUST set status=blocked (with a reason in checkerNotes) once attempts reaches maxAttempts, instead of continuing to retry indefinitely \u2014 this is what stops a hard problem from silently consuming an unbounded loop budget. `evidence` is a LIST OF RUNS, not a paragraph: [{date, run: red|green, cmd, result}]. A plain string still works for older lists, but the list form keeps each line readable in a diff and lets the red-run check be exact instead of a regex over prose. `behavior` and `falsifier` are ONE SENTENCE each — if either needs a paragraph, that is the feature being two features (feature-scope-smell). Each feature also carries kind (build|prove) and falsifier: the specific wrong implementation its verification would fail on. A verification whose falsifier you cannot name does not discriminate \u2014 see docs/reference/test-authoring.md.",
+  "$comment": "Single source of truth for scope (Lesson 8). Every feature carries the triple: behavior + verification + state, plus evidence. Only the checker/verification script flips status to passing/done (Lesson 9). Replace these placeholders with real features whose verification is a runnable command. attempts/maxAttempts is a timebox: the maker increments attempts on every iteration it works a feature and MUST set status=blocked (with a reason in checkerNotes) once attempts reaches maxAttempts, instead of continuing to retry indefinitely — this is what stops a hard problem from silently consuming an unbounded loop budget. `context` is the handoff INTO implementation: the 1-3 files the feature touches, plus one line the implementer would otherwise rediscover. The planner already has to name those files to size the feature (feature-decomposition.md Step 3) — recording them is what stops the next agent re-reading the codebase to learn what the last one already knew. `evidence` is a LIST OF RUNS, not a paragraph: [{date, run: red|green, cmd, result}]. A plain string still works for older lists, but the list form keeps each line readable in a diff and lets the red-run check be exact instead of a regex over prose. `behavior` and `falsifier` are ONE SENTENCE each — if either needs a paragraph, that is the feature being two features (feature-scope-smell). Each feature also carries kind (build|prove) and falsifier: the specific wrong implementation its verification would fail on. A verification whose falsifier you cannot name does not discriminate — see docs/reference/test-authoring.md.",
   "states": [
     "not-started",
     "active",
@@ -14,7 +14,7 @@
       "name": "Baseline green",
       "behavior": "Project installs deps, runs the baseline gate to green, and starts from a clean checkout",
       "verification": "node init.mjs",
-      "falsifier": "a gate that exits 0 without running anything \u2014 or one that runs a failing step and swallows it, which the bash version did \u2014 the baseline must be able to go red",
+      "falsifier": "a gate that exits 0 without running anything — or one that runs a failing step and swallows it, which the bash version did — the baseline must be able to go red",
       "dependencies": [],
       "status": "not-started",
       "readyForCheck": false,
@@ -28,6 +28,13 @@
       "name": "First real feature (REPLACE ME)",
       "behavior": "Replace with the first concrete behavior the agent should implement",
       "verification": "REPLACE with a runnable command that proves this behavior, e.g. npm test -- feature-x",
+      "context": {
+        "touches": [
+          "src/path/to/the-file-this-creates.ext",
+          "src/path/to/the-one-it-changes.ext"
+        ],
+        "note": "One line the implementer would otherwise have to rediscover: the seam, the gotcha, the existing thing to reuse."
+      },
       "falsifier": "REPLACE with the wrong implementation this command catches, e.g. 'returns the input unchanged' or 'rounds half-up instead of half-even'",
       "kind": "build",
       "dependencies": [
@@ -43,7 +50,7 @@
     {
       "id": "feat-003",
       "name": "Cross-service integration verification for feat-002 (REPLACE ME)",
-      "behavior": "A full-pipeline check that the feature works across the microservice boundary \u2014 contract holds between the services involved (Lesson 10)",
+      "behavior": "A full-pipeline check that the feature works across the microservice boundary — contract holds between the services involved (Lesson 10)",
       "verification": "REPLACE with the microservice integration / contract command, e.g. npm run test:contract or docker compose up + a cross-service flow test",
       "falsifier": "REPLACE with the cross-boundary defect this catches, e.g. 'service A serialises the field as a string while B expects a number'",
       "kind": "prove",

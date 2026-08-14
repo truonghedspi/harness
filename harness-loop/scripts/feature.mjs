@@ -116,6 +116,11 @@ L.push("");
 if (f.behavior) L.push(`  behavior      ${f.behavior}`);
 if (f.verification) L.push(`  verification  ${f.verification}`);
 if (f.falsifier) L.push(`  falsifier     ${f.falsifier}`);
+if (f.context && (f.context.touches || f.context.note)) {
+  // The point of this field: you should not have to go and find these out again.
+  if ((f.context.touches || []).length) L.push(`  touches       ${f.context.touches.join("\n                ")}`);
+  if (f.context.note) L.push(`  context       ${f.context.note}`);
+}
 if ((f.dependencies || []).length) {
   const unmet = f.dependencies.filter((d) => { const x = features.find((y) => y.id === d); return !x || !done(x); });
   L.push(`  dependencies  ${f.dependencies.join(", ")}` + (unmet.length ? `   (waiting on ${unmet.join(", ")})` : "   (all done)"));

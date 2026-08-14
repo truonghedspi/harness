@@ -289,6 +289,7 @@
       "resources": [
         "AGENTS.md",
         "docs/constraints.md",
+        "docs/architecture.md",
         "docs/INDEX.md",
         "feature_list.digest.md",
         "progress.md",

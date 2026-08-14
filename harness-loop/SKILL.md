@@ -387,6 +387,22 @@ target's manifest has never heard of.
 
 Drift is compared placeholder-tolerantly, so a target scaffolded a minute ago reports nothing.
 
+## Carrying context between agents
+
+The complaint that produced this: agents re-read the codebase on every task and re-ask what an
+earlier step already settled. Three channels, each fixing a specific leak:
+
+| Leak | Channel |
+|---|---|
+| The planner names the 1-3 files a feature touches **in order to size it**, then discards them | `context: { touches, note }` on the feature. Free to record — you cannot size a feature without knowing it. Gate: `feature-context-missing` |
+| The maker navigates the codebase without the map the designer maintains | `docs/architecture.md` is now one of the maker's resources |
+| Facts the repo cannot contain get re-asked | `docs/assumptions.md`, already loaded by the maker — a row flipped to `verified` is answered forever |
+
+What is deliberately **not** shared: agent memory stays per-role. `memory/designer/` is the
+designer's lessons about designing, not about this codebase; broadcasting it would cost every agent
+context to carry advice for a job it does not do. Codebase facts belong in
+`docs/architecture.md` and in the feature's `context`, which is why those exist.
+
 ## Reading scope without paying for it
 
 Two tools, one job each. `feature_list.digest.md` (generated, auto-loaded by every agent) is every

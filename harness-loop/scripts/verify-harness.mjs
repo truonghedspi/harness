@@ -1132,6 +1132,29 @@ function evidenceText(f) {
   return runs.map((r) => [r.date, r.run, r.cmd, r.result].filter(Boolean).join(" ")).join("\n");
 }
 
+// The handoff into implementation. feature-decomposition.md Step 3 requires the planner to name the
+// 1-3 files a feature touches BEFORE writing it down — that is how the feature gets sized — and
+// until now there was no field to put them in, so the knowledge was used once and discarded. The
+// maker then re-reads the codebase to learn what the planner already knew, which is the most
+// expensive kind of rework: it happens on every feature, forever.
+function gateFeatureContext() {
+  const fl = readJSON(P("feature_list.json"));
+  if (!fl) return;
+  const open = (fl.features || []).filter((f) => !["done", "passing"].includes(String(f.status)));
+  const without = open.filter((f) => {
+    const c = f.context || {};
+    return !(Array.isArray(c.touches) && c.touches.length) && !String(c.note || "").trim();
+  });
+  if (!without.length || !open.length) return;
+  add({
+    gate: "features", id: "feature-context-missing", layer: "project", severity: "warn",
+    count: without.length,
+    symptom: `${without.length} of ${open.length} unfinished feature(s) carry no \`context\` — the implementer will rediscover which files they touch`,
+    remedy: "add `context: { touches: [...], note: \"…\" }` when planning. The planner already had to name those files to size the feature; writing them down is the difference between one agent learning the codebase and every agent learning it again",
+    evidence: without.slice(0, 5).map((f) => f.id).join(", ") + (without.length > 5 ? ", …" : ""),
+  });
+}
+
 function gateLead() {
   const LEAD = 200;
   const fl = readJSON(P("feature_list.json"));
@@ -1485,6 +1508,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateFeatureContext();
 gateLead();
 gateDuplicateVerification();
 gateVerificationHome();
