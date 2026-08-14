@@ -120,7 +120,13 @@ if ((f.dependencies || []).length) {
   const unmet = f.dependencies.filter((d) => { const x = features.find((y) => y.id === d); return !x || !done(x); });
   L.push(`  dependencies  ${f.dependencies.join(", ")}` + (unmet.length ? `   (waiting on ${unmet.join(", ")})` : "   (all done)"));
 }
-if (f.evidence) L.push(`  evidence      ${String(f.evidence).split("\n").join("\n                ")}`);
+if (Array.isArray(f.evidence) && f.evidence.length) {
+  L.push("  evidence");
+  for (const r of f.evidence) {
+    L.push(`      ${String(r.date || "?").padEnd(11)} ${String(r.run || "?").padEnd(6)} ${String(r.cmd || "").slice(0, 46)}`);
+    if (r.result) L.push(`                  → ${String(r.result).slice(0, 70)}`);
+  }
+} else if (f.evidence) L.push(`  evidence      ${String(f.evidence).split("\n").join("\n                ")}`);
 if (f.checkerNotes) L.push(`  notes         ${String(f.checkerNotes).split("\n").join("\n                ")}`);
 L.push("");
 out(L.join("\n"));

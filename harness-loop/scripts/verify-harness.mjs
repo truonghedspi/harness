@@ -356,7 +356,7 @@ function gateFeatures() {
     }
     // Claiming done without evidence is exactly the failure mode Lesson 9 exists to stop.
     const claimed = ["passing", "done"].includes(String(f.status || f.state));
-    if (claimed && !String(f.evidence || "").trim()) {
+    if (claimed && !evidenceText(f).trim()) {
       add({
         gate: "features", id: `evidence-missing:${f.id}`, layer: "project",
         symptom: `feature ${f.id} claims status=${f.status} with an empty evidence field`,
@@ -437,10 +437,9 @@ function gateFeatures() {
   // review-digest exists to remove, and this must not rebuild it.
 
   // 1. Red-green. A test nobody ever saw fail is not known to test anything.
-  const RED = /\b(red|fail(?:ed|ing|ure)?s?|exit(?:ed)? [1-9]|non-zero|assertion ?error|✗)\b/i;
   const noRed = features.filter((f) =>
     ["passing", "done"].includes(String(f.status || f.state)) &&
-    String(f.evidence || "").trim() && !RED.test(String(f.evidence)));
+    evidenceText(f).trim() && !hasRed(f));
   if (noRed.length) {
     add({
       gate: "features", id: "evidence-no-red", layer: "project", severity: "warn", count: noRed.length,
@@ -1093,6 +1092,75 @@ function gateK8s() {
 // maker dispatch, a checker dispatch and a baseline gate each, for one proof. Every sizing rule in
 // feature-decomposition.md guarded against features being too BIG; nothing caught too small, and
 // the cost per feature is fixed, so an over-cut list spends its budget on overhead.
+// "Be brief, lead with the leverage point" has been in AGENTS.md for a while and the artifacts say
+// it is not holding: on the dogfood project 30 of 49 checkerNotes opened with a first line over 200
+// characters, and the longest note was 9,085 — a page and a half inside a JSON field. A prompt
+// sentence was never going to fix this; it is the layer that degrades.
+//
+// What is gated is the LEAD, not the length. Long is fine when the first line carries the point and
+// the rest is support; a reader who stops after one line should still have the finding. Gating
+// length alone would push people to delete reasoning that is worth keeping.
+// `evidence` was a single prose blob — on the dogfood project a median of 373 characters and a max
+// of 1756, with zero newlines, so a diff shows one unreadable line and a gate can only regex at it.
+// It is really a LIST OF RUNS, so it may now be one:
+//
+//   "evidence": [
+//     { "date": "2026-08-12", "run": "red",   "cmd": "./mvnw -q test -Dtest=X", "result": "1 failure: …" },
+//     { "date": "2026-08-12", "run": "green", "cmd": "./mvnw -q test -Dtest=X", "result": "1 test passed" }
+//   ]
+//
+// Strings still work exactly as before — 22 features already had one and rewriting them by hand is
+// not an upgrade. Structure buys exactness: `evidence-no-red` stops guessing from prose, and each
+// line is short enough to read in a diff.
+// A red run: exact when the evidence is structured, a regex over prose when it is not. RED lives
+// here rather than inside the gate because hasRed() is what uses it now — a function-scoped const
+// referenced from module scope is a ReferenceError waiting for the first call.
+const RED = /\b(red|fail(?:ed|ing|ure)?s?|exit(?:ed)? [1-9]|non-zero|assertion ?error|✗)\b/i;
+function hasRed(f) {
+  const runs = evidenceRuns(f);
+  if (runs) return runs.some((r) => String(r.run || "").toLowerCase() === "red");
+  return RED.test(String(f.evidence || ""));
+}
+function evidenceRuns(f) {
+  const e = f.evidence;
+  if (Array.isArray(e)) return e.filter((r) => r && typeof r === "object");
+  return null;                                  // legacy string, or empty
+}
+function evidenceText(f) {
+  const runs = evidenceRuns(f);
+  if (!runs) return String(f.evidence || "");
+  return runs.map((r) => [r.date, r.run, r.cmd, r.result].filter(Boolean).join(" ")).join("\n");
+}
+
+function gateLead() {
+  const LEAD = 200;
+  const fl = readJSON(P("feature_list.json"));
+  const buried = [];
+  for (const f of (fl && fl.features) || []) {
+    const note = String(f.checkerNotes || "").trim();
+    if (!note) continue;
+    const first = note.split("\n")[0].trim();
+    if (first.length > LEAD) buried.push(`${f.id} (${first.length} chars)`);
+  }
+  // progress.md entries: same rule, same reason — the first line after the heading is the point.
+  const prog = read(P("progress.md")) || "";
+  const entries = prog.split(/^## /m).slice(1);
+  for (const e of entries) {
+    const lines = e.split("\n");
+    const heading = lines[0].trim().slice(0, 40);
+    const firstBody = lines.slice(1).map((l) => l.trim()).find((l) => l && !/^[-*|#]/.test(l));
+    if (firstBody && firstBody.length > LEAD) buried.push(`progress.md "${heading}" (${firstBody.length} chars)`);
+  }
+  if (buried.length) {
+    add({
+      gate: "docs", id: "lead-buried", layer: "project", severity: "warn", count: buried.length,
+      symptom: `${buried.length} note(s) open with a paragraph instead of a sentence — the point is somewhere inside, so a reader who stops after one line has nothing`,
+      remedy: `put the verdict, decision or finding in the FIRST line, under ${LEAD} characters, then a blank line, then the support. This is the shape, not a style preference: routing reads the first line of checkerNotes, tools/loop-status.mjs shows the first line, and a human skimming reads the first line`,
+      evidence: buried.slice(0, 5).join("; "),
+    });
+  }
+}
+
 function gateDuplicateVerification() {
   const fl = readJSON(P("feature_list.json"));
   if (!fl) return;
@@ -1417,6 +1485,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateLead();
 gateDuplicateVerification();
 gateVerificationHome();
 gateFieldLoss();

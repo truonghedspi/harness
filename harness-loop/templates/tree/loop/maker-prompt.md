@@ -57,7 +57,11 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    **If a `test-designer`/`test-implementer` already authored this feature's test, do not rewrite
    it.** Make the code satisfy it. Changing the test to fit your implementation destroys the one
    thing that made it an independent oracle (`docs/reference/test-authoring.md`).
-6. Record honest evidence in the feature's `evidence` field: **the red run and the green run** —
+6. Record honest evidence in the feature's `evidence` field: **the red run and the green run** — as a LIST, not a paragraph:
+   `[{"date":"2026-08-12","run":"red","cmd":"./mvnw -q test -Dtest=X","result":"1 failure: expected 3 got 0"},
+     {"date":"2026-08-12","run":"green","cmd":"./mvnw -q test -Dtest=X","result":"1 test passed"}]`
+   One short line per run. A prose blob hides which command was run and makes the red-run check a
+   regex over your sentences; the list makes it exact. —
    command, how it failed, then how it passed — and the date. If verification did not run, the
    feature did not advance. (`verify-harness.mjs` reports `evidence-no-red` for green features whose
    evidence never shows a failure.)

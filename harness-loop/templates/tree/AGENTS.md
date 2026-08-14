@@ -52,17 +52,16 @@ All four must hold before any work (Lesson 6). If one fails, fixing it *is* the 
 `loop/run-loop.sh` dispatches. Markers live in `feature_list.json`'s `checkerNotes` and
 `docs/assumptions.md`.
 
-**Want to know what happens after you, or who handles what? `node loop/route.mjs --rules`** —
-the whole routing table in precedence order. Do not read `route.mjs`'s source to work it out, and
-never write a script to parse it. Full graph, including state ownership: `docs/reference/graph.md`.
+**What happens after you, or who handles what? `node loop/route.mjs --rules`** — the whole routing
+table in precedence order. Never read `route.mjs`'s source or write a script to parse it. Full
+graph: `docs/reference/graph.md`.
 
-**How is it going? `node tools/timeline.mjs`** — net progress over the last seven days, what was
-reopened, and how long each open feature has been open. A snapshot cannot tell a moving project
-from a stuck one.
+**How is it going? `node tools/timeline.mjs`** — net progress over seven days, what was reopened,
+how long each open feature has been open. A snapshot cannot tell a moving project from a stuck one.
 
-**Need one feature? `node tools/feature.mjs <id>`** — the full entry without loading the list, plus
-`--field verification`, `--deps <id>` for eligibility, `--ready`, `--status`. Do not write an inline
-script to filter `feature_list.json`; on a mature project that reads a thousand lines to use fifteen.
+**Need one feature? `node tools/feature.mjs <id>`** — the full entry without loading the list;
+`--field`, `--deps`, `--ready`, `--status`. Never write an inline script to filter
+`feature_list.json`: on a mature project that reads a thousand lines to use fifteen.
 
 | Agent | Runs when | Owns |
 |---|---|---|
@@ -92,12 +91,16 @@ Two nodes are plain code: `tools/verify-harness.mjs --promote` (replays evidence
 
 Applies to every agent, in documents and in what you report back.
 
-- **Brief and concise.** Say it once. Cut preamble, restatement, and hedging.
-- **Lead with the leverage point** — the finding, decision, or blocker first; support after.
-  Bold the few things that change what someone does.
+**The shape: first line is the point, under 200 characters. Blank line. Then the support.**
+The verdict, decision, finding or blocker goes first — someone who stops after one line must still
+have it. This is not a style preference: routing reads the first line of `checkerNotes`,
+`loop-status` shows the first line, and a human skimming reads the first line. Gate: `lead-buried`.
+
+- **Say it once.** Cut preamble ("I have completed…"), restatement, and hedging.
 - **Linear.** One pass, top to bottom. No forward references, no "as mentioned above".
-- **Every knowledge document ≤300 lines**, listed in `docs/INDEX.md` with a "read it when" line.
-  Over budget → split it the way it grew (`docs/reference/knowledge-layout.md`).
+- **Bold only what changes what someone does.** Bolding everything is bolding nothing.
+- **Every knowledge document ≤300 lines**, in `docs/INDEX.md` with a "read it when" line
+  (`docs/reference/knowledge-layout.md`).
 
 ## Definition of Done
 
@@ -139,11 +142,8 @@ Write `session-handoff.md` and stop when you hit:
 
 ## Map
 
-`docs/INDEX.md` (all documents) · `docs/assumptions.md` (a `needs-human` row stops the loop) ·
-`docs/cross-cutting.md` (policies with an owner + enforcing rule) · `docs/architecture.md` ·
-`docs/constraints.md` (MUST / MUST NOT) · `docs/testing-standards.md` (three levels) ·
-`docs/definition-of-done.md` · `feature_list.json` (scope) · `progress.md` · `DECISIONS.md` ·
-`loop/goal.md` (objective + stopping condition) · `docs/reference/graph.md` (the control flow)
-
-`harness-onboarder` is absent by design: it runs once, before this scaffold exists, to adopt an
-existing repo (`docs/reference/adopting-an-existing-project.md`). Its output is what you are reading.
+**[`docs/INDEX.md`](docs/INDEX.md) lists every document with a "read it when" line — start there.**
+The four this router keeps naming: `docs/assumptions.md` (a `needs-human` row stops the loop) ·
+`docs/constraints.md` (MUST / MUST NOT) · `feature_list.json` (scope) ·
+`docs/reference/graph.md` (the control flow). `harness-onboarder` is absent by design: it runs
+once, before this scaffold exists (`docs/reference/adopting-an-existing-project.md`).

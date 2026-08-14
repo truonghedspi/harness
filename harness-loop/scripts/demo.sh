@@ -1363,8 +1363,9 @@ node -e "
 const t=require('fs').readFileSync('$RB/AGENTS.md','utf8');
 const n=t.split('\n').length;
 // leverage points first, and the writing rule that reaches all ten agents through one file
-process.exit(n<=150 && /The six that carry everything/.test(t) && /Brief and concise/.test(t)
-             && /Lead with the leverage point/.test(t) ? 0 : 1);
+// Match the meaning, not the phrasing — these broke once on a rewording that improved the file.
+process.exit(n<=150 && /The six that carry everything/.test(t) && /## How you write/.test(t)
+             && /first line is the point/i.test(t) ? 0 : 1);
 "; expect "the scaffolded router is inside budget and states the leverage points before the detail" $?
 node -e "
 const {execFileSync}=require('child_process');
@@ -1771,14 +1772,14 @@ process.exit(rows.length>=10 && rows.every(r=>r.node&&r.layer&&r.when&&r.when!==
 "; expect "--json gives the same table machine-readably, and every rule states its condition" $?
 node -e "
 const t=require('fs').readFileSync('$RR/AGENTS.md','utf8').replace(/\s+/g,' ');
-process.exit(/route\.mjs --rules/.test(t) && /never write a script to parse it/.test(t) ? 0 : 1);
+process.exit(/route\.mjs --rules/.test(t) && /never .{0,30}write a script to parse it/i.test(t) ? 0 : 1);
 "; expect "and the router file points every agent at it, instead of leaving them to grep the source" $?
 node -e "
 const t=require('fs').readFileSync('$RR/AGENTS.md','utf8').replace(/\s+/g,' ');
 // The other half of the same observation: an agent wanting ONE feature wrote
 //   node -e 'require(\"./feature_list.json\").features.find(...)' — a thousand lines read to use
 // fifteen. tools/feature.mjs existed by then; nothing an agent loads mentioned it.
-process.exit(/tools\/feature\.mjs <id>/.test(t) && /Do not write an inline script to filter/.test(t) ? 0 : 1);
+process.exit(/tools\/feature\.mjs <id>/.test(t) && /(never|do not) write an inline script to filter/i.test(t) ? 0 : 1);
 "; expect "and it names tools/feature.mjs too, so nobody writes an inline filter over feature_list.json" $?
 
 # Cold start: a new session's first question is "what happened while I was away, and why did it
@@ -1941,6 +1942,63 @@ const t=require('fs').readFileSync('$SZ/docs/reference/feature-decomposition.md'
 process.exit(/lower bound/i.test(t) && /U-curve/.test(t) && /transaction cost before you merge/.test(t)
   && /horizontal split in disguise/.test(t) ? 0 : 1);
 "; expect "the reference doc gives the lower bound: cut transaction cost first, then fix shape not size" $?
+
+# Reported from real use: agents write at length and bury the point. The rule "be brief, lead with
+# the leverage point" was already in AGENTS.md — and the artifacts said it was not holding: 30 of 49
+# checkerNotes opened with a first line over 200 chars, the longest note was 9,085. A prompt
+# sentence is the layer that degrades, so gate the LEAD.
+WR="$WORK/writing"; rm -rf "$WR"; mkdir -p "$WR"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$WR" --name "Writing" --purpose "lead" >/dev/null
+node -e "
+const fs=require('fs'); const p='$WR/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+const f=d.features[0];
+f.checkerNotes='In this session I reviewed the implementation carefully and considered several angles, '+
+  'including whether the approach taken was appropriate given the constraints described in the design '+
+  'documents, and after weighing all of that I concluded the following about the verification.';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$WR" --skip-baseline --quiet
+node -e "
+const r=require('$WR/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='lead-buried') ? 0 : 1);
+"; expect "a note opening with a paragraph is flagged — the point is inside, so one line of it says nothing" $?
+node -e "
+const fs=require('fs'); const p='$WR/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features[0].checkerNotes='REJECTED: the test passes on a stub.\n\nIt asserts the return type only, '+
+  'so an implementation that returns an empty list satisfies it. Reworked assertion needed before this '+
+  'can be judged again, and the reasoning is long but it is BELOW the point, where it belongs.';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$WR" --skip-baseline --quiet
+node -e "
+const r=require('$WR/trace/verify-report.json');
+// long is fine when the first line carries the verdict; gating length alone would delete reasoning
+process.exit(r.findings.some(f=>f.id==='lead-buried') ? 1 : 0);
+"; expect "but a long note whose FIRST LINE carries the verdict passes — the gate is on the lead, not the length" $?
+# evidence: a list of runs, not a paragraph
+node -e "
+const fs=require('fs'); const p='$WR/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+const mk=(id,ev)=>({id,name:id,kind:'prove',behavior:'b',verification:'echo hi',falsifier:'f',
+  dependencies:[],status:'done',readyForCheck:false,evidence:ev,checkerNotes:'ok',attempts:1,maxAttempts:3});
+d.features.push(mk('feat-legacy','2026-08-12: ran it, it FAILED first, then passed'));
+d.features.push(mk('feat-structured',[{date:'2026-08-12',run:'red',cmd:'echo hi',result:'1 failure'},
+                                      {date:'2026-08-12',run:'green',cmd:'echo hi',result:'ok'}]));
+d.features.push(mk('feat-structured-nored',[{date:'2026-08-12',run:'green',cmd:'echo hi',result:'ok'}]));
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$WR" --skip-baseline --quiet
+node -e "
+const r=require('$WR/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='evidence-no-red');
+// a legacy prose string and a structured list must reach the SAME verdict; 22 features already had
+// a string and rewriting them by hand is not an upgrade
+process.exit(f && f.count===1 ? 0 : 1);
+"; expect "evidence as a list of runs works, prose still works, and only the run with no red is flagged" $?
+node -e "
+const {execFileSync}=require('child_process');
+const out=execFileSync('node',['tools/feature.mjs','feat-structured'],{cwd:'$WR',encoding:'utf8'});
+process.exit(/red\s+echo hi/.test(out) && /green\s+echo hi/.test(out) ? 0 : 1);
+"; expect "and one feature's runs render as a readable table instead of a 1700-character line" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"

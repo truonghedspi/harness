@@ -17,6 +17,11 @@ For loop status specifically, the governing thought answers three questions in t
 2. **Is it going somewhere right?** — the router's next node, and whether that is sensible.
 3. **Do you need me?** — the exception, or explicitly "no".
 
+**The mechanical form of "answer first": the opening line is the point, under 200 characters, then
+a blank line, then everything else.** It is gated (`lead-buried`) because the principle alone did
+not hold — on the dogfood project 30 of 49 notes opened with a paragraph, and the longest was 9,085
+characters inside a JSON field.
+
 Rules that follow from that:
 
 - **Lead with the delta.** "18/61 done, +1 since your last look" beats "18/61 done". A number with
