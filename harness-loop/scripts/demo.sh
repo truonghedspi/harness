@@ -748,9 +748,12 @@ fs.writeFileSync(p, JSON.stringify(d,null,2));
 # dispatched to implement conditions that do not exist. Measured on aeron-demo during a codex run:
 # two paid sessions on one feature, the agent hunting for tests/design/, zero output.
 [ "$(route_node)" = "test-designer" ]; expect "falsifiers filled but no validated conditions still routes to test-designer" $?
-( cd "$TO" && node loop/route.mjs --json ) | grep -q "tests/design/ does not exist"
+( cd "$TO" && node loop/route.mjs --json ) | grep -q "no validated test condition"
 expect "and the reason names the missing input rather than the feature" $?
-mkdir -p "$TO/tests/design/plans"
+# A real condition file, not just the directory: an empty conditions/ folder used to satisfy this,
+# and the implementer was dispatched twice on the real project with nothing to implement from.
+mkdir -p "$TO/tests/design/plans/TP-D-0001/conditions"
+printf '{"id":"TCON-D-0001"}' > "$TO/tests/design/plans/TP-D-0001/conditions/TCON-D-0001.json"
 [ "$(route_node)" = "test-implementer" ]; expect "once the conditions exist, a specified-but-unwritten oracle routes to test-implementer" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
@@ -2040,6 +2043,39 @@ process.exit(mk.resources.includes('docs/architecture.md') ? 0 : 1);
 node "$SCRIPTS/context-budget.mjs" --target "$CX" > "$CX/budget.log" 2>&1
 grep -q "0 agent(s) over budget" "$CX/budget.log"
 expect "and it still fits: shared context is only cheaper than rediscovery if it is inside the budget" $?
+
+# Found by running the loop, not by reading it. Two problems, one per layer.
+RN="$WORK/runreal"; rm -rf "$RN"; mkdir -p "$RN"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$RN" --name "RunReal" --purpose "found by running" >/dev/null
+node -e "
+const fs=require('fs');
+fs.writeFileSync('$RN/docs/assumptions.md', fs.readFileSync('$RN/docs/assumptions.md','utf8').replace(/needs-human/g,'verified'));
+const p='$RN/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.push({id:'feat-oracle',name:'o',kind:'prove',behavior:'b',verification:'echo hi',
+  falsifier:'wrong [INV-X-1]',dependencies:[],status:'not-started',readyForCheck:false,evidence:'',
+  checkerNotes:'',attempts:0,maxAttempts:3});
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+route_n(){ ( cd "$RN" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))' ); }
+# A plan with an EMPTY conditions/ folder: the directory existed, so the router dispatched
+# test-implementer, which correctly refused. Twice, on the real project. Two paid sessions, nothing.
+mkdir -p "$RN/tests/design/plans/TP-X-0001/conditions"
+printf '{"plan_id":"TP-X-0001"}' > "$RN/tests/design/plans/TP-X-0001/plan.json"
+[ "$(route_n)" = "test-designer" ]; expect "a plan with an empty conditions/ folder routes to test-designer, not the implementer" $?
+( cd "$RN" && node loop/route.mjs --json ) | grep -q "no validated test condition"
+expect "and the reason names the missing artifact, not the directory that happens to exist" $?
+printf '{"id":"TCON-X-0001"}' > "$RN/tests/design/plans/TP-X-0001/conditions/TCON-X-0001.json"
+[ "$(route_n)" = "test-implementer" ]; expect "once a real TCON-*.json exists the implementer is dispatchable" $?
+node -e "
+const t=require('fs').readFileSync('$SCRIPTS/codex-dispatch.mjs','utf8');
+// codex's workspace-write sandbox blocks socket LISTENING: the baseline goes red inside it and
+// green outside, and the agent reports that honestly while the project is fine
+process.exit(/HARNESS_CODEX_SANDBOX/.test(t) && /blocks socket binding/.test(t) && /codex\", \[\"sandbox\"/.test(t) ? 0 : 1);
+"; expect "codex-dispatch probes the sandbox for socket binding and offers the lever by name" $?
+node -e "
+const t=require('fs').readFileSync('$SCRIPTS/../references/runtimes.md','utf8');
+process.exit(/blocks listening/.test(t) && /network_access=true.{0,40}does \*\*not\*\*/s.test(t) ? 0 : 1);
+"; expect "and runtimes.md records that network_access=true does not fix it — only danger-full-access does" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"

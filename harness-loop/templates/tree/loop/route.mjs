@@ -56,8 +56,24 @@ const ROUTE_LOG = (() => {
 })();
 const alreadyDispatched = (node, feature, hash) =>
   ROUTE_LOG.some((e) => e.node === node && e.feature === feature && e.hash === hash);
-// The test-designer's second output. Its absence is what makes test-implementer un-dispatchable.
-const conditionsRootExists = () => existsSync("tests/design");
+// The test-designer's second output. A DIRECTORY is not an output: on aeron-demo tests/design/
+// held a plan.json and an empty conditions/ folder, so this returned true, the router dispatched
+// test-implementer, and it correctly refused — twice, two paid sessions for nothing. Count the
+// condition FILES.
+const conditionsExist = () => {
+  const walk = (dir, depth = 4) => {
+    if (depth < 0) return false;
+    for (const e of lsSafe(dir)) {
+      const p = `${dir}/${e}`;
+      if (/^TCON-.*\.json$/.test(e)) return true;
+      let isDir = false;
+      try { isDir = statSync(p).isDirectory(); } catch { continue; }
+      if (isDir && walk(p, depth - 1)) return true;
+    }
+    return false;
+  };
+  return walk("tests/design");
+};
 
 const fl = readJSON("feature_list.json");
 const features = (fl && fl.features) || [];
@@ -199,10 +215,10 @@ const RULES = [
       // Guard against the livelock this rule could otherwise create: if the designer has already
       // been sent here for this feature and tests/design/ is STILL absent, that is a human problem,
       // not another session. The marker is written below via `why`, and checkerNotes carries it.
-      if (hasAgent("test-designer") && !conditionsRootExists()) {
+      if (hasAgent("test-designer") && !conditionsExist()) {
         const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
           !String(x.evidence || "").trim() && !/test-designer dispatched/.test(notes(x)));
-        if (f) return { why: `tests/design/ does not exist, so ${f.id} has a falsifier but no validated test conditions to implement from — test-designer dispatched`, feature: f.id };
+        if (f) return { why: `no validated test condition (TCON-*.json) exists yet, so ${f.id} has a falsifier but nothing to implement from — test-designer dispatched`, feature: f.id };
       }
       return null;
     },
@@ -215,9 +231,9 @@ const RULES = [
     // to be judged by. The oracle has to EXIST, not merely be specified.
     match: () => {
       if (!hasAgent("test-implementer")) return null;
-      // A falsifier alone is not enough to implement from — the validated conditions are the input.
-      // Without this the router sends the implementer at a project that has no tests/design/ at all.
-      if (!conditionsRootExists()) return null;
+      // A falsifier alone is not enough to implement from — the validated conditions are the input,
+      // and a plan with an empty conditions/ folder is not one.
+      if (!conditionsExist()) return null;
       const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)));
       return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;

@@ -70,7 +70,28 @@ const composed = [
 ].join("\n");
 
 const canWrite = agent.tools.includes("write") || agent.tools.includes("*");
-const args = ["exec", "-", "--sandbox", canWrite ? "workspace-write" : "read-only"];
+// HARNESS_CODEX_SANDBOX overrides the sandbox for the whole dispatch. It exists because of the trap
+// below, and it is spelled out rather than defaulted: danger-full-access is exactly what it says.
+const SANDBOX = process.env.HARNESS_CODEX_SANDBOX || (canWrite ? "workspace-write" : "read-only");
+const args = ["exec", "-", "--sandbox", SANDBOX];
+
+// THE TRAP, measured with `codex sandbox` on 0.147.0: workspace-write blocks socket LISTENING.
+// Outbound works (DNS resolves), `sandbox_workspace_write.network_access=true` does NOT help, and
+// only danger-full-access allows a bind. So on any project whose tests stand up a server — Aeron,
+// testcontainers, an embedded broker — the baseline is red inside codex and green outside it, and
+// the agent reports "baseline red" perfectly honestly. A human then debugs the project for a day.
+// One probe, one line, only when it can bite.
+if (SANDBOX === "workspace-write") {
+  const probe = spawnSync("codex", ["sandbox", process.execPath, "-e",
+    "const s=require('net').createServer();s.on('error',()=>process.exit(3));s.listen(0,'127.0.0.1',()=>{s.close();process.exit(0)})"],
+    { cwd: root, encoding: "utf8", timeout: 30000 });
+  if (probe.status !== 0) {
+    console.error(`NOTE: codex's ${SANDBOX} sandbox blocks socket binding here. If this project's tests`);
+    console.error(`      stand up a server, the baseline will be RED for that reason and not because of`);
+    console.error(`      the code — it is green outside the sandbox. Set HARNESS_CODEX_SANDBOX=danger-full-access`);
+    console.error(`      to allow it (docs/reference/runtimes.md, "The sandbox blocks listening").`);
+  }
+}
 if (agent.model && agent.model.codex) args.push("-m", agent.model.codex);
 if (agent.codexReasoningEffort) args.push("-c", `model_reasoning_effort="${agent.codexReasoningEffort}"`);
 
