@@ -158,6 +158,49 @@ Lesson for us: capability skills should be skill-owned, versioned bundles; targe
 knowledge belongs in a project overlay. This aligns with the pending ownership/upgrade work and avoids
 editing vendored skill bodies in targets.
 
+## How Baoyu collects context before acting
+
+Baoyu uses a staged intake rather than “read everything, then decide”:
+
+1. **Classify the input surface.** The illustrator distinguishes file input, pasted content, saved
+   reference images, and conversation-only images. Each form has a different materialization path.
+2. **Resolve scoped configuration.** Project `EXTEND.md` wins over XDG and user configuration; the
+   skill reports what it loaded. Some workflows block on first-time setup, while utilities with safe
+   defaults continue. This makes scope and precedence explicit.
+3. **Inspect existing state before mutation.** Existing outputs trigger supplement/overwrite/
+   regenerate choices or backups. The workflow does not assume an empty directory.
+4. **Analyze into bounded facts.** Content type, core arguments, language, intended audience,
+   visual opportunities, and reference usage are extracted before generation.
+5. **Ask only unresolved consequential questions.** Preferences and detected facts suppress
+   redundant questions; remaining questions are batched. Confirmation locks choices before costly
+   work.
+6. **Load branch-specific knowledge.** Only the chosen style, palette, type template, or backend
+   reference is loaded after routing. The author guide requires `SKILL.md` under 500 lines and
+   one-level references for this progressive disclosure
+   ([creating skills](https://github.com/JimLiu/baoyu-skills/blob/main/docs/creating-skills.md)).
+7. **Materialize provenance-bearing artifacts.** Saved references receive IDs, filenames, and
+   descriptions; conversation-only visual traits are marked as extracted text and must not pretend
+   to be file references. Outlines carry reference assignments, while prompts contain actual source
+   terms and values
+   ([illustrator workflow](https://github.com/JimLiu/baoyu-skills/blob/main/skills/baoyu-article-illustrator/references/workflow.md)).
+
+Its self-containment rule also matters: a distributed skill may not link outside its directory, so
+all required references/scripts travel with it. External content is explicitly untrusted
+([repository instructions](https://github.com/JimLiu/baoyu-skills/blob/main/CLAUDE.md#skill-self-containment)).
+
+Baoyu does **not** provide a general multi-repository collector. Project-level discovery is rooted in
+the current working project, and its reference handling is task-local. There is no demonstrated
+mechanism that enumerates sibling service repos, discovers each repo's own rules, records scope and
+digest, or refreshes pointers when those rules change. Our `collect-services`/`ownRules` design is
+therefore complementary, not something upstream replaces.
+
+For harness, use the same staged pattern at repository scale: inventory service roots first; record
+source pointers plus scope/digest/provenance; collect manifests, public interfaces, verification
+commands, and rule-file pointers into a typed survey; ask only about unresolved conflicts; then let
+each routed agent load the full original file on demand. Keep summaries as indexes, never substitutes
+for service-owned rules. Persist the exact input digests in each handoff so capability tests can prove
+the agent acted on the current context.
+
 ## Concrete adaptation for harness
 
 Build four small capability packs before adding more baseline context:
