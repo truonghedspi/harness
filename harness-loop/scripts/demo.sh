@@ -2077,6 +2077,71 @@ const t=require('fs').readFileSync('$SCRIPTS/../references/runtimes.md','utf8');
 process.exit(/blocks listening/.test(t) && /network_access=true.{0,40}does \*\*not\*\*/s.test(t) ? 0 : 1);
 "; expect "and runtimes.md records that network_access=true does not fix it — only danger-full-access does" $?
 
+# Borrowed from deepseek-harness, which pins every vendored package to an upstream repo AND commit,
+# logs local modifications, and gates it. This harness had none of that and was already bitten: a
+# vendored schema was widened here with nothing recording it as a local change, so the next sync
+# would silently revert the fix — or silently keep a stale one.
+VD="$WORK/vendor"; rm -rf "$VD"; mkdir -p "$VD"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$VD" --name "Vendor" --purpose "provenance" >/dev/null
+( cd "$VD" && git init -q . && git add -A && git -c user.email=a@b -c user.name=a commit -qm base ) >/dev/null 2>&1
+node "$SCRIPTS/verify-harness.mjs" --target "$VD" --skip-baseline --quiet
+node -e "
+const m=require('$VD/vendor.manifest.json');
+const e=m.vendored.find(v=>v.path==='skills/test-design');
+// setup itself vendors this skill, so setup itself records where it came from. A scaffolder that
+// creates the exact state the gate flags would teach everyone to ignore the finding.
+process.exit(e && e.upstream && e.ref ? 0 : 1);
+"; expect "the scaffolder records provenance for the skill it vendors, rather than creating the state it gates" $?
+node -e "
+const r=require('$VD/trace/verify-report.json');
+process.exit(r.findings.some(f=>/^vendor/.test(f.id)) ? 1 : 0);
+"; expect "so a fresh scaffold is clean" $?
+mkdir -p "$VD/skills/borrowed/schemas"
+printf '# borrowed\n' > "$VD/skills/borrowed/SKILL.md"
+printf '{"pattern":"^A$"}' > "$VD/skills/borrowed/schemas/x.json"
+( cd "$VD" && git add -A && git -c user.email=a@b -c user.name=a commit -qm "vendor a skill" ) >/dev/null 2>&1
+node "$SCRIPTS/verify-harness.mjs" --target "$VD" --skip-baseline --quiet
+node -e "
+const r=require('$VD/trace/verify-report.json');
+const f=r.findings.find(x=>x.id==='vendor-unpinned');
+process.exit(f && /skills\/borrowed/.test(f.evidence) ? 0 : 1);
+"; expect "code the project did not write, with no provenance, is flagged" $?
+VC=$( cd "$VD" && git rev-parse HEAD )
+node -e "
+const fs=require('fs'); const p='$VD/vendor.manifest.json';
+// merge, do not overwrite: the scaffolder already declared skills/test-design in here, and
+// replacing the file would orphan it — which is what the gate would then correctly report
+const m=JSON.parse(fs.readFileSync(p,'utf8'));
+m.vendored.push({path:'skills/borrowed', upstream:'https://example.invalid/borrowed', ref:'v1.2.3',
+  vendoredAt:'2026-08-15', vendoredCommit:'$VC', localModifications:[]});
+fs.writeFileSync(p, JSON.stringify(m,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$VD" --skip-baseline --quiet
+node -e "
+const r=require('$VD/trace/verify-report.json');
+process.exit(r.findings.some(f=>/^vendor/.test(f.id)) ? 1 : 0);
+"; expect "declaring it with an upstream and a ref clears the finding" $?
+# The valuable half: a change to vendored code that nobody recorded.
+printf '{"pattern":"^A|B$"}' > "$VD/skills/borrowed/schemas/x.json"
+node "$SCRIPTS/verify-harness.mjs" --target "$VD" --skip-baseline --quiet
+node -e "
+const r=require('$VD/trace/verify-report.json');
+const f=r.findings.find(x=>/^vendor-modified-unrecorded/.test(x.id));
+// uncommitted counts: the diff is against the working tree, which is when saying so still helps
+process.exit(f && /x\.json/.test(f.evidence) ? 0 : 1);
+"; expect "a change to vendored code that no one logged is caught, even uncommitted" $?
+node -e "
+const fs=require('fs'); const p='$VD/vendor.manifest.json'; const m=JSON.parse(fs.readFileSync(p,'utf8'));
+// by path, not by index: after the merge, vendored[0] is the skill the scaffolder declared
+m.vendored.find(v=>v.path==='skills/borrowed').localModifications=[{file:'schemas/x.json',why:'widened to accept B — DECISIONS.md 2026-08-15'}];
+fs.writeFileSync(p, JSON.stringify(m,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$VD" --skip-baseline --quiet
+node -e "
+const r=require('$VD/trace/verify-report.json');
+process.exit(r.findings.some(f=>/^vendor-modified/.test(f.id)) ? 1 : 0);
+"; expect "recording it with the reason clears it — the log is the deliverable, not the silence" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

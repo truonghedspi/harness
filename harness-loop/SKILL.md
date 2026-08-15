@@ -360,6 +360,28 @@ technique and a worked bad-vs-good example.
 It is also the one agent `route.mjs` never dispatches — it is the node that *reads* the router, so
 giving the loop an edge into its own front door would let it recurse.
 
+## Vendored code
+
+Anything under `vendor/`, `third_party/`, `external/` or `skills/<name>/` is code this project did
+not write, and it needs `vendor.manifest.json`:
+
+```json
+{ "vendored": [{ "path": "skills/test-design", "upstream": "https://…", "ref": "v1.2.3",
+                 "vendoredCommit": "<sha>",
+                 "localModifications": [{ "file": "schemas/x.json", "why": "… — DECISIONS.md <date>" }] }] }
+```
+
+Two gates. `vendor-unpinned`: no manifest, or an entry with no `upstream`/`ref` — a copy you cannot
+diff against its source is a fork you did not decide to make. `vendor-modified-unrecorded`: a file
+that differs from the vendored commit and is not in `localModifications`, working tree included.
+
+The second one is the point, and it is borrowed from
+[deepseek-harness](https://github.com/deepseek-ai/deepseek-harness), whose `vendor/README.md` pins
+every package to an upstream repo *and* commit with a modification log. This harness had none of it
+and was already bitten: `skills/test-design`'s schema was widened here to accept a hierarchical
+requirement id, with nothing recording that as local — so the next sync would silently revert the
+fix, or silently keep a stale one.
+
 ## What the harness commits, and what it ignores
 
 Three categories. Conflating them is how a harness quietly stops working:

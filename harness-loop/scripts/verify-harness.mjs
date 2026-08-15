@@ -1137,6 +1137,82 @@ function evidenceText(f) {
 // until now there was no field to put them in, so the knowledge was used once and discarded. The
 // maker then re-reads the codebase to learn what the planner already knew, which is the most
 // expensive kind of rework: it happens on every feature, forever.
+// Code the project did not write, with no record of where it came from. Borrowed from
+// deepseek-harness, whose vendor/README.md carries directory, upstream repo, version AND commit,
+// a local-modification log, an update procedure, and a hygiene gate that asserts it.
+//
+// This harness had none of that and was already bitten: aeron-demo vendored skills/test-design on
+// 2026-08-10 and a schema inside it was widened on 08-13 to accept REQ-MDC-SIT-002. Nothing
+// recorded that as a LOCAL MODIFICATION, so the next sync from upstream either silently reverts the
+// fix or silently keeps a stale one, and no one finds out until a test schema rejects an id again.
+//
+// The valuable half is the drift check, and it works offline: git already knows which files under a
+// vendored path changed after it was vendored.
+function gateVendor() {
+  const ROOTS = ["vendor", "third_party", "third-party", "external", "skills"];
+  const found = [];
+  for (const root of ROOTS) {
+    for (const e of lsSafe(P(root))) {
+      const rel = `${root}/${e}`;
+      try { if (statSync(P(rel)).isDirectory()) found.push(rel); } catch { /* skip */ }
+    }
+  }
+  if (!found.length) return;
+  const man = readJSON(P("vendor.manifest.json"));
+  if (!man) {
+    add({
+      gate: "docs", id: "vendor-unpinned", layer: "project", severity: "warn", count: found.length,
+      symptom: `${found.length} vendored director(ies) with no provenance — nothing records where they came from or what was changed here`,
+      remedy: "add vendor.manifest.json: { vendored: [{ path, upstream, ref, vendoredCommit, localModifications: [{ file, why }] }] }. Without the ref you cannot re-sync; without the modification log a re-sync silently reverts your fixes or silently keeps stale ones",
+      evidence: found.join(", "),
+    });
+    return;
+  }
+  const declared = new Map((man.vendored || []).map((v) => [v.path, v]));
+  const undeclared = found.filter((f) => !declared.has(f));
+  if (undeclared.length) {
+    add({
+      gate: "docs", id: "vendor-unpinned", layer: "project", severity: "warn", count: undeclared.length,
+      symptom: `${undeclared.length} vendored director(ies) are not in vendor.manifest.json`,
+      remedy: "add an entry for each, or delete the directory if it is not vendored code",
+      evidence: undeclared.join(", "),
+    });
+  }
+  const unpinned = [...declared.values()].filter((v) => !v.upstream || !v.ref);
+  if (unpinned.length) {
+    add({
+      gate: "docs", id: "vendor-unpinned", layer: "project", severity: "warn", count: unpinned.length,
+      symptom: `${unpinned.length} vendored entr(ies) name no upstream or no ref — they cannot be re-synced or compared`,
+      remedy: "record `upstream` (the repo) and `ref` (tag or commit). A copy you cannot diff against its source is a fork you did not decide to make",
+      evidence: unpinned.map((v) => v.path).join(", "),
+    });
+  }
+  // Drift: files changed since vendoring that the manifest does not list as local modifications.
+  for (const v of declared.values()) {
+    // `git diff`, not `git log`: what DIFFERS from the vendored state, not what was ever touched.
+    // A file edited and then reverted is net-unchanged and must not be reported — the log form
+    // reported it forever, because the revert commit touches the file too.
+    // No `..HEAD`: diffing the commit against the WORKING TREE catches an edit that has not been
+    // committed yet, which is exactly when saying something is still useful.
+    const argv = v.vendoredCommit ? ["diff", "--name-only", v.vendoredCommit, "--", v.path] : null;
+    if (!argv) continue;
+    const r = spawnSync("git", argv, { cwd: TARGET, encoding: "utf8" });
+    if (r.status !== 0) continue;
+    const changed = [...new Set((r.stdout || "").split("\n").map((x) => x.trim()).filter(Boolean))];
+    const known = new Set((v.localModifications || []).map((m) => `${v.path}/${m.file}`.replace(/\/+/g, "/")));
+    const drift = changed.filter((f) => !known.has(f));
+    if (drift.length) {
+      add({
+        gate: "docs", id: `vendor-modified-unrecorded:${v.path}`, layer: "project", severity: "warn",
+        count: drift.length,
+        symptom: `${drift.length} file(s) under ${v.path} changed after it was vendored, and are not in its localModifications log`,
+        remedy: `record each in vendor.manifest.json with the reason, or revert it. An unrecorded change to vendored code is lost at the next sync — and if it was load-bearing, its loss is silent`,
+        evidence: drift.slice(0, 5).join(", "),
+      });
+    }
+  }
+}
+
 function gateFeatureContext() {
   const fl = readJSON(P("feature_list.json"));
   if (!fl) return;
@@ -1508,6 +1584,7 @@ gateGenerated();
 gateGraph();
 gateK8s();
 gatePromptVars();
+gateVendor();
 gateFeatureContext();
 gateLead();
 gateDuplicateVerification();

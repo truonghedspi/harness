@@ -198,6 +198,45 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
   walkDir(".");
 }
 
+// --- vendor provenance -------------------------------------------------------------------------
+// Setup itself vendors skills/test-design, so setup itself must record where it came from. A
+// scaffold that ships code the project did not write, with no upstream and no ref, is the exact
+// thing gateVendor flags — and having the scaffolder create that state on day one would teach
+// everyone to ignore the finding.
+{
+  const vm = path.join(targetRoot, "vendor.manifest.json");
+  const skillRef = (() => {
+    const r = spawnSync("git", ["-C", skillRoot, "rev-parse", "--short", "HEAD"], { encoding: "utf8" });
+    return r.status === 0 ? r.stdout.trim() : null;
+  })();
+  const entries = EXTRA_DIR_COPIES
+    .filter(([, dst]) => exists(path.join(targetRoot, dst)))
+    .map(([src, dst]) => ({
+      path: dst,
+      upstream: `harness-loop skill, ${src}`,
+      ref: skillRef || "unknown — the skill was not a git checkout at setup time",
+      vendoredAt: new Date().toISOString().slice(0, 10),
+      // A commit in THIS repo, which may not exist yet. The drift check stays off until it is set —
+      // silence is right here, because there is nothing yet to have drifted from.
+      vendoredCommit: null,
+      localModifications: [],
+    }));
+  if (entries.length) {
+    let man = { vendored: [] };
+    if (exists(vm)) { try { man = JSON.parse(readFileSync(vm, "utf8")); } catch { /* rewrite */ } }
+    man.$comment = "Provenance for code this project did not write. Without `ref` you cannot re-sync " +
+      "or diff against the source; without `localModifications` a re-sync silently reverts a fix made " +
+      "here, or silently keeps a stale one. Set `vendoredCommit` to the commit that added the " +
+      "directory to THIS repo — that is what the drift check diffs against.";
+    man.vendored = man.vendored || [];
+    for (const e of entries) if (!man.vendored.some((v) => v.path === e.path)) man.vendored.push(e);
+    if (!exists(vm) || FORCE) {
+      writeFileSync(vm, JSON.stringify(man, null, 2) + "\n");
+      written.push("vendor.manifest.json");
+    }
+  }
+}
+
 // --- .gitignore ------------------------------------------------------------------------------
 // Three categories, and conflating them breaks the harness:
 //
