@@ -2182,6 +2182,37 @@ const s=require('$EMPTY/s.json');
 process.exit(s.commands.length===0 && s.stacks.length===0 ? 0 : 1);
 "; expect "a repo with nothing to go on reports nothing found, instead of a conventional guess" $?
 
+# An agent in the integration target loads THAT repo's AGENTS.md and nothing else — agent-context
+# resolves every resource against the current root. Two of three surveyed services had their own
+# AGENTS.md and the collector did not even look for one, so cross-repo work read their source
+# without ever reading their rules.
+OR2="$WORK/ownrules"; rm -rf "$OR2"; mkdir -p "$OR2/svc-a/src" "$OR2/svc-b/src"
+printf '{"name":"a","scripts":{"start":"node src/index.js"}}' > "$OR2/svc-a/package.json"
+printf 'require("http").createServer().listen(0)\n' > "$OR2/svc-a/src/index.js"
+printf '# svc-a rules\nNever log a payload.\n' > "$OR2/svc-a/AGENTS.md"
+printf '{"name":"b","scripts":{"start":"node src/index.js"}}' > "$OR2/svc-b/package.json"
+printf 'require("http").createServer().listen(0)\n' > "$OR2/svc-b/src/index.js"
+node "$SCRIPTS/collect-services.mjs" --roots "$OR2/svc-a,$OR2/svc-b" --out "$OR2/svc.json" >/dev/null 2>&1
+node -e "
+const m=require('$OR2/svc.json');
+const a=m.services.find(s=>s.id.endsWith('svc-a')), b=m.services.find(s=>s.id.endsWith('svc-b'));
+// a POINTER, never a copy: a second copy of another repo's conventions goes stale and misleads
+process.exit(a && a.ownRules && /svc-a\/AGENTS\.md$/.test(a.ownRules[0]) && b && b.ownRules===null ? 0 : 1);
+"; expect "the registry records where each service keeps its OWN rules, and null when it has none" $?
+IT2="$WORK/ownrules-target"; rm -rf "$IT2"; mkdir -p "$IT2"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$IT2" --name "SIT" --purpose x --integration "$OR2/svc.json" >/dev/null 2>&1
+node -e "
+const t=require('fs').readFileSync('$IT2/docs/services.md','utf8');
+process.exit(/own rules/i.test(t) && /svc-a\/AGENTS\.md/.test(t) && /do not copy it here/i.test(t) ? 0 : 1);
+"; expect "and the design surface tells an agent to read them in place before touching that repo" $?
+node -e "
+const fs=require('fs');
+const p='$IT2/prompts/k8s-integration-tester.md';
+if (!fs.existsSync(p)) process.exit(0);   // k8s layer is off for this target
+const t=fs.readFileSync(p,'utf8').replace(/\s+/g,' ');
+process.exit(/read its own rules/i.test(t) && /ownRules/.test(t) ? 0 : 1);
+"; expect "the agent that works across service repos is told the same, in its own prompt" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

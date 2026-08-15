@@ -110,13 +110,20 @@ function classify(dir) {
   const serviceShaped = /spring-boot-starter|spring-boot-maven-plugin|quarkus|micronaut/.test(pom || gradle || "")
     || !!(pkg && pkg.dependencies && (pkg.dependencies.express || pkg.dependencies.fastify || pkg.dependencies["json-server"]));
 
+  // A service with its own AGENTS.md has its own rules, and an agent working across repos loads
+  // only the integration target's. Record the POINTER, never a copy: the file belongs to that repo
+  // and copying it here creates a second, staler source of its conventions.
+  const ownRules = ["AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"]
+    .filter((f) => existsSync(path.join(dir, f)))
+    .map((f) => `${dir}/${f}`);
+
   const dockerfiles = files.filter((f) => /\/Dockerfile[^/]*$/.test(f)).map((f) => path.relative(dir, f));
   const charts = files.filter((f) => /\/Chart\.ya?ml$/.test(f)).map((f) => path.dirname(path.relative(dir, f)));
   // Ports declared in code are common and idiosyncratic; surface the evidence, never a value.
   const portEvidence = files.filter((f) => /Ports?\.java$|ports?\.(ts|js)$|application\.ya?ml$/.test(f))
     .map((f) => path.relative(dir, f)).slice(0, 3);
 
-  return { stack, hasMain, serviceShaped, build, start, dockerfiles, charts, portEvidence };
+  return { stack, hasMain, serviceShaped, build, start, dockerfiles, charts, portEvidence, ownRules };
 }
 
 // --- build the registry ------------------------------------------------------------------------
@@ -139,6 +146,8 @@ for (const root of ROOTS) {
       health: null,        // needs-human: "Running" is not health
       dependsOn: null,     // needs-human: no repository states which services a scenario needs
       replicas: null,      // needs-human: a deployment fact, and some services here are cluster-shaped
+      // Read these BEFORE touching that service. They are its rules, not this repo's.
+      ownRules: c.ownRules.length ? c.ownRules : null,
       evidence: { portsDeclaredIn: c.portEvidence },
     });
   }
@@ -179,6 +188,13 @@ if (noImage.length) {
   console.log(`A Kubernetes SIT cannot start what cannot be built into an image, and no registry field`);
   console.log(`fixes that — it is prerequisite engineering work. Listed so it is a decision, not a surprise:`);
   for (const s of noImage) console.log(`    ${s.id}`);
+}
+const withRules = services.filter((s) => s.ownRules);
+if (withRules.length) {
+  console.log(`\n${withRules.length} service(s) carry their own AGENTS.md/CLAUDE.md/CONTRIBUTING.md.`);
+  console.log(`An agent working in the integration target loads only ITS rules, so those are listed in`);
+  console.log(`the registry as pointers — read them before touching that service, do not copy them here:`);
+  for (const s of withRules) console.log(`    ${s.id}: ${s.ownRules.join(", ")}`);
 }
 const unanswered = deployable.filter((s) => !s.health || !s.dependsOn);
 if (unanswered.length) {

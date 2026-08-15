@@ -356,6 +356,16 @@ if (INTEGRATION) {
       ? `| \`${x.id}\` | ${x.kind} | — | — | — | — |`
       : `| \`${x.id}\` | ${x.kind} | ${cell(x.chart)} | ${x.image ? "`yes`" : "**needs-human**"} | ${cell(healthOf(x))} | ${x.dependsOn === null || x.dependsOn === undefined ? "**needs-human**" : (x.dependsOn.length ? x.dependsOn.map((d) => `\`${d}\``).join(", ") : "`none`")} |`),
     "",
+    ...(svcs.some((x) => x.ownRules) ? [
+      "## Each service has its own rules — read them before you touch it",
+      "",
+      "You are loaded with THIS repo's `AGENTS.md`, not theirs. A service that carries its own is",
+      "listed below by path. Read it before changing anything in that repo; do not copy it here,",
+      "because a second copy of another repo's conventions goes stale and then misleads.",
+      "",
+      ...svcs.filter((x) => x.ownRules).map((x) => `- \`${x.id}\` → ${x.ownRules.map((r) => `\`${r}\``).join(", ")}`),
+      "",
+    ] : []),
     "## What **needs-human** means here",
     "",
     "These are the fields `collect-services.mjs` refuses to guess. A fabricated health check is worse",
