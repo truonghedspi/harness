@@ -6,11 +6,12 @@
 // state on read, so every sighting, fix and reversal stays auditable.
 //
 // Usage:
-//   node harness-issue.mjs import   --report trace/verify-report.json [--include-project]
+//   node harness-issue.mjs import   --report trace/verify-report.json [--include-project] [--json]
 //   node harness-issue.mjs add      --gate G --symptom S [--remedy R] [--layer harness]
 //                                   [--target DIR] [--severity blocker|warn]
 //   node harness-issue.mjs list     [--status open|resolved|wontfix|all] [--json]
 //   node harness-issue.mjs resolve  --id HI-003 --fix "templates/tree/init.sh: prefer ./mvnw"
+//   node harness-issue.mjs restore  --id HI-003 --note "undo a false resolution; keep history"
 //   node harness-issue.mjs wontfix  --id HI-003 --note "stack out of scope"
 //   node harness-issue.mjs stats    [--json]
 //
@@ -64,6 +65,10 @@ function fold() {
     } else if (ev.type === "wontfix") {
       const it = issues.get(ev.id); if (!it) continue;
       it.status = "wontfix"; it.note = ev.note || null;
+    } else if (ev.type === "restore") {
+      const it = issues.get(ev.id); if (!it) continue;
+      it.status = "open"; it.regressed = false; it.fix = null; it.note = ev.note || null;
+      delete it.resolvedAt;
     }
   }
   return { issues: [...issues.values()], bySig };
@@ -99,11 +104,14 @@ switch (CMD) {
     const wanted = (report.findings || []).filter((f) => flag("--include-project") || f.layer === "harness");
     if (!wanted.length) { console.log(`No ${flag("--include-project") ? "" : "harness-layer "}findings in ${reportPath} — nothing to record.`); break; }
     let created = 0, repeats = 0;
+    const recorded = [];
     for (const f of wanted) {
       const r = record({ ...f, target: report.target });
+      recorded.push({ id: r.id, isNew: r.isNew, gate: f.gate, findingId: f.id });
       r.isNew ? created++ : repeats++;
-      console.log(`  ${r.isNew ? "opened " : "repeat "} ${r.id}  [${f.gate}] ${f.symptom}`);
+      if (!flag("--json")) console.log(`  ${r.isNew ? "opened " : "repeat "} ${r.id}  [${f.gate}] ${f.symptom}`);
     }
+    if (flag("--json")) { writeFileSync(1, JSON.stringify(recorded) + "\n"); break; }
     console.log(`\n${created} new issue(s), ${repeats} repeat sighting(s) → ${LOG}`);
     console.log(`Next: node ${path.relative(process.cwd(), path.join(scriptDir, "improve-harness.mjs"))}`);
     break;
@@ -132,6 +140,16 @@ switch (CMD) {
     emit({ type: CMD === "resolve" ? "resolve" : "wontfix", id, fix: opt("--fix"), note: opt("--note") });
     console.log(`${id} marked ${CMD === "resolve" ? "resolved" : "wontfix"}.`);
     if (CMD === "resolve") console.log("Confirm it: node improve-harness.mjs --reverify");
+    break;
+  }
+
+  case "restore": {
+    const id = opt("--id");
+    if (!id) { console.error("error: --id is required"); process.exit(2); }
+    const { issues } = fold();
+    if (!issues.find((i) => i.id === id)) { console.error(`error: unknown issue ${id}`); process.exit(2); }
+    emit({ type: "restore", id, note: opt("--note", "restored after an invalid state transition") });
+    console.log(`${id} restored to open without a regression flag.`);
     break;
   }
 
@@ -168,6 +186,6 @@ switch (CMD) {
   }
 
   default:
-    console.error("usage: harness-issue.mjs <import|add|list|resolve|wontfix|stats> [options]  (see header)");
+    console.error("usage: harness-issue.mjs <import|add|list|resolve|restore|wontfix|stats> [options]  (see header)");
     process.exit(2);
 }

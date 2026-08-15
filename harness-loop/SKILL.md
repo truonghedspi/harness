@@ -115,8 +115,10 @@ was fixed*, not because the one target was patched around:
 `scripts/harness-loop.sh --target DIR [--setup] [--runner kiro|none]` drives all three phases as
 one meta-loop: verify, split findings by layer, dispatch the `harness-improver` agent for
 harness-layer findings and the project's own maker/checker loop for project-layer ones, verify
-again. It stops itself (not just on a green report) when the exact same blocker set repeats two
-iterations running — a loop that isn't moving needs a human, not a third try.
+again. Each repair is pinned to the issue imported from that target report, and it stops when a
+canonical state repeats anywhere in the run (including A→B→A cycles) — a loop that isn't moving
+needs a human, not another agent turn. The typed-state design and its DeepSeek comparison are in
+[references/deepseek-harness-workflow-research.md](references/deepseek-harness-workflow-research.md).
 
 `scripts/demo.sh` exercises all of the above — create, idempotent re-run, both verify layers, a
 real injected harness bug caught and closed via issue → improve → reverify, regression detection,

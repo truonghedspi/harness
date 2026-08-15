@@ -80,13 +80,28 @@ tail -6 /tmp/demo-rank.$$; rm -f /tmp/demo-rank.$$
 step 8 "generate an agent-ready prompt"
 PROMPT="$(node "$SCRIPTS/improve-harness.mjs" --prompt)"
 echo "$PROMPT" | grep -q "never just the one target repo"; expect "prompt states the template-not-target rule" $?
+PINNED_ID="$(node "$SCRIPTS/harness-issue.mjs" list --status open --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s)[0].id))')"
+node "$SCRIPTS/improve-harness.mjs" --prompt --id "$PINNED_ID" | grep -q "issue $PINNED_ID"
+expect "a repair prompt can be pinned to the issue imported from the current target" $?
 
 step 9 "apply the fix and close the loop: --reverify --auto-resolve"
+# A target override may only judge issues actually observed on that target. Otherwise absence of a
+# manual signature in any arbitrary repo falsely closes unrelated backlog items.
+mkdir -p "$WORK/foreign-target"
+node "$SCRIPTS/harness-issue.mjs" add --gate manual --id foreign-only --layer harness --symptom "belongs to another target" --target "$WORK/foreign-target" >/dev/null
 mv "$T/init.mjs.bak" "$T/init.mjs"
 node "$SCRIPTS/improve-harness.mjs" --reverify --auto-resolve --target "$T" >/tmp/demo-rv.$$ 2>&1
 cat /tmp/demo-rv.$$
 grep -q "no longer reproduce" /tmp/demo-rv.$$; RV1=$?; rm -f /tmp/demo-rv.$$
 [ "$RV1" = "0" ]; expect "the fixed defect is confirmed resolved by a real re-run, not a claim" $?
+FOREIGN_ID="$(node "$SCRIPTS/harness-issue.mjs" list --status open --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const x=JSON.parse(s).find(i=>i.signature==="manual/foreign-only");if(x)process.stdout.write(x.id)})')"
+export FOREIGN_ID
+[ -n "$FOREIGN_ID" ]; expect "--reverify --target does not resolve an issue never observed on that target" $?
+node "$SCRIPTS/harness-issue.mjs" resolve --id "$FOREIGN_ID" --fix "deliberately invalid demo transition" >/dev/null
+node "$SCRIPTS/harness-issue.mjs" restore --id "$FOREIGN_ID" --note "demo: undo false resolution" >/dev/null
+node "$SCRIPTS/harness-issue.mjs" list --status open --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const x=JSON.parse(s).find(i=>i.id===process.env.FOREIGN_ID);process.exit(x&&!x.regressed&&!x.fix?0:1)})'
+expect "a false resolution can be restored append-only without masquerading as a regression" $?
+node "$SCRIPTS/harness-issue.mjs" wontfix --id "$FOREIGN_ID" --note "demo fixture" >/dev/null
 
 step 10 "regression detection: re-open the same signature and confirm it flips back"
 export LAST_ID
@@ -729,6 +744,11 @@ cat >> "$TO/docs/design/recon.md" <<'MD'
 | `feat-b` | **change** | the seam moved; this feature means something else now |
 | `feat-1` | keep | untouched |
 MD
+# The design is now testable but not yet independently reviewed. Its typed verdict is bound to the
+# exact digest, so the planner cannot consume a design the evaluator has not seen.
+[ "$(route_node)" = "design-reviewer" ]; expect "a valid but unreviewed design routes to the independent reviewer before decomposition" $?
+TO_DIGEST="$(cd "$TO" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')"
+printf '{"schema":"design-review/1","designDigest":"%s","revision":1,"status":"approved","summary":"demo approval","evidence":["docs/design/recon.md"]}\n' "$TO_DIGEST" > "$TO/loop/design-review.json"
 [ "$(route_node)" = "feature-planner" ]; expect "a design marking a feature change/new outranks the oracle layer" $?
 node -e "
 const fs=require('fs');const p='$TO/feature_list.json';
@@ -1425,12 +1445,16 @@ route_of(){ (cd "$MK" && node loop/route.mjs --json | node -e 'let s="";process.
 # The dispatcher logs what it ran; the router reads that back. Simulate a dispatch.
 dispatched(){ (cd "$MK" && node loop/route.mjs --json | node -e '
   let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);
-  if(j.hash&&j.feature) require("fs").appendFileSync("loop/route-log.jsonl",
-    JSON.stringify({node:j.node,feature:j.feature,hash:j.hash})+"\n");});'); }
+  if(j.hash||j.requestId) require("fs").appendFileSync("loop/route-log.jsonl",
+    JSON.stringify({node:j.node,feature:j.feature||null,hash:j.hash||null,requestId:j.requestId||null})+"\n");});'); }
 [ "$(route_of)" = "designer" ]; expect "a NEEDS DESIGN: marker the designer has not seen routes to the designer" $?
 dispatched
 # The designer answers but CANNOT clear the marker — it may not write feature_list.json.
 [ "$(route_of)" = "feature-planner" ]; expect "after the designer's turn the same marker routes to the planner, the only node that may clear it" $?
+# Appending evidence below the marker is not a new request. Previously the whole notes body was
+# hashed, so this restarted the ladder at designer.
+node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFileSync(p));d.features.find(x=>x.id==='feat-q').checkerNotes+='\nextra diagnostic';fs.writeFileSync(p,JSON.stringify(d,null,2))"
+[ "$(route_of)" = "feature-planner" ]; expect "appending diagnostics does not change the first-line routing request identity" $?
 ( cd "$MK" && node loop/route.mjs --json ) | grep -q "clear the marker"
 expect "and the reason says so, rather than leaving it to be inferred" $?
 dispatched
@@ -1452,6 +1476,32 @@ d.features.find(x=>x.id==='feat-q').checkerNotes='resolved: first reading, see d
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
 [ "$(route_of)" != "designer" ] && [ "$(route_of)" != "human" ]; expect "clearing the marker returns the loop to ordinary routing" $?
+
+# Re-plan uses the same finite request ladder: one planner turn, then human if the typed request is
+# unchanged instead of an unbounded paid-session loop.
+node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFileSync(p));d.features.find(x=>x.id==='feat-q').checkerNotes='NEEDS RE-PLAN: split the behavior';fs.writeFileSync(p,JSON.stringify(d,null,2))"
+[ "$(route_of)" = "feature-planner" ]; expect "a new re-plan request routes to the planner" $?
+dispatched
+[ "$(route_of)" = "human" ]; expect "an unchanged re-plan request escalates after one planner turn" $?
+node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFileSync(p));d.features.find(x=>x.id==='feat-q').checkerNotes='resolved';fs.writeFileSync(p,JSON.stringify(d,null,2))"
+
+# Baseline failures are now router state. The dispatcher records the gate result instead of exiting
+# outside the graph; one unchanged repair attempt is the bounded ceiling.
+printf '{"schema":"baseline-state/1","status":"red","evidenceDigest":"deadbeef"}\n' > "$MK/loop/baseline-state.json"
+[ "$(route_of)" = "maker" ]; expect "a red baseline routes to a bounded maker repair turn" $?
+dispatched
+[ "$(route_of)" = "human" ]; expect "an unchanged red baseline escalates instead of retrying forever" $?
+printf '{"schema":"baseline-state/1","status":"green","evidenceDigest":"green"}\n' > "$MK/loop/baseline-state.json"
+
+# Design review is a typed edge keyed by the design digest: unreviewed → reviewer, rejected →
+# designer, unchanged after that bounded revision turn → human.
+printf '# Design\n\nObservable seam: command output. Invariant: always preserves input identity.\n\n%s\n' "$(printf 'detail %.0s' {1..30})" > "$MK/docs/design/reviewed.md"
+[ "$(route_of)" = "design-reviewer" ]; expect "an unreviewed design revision routes to the independent reviewer" $?
+REVIEW_JSON="$(cd "$MK" && node loop/route.mjs --json)"; REVIEW_DIGEST="$(printf '%s' "$REVIEW_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')"
+printf '{"schema":"design-review/1","designDigest":"%s","revision":1,"status":"rejected","summary":"missing option","evidence":["docs/design/reviewed.md:1"]}\n' "$REVIEW_DIGEST" > "$MK/loop/design-review.json"
+[ "$(route_of)" = "designer" ]; expect "a typed rejected review returns to the designer" $?
+dispatched
+[ "$(route_of)" = "human" ]; expect "an unchanged rejected revision escalates after its bounded designer turn" $?
 
 # A loop you cannot watch is a loop you cannot correct. Early on the whole value is a human seeing
 # where it goes wrong and fixing the harness; unattended is what you graduate to.
@@ -2214,6 +2264,17 @@ process.exit(/read its own rules/i.test(t) && /ownRules/.test(t) ? 0 : 1);
 "; expect "the agent that works across service repos is told the same, in its own prompt" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
+# The fingerprint includes evidence and feature state, not only gate/id. Same blocker with changed
+# evidence is progress; returning to an earlier canonical state exposes an A-B-A cycle.
+FP="$WORK/fingerprint"; rm -rf "$FP"; mkdir -p "$FP/trace"
+printf '{"features":[{"id":"f","status":"not-started","attempts":0}]}' > "$FP/feature_list.json"
+printf '{"findings":[{"gate":"g","id":"x","layer":"harness","severity":"blocker","symptom":"s","evidence":"A"}]}' > "$FP/trace/r.json"
+FPA="$(node "$SCRIPTS/progress-fingerprint.mjs" --target "$FP" --report "$FP/trace/r.json")"
+node -e "const fs=require('fs'),p='$FP/trace/r.json',r=JSON.parse(fs.readFileSync(p));r.findings[0].evidence='B';fs.writeFileSync(p,JSON.stringify(r))"
+FPB="$(node "$SCRIPTS/progress-fingerprint.mjs" --target "$FP" --report "$FP/trace/r.json")"
+node -e "const fs=require('fs'),p='$FP/trace/r.json',r=JSON.parse(fs.readFileSync(p));r.findings[0].evidence='A';fs.writeFileSync(p,JSON.stringify(r))"
+FPA2="$(node "$SCRIPTS/progress-fingerprint.mjs" --target "$FP" --report "$FP/trace/r.json")"
+[ "$FPA" != "$FPB" ] && [ "$FPA" = "$FPA2" ]; expect "progress fingerprints distinguish changed evidence and expose an A-B-A return" $?
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'
 #!/usr/bin/env bash
@@ -2225,7 +2286,7 @@ echo '{ "name": "demo-target", "private": true }' > "$T/package.json"   # make t
 PATH="$STUBBIN:$PATH" KIRO_API_KEY=demo-stub bash "$SCRIPTS/harness-loop.sh" --target "$T" --runner kiro --iterations 3 \
   > /tmp/demo-meta.$$ 2>&1
 tail -25 /tmp/demo-meta.$$
-grep -q "identical blocker set two iterations running" /tmp/demo-meta.$$; expect "loop stops itself on the stuck-progress rule instead of spinning forever" $?
+grep -q "canonical workflow state repeated" /tmp/demo-meta.$$; expect "loop stops itself on a repeated state instead of spinning forever" $?
 rm -f /tmp/demo-meta.$$
 
 echo ""

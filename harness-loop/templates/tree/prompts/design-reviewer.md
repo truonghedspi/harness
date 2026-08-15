@@ -64,6 +64,24 @@ catch, and it has already cost this skill's own dogfood project a week of a feat
 - **REJECT** → concrete reasons, one per defect, each naming the artifact and what is missing. Send
   it back to the designer.
 
+Publish every verdict to `loop/design-review.json`; prose in chat or `session-handoff.md` is not a
+routing edge. The router's dispatch reason names the current design digest. Preserve it exactly:
+
+```json
+{
+  "schema": "design-review/1",
+  "designDigest": "<digest from the router>",
+  "revision": 1,
+  "status": "approved | rejected | needs-human",
+  "summary": "one concrete sentence",
+  "evidence": ["path:line or command"]
+}
+```
+
+Use `rejected` for a design defect and `needs-human` only for a fact that survives the exhaustion
+ladder. A changed design gets a new digest and therefore requires a new review; do not carry a
+verdict forward by editing only the digest.
+
 Run the mechanical gate as input, not as a substitute for your judgment:
 `node tools/verify-harness.mjs --target . --skip-baseline --quiet`, then read the `design`-gate
 findings. Those catch uncited claims and uncovered components; the reasoning defects above are

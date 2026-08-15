@@ -135,6 +135,7 @@
       "mcp": false,
       "writes": [
         "docs/assumptions.md",
+        "loop/design-review.json",
         "session-handoff.md",
         "trace/**",
         "memory/design-reviewer/**"

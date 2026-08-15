@@ -56,6 +56,8 @@ const ROUTE_LOG = (() => {
 })();
 const alreadyDispatched = (node, feature, hash) =>
   ROUTE_LOG.some((e) => e.node === node && e.feature === feature && e.hash === hash);
+const requestDispatched = (requestId, node) =>
+  ROUTE_LOG.some((e) => e.requestId === requestId && e.node === node);
 // The test-designer's second output. A DIRECTORY is not an output: on aeron-demo tests/design/
 // held a plan.json and an empty conditions/ folder, so this returned true, the router dispatched
 // test-implementer, and it correctly refused — twice, two paid sessions for nothing. Count the
@@ -78,14 +80,37 @@ const conditionsExist = () => {
 const fl = readJSON("feature_list.json");
 const features = (fl && fl.features) || [];
 const notes = (f) => String(f.checkerNotes || "").trim();
+// The routing marker is the first line by contract. Diagnostic notes appended below it must not
+// create a new request identity and restart an already-spent escalation ladder.
+const marker = (f) => notes(f).split("\n")[0].trim();
 const status = (f) => String(f.status || f.state || "");
 const open = features.filter((f) => !["done", "passing"].includes(status(f)));
+const designDigest = () => {
+  const parts = [];
+  for (const f of lsSafe("docs/design").filter((x) => x.endsWith(".md") && x.toLowerCase() !== "readme.md").sort()) {
+    parts.push(f, read(`docs/design/${f}`));
+  }
+  return parts.length ? createHash("sha256").update(parts.join("\0")).digest("hex").slice(0, 16) : "";
+};
 
 // Routing rules, highest precedence first. Each returns {node, kind, layer, why, feature}.
 // Precedence is deliberate: a question about the SPEC outranks one about the DESIGN, which
 // outranks one about the CUT, which outranks implementation — because answering the deeper one
 // can dissolve the shallower ones, and doing it the other way round wastes the work.
 const RULES = [
+  {
+    node: "maker", kind: "agent", layer: "baseline",
+    when: "the recorded baseline is red and this exact failure has not had one repair turn",
+    match: () => {
+      const b = readJSON("loop/baseline-state.json");
+      if (!b || b.status !== "red" || !b.evidenceDigest) return null;
+      const requestId = `baseline:${b.evidenceDigest}`;
+      if (requestDispatched(requestId, "maker")) {
+        return { node: "human", kind: "human", layer: "baseline", why: "the baseline is unchanged after one bounded repair turn", requestId };
+      }
+      return { why: "the baseline is red — repair the gate before feature work", requestId };
+    },
+  },
   {
     node: "context-interviewer", kind: "agent", layer: "spec",
     when: "a docs/assumptions.md row is still needs-human",
@@ -102,8 +127,8 @@ const RULES = [
     match: () => {
       // Only until the designer has had its turn on THIS marker. Its answer cannot clear the marker,
       // so "marker still present" is not evidence that the designer failed to answer.
-      const f = open.find((x) => /^NEEDS DESIGN:/.test(notes(x)) &&
-        !alreadyDispatched("designer", x.id, markerHash(notes(x))));
+      const f = open.find((x) => /^NEEDS DESIGN:/.test(marker(x)) &&
+        !alreadyDispatched("designer", x.id, markerHash(marker(x))));
       return f ? { why: `${f.id} raised a design question the maker is forbidden to answer inline`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
@@ -130,6 +155,36 @@ const RULES = [
     },
   },
   {
+    node: "designer", kind: "agent", layer: "design",
+    when: "the current design revision has a typed rejected review",
+    match: () => {
+      const review = readJSON("loop/design-review.json");
+      const digest = designDigest();
+      if (!digest || !review || review.status !== "rejected" || review.designDigest !== digest) return null;
+      const requestId = `design-reject:${digest}:${review.revision || 1}`;
+      if (requestDispatched(requestId, "designer")) {
+        return { node: "human", kind: "human", layer: "design", why: "the rejected design did not change after one bounded revision turn", requestId };
+      }
+      return { why: "design-reviewer rejected the current design revision", detail: review.summary || "see loop/design-review.json", requestId };
+    },
+  },
+  {
+    node: "design-reviewer", kind: "agent", layer: "design",
+    when: "a substantive design revision has no typed review for its current digest",
+    match: () => {
+      if (!hasAgent("design-reviewer")) return null;
+      const digest = designDigest();
+      if (!digest) return null;
+      const review = readJSON("loop/design-review.json");
+      if (review && review.designDigest === digest && ["approved", "rejected", "needs-human"].includes(review.status)) return null;
+      const requestId = `design-review:${digest}`;
+      if (requestDispatched(requestId, "design-reviewer")) {
+        return { node: "human", kind: "human", layer: "design", why: "design-reviewer ran but did not publish a valid verdict for the current revision", requestId };
+      }
+      return { why: `the current design revision ${digest} has not been independently reviewed`, detail: digest, requestId };
+    },
+  },
+  {
     node: "feature-planner", kind: "agent", layer: "decomposition",
     when: "a NEEDS DESIGN: marker the designer has already had a turn on — the planner must clear it",
     // The designer answered; someone has to retire the marker and re-cut if the answer changed the
@@ -137,8 +192,8 @@ const RULES = [
     // feature_list.json.
     match: () => {
       const f = open.find((x) => {
-        const h = markerHash(notes(x));
-        return /^NEEDS DESIGN:/.test(notes(x)) && alreadyDispatched("designer", x.id, h) &&
+        const h = markerHash(marker(x));
+        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("designer", x.id, h) &&
           !alreadyDispatched("feature-planner", x.id, h);
       });
       return f ? { why: `${f.id}'s NEEDS DESIGN: already went to the designer and the marker is still there — the designer cannot clear it. Consume the answer, re-cut if it changed the scope, and clear the marker`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
@@ -153,8 +208,8 @@ const RULES = [
     // instead of spending another session.
     match: () => {
       const f = open.find((x) => {
-        const h = markerHash(notes(x));
-        return /^NEEDS DESIGN:/.test(notes(x)) && alreadyDispatched("designer", x.id, h) &&
+        const h = markerHash(marker(x));
+        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("designer", x.id, h) &&
           alreadyDispatched("feature-planner", x.id, h);
       });
       return f ? { why: `${f.id} still carries the SAME NEEDS DESIGN: marker after both the designer and the planner have had a turn on it. Nobody else can clear it. Clear it by hand, or say why it is still open.`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
@@ -164,8 +219,13 @@ const RULES = [
     node: "feature-planner", kind: "agent", layer: "decomposition",
     when: "a feature's checkerNotes starts NEEDS RE-PLAN:",
     match: () => {
-      const f = open.find((x) => /^NEEDS RE-PLAN:/.test(notes(x)));
-      return f ? { why: `${f.id} was ruled mis-cut by the checker; re-cutting is not the maker's job`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+      const f = open.find((x) => /^NEEDS RE-PLAN:/.test(marker(x)));
+      if (!f) return null;
+      const requestId = `replan:${f.id}:${markerHash(marker(f))}`;
+      if (requestDispatched(requestId, "feature-planner")) {
+        return { node: "human", kind: "human", layer: "decomposition", why: `${f.id} still carries the same NEEDS RE-PLAN marker after the planner ran`, feature: f.id, requestId };
+      }
+      return { why: `${f.id} was ruled mis-cut by the checker; re-cutting is not the maker's job`, feature: f.id, detail: marker(f), requestId };
     },
   },
   {
@@ -217,8 +277,14 @@ const RULES = [
       // not another session. The marker is written below via `why`, and checkerNotes carries it.
       if (hasAgent("test-designer") && !conditionsExist()) {
         const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
-          !String(x.evidence || "").trim() && !/test-designer dispatched/.test(notes(x)));
-        if (f) return { why: `no validated test condition (TCON-*.json) exists yet, so ${f.id} has a falsifier but nothing to implement from — test-designer dispatched`, feature: f.id };
+          !String(x.evidence || "").trim());
+        if (f) {
+          const requestId = `test-design:${f.id}:${markerHash(String(f.falsifier))}`;
+          if (requestDispatched(requestId, "test-designer")) {
+            return { node: "human", kind: "human", layer: "oracle", why: `${f.id} still has no validated conditions after one test-designer turn`, feature: f.id, requestId };
+          }
+          return { why: `no validated test condition (TCON-*.json) exists yet, so ${f.id} has a falsifier but nothing to implement from`, feature: f.id, requestId };
+        }
       }
       return null;
     },
@@ -306,7 +372,7 @@ for (const r of RULES) {
 // eligibility repeats legitimately and must not be treated as a lack of progress.
 if (hit && hit.feature) {
   const f = features.find((x) => x.id === hit.feature);
-  if (f && /^NEEDS (DESIGN|RE-PLAN):/.test(notes(f))) hit.hash = markerHash(notes(f));
+  if (f && /^NEEDS (DESIGN|RE-PLAN):/.test(marker(f))) hit.hash = markerHash(marker(f));
 }
 
 // Nothing routable. Distinguish "finished" from "stuck", because they need opposite responses:

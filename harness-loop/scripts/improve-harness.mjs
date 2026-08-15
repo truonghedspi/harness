@@ -9,8 +9,8 @@
 //
 // Usage:
 //   node improve-harness.mjs [--top N] [--json] [--out PATH]
-//   node improve-harness.mjs --reverify [--target DIR] [--auto-resolve] [--skip-baseline]
-//   node improve-harness.mjs --prompt              # agent-ready instructions for the top issue
+//   node improve-harness.mjs --reverify [--id HI-NNN] [--target DIR] [--auto-resolve] [--skip-baseline]
+//   node improve-harness.mjs --prompt [--id HI-NNN] # top issue, or one immutable repair objective
 import { readFileSync, writeFileSync, statSync, mkdtempSync , writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -62,8 +62,21 @@ const score = (i) =>
 // --reverify: the only way an issue becomes "resolved"
 // ---------------------------------------------------------------------------------------------
 if (flag("--reverify")) {
-  const issues = openIssues();
+  const requestedId = opt("--id");
+  let issues = openIssues();
   const explicit = opt("--target");
+  if (requestedId) {
+    issues = issues.filter((i) => i.id === requestedId);
+    if (!issues.length) { console.error(`open harness issue ${requestedId} was not found`); process.exit(2); }
+  }
+  if (explicit && !requestedId) {
+    const resolvedTarget = path.resolve(explicit);
+    issues = issues.filter((i) => i.targets.map((t) => path.resolve(t)).includes(resolvedTarget));
+    if (!issues.length) {
+      console.error(`no open issues were recorded against ${resolvedTarget} — refusing provenance-free resolution`);
+      process.exit(2);
+    }
+  }
   const targets = explicit
     ? [path.resolve(explicit)]
     : [...new Set(issues.flatMap((i) => i.targets))].filter(exists);
@@ -112,7 +125,12 @@ const ranked = openIssues()
   .sort((a, b) => b.score - a.score);
 
 if (flag("--prompt")) {
-  const top = ranked[0];
+  const requestedId = opt("--id");
+  const top = requestedId ? ranked.find((i) => i.id === requestedId) : ranked[0];
+  if (requestedId && !top) {
+    console.error(`error: open harness issue ${requestedId} was not found`);
+    process.exit(2);
+  }
   if (!top) { console.log("No open harness issues — nothing to improve."); process.exit(0); }
   console.log(`Fix harness issue ${top.id} in the harness-loop skill.
 

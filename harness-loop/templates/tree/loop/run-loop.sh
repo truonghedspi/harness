@@ -73,11 +73,31 @@ fi
 . loop/dispatch.sh
 echo "runtime: $RUNTIME"
 
+# Baseline is routing state, not a shell precondition. Record its canonical outcome before the
+# router runs so a red gate can receive one bounded repair turn instead of terminating outside the
+# graph. The evidence digest gives the repair request a stable identity across iterations.
+record_baseline() {
+  node -e '
+    const {spawnSync}=require("child_process"), fs=require("fs"), crypto=require("crypto");
+    const cmd=fs.existsSync("init.mjs") ? [process.execPath,["init.mjs"]] : ["./init.sh",[]];
+    const r=spawnSync(cmd[0],cmd[1],{encoding:"utf8",timeout:300000});
+    const output=String(r.stdout||"")+String(r.stderr||"");
+    const normalized=output.replace(/\b\d+(?:\.\d+)?(?:ms|s)\b/g,"<duration>").trim();
+    const state={schema:"baseline-state/1",status:r.status===0?"green":"red",
+      evidenceDigest:crypto.createHash("sha256").update(String(r.status)+"\0"+normalized).digest("hex").slice(0,16),
+      exitCode:r.status,checkedAt:new Date().toISOString(),tail:output.split("\n").slice(-20).join("\n")};
+    fs.writeFileSync("loop/baseline-state.json",JSON.stringify(state,null,2)+"\n");
+    process.stdout.write(`baseline: ${state.status} (${state.evidenceDigest})\n`);
+  '
+}
+
 for i in $(seq 1 "$ITERATIONS"); do
   if all_settled; then
     echo "all features done (or blocked with a recorded reason) — nothing left for iteration $i, exiting early."
     exit 0
   fi
+
+  record_baseline || { echo "could not record baseline state — stopping"; exit 1; }
 
   # Which node runs is a routing decision, not a constant. Before loop/route.mjs existed this line
   # always said "maker", while the prompts described eleven nodes — so a feature marked
@@ -93,9 +113,10 @@ for i in $(seq 1 "$ITERATIONS"); do
     let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
       try {
         const j=JSON.parse(s);
-        if (!j.hash || !j.feature) return;
+        if (!j.hash && !j.requestId) return;
         require("fs").appendFileSync("loop/route-log.jsonl",
-          JSON.stringify({ node: j.node, feature: j.feature, hash: j.hash }) + "\n");
+          JSON.stringify({ node: j.node, feature: j.feature || null, hash: j.hash || null,
+            requestId: j.requestId || null, at: new Date().toISOString() }) + "\n");
       } catch {}
     });' 2>/dev/null || true
   LAYER="$(printf '%s' "$NEXT" | cut -f3)"; WHY="$(printf '%s' "$NEXT" | cut -f4)"
@@ -181,10 +202,9 @@ for i in $(seq 1 "$ITERATIONS"); do
     "Check every feature with readyForCheck=true per your instructions. Verdicts and reasons only." \
     || { echo "checker failed — stopping loop"; exit 1; }
 
-  # The gate is init.mjs; init.sh/init.cmd are wrappers. Call node directly so this line works
-  # under Git Bash on Windows too, and fall back for targets scaffolded before the port.
-  if [ -f init.mjs ]; then BASELINE_CMD="node init.mjs"; else BASELINE_CMD="./init.sh"; fi
-  $BASELINE_CMD || { echo "baseline red after iteration $i — stopping loop"; exit 1; }
+  # Refresh the typed state after implementation/checking. A red result is not silently accepted;
+  # the next iteration routes a bounded repair, and budget exhaustion reports it below.
+  record_baseline || { echo "could not record baseline state — stopping"; exit 1; }
   BASELINE_CHECKED=1
 done
 
@@ -208,7 +228,13 @@ fi
 # never verified anything still signed off as green. Observed for real: a codex test-implementer
 # iteration stopped BECAUSE the baseline was red, and this line then reported it green.
 if [ "${BASELINE_CHECKED:-0}" = "1" ]; then
-  echo "loop finished: $ITERATIONS iteration(s), baseline green."
+  BASELINE_STATUS="$(node -e 'try{process.stdout.write(require("./loop/baseline-state.json").status)}catch{}')"
+  if [ "$BASELINE_STATUS" = "green" ]; then
+    echo "loop finished: $ITERATIONS iteration(s), baseline green."
+  else
+    echo "loop finished: $ITERATIONS iteration(s), baseline still red — repair remains routable."
+    exit 1
+  fi
 else
   echo "loop finished: $ITERATIONS iteration(s). Baseline NOT re-checked this run — no maker"
   echo "  iteration ran, and only those trigger it. Run the gate yourself before trusting this."

@@ -134,6 +134,7 @@ edit past lines; only append new events.
 | `open` | first sighting of a signature | Creates `HI-NNN`. Carries `signature`, `gate`, `layer`, `severity`, `symptom`, `remedy`, `evidence`, `target`. |
 | `occurrence` | a later sighting of the same signature | Bumps `occurrences`, appends to `targets` if new. If the issue's folded status was not `open`, flips it back to `open` and sets `regressed: true` — a fix that stopped working is louder than a fix that never landed. |
 | `resolve` | `harness-issue.mjs resolve` (by hand, or `improve-harness.mjs --reverify --auto-resolve`) | Folded status → `resolved`. Carries `fix` (what changed) and optional `note`. |
+| `restore` | recovery from an invalid resolution | Folded status → `open`, clears the false regression/fix flags, and preserves the bad transition in history. It is not a substitute for reopening a real recurrence. |
 | `wontfix` | `harness-issue.mjs wontfix` | Folded status → `wontfix` (e.g. a false positive, or a stack intentionally out of scope). Carries `note`. |
 
 The only legitimate way to reach `resolved` is `--reverify` actually re-running
@@ -163,14 +164,21 @@ since the routing table can't see the actual symptom text.
 1. `verify-harness.mjs` finds a `layer: harness` blocker on some target.
 2. `harness-issue.mjs import --report <path>` records it (or bumps the existing issue's
    `occurrences`/`targets` if the signature already exists).
-3. `improve-harness.mjs` ranks it; `--prompt` hands the top one to an agent (or a human) with the
-   fix-the-template rule spelled out.
+3. A target repair binds the run to the imported identity with `improve-harness.mjs --prompt --id
+   HI-NNN`; global ranking is for backlog maintenance, never a reason to switch objectives inside
+   a repair run. The prompt carries the fix-the-template rule.
 4. The fix lands in `templates/tree/**` or `scripts/*.mjs` — the skill, not the target.
-5. `improve-harness.mjs --reverify [--target DIR] [--auto-resolve]` re-runs `verify-harness.mjs`
-   against every target the issue was seen in (or the one given). Only signatures that stop
-   appearing get resolved.
+5. `improve-harness.mjs --reverify [--id HI-NNN] [--target DIR] [--auto-resolve]` re-runs
+   `verify-harness.mjs` against recorded targets. A target override judges only issues previously
+   seen in that exact repo; absence from an unrelated target is not evidence. Only signatures that
+   stop appearing get resolved.
 6. If the same signature is imported again later (a regression, or a different target hitting the
    same skill defect), step 2 reopens it automatically and marks it `regressed`.
+
+The meta-loop detects no-progress from a canonical fingerprint of blocker evidence, feature state,
+and workspace state. It keeps every fingerprint seen during the run, so both an unchanged retry and
+an A→B→A cycle stop; comparing only consecutive `gate/id` sets misses the latter and falsely stops
+when the same gate is producing changed evidence.
 
 `scripts/demo.sh` runs this entire cycle against disposable targets with deliberately injected
 defects, so the mechanism itself — not just the specific bugs that happened to be found while

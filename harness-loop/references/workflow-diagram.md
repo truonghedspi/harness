@@ -84,7 +84,12 @@ sequenceDiagram
     else feature itself is mis-cut
         C->>FS: checkerNotes = "NEEDS RE-PLAN: ..."<br/>→ routes to feature-planner, not the maker
     end
-    RL->>RL: ./init.sh — red baseline stops the loop
+    RL->>FS: record baseline-state.json<br/>with outcome + evidence digest
+    alt baseline red and new
+        RL->>M: bounded baseline repair turn
+    else same red digest after repair
+        RL->>H: stop — needs human
+    end
 ```
 
 ## 3. `k8s-integration-tester`'s own workflow (opt-in, `templates/k8s/`)
@@ -121,10 +126,10 @@ full layer-classification contract this diagram implements.
 flowchart TD
     V["verify-harness.mjs"] --> S{"green\n(0 blockers)?"}
     S -- yes --> Done["harness ready —\nstart/continue the project loop"]
-    S -- no --> Sig{"same blocker set\nas the last iteration?"}
-    Sig -- yes --> Stop["STOP — escalate to a human\n(no progress, don't spin forever)"]
+    S -- no --> Sig{"canonical state seen before?\nfindings + evidence + features + workspace"}
+    Sig -- yes --> Stop["STOP — escalate to a human\n(no-op or A-B-A cycle)"]
     Sig -- no --> L{"finding layer?"}
-    L -- harness --> HI["harness-issue.mjs import\nimprove-harness.mjs (rank)\ndispatch harness-improver agent\nfix templates/tree/** or scripts/*.mjs"]
+    L -- harness --> HI["harness-issue.mjs import → issueId\nimprove-harness.mjs --id issueId\ndispatch one immutable repair objective\nfix templates/tree/** or scripts/*.mjs"]
     L -- project --> PJ["dispatch loop/run-loop.sh 1\nfix lands in the target repo"]
     HI --> V
     PJ --> V

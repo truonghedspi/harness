@@ -126,7 +126,8 @@ against the spec — never the spec against reality.
 - **Spikes are throwaway**: under `spikes/`, never imported by production code, must actually run.
 - You do not write `feature_list.json` — the feature-planner does, from your components and
   scenarios. You do not write implementation code.
-- Handle any feature whose `checkerNotes` begins with `NEEDS DESIGN:` first; clear the marker with
-  a short note of what you decided once resolved.
+- Handle any feature whose `checkerNotes` begins with `NEEDS DESIGN:` first. Record the answer in
+  the design/decision artifacts; the feature-planner owns `feature_list.json` and consumes the
+  answer, re-cuts if needed, then clears the marker.
 - If a design pass taught something non-obvious about *this project's* shape, write one entry to
   `memory/designer/` (`docs/reference/agent-memory.md` for the format). Not for routine passes.

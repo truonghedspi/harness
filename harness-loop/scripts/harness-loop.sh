@@ -57,7 +57,7 @@ if [ "$DO_SETUP" = "1" ]; then
   node "$SCRIPTS/setup-harness-loop.mjs" --target "$TARGET" ${SETUP_ARGS[@]+"${SETUP_ARGS[@]}"} || exit 1
 fi
 
-PREV_SIGNATURE=""
+SEEN_FINGERPRINTS=""
 for i in $(seq 1 "$ITERATIONS"); do
   echo ""
   echo "=== harness-loop iteration $i/$ITERATIONS — verify ==="
@@ -74,23 +74,28 @@ for i in $(seq 1 "$ITERATIONS"); do
   PROJECT_N="$(json "r.counts.projectLayer")"
   [ "$HARNESS_N" = "ERR" ] && { echo "could not read $REPORT — stopping" >&2; exit 1; }
 
-  # Stop if nothing moved: the same failure set twice in a row means this loop cannot fix it.
-  SIGNATURE="$(json "r.findings.filter(f=>f.severity==='blocker').map(f=>f.gate+'/'+f.id).sort().join(',')")"
-  if [ -n "$PREV_SIGNATURE" ] && [ "$SIGNATURE" = "$PREV_SIGNATURE" ]; then
+  # Stop if a canonical state repeats anywhere in this run. This catches both no-op retries and
+  # longer A -> B -> A cycles, while changed evidence/feature state/worktree counts as progress.
+  FINGERPRINT="$(node "$SCRIPTS/progress-fingerprint.mjs" --target "$TARGET" --report "$REPORT")" || exit 1
+  if printf '%s\n' "$SEEN_FINGERPRINTS" | grep -Fqx "$FINGERPRINT"; then
     echo ""
-    echo "STOP: identical blocker set two iterations running — no progress. Escalating to a human."
+    echo "STOP: canonical workflow state repeated — no progress or a cycle. Escalating to a human."
     echo "      see $REPORT"
     exit 1
   fi
-  PREV_SIGNATURE="$SIGNATURE"
+  SEEN_FINGERPRINTS="${SEEN_FINGERPRINTS}${SEEN_FINGERPRINTS:+
+}${FINGERPRINT}"
 
   if [ "$HARNESS_N" != "0" ]; then
     echo ""
     echo "--- $HARNESS_N harness-layer finding(s): the skill is at fault, recording ---"
-    node "$SCRIPTS/harness-issue.mjs" import --report "$REPORT"
+    IMPORTED="$(node "$SCRIPTS/harness-issue.mjs" import --report "$REPORT" --json)" || exit 1
+    ISSUE_ID="$(printf '%s' "$IMPORTED" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);if(a[0])process.stdout.write(a[0].id)})')"
+    [ -n "$ISSUE_ID" ] || { echo "no harness issue identity returned — stopping" >&2; exit 1; }
+    echo "repair objective: $ISSUE_ID (bound to this target report)"
     node "$SCRIPTS/improve-harness.mjs" --top 5 >/dev/null
     if [ "$RUNNER" = "kiro" ]; then
-      PROMPT="$(node "$SCRIPTS/improve-harness.mjs" --prompt)"
+      PROMPT="$(node "$SCRIPTS/improve-harness.mjs" --prompt --id "$ISSUE_ID")"
       echo "--- dispatching harness-improver ---"
       ( cd "$SKILL_ROOT/.." && harness_dispatch harness-improver \
           "$PROMPT
@@ -102,7 +107,7 @@ of the file so this iteration can make progress." ) \
       echo ""
       echo "Runner is 'none'. Fix the skill with this prompt, then re-run:"
       echo ""
-      node "$SCRIPTS/improve-harness.mjs" --prompt
+      node "$SCRIPTS/improve-harness.mjs" --prompt --id "$ISSUE_ID"
       exit 1
     fi
   fi
