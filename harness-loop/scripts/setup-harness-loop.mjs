@@ -155,6 +155,7 @@ const EXTRA_COPIES = [
   ["scripts/codex-dispatch.mjs", "tools/codex-dispatch.mjs"],
   ["scripts/replay-parallel.mjs", "tools/replay-parallel.mjs"],
   ["scripts/collect-services.mjs", "tools/collect-services.mjs"],
+  ["scripts/survey-project.mjs", "tools/survey-project.mjs"],
   ["scripts/services-check.mjs", "tools/services-check.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],

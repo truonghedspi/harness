@@ -2142,6 +2142,46 @@ const r=require('$VD/trace/verify-report.json');
 process.exit(r.findings.some(f=>/^vendor-modified/.test(f.id)) ? 1 : 0);
 "; expect "recording it with the reason clears it — the log is the deliverable, not the silence" $?
 
+# The project-specific half of AGENTS.md — what this repo IS, its real commands, where things live
+# — was hand-written on every project. The onboarder surveyed as an LLM reading prose: a paragraph
+# nobody can diff and no gate can check.
+SV="$WORK/survey"; rm -rf "$SV"; mkdir -p "$SV/.github/workflows" "$SV/src/main" "$SV/junk"
+( cd "$SV" && git init -q . ) >/dev/null 2>&1
+printf 'jobs:\n  ci:\n    steps:\n      - run: ./gradlew customVerifyTask\n' > "$SV/.github/workflows/ci.yml"
+printf 'apply plugin: java\n' > "$SV/build.gradle"
+printf 'class A {}\n' > "$SV/src/main/A.java"
+printf 'generated\n' > "$SV/junk/out.json"
+( cd "$SV" && git add .github build.gradle src && git -c user.email=a@b -c user.name=a commit -qm base ) >/dev/null 2>&1
+node "$SCRIPTS/survey-project.mjs" --target "$SV" --json > "$SV/survey.json" 2>/dev/null
+node -e "
+const s=require('$SV/survey.json');
+const ci=s.commands.find(c=>c.kind==='ci');
+// the command a merge actually depends on, and WHERE it was read from — not what is conventional
+process.exit(ci && /customVerifyTask/.test(ci.cmd) && /ci\.yml/.test(ci.source) ? 0 : 1);
+"; expect "the survey reads the real command out of CI, and reports the file it came from" $?
+node -e "
+const s=require('$SV/survey.json');
+// nothing in a repo states WHY it exists; an invented purpose becomes AGENTS.md's first paragraph
+process.exit(s.purpose===null && /needs-human/.test(s.purposeSource) ? 0 : 1);
+"; expect "and leaves purpose blank rather than inventing it" $?
+node -e "
+const s=require('$SV/survey.json');
+// junk/ is untracked, not gitignored — the sharper question is what git TRACKS
+process.exit(s.layout.some(d=>d.dir==='src') && !s.layout.some(d=>d.dir==='junk') ? 0 : 1);
+"; expect "untracked output is left out of the map — git tracking is the test, not a skip list" $?
+node "$SCRIPTS/survey-project.mjs" --target "$SV" --agents-md > "$SV/AGENTS.draft.md" 2>/dev/null
+node -e "
+const t=require('fs').readFileSync('$SV/AGENTS.draft.md','utf8');
+process.exit(/customVerifyTask/.test(t) && /NEEDS HUMAN/.test(t) && /The six that carry everything/.test(t) ? 0 : 1);
+"; expect "--agents-md drafts a router carrying this repo's real command and an explicit NEEDS HUMAN" $?
+EMPTY="$WORK/survey-empty"; rm -rf "$EMPTY"; mkdir -p "$EMPTY"
+node "$SCRIPTS/survey-project.mjs" --target "$EMPTY" --json > "$EMPTY/s.json" 2>/dev/null
+node -e "
+const s=require('$EMPTY/s.json');
+// a project with no manifest and no CI: say so, do not guess a stack's conventional command
+process.exit(s.commands.length===0 && s.stacks.length===0 ? 0 : 1);
+"; expect "a repo with nothing to go on reports nothing found, instead of a conventional guess" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
 cat > "$STUBBIN/kiro-cli" <<'EOF'

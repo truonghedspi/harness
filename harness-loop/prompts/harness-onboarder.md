@@ -13,6 +13,18 @@ You do not implement features. You survey, propose, scaffold, and hand off.
 
 ## Phase 1 — Survey before you touch anything
 
+**Start with `node tools/survey-project.mjs --target <dir>`.** It answers items 1, 3, 5 and 6 below
+mechanically, and every fact it reports carries the file it was read from — a command from
+`.github/workflows/ci.yml` is evidence, a command that is merely conventional for the stack is not.
+Read its output first, then do by hand only what it could not: run the baseline (item 2), and find
+the work in flight (item 4).
+
+It deliberately leaves `purpose` blank. Nothing in a repository states why it exists, and an
+invented purpose becomes the first paragraph of AGENTS.md — confidently wrong. Ask for that one.
+
+`--agents-md` drafts the surveyed half of the router from it. The generic half — Startup Readiness,
+Who runs next, How you write, Definition of Done — comes from `templates/tree/AGENTS.md`.
+
 Read the repo and answer these from evidence, not assumption. Write nothing yet.
 
 1. **Stack and build.** Manifest(s), package manager, language versions. What is the real

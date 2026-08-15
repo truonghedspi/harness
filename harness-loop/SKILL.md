@@ -360,6 +360,30 @@ technique and a worked bad-vs-good example.
 It is also the one agent `route.mjs` never dispatches — it is the node that *reads* the router, so
 giving the loop an edge into its own front door would let it recurse.
 
+## Surveying a project you did not write
+
+```bash
+node harness-loop/scripts/survey-project.mjs --target /path/to/repo            # read it
+node harness-loop/scripts/survey-project.mjs --target /path/to/repo --agents-md > AGENTS.md
+```
+
+Two rules make the output worth trusting:
+
+- **Every fact carries its source.** A command is reported with the file it was read from, so it can
+  be checked — `./gradlew slowTest` from `.github/workflows/ci-low-cadence.yml` is evidence; the
+  command that is merely conventional for the stack is not a fact about this repo. CI is read first,
+  because it is what actually blocks a merge.
+- **What cannot be derived stays blank.** `purpose` is always `null`: nothing in a repository states
+  why it exists, and an invented purpose becomes AGENTS.md's first paragraph, confidently wrong.
+
+The map comes from **what git tracks**, not a skip list — the real Aeron repo carries a 1,496-file
+`graphify-out/` that is untracked rather than ignored, and it topped the map as if it were the
+project.
+
+`harness-onboarder`'s Phase 1 now starts here: the survey answers stack, commands, layout, docs and
+tests mechanically, leaving the human the two it cannot — run the baseline, and say what the project
+is for.
+
 ## Vendored code
 
 Anything under `vendor/`, `third_party/`, `external/` or `skills/<name>/` is code this project did
