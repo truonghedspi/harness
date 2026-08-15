@@ -209,8 +209,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    [references/design-engineering.md](references/design-engineering.md).
 6. **Decompose the requirement into `feature_list.json`.** This is the step that makes the loop
    actually do the user's work — do not leave placeholders, and do not hand-wave the cut. Run the
-   `feature-planner` agent (`kiro-cli chat --agent feature-planner`, or follow
-   `prompts/feature-planner.md` directly) against the real requirement: it extracts named
+   `feature-planner` agent (`kiro-cli chat --agent feature-planner`), which follows the scaffolded
+   `skills/feature-planning/SKILL.md` capability pack: draft, schema/DAG/traceability self-check,
+   then publish. Against the real requirement it extracts named
    components as **build features** and named/derived scenarios as **prove features**, sizes each
    against a concrete checklist (one sentence, one verification command, a nameable file
    footprint), and produces a dependency DAG instead of a flat list. Full algorithm + a worked
@@ -530,6 +531,8 @@ After setup, the target project should contain:
       catalog, anti-patterns R-T1…R-T10, schemas), scaffolded into the target because the
       `test-designer`/`test-implementer` prompts dispatch to it
       ([references/test-authoring.md](references/test-authoring.md))
+- [ ] `skills/feature-planning/` — the planner capability pack: cutting rules, counterexamples,
+      schema, deterministic DAG/traceability checker and discriminating fixtures
 - [ ] `memory/{maker,checker,harness-setup,feature-planner,test-designer,test-implementer}/MEMORY.md` — per-agent persistent
       memory ([references/agent-memory.md](references/agent-memory.md)); referenced in each
       agent's `resources` so it loads every run

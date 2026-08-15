@@ -231,6 +231,7 @@
         "docs/assumptions.md",
         "docs/cross-cutting.md",
         "docs/testing-standards.md",
+        "skills/feature-planning/SKILL.md",
         "init.sh",
         "loop/goal.md",
         "memory/feature-planner/MEMORY.md"

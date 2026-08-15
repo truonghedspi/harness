@@ -892,6 +892,27 @@ const need=['skills/test-design/SKILL.md','skills/test-design/references/anti-pa
 process.exit(need.every(f=>fs.existsSync('$T3/'+f)) ? 0 : 1);
 "; expect "the test-design skill, its agents and their memory are scaffolded into the target" $?
 
+# Feature planning is a capability pack, not a 150-line role prompt: invariant workflow in
+# SKILL.md, conditional counterexamples, schema, deterministic checker and discriminating fixtures.
+node -e "
+const fs=require('fs');
+const need=['skills/feature-planning/SKILL.md','skills/feature-planning/schemas/feature-plan.schema.json',
+ 'skills/feature-planning/references/cutting-rules.md','skills/feature-planning/references/counterexamples.md',
+ 'skills/feature-planning/scripts/check-plan.mjs','skills/feature-planning/evals/run-fixtures.mjs'];
+const man=JSON.parse(fs.readFileSync('$TO/agents.manifest.json','utf8'));
+const planner=man.agents.find(a=>a.name==='feature-planner');
+process.exit(need.every(f=>fs.existsSync('$TO/'+f)) && planner.resources.includes('skills/feature-planning/SKILL.md') ? 0 : 1);
+"; expect "the planner receives its complete capability pack and auto-loads the invariant workflow" $?
+node "$TO/skills/feature-planning/evals/run-fixtures.mjs" >/tmp/demo-plan-fixtures.$$ 2>&1
+grep -q 'PASS valid' /tmp/demo-plan-fixtures.$$ && grep -q 'PASS orphan-build' /tmp/demo-plan-fixtures.$$ && grep -q 'PASS invented-invariant' /tmp/demo-plan-fixtures.$$
+expect "planner fixtures accept a complete DAG and reject orphan proof plus invented traceability" $?
+rm -f /tmp/demo-plan-fixtures.$$
+node -e "
+const fs=require('fs');
+const p=fs.readFileSync('$TO/prompts/feature-planner.md','utf8');
+process.exit(p.split('\n').length<60 && /skills\/feature-planning\/SKILL\.md/.test(p) && /check-plan\.mjs/.test(p) ? 0 : 1);
+"; expect "the planner prompt is a thin launcher into the skill, not a second drifting manual" $?
+
 step 31 "adopting an existing repo: two-file footprint, then debt is frozen and ratcheted"
 LEG="$WORK/legacy-repo"
 rm -rf "$LEG" && mkdir -p "$LEG/src" && (cd "$LEG" && git init -q .)

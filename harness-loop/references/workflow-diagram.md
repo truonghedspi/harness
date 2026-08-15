@@ -19,7 +19,7 @@ flowchart TD
     ON --> CI
     B --> CI["context-interviewer\nLAYER: spec\nfacts the repo cannot contain"]
     CI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
-    DS --> FP["feature-planner\nLAYER: decomposition\nbuild/prove DAG; falsifier DERIVED\nfrom the design's invariants"]
+    DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG; invariant traceability"]
     FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]
     TD --> TI["test-implementer\nconditions → FAILING test\nred observed and recorded"]
     TI --> MK["maker\nLAYER: implementation\nmakes the existing oracle pass"]

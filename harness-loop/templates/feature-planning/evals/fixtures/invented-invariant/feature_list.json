@@ -1,0 +1,4 @@
+{"features":[
+  {"id":"feat-ledger","name":"Ledger core","kind":"build","behavior":"The ledger applies a transfer atomically","verification":"node --test test/ledger-unit.test.mjs","falsifier":"A ledger that drops credits silently [INV-LEDGER-9]","context":{"touches":["src/ledger.mjs"],"note":"Reuse the transaction boundary."},"dependencies":[],"status":"not-started","readyForCheck":false,"evidence":"","checkerNotes":"","attempts":0,"maxAttempts":3},
+  {"id":"feat-prove-ledger","name":"Ledger proof","kind":"prove","behavior":"A rejected transfer leaves every balance unchanged","verification":"node --test test/ledger-proof.test.mjs","falsifier":"A ledger that mutates before rejecting [INV-LEDGER-1]","context":{"touches":["test/ledger-proof.test.mjs"],"note":"Compare complete snapshots."},"dependencies":["feat-ledger"],"status":"not-started","readyForCheck":false,"evidence":"","checkerNotes":"","attempts":0,"maxAttempts":3}
+]}

@@ -45,7 +45,8 @@ Scripts use only Node.js built-ins, so they run after copying the skill into any
 `AGENTS.md` (router) · `feature_list.json` · `init.sh` · `progress.md` · `DECISIONS.md` ·
 `session-handoff.md` · `docs/{architecture,constraints,testing-standards,definition-of-done}.md` ·
 `tools/trace.mjs` · `loop/{goal,maker-prompt,checker-prompt}.md` + `run-loop.sh` ·
-`skills/test-design/` (spec→test-condition discipline the test agents dispatch to) ·
+`skills/test-design/` (spec→test-condition discipline) · `skills/feature-planning/` (build/prove
+DAG capability, schema, checker and fixtures) ·
 `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer,test-designer,test-implementer}.json`
 + `.kiro/settings/mcp.json` · `check-coverage.mjs`.
 
