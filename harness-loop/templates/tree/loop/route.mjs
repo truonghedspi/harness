@@ -45,7 +45,7 @@ const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync
 // answer still mentioned it, and the router escalated a live question to a human. A file mention
 // cannot tell you WHICH question was answered.
 //
-// So route on what actually happened instead: dispatch history. loop/run-loop.sh appends every
+// So route on what actually happened instead: dispatch history. loop/run-loop.mjs appends every
 // (node, feature, marker) it dispatches to loop/route-log.jsonl, and the marker is identified by a
 // hash of its own text — a new question is a new hash, and the ladder restarts for it.
 const markerHash = (text) => createHash("sha1").update(String(text || "").trim()).digest("hex").slice(0, 12);

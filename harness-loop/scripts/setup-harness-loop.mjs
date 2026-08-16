@@ -591,14 +591,14 @@ console.log(`  2. ./init.sh                              # baseline green before
 console.log(`  3. node check-coverage.mjs                # 13/13 lessons`);
 console.log(`  4. node tools/verify-harness.mjs --target . --run-features     # 0 blockers is the bar`);
 console.log(`  5. node loop/route.mjs                    # asks the state which agent runs next, and why`);
-console.log(`  6. loop/run-loop.sh 1                     # one supervised iteration, routed automatically`);
+console.log(`  6. node loop/run-loop.mjs 1                # one supervised iteration, routed automatically`);
 console.log(``);
 console.log(`The router picks the node; you do not. It walks deeper-first — a fact only a human has`);
 console.log(`(human-interview skill, without switching agents), then design, decomposition, the oracle, and code.`);
 console.log(`Run it whenever you are unsure what to do next.`);
 console.log(``);
 console.log(`Runtimes: agents were generated for ${RUNTIME === "both" ? "kiro-cli AND Claude Code" : RUNTIME}.`);
-console.log(`Set HARNESS_RUNTIME=kiro|claude to force one; run-loop.sh otherwise detects it.`);
+console.log(`Set HARNESS_RUNTIME=kiro|claude|codex to force one; run-loop.mjs otherwise detects it.`);
 console.log(`Regenerate after editing agents.manifest.json: node tools/gen-agents.mjs --target .`);
 console.log(``);
 console.log(`Adopting a repo with history instead of starting fresh? Do NOT use this script directly —`);

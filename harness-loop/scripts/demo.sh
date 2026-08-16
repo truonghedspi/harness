@@ -1413,6 +1413,9 @@ WIN="$WORK/windows"; rm -rf "$WIN"; mkdir -p "$WIN"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$WIN" --name "WinDemo" --purpose "cross-platform gate" >/dev/null
 test -f "$WIN/init.mjs" -a -f "$WIN/init.sh" -a -f "$WIN/init.cmd"
 expect "one gate, three entry points: init.mjs plus a wrapper for POSIX shells and one for cmd.exe" $?
+test -f "$WIN/loop/run-loop.mjs" -a -f "$WIN/loop/run-loop.sh" -a -f "$WIN/loop/run-loop.cmd" \
+  -a -f "$WIN/loop/dispatch.mjs" -a -f "$WIN/loop/dispatch.sh" -a -f "$WIN/loop/dispatch.cmd"
+expect "the autonomous loop and named dispatcher each ship one Node entry point plus POSIX and Windows wrappers" $?
 node -e "
 const fs=require('fs');
 // The wrappers must stay wrappers. A second implementation of the gate is a second thing to drift,
@@ -1421,6 +1424,22 @@ const sh=fs.readFileSync('$WIN/init.sh','utf8'), cmd=fs.readFileSync('$WIN/init.
 const shLogic=sh.split('\n').filter(l=>l.trim() && !l.trim().startsWith('#')).length;
 process.exit(/exec node .*init\.mjs/.test(sh) && /node .*init\.mjs/.test(cmd) && shLogic<=5 ? 0 : 1);
 "; expect "both wrappers just exec init.mjs — no second copy of the verification logic" $?
+node -e "
+const fs=require('fs'), root='$WIN/loop/';
+for (const base of ['run-loop','dispatch']) {
+  const sh=fs.readFileSync(root+base+'.sh','utf8'), cmd=fs.readFileSync(root+base+'.cmd','utf8');
+  if (!new RegExp('node .*'+base+'\\.mjs').test(sh) || !new RegExp('node .*'+base+'\\.mjs').test(cmd)) process.exit(1);
+  if (/kiro-cli|claude -p|case .*RUNTIME|route\.mjs/.test(sh+cmd)) process.exit(1);
+}
+"; expect "loop wrappers contain no routing or runtime logic that could drift between shells" $?
+node -e "
+const fs=require('fs'),p='$WIN/feature_list.json',j=require(p);
+for (const f of j.features) { f.status='done'; f.readyForCheck=false; }
+fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
+"
+( cd "$WIN" && node loop/run-loop.mjs --headless > "$WIN/settled.log" 2>&1 )
+grep -q "nothing to do" "$WIN/settled.log"
+expect "the Node loop executes without Bash and preserves its mechanical early-stop contract" $?
 # The bug this port found. The old bash gate wrote: has lint && { run lint; } || true
 # The || true was meant to skip a script that does not exist. It cannot tell that apart from one
 # that ran and failed, so a project with failing lint AND failing tests printed "Baseline green".
@@ -1646,13 +1665,12 @@ fs.writeFileSync('$LS/loop/current.json', JSON.stringify({node:'maker',feature:'
 node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -qE "RUNNING +maker on feat-x +1m30s"
 expect "an in-flight agent shows what it is, on what, and for how long" $?
 # Attended by default, and it must never block where nobody can answer.
-grep -q 'ATTENDED="${HARNESS_ATTENDED:-1}"' "$LS/loop/run-loop.sh"
+grep -q 'let attended = .*HARNESS_ATTENDED' "$LS/loop/run-loop.mjs"
 expect "the loop is attended by default — unattended is the thing you graduate to" $?
-( cd "$LS" && HARNESS_RUNTIME=kiro bash loop/run-loop.sh 1 < /dev/null 2>&1 | head -2 ) > "$LS/notty.log"
+( cd "$LS" && HARNESS_RUNTIME=kiro node loop/run-loop.mjs 1 < /dev/null 2>&1 | head -2 ) > "$LS/notty.log"
 grep -q "no TTY on stdin — running headless" "$LS/notty.log"
 expect "with no TTY it falls back to headless and says so, instead of blocking on a prompt nobody can answer" $?
-( cd "$LS" && bash -x loop/run-loop.sh --headless 2>&1 | grep -m1 "ITERATIONS=" ) > "$LS/args.log" 2>&1
-grep -q "ITERATIONS=1" "$LS/args.log"
+grep -q 'find((arg) => /^\\d+\$/.test(arg)) || 1' "$LS/loop/run-loop.mjs"
 expect "a leading --headless is not mistaken for an iteration count" $?
 
 # The front door. A deterministic router is only reviewable if an LLM cannot quietly route around
@@ -1817,32 +1835,32 @@ process.exit(/Where a verification lives/.test(t) && /smell that a level is miss
 "; expect "and testing-standards.md says why, so the rule is teachable and not just enforced" $?
 
 # The orchestrator is told to hand a human's answer to the agent that owns that file — and could
-# not: dispatch() was a private function inside run-loop.sh, which only ever runs the node the
+# not: dispatch() was a private function inside run-loop.sh, which only ever ran the node the
 # ROUTER named. Only Codex had a standalone path, so the gap was invisible on that runtime.
 DP="$WORK/dispatch"; rm -rf "$DP"; mkdir -p "$DP/bin"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$DP" --name "Disp" --purpose "named dispatch" >/dev/null
-test -x "$DP/loop/dispatch.sh"; expect "every scaffold ships a runtime-agnostic way to dispatch one named agent" $?
+test -f "$DP/loop/dispatch.mjs" -a -f "$DP/loop/dispatch.cmd" -a -x "$DP/loop/dispatch.sh"; expect "every scaffold ships a runtime-agnostic way to dispatch one named agent" $?
 printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh designer "decided" ) > "$DP/d.log" 2>&1
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs designer "decided" ) > "$DP/d.log" 2>&1
 grep -q "agent=designer" "$DP/d.log"; expect "it runs the agent the caller named, not the one the router would have picked" $?
 printf '#!/usr/bin/env bash\necho "Monthly request limit reached; resets later"\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh designer "decided" ) > "$DP/q.log" 2>&1
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs designer "decided" ) > "$DP/q.log" 2>&1
 QC=$?; [ "$QC" = "75" ] && grep -q "runtime refused" "$DP/q.log"
 expect "a quota refusal that exits zero is classified as no agent work" $?
 printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh ghost "x" ) > "$DP/g.log" 2>&1
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs ghost "x" ) > "$DP/g.log" 2>&1
 GC=$?; grep -q "no agent" "$DP/g.log" && [ "$GC" = "2" ]
 expect "an agent that is not in the manifest is refused, rather than dispatched into nothing" $?
 node -e "
 const fs=require('fs');
 // one implementation of 'how do I start an agent here'. Two copies is two things to drift, and the
 // runtimes are exactly where drift is invisible.
-const rl=fs.readFileSync('$DP/loop/run-loop.sh','utf8');
-process.exit(/\. loop\/dispatch\.sh/.test(rl) && !/kiro-cli chat --agent/.test(rl) ? 0 : 1);
-"; expect "run-loop.sh sources it instead of keeping a second copy of the runtime case statement" $?
+const rl=fs.readFileSync('$DP/loop/run-loop.mjs','utf8');
+process.exit(rl.includes('./dispatch.mjs') && !rl.includes('kiro-cli chat --agent') ? 0 : 1);
+"; expect "run-loop.mjs imports one dispatcher instead of keeping a second runtime implementation" $?
 node -e "
 const t=require('fs').readFileSync('$DP/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
-process.exit(/loop\/dispatch\.sh designer/.test(t) && /only when a human has already decided/.test(t) ? 0 : 1);
+process.exit(/node loop\/dispatch\.mjs designer/.test(t) && /only when a human has already decided/.test(t) ? 0 : 1);
 "; expect "and the orchestrator is told to use it only once a human has decided — the router still owns the rest" $?
 
 # setup never overwrites, --force overwrites everything including the project's own work. Neither

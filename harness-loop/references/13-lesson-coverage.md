@@ -129,9 +129,9 @@ means nothing — always run the baseline gate too.
   Skills, Connectors, Sub-agents (maker/checker), External State.
 - **Artifacts:** `loop/goal.md` (objective + iteration contract + gates + explicit stop
   conditions + human checkpoints), `loop/maker-prompt.md`, `loop/checker-prompt.md`,
-  `loop/run-loop.sh`, and `.kiro/agents/{maker,checker}.json`.
+  `loop/run-loop.mjs`, and `.kiro/agents/{maker,checker}.json`.
 - **Check:** all of `loop/goal.md`, `loop/maker-prompt.md`, `loop/checker-prompt.md`,
-  `loop/run-loop.sh`, `.kiro/agents/maker.json`, `.kiro/agents/checker.json` exist AND
+  `loop/run-loop.mjs`, `.kiro/agents/maker.json`, `.kiro/agents/checker.json` exist AND
   `loop/goal.md` contains a "stop condition" section.
 
 ---

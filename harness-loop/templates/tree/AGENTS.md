@@ -24,7 +24,7 @@ Act as the `orchestrator` (`prompts/orchestrator.md`) unless you were dispatched
 **Look before speaking** — `node tools/loop-status.mjs`, then `node loop/route.mjs`. Never describe
 the state from memory. **You do not choose the next node**; the router does, and a router you
 disagree with is a harness defect to report, not to override. Dispatch one iteration
-(`loop/run-loop.sh 1`), show what changed, and stop at the first escalation — translate the question,
+(`node loop/run-loop.mjs 1`), show what changed, and stop at the first escalation — translate the question,
 offer numbered options with a recommendation, and route the answer to the agent that owns that file.
 
 ## Startup Readiness
@@ -49,7 +49,7 @@ All four must hold before any work (Lesson 6). If one fails, fixing it *is* the 
 ## Who runs next
 
 **`node loop/route.mjs` decides**, reading state and naming the node, its layer, and why.
-`loop/run-loop.sh` dispatches. Markers live in `feature_list.json`'s `checkerNotes` and
+`node loop/run-loop.mjs` dispatches. Markers live in `feature_list.json`'s `checkerNotes` and
 `docs/assumptions.md`.
 
 **What happens after you, or who handles what? `node loop/route.mjs --rules`** — the whole routing

@@ -40,7 +40,7 @@ broken `file://` URI. `verify-harness.mjs` reports `agent-generated-stale`.
 | MCP config | `.kiro/settings/mcp.json` | `.mcp.json` | `[mcp_servers.x]` in `.codex/config.toml` |
 | headless invocation | `kiro-cli chat --agent X --no-interactive --trust-all-tools` | `claude -p "…" --agent X --dangerously-skip-permissions` | **no `--agent` flag exists** — `node tools/codex-dispatch.mjs X "…"` |
 
-`loop/run-loop.sh` picks the runtime from `HARNESS_RUNTIME`, or detects it from which agent
+`loop/run-loop.mjs` picks the runtime from `HARNESS_RUNTIME`, or detects it from which agent
 directory exists and which CLI is installed, and routes everything through one `dispatch()`.
 
 ## The two places kiro and Claude Code genuinely differ

@@ -49,7 +49,7 @@ for (const m of (read(S("scripts", "setup-harness-loop.mjs")) || "")
   refresh.push([m[1], m[2]]);
 }
 // Loop machinery. NOT the prompts beside them — those are customised per project.
-for (const f of ["route.mjs", "run-loop.sh", "dispatch.sh", "approval-gate.mjs"]) {
+for (const f of ["route.mjs", "run-loop.mjs", "run-loop.sh", "run-loop.cmd", "dispatch.mjs", "dispatch.sh", "dispatch.cmd", "approval-gate.mjs"]) {
   if (existsSync(S("templates", "tree", "loop", f))) refresh.push([`templates/tree/loop/${f}`, `loop/${f}`]);
 }
 // The init wrappers carry no logic by design, so they are safe to overwrite. init.mjs is NOT here:

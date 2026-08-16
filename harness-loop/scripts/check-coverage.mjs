@@ -137,7 +137,7 @@ const CHECKS = [
     return ok("exit checklist + handoff file present");
   }],
   ["L13 Autonomous loop", () => {
-    const required = ["loop/goal.md", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/run-loop.sh", ".kiro/agents/maker.json", ".kiro/agents/checker.json"];
+    const required = ["loop/goal.md", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/run-loop.mjs", ".kiro/agents/maker.json", ".kiro/agents/checker.json"];
     const missing = required.filter((r) => !exists(P(r)));
     if (missing.length) return no("missing: " + missing.join(", "));
     const goal = read(P("loop/goal.md"));

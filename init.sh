@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # init.sh — wrapper. The baseline gate itself lives in init.mjs, which runs on every platform this
 # harness targets; this file exists so `./init.sh` keeps working everywhere it already did, and so
-# the ~15 places that name it (feature_list.json, run-loop.sh, the prompts, the docs) stay correct.
+# existing callers that name it stay correct.
 #
 # Do not add logic here. A second implementation of the gate is a second thing to drift, and it
 # would drift toward whichever one the person making the change happens to run.

@@ -116,7 +116,7 @@ watching it take a wrong turn, stopping it, and fixing the *harness* so it canno
 again. Every routing defect in `graph.md` was found that way, and none of them by reading a
 finished log.
 
-So `loop/run-loop.sh` is **attended by default**: it pauses after each iteration, shows what
+So `node loop/run-loop.mjs` is **attended by default**: it pauses after each iteration, shows what
 changed and where the router is heading, and waits. `--headless` (or `HARNESS_ATTENDED=0`) is for
 CI and cron. With no TTY it falls back to headless and says so, rather than blocking on a prompt
 nobody can answer.

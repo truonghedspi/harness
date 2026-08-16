@@ -5,7 +5,7 @@ executes*: every node, every edge, who owns every field of shared state, and the
 picks the next node. The difference between the two documents is the point — writing this one is
 what surfaced seven edges that existed only inside an agent's context.
 
-Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
+Scope: the project loop (`node loop/run-loop.mjs`). The harness self-improvement loop
 (`scripts/harness-loop.sh`) is a second graph; the one edge between them is listed at the end.
 
 ## Nodes
@@ -32,14 +32,14 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `tools/guard-write.mjs` | code | denies an edit outside an agent's `writes` (`PreToolUse`) — Claude Code per-agent, Codex project-wide keyed on `HARNESS_AGENT` | `agents.manifest.json`, the tool payload | nothing (allow/deny) |
 | `tools/codex-dispatch.mjs` | code | Codex only — assembles a role (`codex exec` has no `--agent`): prompt + resources on stdin, identity in the environment | `agents.manifest.json`, prompts, `agent-context.mjs` | nothing (spawns codex) |
 | `loop/route.mjs` | code | **the router** — reads shared state, returns the next node + its layer + why (+ the marker hash, when a marker drove it). `--rules` prints the whole table, so nothing has to parse its source | `feature_list.json`, `docs/assumptions.md`, `loop/route-log.jsonl` | nothing (pure) |
-| `loop/dispatch.sh` | code | run ONE named agent on whichever runtime exists. Sourced by `run-loop.sh`; executed directly by a human or the orchestrator once a decision is already made. Does **not** choose who runs | `agents.manifest.json`, `HARNESS_RUNTIME` | nothing directly; the agent it spawns writes |
-| `loop/run-loop.sh` | code | **the dispatcher** — runs the node the router named, on kiro-cli, Claude Code or Codex (`HARNESS_RUNTIME`, else detected) | `route.mjs` output | nothing directly; the agent it spawns writes |
+| `loop/dispatch.mjs` | code | run ONE named agent on whichever runtime exists; called by `run-loop.mjs` or directly by a human after a decision. Does **not** choose who runs. `.sh`/`.cmd` are wrappers | `agents.manifest.json`, `HARNESS_RUNTIME` | nothing directly; the agent it spawns writes |
+| `loop/run-loop.mjs` | code | **the dispatcher** — runs the node the router named on Windows, macOS or Linux, using kiro-cli, Claude Code or Codex (`HARNESS_RUNTIME`, else detected). `.sh`/`.cmd` are wrappers | `route.mjs` output | nothing directly; the agent it spawns writes |
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `orchestrator` | agent | **the front door** — reports state, dispatches the node `route.mjs` names, escalates decisions to the human. The default role when a human names none. **Never chooses the node**, and writes no product file | `AGENTS.md`, `graph.md`, `human-attention.md`, `presenting-and-proposing.md`, `loop-status.mjs`, `route.mjs` | `session-handoff.md`, `progress.md`, `loop/approval.md`, `memory/orchestrator/**` |
 | `tools/feature.mjs` | code | one feature out of `feature_list.json` in full, without loading the file. The pair to the digest: digest = every feature in one line, this = one feature in full | `feature_list.json` | nothing |
 | `tools/timeline.mjs` | code | **how it got here** — replays git history of `feature_list.json` into per-day transitions, net weekly progress, reopens, and per-feature age. Read-only | git history, `feature_list.json` | nothing |
 | `tools/loop-status.mjs` | code | **the live view** — where the loop is *right now*: in-flight node + elapsed, escalations, dispatch trail, livelock warning. Read-only, safe against a running loop | `loop/current.json`, `route.mjs`, `feature_list.json`, `route-log.jsonl`, git | nothing |
-| the human, between iterations | human | attended mode: `run-loop.sh` pauses after every iteration and waits. This is the **default**; `--headless` is what you graduate to | the diff, `loop-status.mjs` | continue / stop |
+| the human, between iterations | human | attended mode: `run-loop.mjs` pauses after every iteration and waits. This is the **default**; `--headless` is what you graduate to | the diff, `loop-status.mjs` | continue / stop |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
 | `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json`, MCP `k8s-readonly` | chart, tests, `feature_list.json` |
@@ -101,9 +101,9 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `trace/**`, `memory/<agent>/**` | each agent, its own dir only | that agent at spawn | append |
 | `loop/approval.md` | **the human** | `approval-gate.mjs` | first line is the verdict; a verdict with no reason is treated as a rejection |
 | `loop/approval-log.jsonl` | `approval-gate.mjs` | audit | append-only |
-| `loop/current.json` | `run-loop.sh` (the dispatcher) | `loop-status.mjs` | written at dispatch, stamped `finishedAt` on return. A stale entry with no live process means that iteration crashed or was killed |
-| `loop/route-log.jsonl` | `run-loop.sh` (the dispatcher) | `route.mjs`, `loop-status.mjs` | append-only. What was actually dispatched, per marker. The router reads it to tell "this node has not had a turn on this marker" from "it had one and nothing changed" — the router stays pure, the dispatcher records |
-| `loop/baseline-state.json` | `run-loop.sh` | `route.mjs` | typed `green|red` outcome plus evidence digest; red is routable state, not an out-of-graph shell exit |
+| `loop/current.json` | `run-loop.mjs` (the dispatcher) | `loop-status.mjs` | written at dispatch, stamped `finishedAt` on return. A stale entry with no live process means that iteration crashed or was killed |
+| `loop/route-log.jsonl` | `run-loop.mjs` (the dispatcher) | `route.mjs`, `loop-status.mjs` | append-only. What was actually dispatched, per marker. The router reads it to tell "this node has not had a turn on this marker" from "it had one and nothing changed" — the router stays pure, the dispatcher records |
+| `loop/baseline-state.json` | `run-loop.mjs` | `route.mjs` | typed `green|red` outcome plus evidence digest; red is routable state, not an out-of-graph shell exit |
 | `loop/design-review.json` | `design-reviewer` | `route.mjs`, designer | verdict is bound to the current design digest; a changed design invalidates the old verdict automatically |
 | `agents.generated.json` | `gen-agents.mjs` | next generator run, upgrade audit | generated-path ownership receipt; partial runtime generation preserves other runtimes, retired paths are removed without touching unmanaged agents |
 | `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `context-plan.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; rule entries retain original pointer, scope, collection digest and provenance |

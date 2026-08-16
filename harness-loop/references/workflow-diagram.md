@@ -44,7 +44,7 @@ flowchart TD
     MK --> GATES{"init.sh green ·\ncheck-coverage 13/13 ·\nverify-harness 0 blockers"}
     GATES -- no --> FIX["layer:project → fix the target\nlayer:harness → fix the SKILL"]
     FIX --> GATES
-    GATES -- yes --> LOOP["loop/run-loop.sh N\nrouted by loop/route.mjs"]
+    GATES -- yes --> LOOP["node loop/run-loop.mjs N\nrouted by loop/route.mjs"]
     LOOP --> K8S{"verification crosses a real\nservice boundary?"}
     K8S -- yes --> KT["k8s-integration-tester\nLAYER: integration (Level 3)\nsame test-authoring rules;\nreads the code, so its independence\nis the boundary, not blindness"]
     KT --> BJ{"business outcome spans\nmultiple deployed services?"}
@@ -84,7 +84,7 @@ for why.
 
 ```mermaid
 sequenceDiagram
-    participant RL as run-loop.sh
+    participant RL as run-loop.mjs
     participant M as maker agent
     participant FS as feature_list.json (disk)
     participant C as checker agent
@@ -151,7 +151,7 @@ flowchart TD
     Sig -- yes --> Stop["STOP — escalate to a human\n(no-op or A-B-A cycle)"]
     Sig -- no --> L{"finding layer?"}
     L -- harness --> HI["harness-issue.mjs import → issueId\nimprove-harness.mjs --id issueId\ndispatch one immutable repair objective\nfix templates/tree/** or scripts/*.mjs"]
-    L -- project --> PJ["dispatch loop/run-loop.sh 1\nfix lands in the target repo"]
+    L -- project --> PJ["dispatch node loop/run-loop.mjs 1\nfix lands in the target repo"]
     HI --> V
     PJ --> V
 ```

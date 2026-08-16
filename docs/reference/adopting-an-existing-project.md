@@ -115,7 +115,7 @@ pure cost.
    `adoption-baseline` = no new debt
 5. Resolve human-owned gaps in place with `human-interview`, then hand off to `designer` /
    `feature-planner`, then **one supervised
-   `run-loop.sh 1`** before any longer run
+   `node loop/run-loop.mjs 1`** before any longer run
 
 ## Honest limits
 

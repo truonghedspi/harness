@@ -6,24 +6,22 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-16
-- **Active feature:** [feat-XXX — name]
-- **Latest commit:** [hash / message]
-- **Baseline (`./init.sh`):** [green / red — reason]
+- **Active feature:** none
+- **Latest commit:** b22b11e — harness: close eight observed workflow failures
+- **Baseline (`./init.sh`):** green — canonical demo passed all 42 end-to-end steps
 
 ## Done
 
-- [ ] [completed item]
+- [x] feat-windows-native-loop — Node-native loop/dispatch control plane with thin `.sh`/`.cmd` wrappers; HI-045 reverified and resolved
 
 ## In Progress
 
-- [ ] [current work item]
-  - Details:
-  - Blockers:
+- [ ] None
 
 ## Next
 
-1. [next action]
-2. [following action]
+1. Add a real `windows-latest` CI job when this repository gains hosted CI.
+2. Port the optional Kubernetes Bash helpers separately if native Windows K8s execution becomes a requirement.
 
 ## Known Issues / Risks
 
@@ -31,4 +29,5 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-[Free-form context that helps the next session pick up. What was tried, what to avoid.]
+Core target control-plane support is native Windows. Developer-only `demo.sh`/`harness-loop.sh`
+and optional Kubernetes helpers remain Bash surfaces by explicit scope.

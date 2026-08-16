@@ -4,7 +4,7 @@ description: >-
   Set up a complete agent harness AND an autonomous maker–checker loop on top of any project,
   targeting kiro-cli, Claude Code and Codex CLI from one agent manifest. Scaffolds AGENTS.md, feature_list.json, a cross-platform init gate, progress.md,
   DECISIONS.md, session-handoff.md, docs/ topic files, tools/trace.mjs observability, and a
-  loop/ (goal + maker/checker prompts + run-loop.sh) plus .kiro/ custom agents. Every artifact
+  loop/ (goal + maker/checker prompts + cross-platform run-loop.mjs) plus .kiro/ custom agents. Every artifact
   maps to one of the 13 Learn-Harness-Engineering lessons, and a bundled coverage checker proves
   all 13 are present and their gates pass. Use whenever a coding agent needs to run reliably
   across sessions and then run autonomously (unattended) — forgets context, drifts scope, claims
@@ -49,7 +49,7 @@ becomes a fact you can prove, not a claim.
 | 10 | Only full-pipeline runs count → cross-service integration gates | `docs/testing-standards.md` (3 levels, top = microservice integration/contract); `init.sh` runs build+test | testing doc has 3 levels incl. microservice integration; init runs pipeline |
 | 11 | Observability belongs in the harness | `tools/trace.mjs` + `trace/`; agent `hooks` emit trace | trace.mjs present; agents reference it |
 | 12 | Every session must leave clean state → exit checklist | Session-exit 5-condition checklist in `AGENTS.md`; `session-handoff.md` | exit checklist present; handoff file present |
-| 13 | Manual prompting → autonomous loop | `loop/goal.md` (goal+verification+stop), maker/checker prompts, `run-loop.sh`, `.kiro/agents/*.json` | all loop artifacts present; goal.md has stop conditions |
+| 13 | Manual prompting → autonomous loop | `loop/goal.md` (goal+verification+stop), maker/checker prompts, `run-loop.mjs`, `.kiro/agents/*.json` | all loop artifacts present; goal.md has stop conditions |
 
 Full spec (what each check inspects, exactly) lives in
 [references/13-lesson-coverage.md](references/13-lesson-coverage.md) — it is the contract
@@ -248,7 +248,7 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    harness is ready" — not step 6 alone. If it reports `layer: harness` findings, this skill has a
    bug; follow the Lifecycle section above before blaming the target.
 11. **Start the loop only after both checks pass and the baseline is green.** Local first:
-   `kiro-cli chat --agent maker` then `--agent checker`; or headless `loop/run-loop.sh N`.
+   `kiro-cli chat --agent maker` then `--agent checker`; or headless `node loop/run-loop.mjs N`.
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
 
@@ -513,7 +513,7 @@ as a bug, which quietly destroys trust in every other number on the screen.
 
 ## Watching a run
 
-`loop/run-loop.sh` is **attended by default** — it pauses after each iteration, shows the diff and
+`node loop/run-loop.mjs` is **attended by default** — it pauses after each iteration, shows the diff and
 the router's next move, and waits. `--headless` is for CI and cron; with no TTY it falls back to
 headless and says so. From a second terminal, `node tools/loop-status.mjs --watch` shows the
 in-flight node and its elapsed time, features in flight, open escalations, the dispatch trail, and
@@ -531,17 +531,12 @@ whichever copy the person making the change happens to run.
 **Do not put logic in the wrappers.** `improve-harness.mjs` routes every `baseline/*` finding to
 `templates/tree/init.mjs` for the same reason.
 
-What is **not** portable yet, stated plainly rather than discovered later:
-
-| Component | Windows |
-|---|---|
-| `init.mjs` + wrappers, and every `tools/*.mjs` | works natively |
-| `loop/run-loop.sh` — the autonomous loop driver | **bash only.** Needs Git Bash or WSL. The router (`loop/route.mjs`) and dispatch (`tools/codex-dispatch.mjs`) are already Node; it is the driver shell around them that is not |
-| `tools/k8s-test-env.sh`, `tools/mcp-k8s-readonly-wrapper.sh` | bash only — Git Bash or WSL |
-| `scripts/demo.sh`, `scripts/harness-loop.sh` | bash only (developer-facing, not shipped into a target) |
-
-So on Windows a human can run the harness end to end today, and the *autonomous* loop needs Git Bash
-or WSL until `run-loop.sh` is ported.
+The autonomous driver and runtime dispatcher follow the same rule: `loop/run-loop.mjs` and
+`loop/dispatch.mjs` own all behavior; their `.sh` and `.cmd` files are compatibility wrappers.
+Therefore a shipped target runs its baseline, router, dispatch and autonomous loop natively from
+cmd.exe or PowerShell with Node and no Git Bash/WSL dependency. Optional Kubernetes helper scripts
+remain Bash-only, as do this skill repository's developer-facing `demo.sh` and `harness-loop.sh`;
+neither is part of a normal target's core control plane.
 
 ## Deliverable checklist
 
@@ -571,7 +566,7 @@ After setup, the target project should contain:
 - [ ] `memory/{maker,checker,harness-setup,feature-planner,test-designer,test-implementer}/MEMORY.md` — per-agent persistent
       memory ([references/agent-memory.md](references/agent-memory.md)); referenced in each
       agent's `resources` so it loads every run
-- [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.sh}`
+- [ ] `loop/{goal.md,maker-prompt.md,checker-prompt.md,run-loop.mjs}` (+ thin `.sh`/`.cmd` wrappers)
 - [ ] `docs/INDEX.md` — the map of documents with a "read it when" column; every knowledge doc
       under 300 lines, the rule itself stated in `docs/constraints.md` (auto-loaded into every
       writing agent) and in `AGENTS.md`'s Working Rules

@@ -1,7 +1,51 @@
 {
   "$comment": "Dogfood scope for applying the harness to its own repository. Only the checker or verification script may set done.",
-  "states": ["not-started", "active", "blocked", "in-progress", "passing", "done"],
+  "states": [
+    "not-started",
+    "active",
+    "blocked",
+    "in-progress",
+    "passing",
+    "done"
+  ],
   "features": [
+    {
+      "id": "feat-windows-native-loop",
+      "name": "Autonomous loop runs natively on Windows",
+      "behavior": "A scaffolded target runs its autonomous loop and named dispatch through one cross-platform Node control plane.",
+      "verification": "bash harness-loop/scripts/demo.sh",
+      "falsifier": "The scaffold still requires Bash for loop orchestration or duplicates control logic in a PowerShell or cmd implementation.",
+      "kind": "prove",
+      "dependencies": [],
+      "context": {
+        "touches": [
+          "harness-loop/templates/tree/loop/",
+          "harness-loop/scripts/",
+          "harness-loop/references/graph.md",
+          "harness-loop/references/workflow-diagram.md"
+        ],
+        "note": "HI-045; Node is already the required runtime and wrappers must contain no control logic."
+      },
+      "status": "done",
+      "readyForCheck": false,
+      "evidence": [
+        {
+          "date": "2026-08-16",
+          "run": "red",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "failed on the new Node-dispatch single-source assertion and exposed a missing preserved human-route message"
+        },
+        {
+          "date": "2026-08-16",
+          "run": "green",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "all 42 end-to-end demo steps passed, including native Node loop/dispatch wrappers and early-stop behavior"
+        }
+      ],
+      "checkerNotes": "HI-045 reverified with 0 blockers and 0 harness-layer findings; awaiting mechanical replay/promotion.\n[mechanically promoted by verify-harness --promote on 2026-08-16: verification re-run, exited 0]",
+      "attempts": 1,
+      "maxAttempts": 3
+    },
     {
       "id": "feat-dogfood-baseline",
       "name": "Canonical harness demo remains green",
@@ -11,7 +55,10 @@
       "kind": "prove",
       "dependencies": [],
       "context": {
-        "touches": ["harness-loop/scripts/demo.sh", "harness-loop/templates/tree/"],
+        "touches": [
+          "harness-loop/scripts/demo.sh",
+          "harness-loop/templates/tree/"
+        ],
         "note": "This is the repository's authoritative regression gate; do not replace it with root-level structural coverage."
       },
       "status": "not-started",
@@ -28,9 +75,16 @@
       "verification": "node check-coverage.mjs --target .",
       "falsifier": "The skill claims a discipline that its own root lacks, such as no external state, readiness contract, or independent checker.",
       "kind": "build",
-      "dependencies": ["feat-dogfood-baseline"],
+      "dependencies": [
+        "feat-dogfood-baseline"
+      ],
       "context": {
-        "touches": ["AGENTS.md", "docs/", "loop/", "agents.manifest.json"],
+        "touches": [
+          "AGENTS.md",
+          "docs/",
+          "loop/",
+          "agents.manifest.json"
+        ],
         "note": "Root files are target-owned dogfood state; reusable fixes still belong under harness-loop/."
       },
       "status": "not-started",
@@ -47,9 +101,16 @@
       "verification": "node tools/gen-agents.mjs --target . --runtime all --check",
       "falsifier": "A hand-edited or stale runtime agent silently diverges from the manifest used by the other runtimes.",
       "kind": "prove",
-      "dependencies": ["feat-dogfood-structure"],
+      "dependencies": [
+        "feat-dogfood-structure"
+      ],
       "context": {
-        "touches": ["agents.manifest.json", ".kiro/agents/", ".claude/agents/", ".codex/agents/"],
+        "touches": [
+          "agents.manifest.json",
+          ".kiro/agents/",
+          ".claude/agents/",
+          ".codex/agents/"
+        ],
         "note": "Regenerate with tools/gen-agents.mjs; never reconcile generated files by hand."
       },
       "status": "not-started",

@@ -27,7 +27,7 @@ node check-coverage.mjs
 
 # 4. Run the loop (Level 1 first, then climb the ladder)
 kiro-cli chat --agent maker      # then --agent checker
-loop/run-loop.sh 5               # headless (needs KIRO_API_KEY)
+node loop/run-loop.mjs 5         # headless; native Windows/macOS/Linux
 ```
 
 **Existing repo?** Don't run the scaffolder at it. Run the onboarder — only its prompt/runtime
@@ -46,7 +46,7 @@ Scripts use only Node.js built-ins, so they run after copying the skill into any
 `AGENTS.md` (router) · `feature_list.json` · `init.sh` · `progress.md` · `DECISIONS.md` ·
 `session-handoff.md` · `docs/{architecture,constraints,testing-standards,definition-of-done}.md` ·
 `tools/{trace,collect-services,context-plan,agent-context}.mjs` ·
-`loop/{goal,maker-prompt,checker-prompt}.md` + `run-loop.sh` ·
+`loop/{goal,maker-prompt,checker-prompt}.md` + `run-loop.mjs` (`.sh`/`.cmd` wrappers) ·
 `skills/test-design/` (spec→test-condition discipline) · `skills/feature-planning/` (build/prove
 DAG capability, schema, checker and fixtures) ·
 `.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,test-designer,test-implementer}.json`

@@ -1057,7 +1057,7 @@ function gateGraph() {
   if (!exists(graph)) return;                       // opt-in: projects without the doc are not nagged
   const mtime = (p) => { try { return statSync(p).mtimeMs; } catch { return 0; } };
   const graphAt = mtime(graph);
-  const sources = [P("loop", "route.mjs"), P("loop", "run-loop.sh"),
+  const sources = [P("loop", "route.mjs"), P("loop", "run-loop.mjs"),
     P("agents.manifest.json"),
     ...lsSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json")).map((f) => P(".kiro", "agents", f)),
     ...lsSafe(P(".claude", "agents")).filter((f) => f.endsWith(".md")).map((f) => P(".claude", "agents", f))];
