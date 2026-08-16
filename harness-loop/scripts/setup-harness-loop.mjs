@@ -126,6 +126,27 @@ if (!exists(treeRoot)) { console.error(`error: template tree not found at ${tree
 mkdirSync(targetRoot, { recursive: true });
 walk(treeRoot);
 
+// The onboarder is intentionally installed before the target has docs/constraints.md, so its
+// minimal entry cannot reference that file yet. Once setup creates the rulebook, complete the
+// handoff: a writing agent must load the rules it can now violate. Preserve every other field and
+// resource because the onboarder is target-owned rather than part of agents.manifest.json.
+const onboarderPath = path.join(targetRoot, ".kiro", "agents", "harness-onboarder.json");
+const constraintsUri = "file://../../docs/constraints.md";
+if (exists(onboarderPath) && exists(path.join(targetRoot, "docs", "constraints.md"))) {
+  try {
+    const onboarder = JSON.parse(readFileSync(onboarderPath, "utf8"));
+    onboarder.resources = Array.isArray(onboarder.resources) ? onboarder.resources : [];
+    if (!onboarder.resources.includes(constraintsUri)) {
+      onboarder.resources.push(constraintsUri);
+      writeFileSync(onboarderPath, JSON.stringify(onboarder, null, 2) + "\n");
+      written.push(".kiro/agents/harness-onboarder.json (completed constraints handoff)");
+    }
+  } catch (error) {
+    console.error(`error: cannot complete onboarder constraints handoff: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 // Copy the coverage checker into the target root so the loop/setup agent can run it locally.
 const checkerDest = path.join(targetRoot, "check-coverage.mjs");
 if (!exists(checkerDest) || FORCE) {
@@ -262,9 +283,13 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
 {
   const gi = path.join(targetRoot, ".gitignore");
   const existing = exists(gi) ? readFileSync(gi, "utf8") : "";
+  // Older scaffolds ignored the directory itself, which prevents a later negation from rescuing
+  // durable state beneath it. Narrow that legacy rule before adding the exception.
+  const normalized = existing.replace(/^trace\/\s*$/m, "trace/*");
   const want = [
     ["# --- harness: run output. Regenerated every run; committing it is pure diff noise.", null],
-    ["trace/", "ephemeral"],
+    ["trace/*", "ephemeral"],
+    ["!trace/adoption-baseline.json", "state"],
     ["loop/current.json", "ephemeral"],
     ["loop/route-log.jsonl", "ephemeral"],
   ];
@@ -278,11 +303,11 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
       ["!loop/goal.md", "machinery"],
     );
   }
-  const lines = existing.split("\n");
+  const lines = normalized.split("\n");
   const missing = want.filter(([l]) => l === "" || !lines.some((x) => x.trim() === l.trim()));
-  if (missing.length && (!exists(gi) || FORCE || true)) {
+  if ((missing.length || normalized !== existing) && (!exists(gi) || FORCE || true)) {
     const add = missing.map(([l]) => l).join("\n");
-    writeFileSync(gi, (existing ? existing.replace(/\n*$/, "\n\n") : "") + add + "\n");
+    writeFileSync(gi, (normalized ? normalized.replace(/\n*$/, missing.length ? "\n\n" : "\n") : "") + add + "\n");
     written.push(".gitignore" + (IGNORE_MACHINERY ? " (+ machinery)" : ""));
   }
 }

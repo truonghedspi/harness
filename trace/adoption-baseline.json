@@ -1,0 +1,13 @@
+{
+  "recordedAt": "2026-08-16",
+  "note": "Dogfood adoption 2026-08-16; existing harness documentation and workflow debt accepted, blockers never grandfathered",
+  "debt": {
+    "agent-unrouted": 3,
+    "doc-over-budget": 2,
+    "prohibitions-mostly-unenforced": 1,
+    "vendor-unpinned": 1,
+    "verification-outside-test-framework": 1
+  },
+  "totalAtAdoption": 15,
+  "ratchetedAt": "2026-08-16"
+}

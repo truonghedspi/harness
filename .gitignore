@@ -4,6 +4,7 @@
 harness-loop/harness-improvements.md
 
 # --- harness: run output. Regenerated every run; committing it is pure diff noise.
-trace/
+trace/*
+!trace/adoption-baseline.json
 loop/current.json
 loop/route-log.jsonl

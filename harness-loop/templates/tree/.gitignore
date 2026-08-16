@@ -2,4 +2,7 @@
 
 # Run output, including trace/scratch/ — the sanctioned home for a checker's throwaway probe, so it
 # cannot be mistaken for project code or survive as unmaintained proof (loop/checker-prompt.md).
-trace/
+# The adoption baseline is durable cross-session state, not run output; keep it tracked so a clone
+# inherits the same debt boundary and ratchets.
+trace/*
+!trace/adoption-baseline.json

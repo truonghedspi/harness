@@ -33,7 +33,7 @@ flowchart TD
     AC -. scoped context at dispatch .-> MK
     MK -. "PostToolUse (redacted)" .-> TEL["tool-events.jsonl\ndirect reads/searches ≠ shell inference"]
     TEL --> RR["run-report\nduplicate reads · packet rediscovery\n+ coverage declaration"]
-    HI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
+    HI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · live assumptions\n(HTML examples excluded)\n+ observable seam & invariants per component"]
     DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
     IIF --> QS["quality-strategy\nCapability–Attribute risk → oracle\nscope ≠ execution size"]
     QS --> FP

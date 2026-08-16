@@ -116,7 +116,8 @@ const RULES = [
     when: "a docs/assumptions.md row is still needs-human",
     // The one condition that is supposed to STOP the loop. It could not, before this file.
     match: () => {
-      const rows = read("docs/assumptions.md").split("\n")
+      const withoutExamples = read("docs/assumptions.md").replace(/<!--[\s\S]*?-->/g, "");
+      const rows = withoutExamples.split("\n")
         .filter((l) => l.startsWith("|") && /needs-human/i.test(l));
       return rows.length ? { why: `${rows.length} assumption(s) are needs-human — continue in the current conversation with the user-scope human-interview skill; do not dispatch another agent`, detail: rows[0].slice(0, 160) } : null;
     },

@@ -132,7 +132,8 @@ if a build feature's prove feature
    has no test yet                        → NOT eligible (the maker would write it)
 if feature.verification touches k8s       → k8s-integration-tester  [integration]
 if feature.attempts >= maxAttempts        → blocked (stop retrying)
-if assumption.status == needs-human       → human checkpoint; current agent uses human-interview [STOPS the loop]
+if a live assumption row has status
+   needs-human (HTML examples excluded)   → human checkpoint; current agent uses human-interview [STOPS the loop]
 if feature.readyForCheck                  → verify-harness --promote → checker
 if checker APPROVE                        → done
 if checker REJECT                         → maker            (rollback: implementation layer)

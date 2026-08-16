@@ -714,7 +714,12 @@ process.exit(f && f.evidence.includes('WidgetTest') && !f.evidence.includes('Gad
 # test it was going to be judged by.
 TO="$WORK/oracle-order"; rm -rf "$TO" && mkdir -p "$TO"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$TO" --name "OracleOrder" --purpose "ordering demo" >/dev/null
-sed -i.bak 's/| needs-human |/| verified (demo) |/' "$TO/docs/assumptions.md" && rm -f "$TO/docs/assumptions.md.bak"
+node "$TO/loop/route.mjs" --json > /tmp/demo-example-route.$$ 2>&1
+node -e "
+const r=JSON.parse(require('fs').readFileSync('/tmp/demo-example-route.$$','utf8'));
+process.exit(r.node==='human' && /assumption/i.test(r.why||'') ? 1 : 0);
+"; expect "a commented assumption example is documentation, not a fake human checkpoint" $?
+rm -f /tmp/demo-example-route.$$
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -939,8 +944,19 @@ process.exit(j.prompt==='file://../../prompts/harness-onboarder.md' &&
   j.resources.includes('file://../../skills/harness-upgrade/SKILL.md') &&
   /skills\/harness-upgrade\/SKILL\.md/.test(p) && !p.includes('<skill>') ? 0 : 1);
 "; expect "its prompt and capability URIs resolve, and existing harnesses route into the skill" $?
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$LEG" --name "Legacy" --purpose "upgrade fixture" >/dev/null
+node -e "
+const j=require('$LEG/.kiro/agents/harness-onboarder.json');
+process.exit(j.resources.includes('file://../../docs/constraints.md') ? 0 : 1);
+"; expect "once setup creates constraints, the already-installed onboarder receives the rulebook" $?
+node -e "
+const j=require('$SCRIPTS/../../.kiro/agents/harness-improver.json');
+process.exit(j.resources.includes('file://../../docs/constraints.md') ? 0 : 1);
+"; expect "the skill-level harness improver loads the dogfood target's constraints" $?
 # The ratchet, on a target that already carries real debt (T3 from step 30).
 node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --record --note "demo" >/dev/null
+git -C "$T3" check-ignore -q trace/adoption-baseline.json
+[ "$?" != "0" ]; expect "adoption debt is durable tracked state, not ignored run output" $?
 BASE0=$(node -e "const b=require('$T3/trace/adoption-baseline.json');console.log(b.debt['falsifier-missing']||0)")
 node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --json > /tmp/demo-ab0.$$ 2>&1 || true
 node -e "
@@ -1517,12 +1533,8 @@ process.exit(r.findings.some(f=>f.id==='router-no-writing-rule') ? 0 : 1);
 # the designer settled feat-sit-2 in DECISIONS.md, and the router named the designer again, forever.
 MK="$WORK/marker"; rm -rf "$MK"; mkdir -p "$MK/docs/design"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$MK" --name "Marker" --purpose "stale markers" >/dev/null
-# The spec layer is deeper than design, so a scaffold's own needs-human row would answer every
-# route_of() below. Retire it first: this fixture is about the design→decomposition handoff.
-node -e "
-const fs=require('fs'); const p='$MK/docs/assumptions.md';
-fs.writeFileSync(p, fs.readFileSync(p,'utf8').replace(/needs-human/g, 'verified'));
-"
+# The assumptions template contains a commented example. The router must ignore documentation, so
+# this fixture reaches the design→decomposition handoff without rewriting the template first.
 node -e "
 const fs=require('fs'); const p='$MK/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -1975,8 +1987,9 @@ node "$SCRIPTS/setup-harness-loop.mjs" --target "$GI" --name "GI" --purpose "thr
 node -e "
 const g=require('fs').readFileSync('$GI/.gitignore','utf8');
 const has=(p)=>g.split('\n').some(l=>l.trim()===p);
-// ephemeral: always ignored
-process.exit(has('trace/') && has('loop/current.json') && has('loop/route-log.jsonl') ? 0 : 1);
+// ephemeral: always ignored, while the adoption baseline is explicitly rescued below it
+process.exit(has('trace/*') && has('!trace/adoption-baseline.json') &&
+  has('loop/current.json') && has('loop/route-log.jsonl') ? 0 : 1);
 "; expect "run output is ignored by default — it is regenerated every run and only creates diff noise" $?
 node -e "
 const g=require('fs').readFileSync('$GI/.gitignore','utf8');
