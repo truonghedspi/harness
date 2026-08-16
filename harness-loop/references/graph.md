@@ -163,6 +163,12 @@ defect came from, and the router — not the checker, and not the next agent —
 Every verdict now has a consumer. Design-review state is typed and digest-bound, so prose in a
 handoff cannot masquerade as an executable edge and a changed design cannot inherit an old review.
 
+Integration-project creation has a pre-graph checkpoint: `init-integration-project.mjs` inventories
+the service roots and writes digest-bound, evidence-rich decision requests; a human supplies typed
+answers; `finalize-integration-init.mjs` validates every required answer before it may invoke setup
+and seed `feat-registry` plus the Level-4 journey contract. An incomplete or stale answer routes
+back to human review, never forward to an agent that could guess it.
+
 ## The seven implicit edges
 
 Writing the table above forced each marker to name a *destination*. Seven of them had none: they

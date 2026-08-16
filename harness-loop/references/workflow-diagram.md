@@ -18,6 +18,10 @@ flowchart TD
     ADOPT -- no --> B["setup-harness-loop.mjs"]
     ON --> CI
     B --> CI["context-interviewer\nLAYER: spec\nfacts the repo cannot contain"]
+    IIR["init-integration-project\ncheap inventory → evidence-rich\ntyped questions"] --> HR{"human answers complete\nand digest-current?"}
+    HR -- no --> IIR
+    HR -- yes --> IIF["finalize-integration-init\nvalidate → scaffold registry,\nenvironment + journey oracle"]
+    IIF --> B
     B --> CP
     CS["collect-services\nwide inventory + rule provenance"] --> CP["context-plan\nactive feature touches → scoped rules"]
     CP --> AC["agent-context\nload scoped rules + fresh feature packet\n+ mustRead originals + receipt"]

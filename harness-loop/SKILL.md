@@ -322,6 +322,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Collecting integration context using Baoyu Design's route → inventory → scope → narrow
   materialization → durable-binding pattern, plus the multi-repo gaps we must add:
   [references/baoyu-design-context-collection.md](references/baoyu-design-context-collection.md)
+- Initializing a cross-service test repository in two phases — cheap collection, evidence-rich
+  typed human decisions, digest validation, then executable scaffold:
+  [references/integration-project-init.md](references/integration-project-init.md)
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)

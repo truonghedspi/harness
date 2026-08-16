@@ -2396,7 +2396,43 @@ process.exit(receipt && receipt.status==='stale' && !/the public seam returns 1/
   /do not trust its facts/.test(text) ? 0 : 1);
 "; expect "a changed source makes the packet stale and prevents old conclusions entering agent context" $?
 
-step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
+step 39 "integration init: evidence-rich questions gate scaffold until typed human answers"
+IIROOT="$WORK/integration-init-services"; IIT="$WORK/integration-init-target"
+mkdir -p "$IIROOT/orders/chart/templates" "$IIROOT/trades/chart/templates"
+for S in orders trades; do
+  printf '{"scripts":{"start":"node server.js"},"dependencies":{"express":"1"}}\n' > "$IIROOT/$S/package.json"
+  printf 'require("http").createServer(()=>{}).listen(8080)\n' > "$IIROOT/$S/server.js"
+  printf 'FROM node:20\n' > "$IIROOT/$S/Dockerfile"
+  printf 'apiVersion: v2\nname: %s\nversion: 0.1.0\n' "$S" > "$IIROOT/$S/chart/Chart.yaml"
+done
+node "$SCRIPTS/init-integration-project.mjs" --target "$IIT" --roots "$IIROOT/orders,$IIROOT/trades" --journey "place order to matched trade" >/tmp/demo-ii.$$ 2>&1
+node -e "
+const q=require('$IIT/inventory/integration-context/questions.json').questions;
+const h=q.find(x=>x.id.endsWith('.health')),o=q.find(x=>x.id==='journey.observations');
+process.exit(h?.evidence?.source && h.answer.requiredFields.includes('successMeans') && h.ownerHint && h.impact &&
+  o.answer.itemRequiredFields.includes('correlationField') && /acknowledgement proves acceptance/.test(o.why) ? 0 : 1);
+"; expect "questions carry source evidence, owner, answer contract, rationale and blocked impact" $?
+node "$SCRIPTS/finalize-integration-init.mjs" --target "$IIT" >/tmp/demo-iif.$$ 2>&1; [ "$?" = "3" ]
+expect "finalize rejects unanswered placeholders instead of manufacturing a plausible system" $?
+node -e "
+const fs=require('fs'),p='$IIT/answers.json',a=require(p),q=require('$IIT/inventory/integration-context/questions.json').questions;
+for(const x of q){let v;
+ if(x.id.endsWith('.health')) v={command:'curl -fsS http://'+x.id.split('.')[1]+'/ready',successMeans:'HTTP 200 and business dependencies loaded'};
+ else if(x.id.endsWith('.dependsOn')) v=[];
+ else if(x.id==='journey.command') v={service:'orders',protocol:'HTTP',operation:'POST /orders',correlationField:'clientOrderId',successAcknowledgement:'202 with orderId'};
+ else if(x.id==='journey.observations') v=[{service:'trades',protocol:'event',source:'trade-events',correlationField:'clientOrderId',expected:'one matched trade'}];
+ else if(x.id==='journey.seed') v={command:'fixture-api seed instrument',publicBoundary:true,createdResources:['instrument-\${HARNESS_RUN_ID}'],cleanupCommand:'fixture-api cleanup'};
+ else if(x.id==='journey.isolation') v={mode:'namespace-per-run',derivedResources:['sit-\${HARNESS_RUN_ID}','account-\${HARNESS_RUN_ID}','consumer-\${HARNESS_RUN_ID}']};
+ a.answers[x.id]={value:v,answeredBy:'demo business owner',rationale:'fixture decision'};
+} fs.writeFileSync(p,JSON.stringify(a,null,2)+'\n');
+"
+node "$SCRIPTS/finalize-integration-init.mjs" --target "$IIT" >/tmp/demo-iif.$$ 2>&1
+expect "complete typed answers produce the integration scaffold" $?
+( cd "$IIT" && node tools/services-check.mjs >/dev/null && node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles >/dev/null ); expect "resolved service registry and generated public journey contract are mechanically green" $?
+test -f "$IIT/inventory/integration-context/answer-receipt.json" -a -f "$IIT/integration-init-review.md"; expect "human decisions retain a digest-bound receipt and readable review" $?
+rm -f /tmp/demo-ii.$$ /tmp/demo-iif.$$
+
+step 40 "meta loop: dispatch on the right layer, stop when nothing moves"
 # The fingerprint includes evidence and feature state, not only gate/id. Same blocker with changed
 # evidence is progress; returning to an earlier canonical state exposes an A-B-A cycle.
 FP="$WORK/fingerprint"; rm -rf "$FP"; mkdir -p "$FP/trace"

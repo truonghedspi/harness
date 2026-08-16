@@ -32,6 +32,9 @@ This repository holds the agent-harness assets for the team:
   Integration targets additionally receive a business-journey capability pack for public
   command-to-outcome flows, optional Cucumber, per-run isolation, distributed/fault oracles and
   redacted deployment/readiness/scenario metrics.
+  For a new integration-test repository, `init-integration-project.mjs` inventories service roots
+  and emits evidence-rich typed questions; only `finalize-integration-init.mjs` accepts the
+  digest-bound human answers and creates the executable scaffold.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster
