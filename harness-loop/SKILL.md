@@ -316,6 +316,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Avoiding repeated repository discovery between design/planning and implementation with bounded,
   digest-bound context packets and receipts, including the Aeron A/B result:
   [references/context-packets.md](references/context-packets.md)
+- Measuring read/search rediscovery across runtimes without persisting source contents, including
+  coverage calibration and the proposed normalized event contract:
+  [references/read-telemetry-research.md](references/read-telemetry-research.md)
 - More than one service has to be running for the test to mean anything — the service registry, why
   the unit is a directory rather than a repository, and the four things a survey of seven real repos
   changed about the design: [references/multi-service.md](references/multi-service.md).
