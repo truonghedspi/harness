@@ -38,6 +38,9 @@ This repository holds the agent-harness assets for the team:
   Its `quality-strategy` capability turns the human Capability–Attribute risk decision into
   risk-to-oracle traceability and checks test scope independently from small/medium/large execution
   constraints, including ownership/isolation/cleanup for cluster-sized evidence.
+  The versioned `user-skills/human-presenter` package is installed once at user scope with
+  `install-user-skill.mjs`; it applies a lightweight communication audit to substantive answers,
+  conditionally loading intent, provenance, language and visual-routing references.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster

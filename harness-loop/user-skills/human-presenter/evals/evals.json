@@ -1,0 +1,23 @@
+{
+  "skill_name": "human-presenter",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Present a diagnosis to a Vietnamese engineering lead: logs confirm consumer lag after deploy, source shows asynchronous projection, and you infer fixed sleeps cause flaky tests. Recommend a next step without making the source appear to assert your inference.",
+      "expected_output": "Answer-first Vietnamese diagnosis separating observation, source fact, inference, uncertainty and recommendation with compact provenance and no decorative visual.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Explain a six-service order flow with synchronous acknowledgement, asynchronous risk and trade events, matching restart, retry, and eventual position convergence to a mixed product/engineering audience.",
+      "expected_output": "A concise takeaway plus an appropriate sequence/flow visualization route and accessible textual explanation; no unsupported facts.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Compare three integration-test environment options under cost, fidelity, isolation, feedback time and operational ownership, then recommend one while acknowledging the strongest case against it.",
+      "expected_output": "A stable-criteria comparison table, recommendation, downside, counter-case, uncertainties and actionability without padded options or citation clutter.",
+      "files": []
+    }
+  ]
+}

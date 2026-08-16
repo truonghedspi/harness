@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "presentation-plan.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["audience", "intent", "governingThought", "claims", "representation"],
+  "properties": {
+    "audience": { "type": "string", "minLength": 1 },
+    "intent": { "enum": ["answer", "explain", "status", "investigation", "comparison", "recommendation", "proposal", "research", "handoff"] },
+    "governingThought": { "type": "string", "minLength": 1 },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "kind"],
+        "properties": {
+          "id": { "type": "string" },
+          "text": { "type": "string" },
+          "kind": { "enum": ["user-provided", "source-fact", "runtime-observation", "inference", "assumption", "uncertainty", "recommendation"] },
+          "sources": { "type": "array", "items": { "type": "string" } },
+          "derivedFrom": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "representation": {
+      "type": "object",
+      "required": ["type", "reason"],
+      "properties": {
+        "type": { "enum": ["prose", "list", "table", "flow", "sequence", "architecture", "tree", "state", "timeline", "mapping", "matrix", "chart", "decision-tree", "wireframe", "illustrative"] },
+        "reason": { "type": "string" }
+      }
+    },
+    "counterCase": { "type": ["string", "null"] },
+    "nextAction": { "type": ["string", "null"] }
+  }
+}

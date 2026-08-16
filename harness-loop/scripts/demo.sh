@@ -2436,7 +2436,31 @@ node "$SCRIPTS/../templates/quality-strategy/evals/run-fixtures.mjs" >/dev/null;
 test -f "$IIT/inventory/integration-context/answer-receipt.json" -a -f "$IIT/integration-init-review.md"; expect "human decisions retain a digest-bound receipt and readable review" $?
 rm -f /tmp/demo-ii.$$ /tmp/demo-iif.$$
 
-step 40 "meta loop: dispatch on the right layer, stop when nothing moves"
+step 40 "user-scope communication skill: thin routing, provenance and visual judgment"
+USR="$WORK/user-skills"
+node "$SCRIPTS/install-user-skill.mjs" --name human-presenter --skills-root "$USR" >/dev/null
+test -f "$USR/human-presenter/SKILL.md" -a -f "$USR/human-presenter/references/visuals.md" -a -f "$USR/human-presenter/EXTEND.md"
+expect "human-presenter installs as a self-contained user-scope skill with progressive references and overlay" $?
+node -e "
+const fs=require('fs'),p='$USR/human-presenter';
+const s=fs.readFileSync(p+'/SKILL.md','utf8');
+process.exit(/before ALL meaningful answers/.test(s) && /Fast path/.test(s) && /baoyu-diagram/.test(s) &&
+  !/dark-themed/.test(s) && fs.readdirSync(p+'/references/modes').length===3 ? 0 : 1);
+"; expect "the always-on contract stays lightweight and routes visuals instead of forcing a style" $?
+cat > "$WORK/presentation-good.json" <<'JSON'
+{"audience":"engineering lead","intent":"recommendation","governingThought":"replace fixed sleep with bounded polling","claims":[{"id":"O1","text":"lag observed after deploy","kind":"runtime-observation"},{"id":"S1","text":"projection is asynchronous","kind":"source-fact","sources":["Consumer.java:42"]},{"id":"I1","text":"fixed sleep can become flaky","kind":"inference","derivedFrom":["O1","S1"]},{"id":"R1","text":"use bounded polling","kind":"recommendation"}],"representation":{"type":"prose","reason":"one causal conclusion is clear without a visual"},"counterCase":"polling adds driver complexity","nextAction":"replace synchronization in the focused journey"}
+JSON
+node "$USR/human-presenter/scripts/check-presentation.mjs" "$WORK/presentation-good.json" >/dev/null
+expect "a source-bound, derived recommendation plan passes the structural audit" $?
+cat > "$WORK/presentation-bad.json" <<'JSON'
+{"audience":"user","intent":"recommendation","governingThought":"do it","claims":[{"id":"S1","text":"claimed fact","kind":"source-fact"},{"id":"I1","text":"unsupported inference","kind":"inference"}],"representation":{"type":"architecture","reason":"looks professional"}}
+JSON
+node "$USR/human-presenter/scripts/check-presentation.mjs" "$WORK/presentation-bad.json" > "$WORK/presentation-bad.out"; [ "$?" = "1" ] && grep -q 'source-fact-unbound' "$WORK/presentation-bad.out" && grep -q 'inference-unbound' "$WORK/presentation-bad.out" && grep -q 'decorative-visual' "$WORK/presentation-bad.out" && grep -q 'countercase-missing' "$WORK/presentation-bad.out"
+expect "the audit rejects unbound claims, decorative visuals and one-sided recommendations" $?
+node "$SCRIPTS/install-user-skill.mjs" --name human-presenter --skills-root "$USR" >/dev/null 2>&1; [ "$?" = "3" ]
+expect "user customization is not overwritten without explicit --force" $?
+
+step 41 "meta loop: dispatch on the right layer, stop when nothing moves"
 # The fingerprint includes evidence and feature state, not only gate/id. Same blocker with changed
 # evidence is progress; returning to an earlier canonical state exposes an A-B-A cycle.
 FP="$WORK/fingerprint"; rm -rf "$FP"; mkdir -p "$FP/trace"

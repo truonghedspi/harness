@@ -329,6 +329,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   Capability–Attribute risk, orthogonal scope/size, testability and trusted signal—without copying
   historical job titles, fixed pyramid ratios or coverage targets:
   [references/how-google-tests-software-research.md](references/how-google-tests-software-research.md)
+- Making every substantive agent-to-human message audience-aware, provenance-honest and visually
+  appropriate through a user-scope thin-router skill:
+  [references/human-presenter-research.md](references/human-presenter-research.md). Install with
+  `node harness-loop/scripts/install-user-skill.mjs --name human-presenter`.
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)

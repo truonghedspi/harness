@@ -13,6 +13,7 @@ defect came from, not one step back (`graph.md`).
 
 ```mermaid
 flowchart TD
+    HP["user-scope human-presenter\nreader task · provenance · uncertainty\nsmallest useful representation"] -. "audits substantive human-facing output\nwithout becoming a workflow node" .-> A
     A["User requirement"] --> ADOPT{"Existing repo\nwith history?"}
     ADOPT -- yes --> ON["harness-onboarder\nsurvey → ask → scaffold →\nadoption-baseline --record"]
     ADOPT -- no --> B["setup-harness-loop.mjs"]

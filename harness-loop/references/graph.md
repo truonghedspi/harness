@@ -44,6 +44,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json`, MCP `k8s-readonly` | chart, tests, `feature_list.json` |
 | `skills/business-journey` | capability | Level 4 public command-to-outcome journeys: isolation, business readiness, distributed oracle, fault/idempotency proof and redacted metrics | requirement, service registry, environment/oracles | executable scenario artifacts and deterministic check |
 | `skills/quality-strategy` | capability | living Capability–Attribute risk and orthogonal scope/size classification; rejects uncovered material risk and unsafe large-test scheduling | requirements, components, human risk decisions, oracle artifacts | `test-risk.json` and deterministic findings |
+| user-scope `human-presenter` | capability | lightweight pre-delivery audit for every substantive human-facing message; routes intent, provenance, uncertainty, language and the smallest useful representation without becoming a workflow node | the current agent's established claims and reader task | clearer user-facing answer; no project state |
 
 `maker`, `test-implementer`, `harness-setup` and `k8s-integration-tester` write unrestricted; every
 other agent is confined by its `writes` list in `agents.manifest.json` — enforced on kiro by
@@ -57,6 +58,10 @@ own front door. It is reachable only from a human, and `AGENTS.md` naming it is 
 `agent-unrouted` gate. Its safety comes from two constraints, both mechanical rather than
 instructional: it may not choose a node (it runs `route.mjs`), and its `writes` list contains no
 product file (`guard-write.mjs` enforces it on Claude Code and Codex, `allowedPaths` on kiro).
+
+`human-presenter` is likewise absent from routing because it is not an agent or state transition. It
+wraps substantive communication in the current context; routing it as a node would recreate the
+context switch the user-scope skill exists to remove.
 
 Every agent node above is generated from `agents.manifest.json` into all three runtimes. Adding one
 means adding a manifest entry, not writing three config files.
