@@ -397,8 +397,9 @@ function gateFeatures() {
     const behavior = String(f.behavior || "").trim();
     if (behavior) {
       const joiners = (behavior.match(/\b(and|then)\b/gi) || []).length;
-      const tooLong = behavior.length > 400;
-      const tooCompound = joiners >= 3;
+      const isProve = f.kind === "prove";
+      const tooLong = isProve ? behavior.length > 800 && joiners >= 5 : behavior.length > 400;
+      const tooCompound = isProve ? joiners >= 7 : joiners >= 3;
       if (tooLong || tooCompound) {
         add({
           gate: "features", id: `scope-smell:${f.id}`, layer: "project", severity: "warn",

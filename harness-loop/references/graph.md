@@ -135,6 +135,7 @@ if feature.attempts >= maxAttempts        → blocked (stop retrying)
 if a live assumption row has status
    needs-human (HTML examples excluded)   → human checkpoint; current agent uses human-interview [STOPS the loop]
 if feature.readyForCheck                  → verify-harness --promote → checker
+if done feature starts FOLLOW-UP:         → feature-planner          (turn review debt into scope)
 if checker APPROVE                        → done
 if checker REJECT                         → maker            (rollback: implementation layer)
 if checker REJECT + NEEDS DESIGN          → designer         (rollback: design layer)

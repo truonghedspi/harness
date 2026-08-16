@@ -182,6 +182,7 @@ const EXTRA_COPIES = [
   ["scripts/collect-services.mjs", "tools/collect-services.mjs"],
   ["scripts/survey-project.mjs", "tools/survey-project.mjs"],
   ["scripts/services-check.mjs", "tools/services-check.mjs"],
+  ["scripts/check-capability-eval.mjs", "tools/check-capability-eval.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],

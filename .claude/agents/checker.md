@@ -125,6 +125,10 @@ Verdict per feature:
   That marker is the routing signal: the next session runs the `feature-planner` agent against it
   before any maker touches it again — you never restructure `feature_list.json` yourself, and the
   maker doesn't either.
+- **APPROVE with real non-blocking work remaining** → approve the current claim, then start the
+  first line of `checkerNotes` with `FOLLOW-UP:` and state one actionable concern. The router sends
+  it to the planner, which owns creating explicit scope or documenting why it is discarded.
+  Never bury actionable work below an APPROVE verdict.
 
 Trace every verdict:
 `node tools/trace.mjs checker verdict <feat-id> "APPROVE|REJECT: <one-line reason>"`

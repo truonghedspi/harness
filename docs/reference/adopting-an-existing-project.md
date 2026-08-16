@@ -62,6 +62,10 @@ Verified end to end on the dogfood target:
 Per-item ids collapse to their family (`scope-smell:feat-x` → `scope-smell`), so renaming a feature
 is not new debt and splitting one is not debt paid.
 
+Opt-in gates are recorded as dormant when their prerequisite is absent. When feature `kind` tags
+first appear, `build-unproven` is reported as newly measured rather than new debt; review it once
+and ratchet the now-observable boundary.
+
 ### What is never grandfathered
 
 - **Blockers.** An unfilled placeholder, a feature with no runnable verification, a vacuously-green

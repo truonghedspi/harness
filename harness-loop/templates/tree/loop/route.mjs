@@ -99,6 +99,15 @@ const designDigest = () => {
 // can dissolve the shallower ones, and doing it the other way round wastes the work.
 const RULES = [
   {
+    node: "feature-planner", kind: "agent", layer: "decomposition",
+    when: "a done feature carries a FOLLOW-UP: marker that has not been planned",
+    match: () => {
+      const f = features.find((x) => status(x) === "done" && /^FOLLOW-UP:/.test(marker(x)) &&
+        !requestDispatched(`follow-up:${x.id}:${markerHash(marker(x))}`, "feature-planner"));
+      return f ? { why: `${f.id} was approved with actionable follow-up work; turn it into explicit scope or record why it is discarded`, feature: f.id, detail: marker(f), requestId: `follow-up:${f.id}:${markerHash(marker(f))}` } : null;
+    },
+  },
+  {
     node: "maker", kind: "agent", layer: "baseline",
     when: "the recorded baseline is red and this exact failure has not had one repair turn",
     match: () => {

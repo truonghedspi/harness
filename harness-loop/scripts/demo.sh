@@ -278,6 +278,14 @@ fs.writeFileSync(p, JSON.stringify(fl, null, 2));
 node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
 grep -q 'scope-smell' "$T2/trace/verify-report.json"; SS=$?
 [ "$SS" != "0" ]; expect "a single-clause behavior sentence clears the check" $?
+node -e "
+const fs=require('fs'),p='$T2/feature_list.json',fl=JSON.parse(fs.readFileSync(p));
+fl.features[0].kind='prove'; fl.features[0].behavior='Apply the opening state, then snapshot it, then restart the service, then query the public view, and confirm the same invariant across every observed event while retaining the same correlation identity throughout the single business scenario.';
+fs.writeFileSync(p,JSON.stringify(fl,null,2));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --quiet
+! grep -q '"id": "scope-smell:feat-001"' "$T2/trace/verify-report.json"
+expect "a prove feature may narrate one sequential scenario without being mislabeled compound" $?
 
 step 18 "memory gate: a missing memory/<agent>/MEMORY.md referenced by an agent is flagged"
 mv "$T2/memory/maker/MEMORY.md" "$T2/memory/maker/MEMORY.md.bak"
@@ -1531,6 +1539,17 @@ process.exit(r.findings.some(f=>f.id==='router-no-writing-rule') ? 0 : 1);
 # The designer answers a NEEDS DESIGN: question but may not write feature_list.json — it is
 # forbidden to write scope — so it cannot clear the marker that asked. Observed live on aeron-demo:
 # the designer settled feat-sit-2 in DECISIONS.md, and the router named the designer again, forever.
+FU="$WORK/follow-up"; rm -rf "$FU"; mkdir -p "$FU"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$FU" --name "FollowUp" --purpose "routable review debt" >/dev/null
+node -e "
+const fs=require('fs'),p='$FU/feature_list.json',fl=JSON.parse(fs.readFileSync(p));
+fl.features=[{id:'feat-approved',name:'approved',behavior:'b',verification:'echo ok',falsifier:'wrong',kind:'prove',dependencies:[],status:'done',readyForCheck:false,evidence:'red then green',checkerNotes:'FOLLOW-UP: remove the deprecated overload',attempts:1,maxAttempts:3}];
+fs.writeFileSync(p,JSON.stringify(fl,null,2));
+"
+(cd "$FU" && node loop/route.mjs --json) > /tmp/demo-follow-up.$$
+node -e "const r=require('fs').readFileSync('/tmp/demo-follow-up.$$','utf8'); const j=JSON.parse(r); process.exit(j.node==='feature-planner'&&j.feature==='feat-approved'?0:1)"
+expect "an approved feature's actionable FOLLOW-UP routes to explicit planning" $?
+rm -f /tmp/demo-follow-up.$$
 MK="$WORK/marker"; rm -rf "$MK"; mkdir -p "$MK/docs/design"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$MK" --name "Marker" --purpose "stale markers" >/dev/null
 # The assumptions template contains a commented example. The router must ignore documentation, so
@@ -1806,6 +1825,11 @@ test -x "$DP/loop/dispatch.sh"; expect "every scaffold ships a runtime-agnostic 
 printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
 ( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh designer "decided" ) > "$DP/d.log" 2>&1
 grep -q "agent=designer" "$DP/d.log"; expect "it runs the agent the caller named, not the one the router would have picked" $?
+printf '#!/usr/bin/env bash\necho "Monthly request limit reached; resets later"\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh designer "decided" ) > "$DP/q.log" 2>&1
+QC=$?; [ "$QC" = "75" ] && grep -q "runtime refused" "$DP/q.log"
+expect "a quota refusal that exits zero is classified as no agent work" $?
+printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
 ( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro bash loop/dispatch.sh ghost "x" ) > "$DP/g.log" 2>&1
 GC=$?; grep -q "no agent" "$DP/g.log" && [ "$GC" = "2" ]
 expect "an agent that is not in the manifest is refused, rather than dispatched into nothing" $?
@@ -2515,6 +2539,24 @@ printf '| A-1 | matching restart is permitted | needs-human | none |\n' >> "$HIT
 ( cd "$HIT" && node loop/route.mjs --json ) > "$HIT/interview-route.json"
 node -e "const r=require('$HIT/interview-route.json');process.exit(r.node==='human'&&r.kind==='human'&&/human-interview/.test(r.why)?0:1)"
 expect "needs-human stops at the person and tells the current agent to use human-interview" $?
+
+CE="$WORK/capability-eval.json"
+AB="$WORK/dormant-adoption"; rm -rf "$AB"; cp -R "$T3" "$AB"; rm -f "$AB/trace/adoption-baseline.json"
+node -e "const fs=require('fs'),p='$AB/feature_list.json',f=JSON.parse(fs.readFileSync(p)); for(const x of f.features) delete x.kind; fs.writeFileSync(p,JSON.stringify(f,null,2))"
+node "$SCRIPTS/adoption-baseline.mjs" --target "$AB" --record --note dormant >/dev/null
+node -e "const fs=require('fs'),p='$AB/feature_list.json',f=JSON.parse(fs.readFileSync(p)); f.features[0].kind='build'; fs.writeFileSync(p,JSON.stringify(f,null,2))"
+node "$SCRIPTS/adoption-baseline.mjs" --target "$AB" --json > /tmp/demo-dormant.$$
+node -e "const r=JSON.parse(require('fs').readFileSync('/tmp/demo-dormant.$$')); process.exit(r.grown.length===0&&r.newlyMeasured.some(x=>x.family==='build-unproven')?0:1)"
+expect "an opt-in gate becoming observable is newly measured, not new debt" $?
+rm -f /tmp/demo-dormant.$$
+cat > "$CE" <<'EOF'
+{"arms":["baseline","candidate"],"resourceOwning":true,"isolation":{"mode":"per-run-port","key":"HARNESS_RUN_ID"},"claims":[{"text":"events use the envelope","boundary":"publication","verificationBoundary":"publication","productionTouchpoints":["src/main/EventPublisher.java"]}]}
+EOF
+node "$SCRIPTS/check-capability-eval.mjs" "$CE" >/dev/null
+expect "paired capability evals declare resource isolation and matching oracle boundaries" $?
+node -e "const fs=require('fs'),p='$CE',c=require(p); c.isolation={mode:'shared'}; c.claims[0].verificationBoundary='codec'; c.claims[0].productionTouchpoints=[]; fs.writeFileSync(p,JSON.stringify(c))"
+node "$SCRIPTS/check-capability-eval.mjs" "$CE" >/dev/null 2>&1; CERC=$?
+[ "$CERC" != "0" ]; expect "shared ports and codec-only proof cannot produce a publication benchmark verdict" $?
 
 step 42 "meta loop: dispatch on the right layer, stop when nothing moves"
 # The fingerprint includes evidence and feature state, not only gate/id. Same blocker with changed

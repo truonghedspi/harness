@@ -61,14 +61,20 @@ function measure() {
     const family = String(f.id).split(":")[0];
     debt[family] = (debt[family] || 0) + (Number(f.count) || 1);
   }
-  return { debt, blockers: findings.filter((x) => x.severity === "blocker").length, findings };
+  let featureKinds = false;
+  try {
+    const fl = JSON.parse(readFileSync(path.join(TARGET, "feature_list.json"), "utf8"));
+    featureKinds = (fl.features || []).some((f) => f.kind === "build" || f.kind === "prove");
+  } catch { /* verify owns missing/invalid feature-list reporting */ }
+  return { debt, blockers: findings.filter((x) => x.severity === "blocker").length, findings,
+    dormant: featureKinds ? [] : ["build-unproven"] };
 }
 
 const load = () => { try { return JSON.parse(readFileSync(BASELINE, "utf8")); } catch { return null; } };
 const save = (o) => { mkdirSync(path.dirname(BASELINE), { recursive: true }); writeFileSync(BASELINE, JSON.stringify(o, null, 2) + "\n"); };
 const today = () => new Date().toISOString().slice(0, 10);
 
-const { debt, blockers, findings } = measure();
+const { debt, blockers, findings, dormant } = measure();
 const total = Object.values(debt).reduce((a, b) => a + b, 0);
 
 if (MODE === "record") {
@@ -76,7 +82,7 @@ if (MODE === "record") {
     console.error(`a baseline already exists at ${path.relative(TARGET, BASELINE)} — re-recording would forgive debt added since.\nUse --ratchet to lower it, or --record --force if you really mean to reset.`);
     process.exit(2);
   }
-  save({ recordedAt: today(), note: opt("--note", ""), debt, totalAtAdoption: total });
+  save({ recordedAt: today(), note: opt("--note", ""), debt, dormant, totalAtAdoption: total });
   console.log(`Adoption baseline recorded — ${total} pre-existing warning(s) across ${Object.keys(debt).length} famil(ies).`);
   for (const [k, v] of Object.entries(debt).sort((a, b) => b[1] - a[1])) console.log(`  ${String(v).padStart(4)}  ${k}`);
   console.log(`\nThese are now ACCEPTED DEBT, not failures. From here the rule is: the count may not go up.`);
@@ -94,7 +100,8 @@ if (!base) {
 const families = [...new Set([...Object.keys(base.debt), ...Object.keys(debt)])].sort();
 const rows = families.map((k) => ({ family: k, was: base.debt[k] || 0, now: debt[k] || 0 }))
   .map((r) => ({ ...r, delta: r.now - r.was }));
-const grown = rows.filter((r) => r.delta > 0);
+const newlyMeasured = rows.filter((r) => r.delta > 0 && (base.dormant || []).includes(r.family));
+const grown = rows.filter((r) => r.delta > 0 && !(base.dormant || []).includes(r.family));
 const paid = rows.filter((r) => r.delta < 0);
 
 if (MODE === "ratchet") {
@@ -108,7 +115,7 @@ if (MODE === "ratchet") {
   process.exit(grown.length ? 1 : 0);
 }
 
-const out = { baseline: base.recordedAt, totalNow: total, totalAtAdoption: base.totalAtAdoption, rows, grown, blockers };
+const out = { baseline: base.recordedAt, totalNow: total, totalAtAdoption: base.totalAtAdoption, rows, grown, newlyMeasured, blockers };
 if (JSON_OUT) { writeSync(1, JSON.stringify(out, null, 2) + "\n"); process.exit(grown.length || blockers ? 1 : 0); }
 
 console.log(`Adoption ratchet — baseline recorded ${base.recordedAt}${base.note ? ` (${base.note})` : ""}\n`);

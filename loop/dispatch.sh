@@ -58,11 +58,18 @@ esac
 # fixing the maker's work and passing it off as the maker's. Codex has no --agent flag, so its role
 # is assembled by tools/codex-dispatch.mjs.
 dispatch() {  # dispatch <agent> <message>
+  local out rc
+  out="$(mktemp)"
   case "$RUNTIME" in
-    kiro)   kiro-cli chat --agent "$1" --no-interactive --trust-all-tools "$2" ;;
-    claude) claude -p "$2" --agent "$1" --dangerously-skip-permissions < /dev/null ;;
-    codex)  node tools/codex-dispatch.mjs "$1" "$2" ;;
+    kiro)   kiro-cli chat --agent "$1" --no-interactive --trust-all-tools "$2" 2>&1 | tee "$out"; rc=${PIPESTATUS[0]} ;;
+    claude) claude -p "$2" --agent "$1" --dangerously-skip-permissions < /dev/null 2>&1 | tee "$out"; rc=${PIPESTATUS[0]} ;;
+    codex)  node tools/codex-dispatch.mjs "$1" "$2" 2>&1 | tee "$out"; rc=${PIPESTATUS[0]} ;;
   esac
+  if grep -Eqi 'monthly request limit reached|rate limit exceeded|quota exceeded|usage limit reached|temporarily unavailable' "$out"; then
+    echo "runtime refused the dispatch despite its process status; no agent work is accepted" >&2
+    rm -f "$out"; return 75
+  fi
+  rm -f "$out"; return "${rc:-1}"
 }
 
 # Executed directly rather than sourced: dispatch what the caller named and exit with its status.
