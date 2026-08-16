@@ -582,6 +582,11 @@ function gateLoop() {
       symptom: "integration target can deploy services but has no distributed business-journey capability contract",
       remedy: "refresh the skill-owned skills/business-journey pack" });
   }
+  if (serviceManifest && (!exists(P("skills/quality-strategy/SKILL.md")) || !exists(P("skills/quality-strategy/scripts/check-quality-strategy.mjs")))) {
+    add({ gate: "quality-strategy", id: "capability-pack-missing", layer: "harness",
+      symptom: "integration target has no risk-to-oracle and execution-size capability contract",
+      remedy: "refresh the skill-owned skills/quality-strategy pack" });
+  }
   const hasExternalRules = ((serviceManifest && serviceManifest.services) || [])
     .some((s) => (s.rules && s.rules.length) || (s.ownRules && s.ownRules.length));
   if (hasExternalRules) {

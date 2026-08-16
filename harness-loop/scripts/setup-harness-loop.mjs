@@ -176,6 +176,7 @@ const EXTRA_COPIES = [
   ["references/invariant-contract.md", "docs/reference/invariant-contract.md"],
   ["references/multi-service.md", "docs/reference/multi-service.md"],
   ["references/multi-service.md", "docs/reference/multi-service.md"],
+  ["references/how-google-tests-software-research.md", "docs/reference/how-google-tests-software-research.md"],
 ];
 // Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
 // without the strategy matrix, property catalog and schemas it dispatches to.
@@ -183,6 +184,7 @@ const EXTRA_DIR_COPIES = [
   ["templates/test-design", "skills/test-design"],
   ["templates/feature-planning", "skills/feature-planning"],
   ["templates/business-journey", "skills/business-journey"],
+  ["templates/quality-strategy", "skills/quality-strategy"],
 ];
 for (const [src, destRel] of EXTRA_COPIES) {
   const dest = path.join(targetRoot, destRel);
@@ -440,7 +442,7 @@ if (INTEGRATION) {
       name: "Business journey environment and distributed oracle are executable",
       kind: "prove",
       behavior: "A cross-service business journey uses per-run isolation, public setup/input/observation seams, bounded convergence invariants, idempotent cleanup and redacted telemetry",
-      verification: "node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles",
+      verification: "node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles && node skills/quality-strategy/scripts/check-quality-strategy.mjs --risk test-risk.json --oracles business-oracles",
       falsifier: "a journey that passes by querying a database, sleeps for convergence, reuses a fixed consumer group, or restarts a service without proving idempotent recovery",
       dependencies: ["feat-registry"], status: "not-started", readyForCheck: false, evidence: "",
       checkerNotes: "Start with one public happy-path tracer bullet; Cucumber is optional and belongs above the business driver, never around kubectl/SQL.", attempts: 0, maxAttempts: 3,

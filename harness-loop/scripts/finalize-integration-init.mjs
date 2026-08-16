@@ -28,6 +28,11 @@ for (const q of questions.questions) {
   if (Array.isArray(a.value) && q.answer.allowedValues) for (const v of a.value) if (!q.answer.allowedValues.includes(v)) errors.push(`${q.id}: unknown value ${v}; choose a discovered service ID`);
   if (Array.isArray(a.value) && q.answer.itemRequiredFields) for (const [i, item] of a.value.entries()) for (const f of q.answer.itemRequiredFields) if (!present(item?.[f])) errors.push(`${q.id}: value[${i}].${f} is required`);
 }
+for (const [field, allowed] of Object.entries(questions.questions.find((q) => q.id === "journey.risk")?.answer?.allowed || {})) {
+  const selected = answers.answers?.["journey.risk"]?.value?.[field];
+  if (present(selected) && !allowed.includes(selected)) errors.push(`journey.risk: value.${field} must be one of ${allowed.join(", ")}`);
+}
+if (!Array.isArray(answers.answers?.["journey.risk"]?.value?.stakeholders) || !answers.answers["journey.risk"].value.stakeholders.length) errors.push("journey.risk: value.stakeholders must name at least one affected stakeholder");
 if (answers.answers?.["journey.seed"]?.value?.publicBoundary !== true) errors.push("journey.seed: value.publicBoundary must be true; internal setup is diagnostics, not a supported test seam");
 if (errors.length) { console.error(`HUMAN INPUT INCOMPLETE (${errors.length})\n- ${errors.join("\n- ")}`); process.exit(3); }
 const value = (id) => answers.answers[id].value;
@@ -50,5 +55,7 @@ mkdirSync(path.join(target, "business-oracles"), { recursive: true });
 const command = value("journey.command");
 const observations = value("journey.observations").map((o) => ({ boundary: o.source, operation: o.expected, correlationField: o.correlationField, service: o.service, protocol: o.protocol }));
 writeFileSync(path.join(target, "business-oracles", "initial-journey.json"), JSON.stringify({ schema: "journey-oracle/1", id: "JRN-INITIAL-JOURNEY", requirement: request.journey, publicInput: { protocol: command.protocol, operation: command.operation, correlationField: command.correlationField, service: command.service, successAcknowledgement: command.successAcknowledgement }, observations, invariants: ["all observations correlate to the command", "the business outcome appears exactly once"], deadlineMs: 30000, diagnostics: ["correlated pod logs", "namespace events", "internal state for diagnosis only"] }, null, 2) + "\n");
+const risk = value("journey.risk");
+writeFileSync(path.join(target, "test-risk.json"), JSON.stringify({ schema: "test-risk/1", capabilities: [{ id: "CAP-INITIAL-JOURNEY", name: request.journey, componentIds: manifest.services.filter((s) => s.kind === "service").map((s) => s.id), risks: [{ id: "RISK-INITIAL-JOURNEY", attribute: risk.attribute, consequence: risk.consequence, likelihood: risk.likelihood, detectability: risk.detectability, stakeholders: risk.stakeholders, riskReason: risk.riskReason, requiredScope: risk.requiredScope, oracleIds: ["JRN-INITIAL-JOURNEY"], answeredBy: answers.answers["journey.risk"].answeredBy }] }], verifications: [{ id: "JRN-INITIAL-JOURNEY", scope: "journey", size: "large", hermetic: false, network: "cluster", maxSeconds: 300, isolation: isolation.mode === "namespace-per-run" ? "namespace" : isolation.mode === "tenant-per-run" ? "tenant" : "account-prefix", stage: "staging", owner: risk.verificationOwner, cleanupEvidence: "business-environment.json" }] }, null, 2) + "\n");
 writeFileSync(path.join(base, "answer-receipt.json"), JSON.stringify({ schema: "integration-init-receipt/1", requestDigest: questions.requestDigest, acceptedQuestionIds: questions.questions.map((q) => q.id), finalizedAt: new Date().toISOString() }, null, 2) + "\n");
 console.log(`INTEGRATION PROJECT INITIALIZED\nTarget: ${target}\nHuman decisions accepted: ${questions.questions.length}\nNext: review the generated oracle, then run node tools/services-check.mjs.`);

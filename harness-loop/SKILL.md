@@ -325,6 +325,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Initializing a cross-service test repository in two phases — cheap collection, evidence-rich
   typed human decisions, digest validation, then executable scaffold:
   [references/integration-project-init.md](references/integration-project-init.md)
+- Applying the durable mechanisms from *How Google Tests Software*—quality ownership, living
+  Capability–Attribute risk, orthogonal scope/size, testability and trusted signal—without copying
+  historical job titles, fixed pyramid ratios or coverage targets:
+  [references/how-google-tests-software-research.md](references/how-google-tests-software-research.md)
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)

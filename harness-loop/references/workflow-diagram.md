@@ -20,7 +20,7 @@ flowchart TD
     B --> CI["context-interviewer\nLAYER: spec\nfacts the repo cannot contain"]
     IIR["init-integration-project\ncheap inventory → evidence-rich\ntyped questions"] --> HR{"human answers complete\nand digest-current?"}
     HR -- no --> IIR
-    HR -- yes --> IIF["finalize-integration-init\nvalidate → scaffold registry,\nenvironment + journey oracle"]
+    HR -- yes --> IIF["finalize-integration-init\nvalidate → registry + environment\n+ journey oracle + risk portfolio"]
     IIF --> B
     B --> CP
     CS["collect-services\nwide inventory + rule provenance"] --> CP["context-plan\nactive feature touches → scoped rules"]
@@ -32,6 +32,8 @@ flowchart TD
     TEL --> RR["run-report\nduplicate reads · packet rediscovery\n+ coverage declaration"]
     CI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
     DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
+    IIF --> QS["quality-strategy\nCapability–Attribute risk → oracle\nscope ≠ execution size"]
+    QS --> FP
     FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]
     TD --> TI["test-implementer\nconditions → FAILING test\nred observed and recorded"]
     TI --> MK["maker\nLAYER: implementation\nmakes the existing oracle pass"]

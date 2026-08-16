@@ -1325,6 +1325,8 @@ node "$SCRIPTS/setup-harness-loop.mjs" --target "$IT" --name "SIT" --purpose "cr
 test -x "$IT/tools/k8s-test-env.sh"; expect "--integration forces the cluster layer on — the charts live in the service repos, not here" $?
 test -f "$IT/skills/business-journey/SKILL.md" -a -f "$IT/business-environment.json"
 expect "an integration target receives the business-journey capability and environment contract" $?
+test -f "$IT/skills/quality-strategy/SKILL.md" -a -f "$IT/skills/quality-strategy/scripts/check-quality-strategy.mjs"
+expect "an integration target receives risk-to-oracle and scope-size capability machinery" $?
 mv "$IT/skills/business-journey/SKILL.md" "$IT/skills/business-journey/SKILL.md.off"
 node "$SCRIPTS/verify-harness.mjs" --target "$IT" --skip-baseline --quiet --report "$IT/business-capability-missing.json" >/dev/null 2>&1 || true
 node -e "
@@ -2423,12 +2425,14 @@ for(const x of q){let v;
  else if(x.id==='journey.observations') v=[{service:'trades',protocol:'event',source:'trade-events',correlationField:'clientOrderId',expected:'one matched trade'}];
  else if(x.id==='journey.seed') v={command:'fixture-api seed instrument',publicBoundary:true,createdResources:['instrument-\${HARNESS_RUN_ID}'],cleanupCommand:'fixture-api cleanup'};
  else if(x.id==='journey.isolation') v={mode:'namespace-per-run',derivedResources:['sit-\${HARNESS_RUN_ID}','account-\${HARNESS_RUN_ID}','consumer-\${HARNESS_RUN_ID}']};
+ else if(x.id==='journey.risk') v={attribute:'correctness',consequence:'high',likelihood:'medium',detectability:'low',stakeholders:['trading operations'],riskReason:'a duplicate trade creates financial loss',requiredScope:'journey',verificationOwner:'trading-sit'};
  a.answers[x.id]={value:v,answeredBy:'demo business owner',rationale:'fixture decision'};
 } fs.writeFileSync(p,JSON.stringify(a,null,2)+'\n');
 "
 node "$SCRIPTS/finalize-integration-init.mjs" --target "$IIT" >/tmp/demo-iif.$$ 2>&1
 expect "complete typed answers produce the integration scaffold" $?
-( cd "$IIT" && node tools/services-check.mjs >/dev/null && node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles >/dev/null ); expect "resolved service registry and generated public journey contract are mechanically green" $?
+( cd "$IIT" && node tools/services-check.mjs >/dev/null && node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles >/dev/null && node skills/quality-strategy/scripts/check-quality-strategy.mjs --risk test-risk.json --oracles business-oracles >/dev/null ); expect "resolved registry, public journey, and risk-sized test portfolio are mechanically green" $?
+node "$SCRIPTS/../templates/quality-strategy/evals/run-fixtures.mjs" >/dev/null; expect "high-risk capability without an oracle and cluster test mislabeled small are rejected" $?
 test -f "$IIT/inventory/integration-context/answer-receipt.json" -a -f "$IIT/integration-init-review.md"; expect "human decisions retain a digest-bound receipt and readable review" $?
 rm -f /tmp/demo-ii.$$ /tmp/demo-iif.$$
 

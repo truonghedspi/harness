@@ -43,6 +43,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
 | `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json`, MCP `k8s-readonly` | chart, tests, `feature_list.json` |
 | `skills/business-journey` | capability | Level 4 public command-to-outcome journeys: isolation, business readiness, distributed oracle, fault/idempotency proof and redacted metrics | requirement, service registry, environment/oracles | executable scenario artifacts and deterministic check |
+| `skills/quality-strategy` | capability | living Capability–Attribute risk and orthogonal scope/size classification; rejects uncovered material risk and unsafe large-test scheduling | requirements, components, human risk decisions, oracle artifacts | `test-risk.json` and deterministic findings |
 
 `maker`, `test-implementer`, `harness-setup` and `k8s-integration-tester` write unrestricted; every
 other agent is confined by its `writes` list in `agents.manifest.json` — enforced on kiro by
@@ -94,7 +95,8 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `loop/baseline-state.json` | `run-loop.sh` | `route.mjs` | typed `green|red` outcome plus evidence digest; red is routable state, not an out-of-graph shell exit |
 | `loop/design-review.json` | `design-reviewer` | `route.mjs`, designer | verdict is bound to the current design digest; a changed design invalidates the old verdict automatically |
 | `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `context-plan.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; rule entries retain original pointer, scope, collection digest and provenance |
-| `business-environment.json`, `business-oracles/**` | context-interviewer + test-designer/implementer via business-journey capability | capability checker, k8s integration tester, checker | public seams and business facts are project-owned; environment lifecycle stays with k8s-test-env |
+| `business-environment.json`, `business-oracles/**` | context-interviewer + test-designer/implementer via business-journey capability | capability checker, quality-strategy checker, k8s integration tester, checker | public seams and business facts are project-owned; environment lifecycle stays with k8s-test-env |
+| `test-risk.json` | human risk owner + quality-strategy capability | feature planner, test designer, quality-strategy checker | consequence/likelihood/detectability are human judgements; components and oracle links are mechanically checked |
 | `docs/services.md` | `setup-harness-loop.mjs --integration` | designer, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
 | `.kiro/settings/mcp.json`, `.mcp.json` **and** `.codex/config.toml` | `setup-harness-loop.mjs` | kiro / Claude Code / Codex respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not three decisions |
 

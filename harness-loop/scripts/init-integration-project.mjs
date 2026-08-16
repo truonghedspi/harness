@@ -71,6 +71,12 @@ add({ id: "journey.isolation", context: "parallel-safety", ownerHint: "platform/
   evidence: { default: "namespace-per-run", runIdEnv: "HARNESS_RUN_ID" },
   answer: { type: "object", requiredFields: ["mode", "derivedResources"], example: { mode: "namespace-per-run", derivedResources: ["account-${HARNESS_RUN_ID}", "consumer-${HARNESS_RUN_ID}"] } },
   impact: "Blocks parallel execution and reliable retries." });
+add({ id: "journey.risk", context: "capability-attribute-risk", ownerHint: "business owner plus service/test owners",
+  question: `For “${journey}”, which quality failure matters most, how likely is it, and how easily would production detect it?`,
+  why: "Source code can reveal components and seams, but not business consequence, risk appetite, or who accepts residual risk. These decisions determine the required test scope.",
+  evidence: { journey, componentCandidates: services.map((s) => s.id), publicSeamsAskedBy: ["journey.command", "journey.observations"] },
+  answer: { type: "object", requiredFields: ["attribute", "consequence", "likelihood", "detectability", "stakeholders", "riskReason", "requiredScope", "verificationOwner"], allowed: { attribute: ["correctness", "availability", "latency", "security", "privacy", "recoverability", "compatibility", "usability"], consequence: ["low", "medium", "high"], likelihood: ["low", "medium", "high"], detectability: ["low", "medium", "high"], requiredScope: ["unit", "component", "contract", "journey"] } },
+  impact: "Blocks risk-to-oracle traceability and execution-size scheduling." });
 
 const request = { schema: "integration-init-request/1", target: targetRoot, roots: roots.split(",").map((x) => path.resolve(x.trim())), journey };
 const plan = { schema: "integration-collection-plan/1", strategy: "inventory-then-focused-human-review", materialized: [path.relative(targetRoot, manifestPath)], deferredUntilAnswers: ["contract-specific source materialization", "scaffold", "business oracle"] };

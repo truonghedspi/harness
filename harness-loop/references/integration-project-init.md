@@ -60,6 +60,8 @@ then creates:
 - `business-environment.json` with per-run isolation, public seed, readiness and cleanup;
 - `business-oracles/initial-journey.json` with a public command, correlated public observations,
   a bounded convergence deadline and independent invariants;
+- `test-risk.json` linking the human-owned Capability–Attribute risk decision to that oracle and
+  classifying its behavioral scope separately from execution size;
 - `inventory/integration-context/answer-receipt.json`, binding accepted question IDs to the request;
 - the normal integration harness, K8s layer, feature graph and business-journey capability pack.
 

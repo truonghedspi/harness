@@ -54,6 +54,18 @@ When a review comment recurs, promote it into an automated check here (Review Fe
 Promotion) so the harness self-strengthens. Prefer consumer-driven contract tests where you can,
 so a producer change that breaks a consumer fails fast in the pipeline.
 
+## Scope is not execution size
+
+Levels 1–4 above describe **scope/fidelity**. Separately classify resource constraints in
+`test-risk.json`: `small` has no network/shared state and is hermetic; `medium` may use localhost
+on one machine; `large` covers cluster/external execution and therefore requires an owner, bounded
+timeout, non-shared isolation, cleanup evidence and postsubmit/staging placement. A fast cluster
+journey is still large. Use risk to choose the smallest test that answers the claim; do not enforce
+a fixed pyramid ratio or use coverage percentage as a quality target.
+
+Run `node skills/quality-strategy/scripts/check-quality-strategy.mjs` for risk-to-oracle
+traceability and scope/size safety.
+
 ## Where a verification lives
 
 **Proof belongs inside one of the three levels above, run by this project's test framework.**
