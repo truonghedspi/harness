@@ -1451,6 +1451,7 @@ CO="$WORK/codex-only"; rm -rf "$CO"; mkdir -p "$CO"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$CO" --name "CodexOnly" --purpose "one runtime" --runtime codex >/dev/null
 test ! -d "$CO/.kiro/agents" -a ! -d "$CO/.claude/agents" -a -d "$CO/.codex/agents"
 expect "a codex-only target really has only the codex agent directory" $?
+printf '| id | Assumption | Status | If false | Recommended answer | Depended on by |\n|---|---|---|---|---|---|\n' > "$CO/docs/assumptions.md"
 ( cd "$CO" && node loop/route.mjs --json > "$CO/route.json" 2>/dev/null )
 node -e "
 const r=require('$CO/route.json');
@@ -1814,6 +1815,7 @@ process.exit(j.changed.length===0 && j.added.length===0 && j.drifted.length===0 
 printf '#!/usr/bin/env bash\necho old\n' > "$UP/loop/route.mjs"
 rm -f "$UP/loop/dispatch.sh" "$UP/tools/feature.mjs"
 printf '\n<!-- this project: never touch the ledger -->\n' >> "$UP/prompts/designer.md"
+node -e "const fs=require('fs'),p='$UP/agents.manifest.json',j=require(p),a=structuredClone(j.agents.find(x=>x.name==='maker'));a.name='context-interviewer';j.agents.push(a);fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
 node "$SCRIPTS/upgrade-harness.mjs" --target "$UP" --json > "$UP/aged.json" 2>/dev/null
 node -e "
 const j=require('$UP/aged.json');
@@ -1827,6 +1829,8 @@ process.exit(j.drifted.includes('prompts/designer.md') ? 0 : 1);
 "; expect "a customised prompt is reported as drift, not silently replaced" $?
 grep -q "never touch the ledger" "$UP/prompts/designer.md"
 expect "and the customisation is still there afterwards" $?
+node -e "const j=require('$UP/aged.json');process.exit(j.retiredAgents.includes('context-interviewer')?0:1)"
+expect "upgrade reports the retired interview agent for an explicit manifest merge" $?
 node -e "
 const fs=require('fs');
 process.exit(fs.readFileSync('$UP/loop/route.mjs','utf8').includes('echo old') ? 1 : 0);
@@ -1894,7 +1898,7 @@ node "$SCRIPTS/setup-harness-loop.mjs" --target "$RR" --name "Rules" --purpose "
 node -e "
 const t=require('fs').readFileSync('$RR/rules.txt','utf8');
 // every rule, in order, each with the condition the source only implies
-process.exit(/context-interviewer/.test(t) && /feature-planner/.test(t) && /test-implementer/.test(t)
+process.exit(/human/.test(t) && !/context-interviewer/.test(t) && /feature-planner/.test(t) && /test-implementer/.test(t)
   && /maker/.test(t) && /precedence order/.test(t) && /when /.test(t) ? 0 : 1);
 "; expect "route.mjs --rules prints the whole routing table, so nothing has to parse its source" $?
 node -e "
@@ -2460,7 +2464,30 @@ expect "the audit rejects unbound claims, decorative visuals and one-sided recom
 node "$SCRIPTS/install-user-skill.mjs" --name human-presenter --skills-root "$USR" >/dev/null 2>&1; [ "$?" = "3" ]
 expect "user customization is not overwritten without explicit --force" $?
 
-step 41 "meta loop: dispatch on the right layer, stop when nothing moves"
+step 41 "human interview: keep discovery context and stop the router at the person"
+node "$SCRIPTS/install-user-skill.mjs" --name human-interview --skills-root "$USR" >/dev/null
+test -f "$USR/human-interview/SKILL.md" -a -f "$USR/human-interview/references/question-design.md" -a -f "$USR/human-interview/references/persistence.md"
+expect "human-interview installs as a user-scope capability with progressive references" $?
+cat > "$WORK/question-good.json" <<'JSON'
+{"id":"fault.restart","title":"Matching restart permission","need":"May the journey restart matching after FIX acknowledgement?","impact":"determines whether recovery/idempotency is in the executable plan","answerContract":"approve|deny plus environment scope","evidenceChecked":["services.manifest.json:matching","runbook.md#restart"],"humanOwnedReason":"the repositories expose the mechanism but not authorization","options":["approve in isolated namespace","deny"],"recommendation":{"value":"approve in isolated namespace","basis":"reversible and needed to test recovery"},"dependsOn":[],"sameRound":[]}
+JSON
+node "$USR/human-interview/scripts/check-question.mjs" "$WORK/question-good.json" >/dev/null
+expect "an evidence-exhausted human-owned question passes the capability audit" $?
+cat > "$WORK/question-bad.json" <<'JSON'
+{"id":"q","title":"Choose","need":"What should we do?","impact":"unknown","answerContract":"yes","evidenceChecked":[],"options":["yes"],"recommendation":{"value":"yes"},"dependsOn":["upstream"],"sameRound":["upstream"]}
+JSON
+node "$USR/human-interview/scripts/check-question.mjs" "$WORK/question-bad.json" > "$WORK/question-bad.out"; [ "$?" = "1" ] && grep -q 'evidence-unchecked' "$WORK/question-bad.out" && grep -q 'human-ownership-unproven' "$WORK/question-bad.out" && grep -q 'false-choice' "$WORK/question-bad.out" && grep -q 'frontier-invalid' "$WORK/question-bad.out"
+expect "the audit rejects lazy, false-choice and dependency-invalid questions" $?
+HIT="$WORK/interview-route"; rm -rf "$HIT"; mkdir -p "$HIT"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$HIT" --name "Interview Route" --purpose "prove in-context human checkpoint" >/dev/null
+! grep -Rqs 'context-interviewer' "$HIT/.kiro" "$HIT/.claude" "$HIT/.codex" "$HIT/agents.manifest.json" && [ ! -e "$HIT/prompts/context-interviewer.md" ]
+expect "fresh targets receive no dedicated interview agent, prompt or runtime config" $?
+printf '| A-1 | matching restart is permitted | needs-human | none |\n' >> "$HIT/docs/assumptions.md"
+( cd "$HIT" && node loop/route.mjs --json ) > "$HIT/interview-route.json"
+node -e "const r=require('$HIT/interview-route.json');process.exit(r.node==='human'&&r.kind==='human'&&/human-interview/.test(r.why)?0:1)"
+expect "needs-human stops at the person and tells the current agent to use human-interview" $?
+
+step 42 "meta loop: dispatch on the right layer, stop when nothing moves"
 # The fingerprint includes evidence and feature state, not only gate/id. Same blocker with changed
 # evidence is progress; returning to an earlier canonical state exposes an A-B-A cycle.
 FP="$WORK/fingerprint"; rm -rf "$FP"; mkdir -p "$FP/trace"
@@ -2480,10 +2507,11 @@ exit 0
 EOF
 chmod +x "$STUBBIN/kiro-cli"
 echo '{ "name": "demo-target", "private": true }' > "$T/package.json"   # make the baseline greenable
+printf '| id | Assumption | Status | If false | Recommended answer | Depended on by |\n|---|---|---|---|---|---|\n' > "$T/docs/assumptions.md"
 PATH="$STUBBIN:$PATH" KIRO_API_KEY=demo-stub bash "$SCRIPTS/harness-loop.sh" --target "$T" --runner kiro --iterations 3 \
   > /tmp/demo-meta.$$ 2>&1
 tail -25 /tmp/demo-meta.$$
-grep -q "canonical workflow state repeated" /tmp/demo-meta.$$; expect "loop stops itself on a repeated state instead of spinning forever" $?
+grep -Eq "canonical workflow state repeated|router: features are open but no rule routes them" /tmp/demo-meta.$$; expect "loop stops itself on a repeated state or bounded human checkpoint instead of spinning forever" $?
 rm -f /tmp/demo-meta.$$
 
 echo ""

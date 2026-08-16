@@ -86,7 +86,7 @@ against the spec — never the spec against reality.
    `node tools/cross-cutting-audit.mjs --target .`. Anything it flags — retry, identity/dedup,
    timeouts, failure reporting — is a **policy someone must own**, not a design you may settle
    inline: register it in `docs/cross-cutting.md` with the options and their trade-offs, and leave
-   the choice to a human (`context-interviewer` collects it). You are good at *finding* that a
+   the choice to a human using the user-scope `human-interview` skill in this same turn. You are good at *finding* that a
    cross-cutting decision is being made by accident; you are not the one to make it. A row is only
    closed when it names the mechanism, the owner+date, and the rule that enforces it.
 6c. **Say what your design does to the features that already exist** — a `## Feature impact`

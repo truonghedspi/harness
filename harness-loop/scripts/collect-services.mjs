@@ -212,5 +212,5 @@ const unanswered = deployable.filter((s) => !s.health || !s.dependsOn);
 if (unanswered.length) {
   console.log(`\n${unanswered.length} service(s) still need a human for health and/or dependsOn.`);
   console.log(`Those are not discoverable from a repository: "the pod is Running" is not health, and`);
-  console.log(`nothing in the source states which services a scenario needs. Run the context-interviewer.`);
+  console.log(`nothing in the source states which services a scenario needs. Use the user-scope human-interview skill in the current context.`);
 }

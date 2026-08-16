@@ -112,13 +112,13 @@ const RULES = [
     },
   },
   {
-    node: "context-interviewer", kind: "agent", layer: "spec",
+    node: "human", kind: "human", layer: "spec",
     when: "a docs/assumptions.md row is still needs-human",
     // The one condition that is supposed to STOP the loop. It could not, before this file.
     match: () => {
       const rows = read("docs/assumptions.md").split("\n")
         .filter((l) => l.startsWith("|") && /needs-human/i.test(l));
-      return rows.length ? { why: `${rows.length} assumption(s) are needs-human — a fact the repo cannot contain is holding up a design`, detail: rows[0].slice(0, 160) } : null;
+      return rows.length ? { why: `${rows.length} assumption(s) are needs-human — continue in the current conversation with the user-scope human-interview skill; do not dispatch another agent`, detail: rows[0].slice(0, 160) } : null;
     },
   },
   {

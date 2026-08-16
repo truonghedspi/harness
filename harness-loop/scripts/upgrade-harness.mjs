@@ -110,6 +110,9 @@ const targetManifest = (() => { try { return JSON.parse(read(T("agents.manifest.
 const newAgents = (skillManifest && targetManifest)
   ? skillManifest.agents.filter((a) => !targetManifest.agents.some((b) => b.name === a.name)).map((a) => a.name)
   : [];
+const retiredAgents = (skillManifest && targetManifest)
+  ? targetManifest.agents.filter((a) => !skillManifest.agents.some((b) => b.name === a.name)).map((a) => a.name)
+  : [];
 
 // Regenerate what is generated, so the refresh actually takes effect.
 const ran = [];
@@ -124,7 +127,7 @@ if (!DRY) {
 
 if (JSON_OUT) {
   process.stdout.write(JSON.stringify({ schema: "harness-upgrade/1", target: TARGET, dryRun: DRY,
-    changed, added, same: same.length, drifted, missing, newAgents, regenerated: ran }, null, 2) + "\n");
+    changed, added, same: same.length, drifted, missing, newAgents, retiredAgents, regenerated: ran }, null, 2) + "\n");
   process.exit(0);
 }
 const out = [];
@@ -146,6 +149,12 @@ if (newAgents.length) {
   out.push("");
   out.push(`  NEW AGENTS the skill defines and this target's manifest lacks: ${newAgents.join(", ")}`);
   out.push(`      copy the entry from ${S("templates", "tree", "agents.manifest.json")},`);
+  out.push(`      then: node tools/gen-agents.mjs --target . --runtime all`);
+}
+if (retiredAgents.length) {
+  out.push("");
+  out.push(`  RETIRED AGENTS still declared by this target: ${retiredAgents.join(", ")}`);
+  out.push(`      remove those manifest entries after merging their replacement capability,`);
   out.push(`      then: node tools/gen-agents.mjs --target . --runtime all`);
 }
 out.push("");

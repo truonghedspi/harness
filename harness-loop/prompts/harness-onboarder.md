@@ -45,7 +45,7 @@ Read the repo and answer these from evidence, not assumption. Write nothing yet.
 
 ## Phase 2 — Ask only what the survey cannot answer
 
-Use the interview format from `prompts/context-interviewer.md`: **the whole frontier in one round**,
+Use the installed user-scope `human-interview` skill: **the whole frontier in one round**,
 each question numbered, each with your recommended answer so it can be answered by number.
 
 Ask at most these, and drop any the survey already settled:
@@ -168,7 +168,7 @@ report it, do not phrase around it.
 
 Then hand off, naming the next agent explicitly:
 
-- missing context only a person has → `context-interviewer`
+- missing context only a person has → ask now with `human-interview`; preserve this survey context
 - the objective needs a design before it can be cut → `designer`, then `design-reviewer`
 - the objective is clear but not decomposed → `feature-planner`
 - ready to run → `loop/run-loop.sh 1` for one supervised iteration **before** any longer run

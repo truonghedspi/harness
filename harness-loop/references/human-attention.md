@@ -68,7 +68,7 @@ from it.
 
 ## How to ask, once you have earned it
 
-Follow the interview technique in `prompts/context-interviewer.md` — rounds over a frontier, each
+Follow the installed `human-interview` skill — rounds over a frontier, each
 question numbered with a recommended answer, so the human's job is to *evaluate* rather than to
 *generate*. That format is itself an attention-saving device: judging a proposal takes seconds,
 producing one from a blank page takes minutes.

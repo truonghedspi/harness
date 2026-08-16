@@ -66,7 +66,7 @@ services.manifest.json          # the registry — one entry per SERVICE, not pe
 
 The split down the "discoverable?" column is the same one this harness already runs on: what can be
 read from the repository belongs to a survey agent, and what cannot belongs to the
-`context-interviewer`. `health` and `dependsOn` are the two that consistently cannot — *"the pod is
+the current agent using `human-interview`. `health` and `dependsOn` are the two that consistently cannot — *"the pod is
 Running"* is not health, and nothing in a repository states which services a scenario needs.
 
 ## Each repo's rules stay in that repo

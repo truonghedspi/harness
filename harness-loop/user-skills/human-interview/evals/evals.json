@@ -1,0 +1,23 @@
+{
+  "skill_name": "human-interview",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "You are designing an order-match integration test. The repositories show FIX ingress and trade events, but do not state whether the test may restart the matching service. Ask the human only what is necessary to proceed.",
+      "expected_output": "Uses discovered seams, asks a precise fault-permission question with impact and answer contract, and does not rediscover the whole project.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Three unresolved choices remain: production-like namespace access, customer-data use, and timeout policy. Access determines whether customer data is relevant; timeout is independent. Conduct the first interview round.",
+      "expected_output": "Asks only the dependency frontier, keeps authorization explicit, and defers the dependent customer-data question.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "The user answered 'yes, do that' to two numbered questions. Safely interpret and persist the result.",
+      "expected_output": "Detects ambiguity, asks for mapping rather than guessing, and describes a durable typed receipt.",
+      "files": []
+    }
+  ]
+}

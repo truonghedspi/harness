@@ -66,7 +66,7 @@ how long each open feature has been open. A snapshot cannot tell a moving projec
 | Agent | Runs when | Owns |
 |---|---|---|
 | `orchestrator` | **a human is talking to you and named no agent** — the default role | driving the loop and being the human's interface. Dispatches; writes no product file |
-| `context-interviewer` | a `needs-human` row in `docs/assumptions.md` | spec — facts the repo cannot contain |
+| current agent + user-scope `human-interview` skill | it discovers a fact or decision only a person can supply | spec — ask without discarding the working context; persist a receipt |
 | `designer` → `design-reviewer` | `checkerNotes` starts `NEEDS DESIGN:` | design — components, cited claims, invariants |
 | `feature-planner` | `checkerNotes` starts `NEEDS RE-PLAN:` | decomposition — re-cutting `feature_list.json` |
 | `test-designer` → `test-implementer` | no `falsifier`, or the oracle is unwritten | the oracle — **neither reads the implementation** |

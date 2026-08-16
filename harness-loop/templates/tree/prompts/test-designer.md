@@ -50,7 +50,8 @@ A behavior with no `requirement_id`, or a spec sentence with two valid readings,
 - **an ambiguity in the design** → write `NEEDS DESIGN: <the question>` into the feature's
   `checkerNotes`; the `designer` agent owns it.
 - **a fact nobody in the repo can know** → add a `needs-human` row to `docs/assumptions.md` **with a
-  Recommended answer filled in**, and let the `context-interviewer` ask it.
+  Recommended answer filled in**, then use the user-scope `human-interview` skill to ask it before
+  leaving this context.
 
 Climb the exhaustion ladder before either (`docs/reference/human-attention.md`): registry, memory,
 environment, spike. A question you could have grepped costs the one resource this harness protects.

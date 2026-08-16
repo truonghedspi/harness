@@ -9,7 +9,7 @@ iteration and usually re-creates the same defect. So each marker in shared state
 
 | Marker in shared state | Layer | Returns to | Written by |
 |---|---|---|---|
-| `docs/assumptions.md` row = `needs-human` | spec | `context-interviewer` | designer, design-reviewer, test-designer |
+| `docs/assumptions.md` row = `needs-human` | spec | human checkpoint; current agent uses `human-interview` | designer, design-reviewer, test-designer |
 | `checkerNotes ^ NEEDS DESIGN:` | design | `designer` | maker, checker, test-designer |
 | `checkerNotes ^ NEEDS RE-PLAN:` | decomposition | `feature-planner` | checker |
 | no `falsifier` on an open feature | oracle | `test-designer` | — |
@@ -21,7 +21,7 @@ a spec question can dissolve the design question hanging off it, so resolving th
 throws away the work. Walked down the ladder on a real target, one rung per resolution:
 
 ```
-rung 1  →  context-interviewer  | layer: spec            (1 needs-human assumption)
+rung 1  →  human checkpoint     | layer: spec            (current agent keeps context)
 rung 2  →  designer             | layer: design          | feat-a
 rung 3  →  feature-planner      | layer: decomposition   | feat-b
 rung 4  →  maker                | layer: implementation  | feat-a
@@ -38,8 +38,9 @@ feat-b  NEEDS RE-PLAN    status not-started
 ```
 
 Neither feature is `done` (so the loop won't stop) nor `blocked` (so nothing escalates), and the
-maker is instructed to skip exactly this state. With the router, the same input routes to
-`context-interviewer` on the first tick.
+maker is instructed to skip exactly this state. With the router, the same input stops at a human
+checkpoint on the first tick; the current conversational agent applies `human-interview` rather
+than dispatching another agent.
 
 `route.mjs` also distinguishes two states the old loop conflated: **exit 0** (everything done or
 blocked-with-reason) versus **exit 3** (features open, but every rule declined — a human must

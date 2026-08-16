@@ -568,7 +568,7 @@ console.log(`  5. node loop/route.mjs                    # asks the state which 
 console.log(`  6. loop/run-loop.sh 1                     # one supervised iteration, routed automatically`);
 console.log(``);
 console.log(`The router picks the node; you do not. It walks deeper-first — a fact only a human has`);
-console.log(`(context-interviewer), then design, then decomposition, then the oracle, then the code.`);
+console.log(`(human-interview skill, without switching agents), then design, decomposition, the oracle, and code.`);
 console.log(`Run it whenever you are unsure what to do next.`);
 console.log(``);
 console.log(`Runtimes: agents were generated for ${RUNTIME === "both" ? "kiro-cli AND Claude Code" : RUNTIME}.`);

@@ -186,8 +186,8 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    k8s is on; gate `mcp-runtime-skew` fails them if they later diverge.
 
 4. **Collect what the repo cannot contain, before designing.** If the requirement leaves
-   deployment facts, business intent, or risk appetite implicit, run the `context-interviewer`
-   agent (its interview technique follows the `grilling` skill by Matt Pocock). It looks up
+   deployment facts, business intent, or risk appetite implicit, use the user-scope
+   `human-interview` skill in the current agent context. It looks up
    anything greppable itself, asks **the whole frontier of currently-answerable questions per
    round, each numbered with a recommended answer** so a round can be answered by number, and — the
    part that matters — **persists every answer to a file**: an `docs/assumptions.md` row flipped to
@@ -333,6 +333,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   appropriate through a user-scope thin-router skill:
   [references/human-presenter-research.md](references/human-presenter-research.md). Install with
   `node harness-loop/scripts/install-user-skill.mjs --name human-presenter`.
+- Resolving human-owned information gaps without dispatching a new agent: install the user-scope
+  `human-interview` capability with
+  `node harness-loop/scripts/install-user-skill.mjs --name human-interview`.
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)
@@ -593,7 +596,7 @@ After setup, the target project should contain:
       limits) and `tools/codex-dispatch.mjs` (Codex has no `--agent` flag)
       ([references/runtimes.md](references/runtimes.md))
 - [ ] `.kiro/agents/*.json`, `.claude/agents/*.md` and/or `.codex/agents/*.toml` for
-      {maker,checker,harness-setup,feature-planner,designer,design-reviewer,context-interviewer,test-designer,test-implementer}
+      {maker,checker,harness-setup,feature-planner,designer,design-reviewer,test-designer,test-implementer}
       (+ the MCP config for each installed runtime: `.kiro/settings/mcp.json`, `.mcp.json`,
       `.codex/config.toml` — and `.codex/hooks.json`, without which no Codex write limit is enforced)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green

@@ -83,7 +83,8 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
   loop/dispatch.sh designer "The human chose option 2: <the decision, and where you recorded it>"
   ```
 
-  Designer for a design question, feature-planner for scope, context-interviewer for an assumption.
+  Designer for a design question and feature-planner for scope. For an assumption, use the
+  user-scope `human-interview` skill in this conversation; do not dispatch an interview agent.
   `docs/reference/graph.md` has the owner table. `loop/dispatch.sh` runs one NAMED agent on whichever
   runtime this machine has — use it only when a human has already decided. When nobody has,
   `loop/run-loop.sh 1` runs the node the router chose, and that is the normal path.

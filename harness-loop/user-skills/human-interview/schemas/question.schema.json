@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "human-question/1",
+  "type": "object",
+  "required": ["id", "title", "need", "impact", "answerContract", "evidenceChecked", "humanOwnedReason"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "need": { "type": "string", "minLength": 1 },
+    "impact": { "type": "string", "minLength": 1 },
+    "answerContract": { "type": "string", "minLength": 1 },
+    "evidenceChecked": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "humanOwnedReason": { "type": "string", "minLength": 1 },
+    "options": { "type": "array", "items": { "type": "string" } },
+    "recommendation": {
+      "type": "object",
+      "required": ["value", "basis"],
+      "properties": { "value": { "type": "string" }, "basis": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "sameRound": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

@@ -41,6 +41,9 @@ This repository holds the agent-harness assets for the team:
   The versioned `user-skills/human-presenter` package is installed once at user scope with
   `install-user-skill.mjs`; it applies a lightweight communication audit to substantive answers,
   conditionally loading intent, provenance, language and visual-routing references.
+  `user-skills/human-interview` replaces the context-switching interviewer agent: the agent that
+  discovers a human-owned gap exhausts evidence, asks in place, validates the answer and records a
+  durable receipt.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster

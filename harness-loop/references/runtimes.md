@@ -143,7 +143,7 @@ Set in the manifest, per runtime, and generated into both configs:
 
 | Role kind | Claude Code | kiro | Codex |
 |---|---|---|---|
-| **executors** — maker, designer, feature-planner, test-designer, test-implementer, context-interviewer, harness-setup, k8s-integration-tester | `sonnet` | `claude-sonnet-4` — **pinned, not `auto`** | `gpt-5.6-sol` |
+| **executors** — maker, designer, feature-planner, test-designer, test-implementer, harness-setup, k8s-integration-tester | `sonnet` | `claude-sonnet-4` — **pinned, not `auto`** | `gpt-5.6-sol` |
 | **evaluators** — checker, design-reviewer | `claude-opus-5` | `claude-sonnet-4.5` | `gpt-5.6-terra`, `model_reasoning_effort = "high"` |
 
 Codex executors are on `gpt-5.6-sol` — the documented default — rather than on something cheaper,

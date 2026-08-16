@@ -17,8 +17,8 @@ flowchart TD
     A["User requirement"] --> ADOPT{"Existing repo\nwith history?"}
     ADOPT -- yes --> ON["harness-onboarder\nsurvey → ask → scaffold →\nadoption-baseline --record"]
     ADOPT -- no --> B["setup-harness-loop.mjs"]
-    ON --> CI
-    B --> CI["context-interviewer\nLAYER: spec\nfacts the repo cannot contain"]
+    ON --> HI
+    B --> HI["current agent + human-interview\nLAYER: spec\nfind evidence → ask → receipt\nno context switch"]
     IIR["init-integration-project\ncheap inventory → evidence-rich\ntyped questions"] --> HR{"human answers complete\nand digest-current?"}
     HR -- no --> IIR
     HR -- yes --> IIF["finalize-integration-init\nvalidate → registry + environment\n+ journey oracle + risk portfolio"]
@@ -26,12 +26,11 @@ flowchart TD
     B --> CP
     CS["collect-services\nwide inventory + rule provenance"] --> CP["context-plan\nactive feature touches → scoped rules"]
     CP --> AC["agent-context\nload scoped rules + fresh feature packet\n+ mustRead originals + receipt"]
-    AC -. scoped context at dispatch .-> CI
     AC -. scoped context at dispatch .-> DS
     AC -. scoped context at dispatch .-> MK
     MK -. "PostToolUse (redacted)" .-> TEL["tool-events.jsonl\ndirect reads/searches ≠ shell inference"]
     TEL --> RR["run-report\nduplicate reads · packet rediscovery\n+ coverage declaration"]
-    CI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
+    HI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
     DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
     IIF --> QS["quality-strategy\nCapability–Attribute risk → oracle\nscope ≠ execution size"]
     QS --> FP

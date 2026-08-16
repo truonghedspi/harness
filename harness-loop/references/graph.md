@@ -17,7 +17,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `tools/context-plan.mjs` | code | select scoped external rules and validate the active feature's digest-bound context packet | `services.manifest.json`, `feature_list.json`, `loop/current.json`, original rule files, `loop/context-packets/**` | typed `context-plan/1` with packet freshness |
 | `verify-harness.mjs` context-supply gate | code | reject a service-rule registry with no working selector/loader path | registry plus scaffolded context tools | `service-rules-unread`, layer harness |
 | `tools/services-check.mjs` | code | integration targets only — the registry's own verification: exits non-zero while a deployable service lacks chart/image/health/`dependsOn` | `services.manifest.json` | exit code |
-| `context-interviewer` | agent | ask only what the repo cannot answer; persist every answer | `assumptions.md`, audit output | `assumptions.md`, `cross-cutting.md`, `constraints.md`, `docs/context/**`, `DECISIONS.md` |
+| user-scope `human-interview` | capability | let the agent that found a human-owned gap ask in the same context after exhausting discoverable evidence; persist a typed answer receipt | current task context, scoped evidence, unresolved decision | canonical assumption/decision/context artifact or allowed handoff receipt |
 | `designer` | agent | components, cited claims, assumption registry, **observable seam + invariants per component**, and a `## Feature impact` table (its only way to hand scope work over — it may not write `feature_list.json`) | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
 | `design-reviewer` | agent | falsify the design; verify claims by citation; publish a typed verdict for the exact design digest | `docs/design/**` | `loop/design-review.json`, `assumptions.md`, `session-handoff.md` |
 | `feature-planner` | agent | cut the design into a build/prove DAG and materialize bounded, digest-bound context packets where discovery found a non-obvious implementation seam | requirement, approved design, capability skill | `feature_list.json`, `loop/context-packets/**`, `goal.md`, `constraints.md`, checker report |
@@ -45,6 +45,11 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `skills/business-journey` | capability | Level 4 public command-to-outcome journeys: isolation, business readiness, distributed oracle, fault/idempotency proof and redacted metrics | requirement, service registry, environment/oracles | executable scenario artifacts and deterministic check |
 | `skills/quality-strategy` | capability | living Capability–Attribute risk and orthogonal scope/size classification; rejects uncovered material risk and unsafe large-test scheduling | requirements, components, human risk decisions, oracle artifacts | `test-risk.json` and deterministic findings |
 | user-scope `human-presenter` | capability | lightweight pre-delivery audit for every substantive human-facing message; routes intent, provenance, uncertainty, language and the smallest useful representation without becoming a workflow node | the current agent's established claims and reader task | clearer user-facing answer; no project state |
+
+`human-interview` is not a dispatchable node. The originating agent invokes it before yielding; if
+an old `needs-human` row reaches the router, the router returns a human checkpoint and the current
+conversation resolves it without launching a second agent. This preserves the causal context that
+made the gap intelligible.
 
 `maker`, `test-implementer`, `harness-setup` and `k8s-integration-tester` write unrestricted; every
 other agent is confined by its `writes` list in `agents.manifest.json` — enforced on kiro by
@@ -89,8 +94,8 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `feature_list.json[].checkerNotes` | `checker`, `maker`, `test-designer` | `maker`, `designer`, `feature-planner` | append; **first line is the routing marker** |
 | `feature_list.json[].attempts` | `maker` | gate `over-budget` | +1 per iteration, never reset |
 | `feature_list.json[].falsifier` | `feature-planner`, `test-designer` | `checker` | overwrite |
-| `docs/assumptions.md` | `designer`, `design-reviewer`, `context-interviewer`, `test-designer` | all | row-level; status only moves toward `verified` |
-| `docs/cross-cutting.md` | `context-interviewer`, `designer` | all | a row closes only with mechanism + owner + enforcing rule |
+| `docs/assumptions.md` | `designer`, `design-reviewer`, `test-designer`; human answer captured in place with `human-interview` | all | row-level; status only moves toward `verified` |
+| `docs/cross-cutting.md` | `designer`; human choice captured in place with `human-interview` | all | a row closes only with mechanism + owner + enforcing rule |
 | `progress.md` / `session-handoff.md` | `maker`, `checker` | next session | append |
 | `trace/**`, `memory/<agent>/**` | each agent, its own dir only | that agent at spawn | append |
 | `loop/approval.md` | **the human** | `approval-gate.mjs` | first line is the verdict; a verdict with no reason is treated as a rejection |
@@ -100,7 +105,7 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `loop/baseline-state.json` | `run-loop.sh` | `route.mjs` | typed `green|red` outcome plus evidence digest; red is routable state, not an out-of-graph shell exit |
 | `loop/design-review.json` | `design-reviewer` | `route.mjs`, designer | verdict is bound to the current design digest; a changed design invalidates the old verdict automatically |
 | `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `context-plan.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; rule entries retain original pointer, scope, collection digest and provenance |
-| `business-environment.json`, `business-oracles/**` | context-interviewer + test-designer/implementer via business-journey capability | capability checker, quality-strategy checker, k8s integration tester, checker | public seams and business facts are project-owned; environment lifecycle stays with k8s-test-env |
+| `business-environment.json`, `business-oracles/**` | current agent + `human-interview`, then test-designer/implementer via business-journey capability | capability checker, quality-strategy checker, k8s integration tester, checker | public seams and business facts are project-owned; environment lifecycle stays with k8s-test-env |
 | `test-risk.json` | human risk owner + quality-strategy capability | feature planner, test designer, quality-strategy checker | consequence/likelihood/detectability are human judgements; components and oracle links are mechanically checked |
 | `docs/services.md` | `setup-harness-loop.mjs --integration` | designer, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
 | `.kiro/settings/mcp.json`, `.mcp.json` **and** `.codex/config.toml` | `setup-harness-loop.mjs` | kiro / Claude Code / Codex respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not three decisions |
@@ -125,7 +130,7 @@ if a build feature's prove feature
    has no test yet                        → NOT eligible (the maker would write it)
 if feature.verification touches k8s       → k8s-integration-tester  [integration]
 if feature.attempts >= maxAttempts        → blocked (stop retrying)
-if assumption.status == needs-human       → context-interviewer   [STOPS the loop]
+if assumption.status == needs-human       → human checkpoint; current agent uses human-interview [STOPS the loop]
 if feature.readyForCheck                  → verify-harness --promote → checker
 if checker APPROVE                        → done
 if checker REJECT                         → maker            (rollback: implementation layer)
@@ -137,14 +142,14 @@ if every feature done|blocked-with-reason → exit
 ```mermaid
 flowchart TD
   I([init.sh]) --> R{{"loop/route.mjs<br/>picks the next node + layer"}}
-  R -->|spec| CI[context-interviewer]
+  R -->|spec| H["human checkpoint<br/>current agent + human-interview"]
   R -->|design| D[designer]
   R -->|decomposition| FP[feature-planner]
   R -->|oracle| TD[test-designer]
   R -->|oracle| TI[test-implementer]
   R -->|integration| K["k8s-integration-tester<br/>Level 3"]
   R -->|implementation| M[maker]
-  CI --> R
+  H --> R
   D --> DR[design-reviewer]
   DR -->|"REJECT — typed verdict for current digest"| D
   DR --> R
@@ -186,7 +191,7 @@ human read a report and typed the next command.
 |---|---|---|---|---|---|
 | 1 | `NEEDS DESIGN:` → `designer` | maker, checker, test-designer | designer | ~~nothing~~ **`route.mjs`** | *closed* |
 | 2 | `NEEDS RE-PLAN:` → `feature-planner` | checker | feature-planner | ~~nothing~~ **`route.mjs`** | *closed* |
-| 3 | `needs-human` assumption → `context-interviewer` | designer, design-reviewer | context-interviewer | ~~nothing~~ **`route.mjs`** | *closed* |
+| 3 | `needs-human` assumption → human checkpoint | designer, design-reviewer | current agent using `human-interview` | ~~dedicated context-switching agent~~ **`route.mjs` stops without dispatch** | *closed; migrated 2026-08-16* |
 | 4 | k8s feature → `k8s-integration-tester` | maker (skips it) | — | ~~nothing~~ **`route.mjs`** | *closed* |
 | 5 | conditions → `test-implementer` | test-designer | test-implementer | ~~nothing~~ **`route.mjs`** | *closed 2026-08-10* — with it open, the maker wrote the test it was to be judged by |
 | 6 | `design-reviewer` REJECT → `designer` | design-reviewer | designer | ~~nothing~~ **typed `loop/design-review.json` + `route.mjs`** | *closed 2026-08-15* — verdict is bound to a design digest; one unchanged revision escalates |

@@ -83,47 +83,6 @@
       "codexReasoningEffort": "high"
     },
     {
-      "name": "context-interviewer",
-      "description": "Elicits the knowledge that cannot exist in the repo — deployment facts, business intent, risk appetite — one question at a time, always with a recommended answer, and always after looking up whatever is discoverable. Persists every answer into assumptions.md / cross-cutting.md / docs/context/, never into chat alone. The only role allowed to ask the human questions.",
-      "prompt": "prompts/context-interviewer.md",
-      "tools": [
-        "read",
-        "write",
-        "shell"
-      ],
-      "mcp": false,
-      "writes": [
-        "docs/assumptions.md",
-        "docs/cross-cutting.md",
-        "docs/constraints.md",
-        "docs/context/**",
-        "docs/INDEX.md",
-        "DECISIONS.md",
-        "session-handoff.md",
-        "memory/context-interviewer/**"
-      ],
-      "resources": [
-        "AGENTS.md",
-        "docs/constraints.md",
-        "docs/reference/design-engineering.md",
-        "docs/INDEX.md",
-        "docs/assumptions.md",
-        "docs/cross-cutting.md",
-        "memory/context-interviewer/MEMORY.md"
-      ],
-      "trace": true,
-      "traceToolUse": [],
-      "spawnCommands": [
-        "node tools/cross-cutting-audit.mjs --target . || true"
-      ],
-      "welcomeMessage": "Context interviewer: I collect only what can't be found in the repo — deployment facts, business intent, risk appetite. I grep/spike anything discoverable myself first, then ask ONE question at a time, each with my recommended answer so you can decide in seconds. Every answer lands in a file (assumptions.md row flipped to verified, a cross-cutting decision with its enforcing rule, or a ≤300-line docs/context/ topic indexed in docs/INDEX.md) — never in chat alone. I start from what the tools already flagged: needs-human assumptions, open cross-cutting decisions, NEEDS DESIGN markers.",
-      "model": {
-        "claude": "sonnet",
-        "kiro": "claude-sonnet-4",
-        "codex": "gpt-5.6-sol"
-      }
-    },
-    {
       "name": "design-reviewer",
       "description": "Adversarial reviewer for designs: hunts uncited claims, unwritten load-bearing assumptions, dishonest assumption status, and a too-narrow option space. Asks of every conclusion 'which assumption, if false, flips this?'. Write-restricted so it cannot fix the design itself.",
       "prompt": "prompts/design-reviewer.md",
