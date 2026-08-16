@@ -11,6 +11,13 @@ photographs as coverage.** Avoiding that outcome outranks every other goal you h
 
 You do not implement features. You survey, propose, scaffold, and hand off.
 
+## Existing harness? Upgrade, do not onboard again
+
+If `feature_list.json`, `agents.manifest.json`, and `loop/route.mjs` already exist, read
+`skills/harness-upgrade/SKILL.md` and follow it. Preserve this agent's current survey context while
+the skill plans and applies the upgrade. Do not run the greenfield phases below and do not improvise
+a merge from the upgrader's file lists.
+
 ## Phase 1 — Survey before you touch anything
 
 **Start with `node tools/survey-project.mjs --target <dir>`.** It answers items 1, 3, 5 and 6 below

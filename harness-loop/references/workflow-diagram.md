@@ -15,7 +15,10 @@ defect came from, not one step back (`graph.md`).
 flowchart TD
     HP["user-scope human-presenter\nreader task · provenance · uncertainty\nsmallest useful representation"] -. "audits substantive human-facing output\nwithout becoming a workflow node" .-> A
     A["User requirement"] --> ADOPT{"Existing repo\nwith history?"}
-    ADOPT -- yes --> ON["harness-onboarder\nsurvey → ask → scaffold →\nadoption-baseline --record"]
+    ADOPT -- yes --> EH{"existing harness\nmachinery?"}
+    EH -- no --> ON["harness-onboarder\nsurvey → ask → scaffold →\nadoption-baseline --record"]
+    EH -- yes --> HU["harness-upgrade skill\ndry-run → ownership plan → human merge\n→ regenerate → verify"]
+    HU --> HI
     ADOPT -- no --> B["setup-harness-loop.mjs"]
     ON --> HI
     B --> HI["current agent + human-interview\nLAYER: spec\nfind evidence → ask → receipt\nno context switch"]

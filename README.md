@@ -44,6 +44,8 @@ This repository holds the agent-harness assets for the team:
   `user-skills/human-interview` replaces the context-switching interviewer agent: the agent that
   discovers a human-owned gap exhausts evidence, asks in place, validates the answer and records a
   durable receipt.
+  The onboarding installer also ships `skills/harness-upgrade`: existing harness targets are
+  upgraded through an ownership-aware merge plan instead of ad-hoc prompt/manifest edits.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster

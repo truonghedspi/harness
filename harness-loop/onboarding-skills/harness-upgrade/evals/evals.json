@@ -1,0 +1,17 @@
+{
+  "skill_name": "harness-upgrade",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Upgrade an existing harness target whose dry-run reports 12 changed machinery files, customized AGENTS.md and manifest, plus retired context-interviewer. Its interviewer memory contains only the template header.",
+      "expected_output": "Refreshes owned machinery, proposes a semantic merge, migrates to human-interview without context switch, regenerates runtimes and verifies receipts.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Upgrade a target with a customized init.mjs verification block and a retired agent whose memory has three real domain entries.",
+      "expected_output": "Preserves init commands, blocks retirement until memory facts are migrated, and asks only the consequential disposition question.",
+      "files": []
+    }
+  ]
+}

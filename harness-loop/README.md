@@ -30,8 +30,9 @@ kiro-cli chat --agent maker      # then --agent checker
 loop/run-loop.sh 5               # headless (needs KIRO_API_KEY)
 ```
 
-**Existing repo?** Don't run the scaffolder at it. Run the onboarder — two files, nothing else
-touched — and let it survey first:
+**Existing repo?** Don't run the scaffolder at it. Run the onboarder — only its prompt/runtime
+entry points and upgrade capability are installed, with no product files touched — and let it
+survey first:
 
 ```bash
 node harness-loop/scripts/install-onboarder.mjs --target /path/to/repo

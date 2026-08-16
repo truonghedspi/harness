@@ -913,7 +913,7 @@ const p=fs.readFileSync('$TO/prompts/feature-planner.md','utf8');
 process.exit(p.split('\n').length<60 && /skills\/feature-planning\/SKILL\.md/.test(p) && /check-plan\.mjs/.test(p) ? 0 : 1);
 "; expect "the planner prompt is a thin launcher into the skill, not a second drifting manual" $?
 
-step 31 "adopting an existing repo: two-file footprint, then debt is frozen and ratcheted"
+step 31 "adopting an existing repo: minimal entry plus upgrade capability, then debt ratchets"
 LEG="$WORK/legacy-repo"
 rm -rf "$LEG" && mkdir -p "$LEG/src" && (cd "$LEG" && git init -q .)
 printf '# Our agent rules\n\nExisting content nobody may destroy.\n' > "$LEG/AGENTS.md"
@@ -924,17 +924,21 @@ node -e "
 const fs=require('fs');
 const before=['AGENTS.md','package.json'].every(f=>fs.existsSync('$LEG/'+f));
 const kept=fs.readFileSync('$LEG/AGENTS.md','utf8').includes('nobody may destroy');
-const added=['prompts/harness-onboarder.md','.kiro/agents/harness-onboarder.json'].every(f=>fs.existsSync('$LEG/'+f));
+const added=['prompts/harness-onboarder.md','.kiro/agents/harness-onboarder.json',
+  '.claude/agents/harness-onboarder.md','skills/harness-upgrade/SKILL.md',
+  'skills/harness-upgrade/scripts/plan-upgrade.mjs'].every(f=>fs.existsSync('$LEG/'+f));
 // the whole point: nothing ELSE appeared — no init.sh, no feature_list.json, no docs/
 const untouched=!fs.existsSync('$LEG/init.sh') && !fs.existsSync('$LEG/feature_list.json');
 process.exit(before&&kept&&added&&untouched?0:1);
-"; expect "the onboarder installs two files and leaves the existing repo untouched" $?
+"; expect "the onboarder installs only its entry points and upgrade capability, leaving product files untouched" $?
 node -e "
 const j=require('$LEG/.kiro/agents/harness-onboarder.json');
 const p=require('fs').readFileSync('$LEG/prompts/harness-onboarder.md','utf8');
 // a file:// URI kiro resolves relative to .kiro/agents/, and no unsubstituted <skill> token
-process.exit(j.prompt==='file://../../prompts/harness-onboarder.md' && !p.includes('<skill>') ? 0 : 1);
-"; expect "its prompt URI resolves from .kiro/agents/ and the skill path is substituted" $?
+process.exit(j.prompt==='file://../../prompts/harness-onboarder.md' &&
+  j.resources.includes('file://../../skills/harness-upgrade/SKILL.md') &&
+  /skills\/harness-upgrade\/SKILL\.md/.test(p) && !p.includes('<skill>') ? 0 : 1);
+"; expect "its prompt and capability URIs resolve, and existing harnesses route into the skill" $?
 # The ratchet, on a target that already carries real debt (T3 from step 30).
 node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --record --note "demo" >/dev/null
 BASE0=$(node -e "const b=require('$T3/trace/adoption-baseline.json');console.log(b.debt['falsifier-missing']||0)")
@@ -986,6 +990,12 @@ const man=require('$TR/agents.manifest.json').agents.filter(a=>!a.optional).map(
 const same=(a,b)=>a.length===b.length&&a.every(x=>b.includes(x));
 process.exit(same(kiro,man)&&same(cc,man)&&same(cx,man)?0:1);
 "; expect "one manifest emits all three formats, with the same agent set" $?
+node -e "const fs=require('fs'),p='$TR/agents.manifest.json',j=require(p),a=structuredClone(j.agents.find(x=>x.name==='maker'));a.name='retired-demo';j.agents.push(a);fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');fs.writeFileSync('$TR/.kiro/agents/user-helper.json','{\"name\":\"user-helper\"}\n')"
+node "$SCRIPTS/gen-agents.mjs" --target "$TR" --runtime all >/dev/null
+node -e "const fs=require('fs'),p='$TR/agents.manifest.json',j=require(p);j.agents=j.agents.filter(x=>x.name!=='retired-demo');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+node "$SCRIPTS/gen-agents.mjs" --target "$TR" --runtime all >/dev/null
+test ! -e "$TR/.kiro/agents/retired-demo.json" -a ! -e "$TR/.claude/agents/retired-demo.md" -a ! -e "$TR/.codex/agents/retired-demo.toml" -a -e "$TR/.kiro/agents/user-helper.json"
+expect "retired generated agents are removed from all runtimes while unmanaged user agents survive" $?
 node -e "
 const fs=require('fs');
 // Cheap model for producing, strong model for judging — the same line as generator/evaluator
@@ -1831,6 +1841,12 @@ grep -q "never touch the ledger" "$UP/prompts/designer.md"
 expect "and the customisation is still there afterwards" $?
 node -e "const j=require('$UP/aged.json');process.exit(j.retiredAgents.includes('context-interviewer')?0:1)"
 expect "upgrade reports the retired interview agent for an explicit manifest merge" $?
+node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/plan-upgrade.mjs" --report "$UP/aged.json" --target "$UP" --output "$UP/upgrade-plan.json"
+node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/check-upgrade-plan.mjs" "$UP/upgrade-plan.json" > "$UP/upgrade-plan-red.json"; [ "$?" = "1" ] && grep -q 'drift-unresolved' "$UP/upgrade-plan-red.json" && grep -q 'retirement-unresolved' "$UP/upgrade-plan-red.json" && grep -q 'dirty-state-unrecorded' "$UP/upgrade-plan-red.json"
+expect "the upgrade skill refuses unresolved customized files, retirement state and unknown dirty state" $?
+node -e "const fs=require('fs'),p='$UP/upgrade-plan.json',j=require(p);j.preexistingDirty=false;j.merge.forEach(x=>x.status='merged');j.retire.forEach(x=>{x.status='retired';x.stateDisposition='template-only, removed'});fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/check-upgrade-plan.mjs" "$UP/upgrade-plan.json" >/dev/null
+expect "a reviewed ownership-aware plan with retirement disposition becomes executable" $?
 node -e "
 const fs=require('fs');
 process.exit(fs.readFileSync('$UP/loop/route.mjs','utf8').includes('echo old') ? 1 : 0);

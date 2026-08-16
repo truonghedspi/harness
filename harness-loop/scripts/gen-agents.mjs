@@ -44,6 +44,13 @@ const RUNTIME = opt("--runtime", "both");
 const CHECK = args.includes("--check");
 const P = (...p) => path.join(TARGET, ...p);
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
+const RECEIPT = "agents.generated.json";
+const previousGenerated = (() => {
+  try {
+    const j = JSON.parse(read(P(RECEIPT)) || "{}");
+    return new Set(Array.isArray(j.files) ? j.files : []);
+  } catch { return new Set(); }
+})();
 
 const manifest = JSON.parse(readFileSync(P("agents.manifest.json"), "utf8"));
 const agents = manifest.agents.filter((a) => !a.optional || existsSync(P(a.prompt)));
@@ -233,9 +240,21 @@ if (RUNTIMES.includes("codex")) {
 
 if (CHECK) {
   const stale = [...wanted.entries()].filter(([rel, content]) => read(P(rel)) !== content);
-  if (stale.length) {
-    console.error(`${stale.length} generated agent file(s) differ from agents.manifest.json:`);
+  const extra = [];
+  for (const [runtime, dir, ext] of [["kiro", path.join(".kiro", "agents"), ".json"],
+                                    ["claude", path.join(".claude", "agents"), ".md"],
+                                    ["codex", path.join(".codex", "agents"), ".toml"]]) {
+    if (!RUNTIMES.includes(runtime) || !existsSync(P(dir))) continue;
+    for (const f of readdirSync(P(dir))) {
+      if (!f.endsWith(ext)) continue;
+      const rel = path.join(dir, f), old = read(P(rel)) || "";
+      if (!wanted.has(rel) && (previousGenerated.has(rel) || old.includes("GENERATED from agents.manifest.json"))) extra.push(rel);
+    }
+  }
+  if (stale.length || extra.length) {
+    console.error(`${stale.length + extra.length} generated agent file(s) differ from agents.manifest.json:`);
     for (const [rel] of stale) console.error(`  ${rel}`);
+    for (const rel of extra) console.error(`  ${rel} (retired)`);
     console.error(`Regenerate: node tools/gen-agents.mjs --target . --runtime ${RUNTIME}`);
     process.exit(1);
   }
@@ -245,7 +264,6 @@ if (CHECK) {
 
 // Remove generated files for agents the manifest no longer declares — an agent that keeps running
 // after being deleted from the source is the same class of defect as one nobody routes to.
-const declared = new Set(agents.map((a) => a.name));
 // ONLY the runtimes being generated. Sweeping all of them meant `--runtime kiro` deleted every
 // Claude agent and `--runtime both` deleted every Codex one: they are declared in the manifest but
 // absent from `wanted`, which is the same test as "no longer declared". Latent since the second
@@ -258,9 +276,15 @@ for (const [dir, ext] of CLEAN_DIRS) {
   if (!existsSync(P(dir))) continue;
   for (const f of readdirSync(P(dir))) {
     if (!f.endsWith(ext)) continue;
-    const name = f.slice(0, -ext.length);
-    // never touch an agent the manifest does not own (harness-onboarder, a user's own agents)
-    if (!declared.has(name) || wanted.has(path.join(dir, f))) continue;
+    const rel = path.join(dir, f);
+    if (wanted.has(rel)) continue;
+    // Ownership comes from the generator marker, not the CURRENT manifest. A retired agent is by
+    // definition absent from that manifest, so checking declared.has(name) skipped the exact file
+    // this cleanup exists to remove. Unmanaged user/onboarder agents carry no marker and survive.
+    const old = read(P(rel)) || "";
+    // Claude/Codex carry an inline marker. Kiro JSON cannot safely accept unknown marker keys, so
+    // its ownership is carried by agents.generated.json from the previous generation.
+    if (!old.includes("GENERATED from agents.manifest.json") && !previousGenerated.has(rel)) continue;
     rmSync(P(dir, f)); console.log(`  - ${path.join(dir, f)} (no longer in the manifest)`);
   }
 }
@@ -275,6 +299,15 @@ for (const [rel, content] of wanted) {
   writeFileSync(P(rel), content);
   written.push(rel);
 }
+
+// Persist generator ownership so the NEXT version can remove retired Kiro JSON without guessing
+// that an unmanaged user agent belongs to us. Preserve receipt entries for runtimes not selected.
+const selectedDirs = new Set(CLEAN_DIRS.map(([dir]) => dir));
+const receiptFiles = new Set([...previousGenerated].filter((rel) =>
+  ![...selectedDirs].some((dir) => rel === dir || rel.startsWith(dir + path.sep))));
+for (const rel of wanted.keys()) receiptFiles.add(rel);
+const receiptText = JSON.stringify({ schema: "generated-agents/1", files: [...receiptFiles].sort() }, null, 2) + "\n";
+if (read(P(RECEIPT)) !== receiptText) writeFileSync(P(RECEIPT), receiptText);
 if (written.length) {
   console.log(`Generated ${written.length} agent file(s) for runtime "${RUNTIME}" from agents.manifest.json`);
   for (const w of written) console.log(`  + ${w}`);

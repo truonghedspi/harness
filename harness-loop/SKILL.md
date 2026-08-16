@@ -145,7 +145,8 @@ node harness-loop/scripts/install-onboarder.mjs --target /path/to/repo
 cd /path/to/repo && kiro-cli chat --agent harness-onboarder
 ```
 
-It installs **two files** and touches nothing else. The `harness-onboarder` agent then surveys the
+It installs two runtime entry files, one prompt, and the `skills/harness-upgrade/` capability pack;
+it touches no product file. The `harness-onboarder` agent then surveys the
 repo (real build command, whether the baseline even passes, every file the scaffold would collide
 with, what work is actually in flight), asks one round of questions with recommended answers, and
 only then scaffolds — never with `--force`.
@@ -454,6 +455,10 @@ Three categories. Conflating them is how a harness quietly stops working:
 ```bash
 node harness-loop/scripts/upgrade-harness.mjs --target /path/to/project [--dry-run]
 ```
+
+When an onboarding agent performs this work, it must use the installed
+`skills/harness-upgrade/SKILL.md`: the script refreshes owned machinery, while the skill owns the
+semantic merge of drifted project files, retired-agent state, human checkpoints and final proof.
 
 `setup-harness-loop.mjs` never overwrites and `--force` overwrites everything including the
 project's own work, so neither is an upgrade. This splits the tree in two: **machinery the skill

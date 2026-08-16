@@ -11,7 +11,7 @@
 // again.
 //
 // Usage: node install-onboarder.mjs --target /path/to/existing/repo [--force]
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,7 +33,8 @@ const AGENT = {
   tools: ["read", "write", "shell", "*"],
   allowedTools: ["read"],
   includeMcpJson: true,
-  resources: ["file://../../prompts/harness-onboarder.md"],
+  resources: ["file://../../prompts/harness-onboarder.md", "file://../../skills/harness-upgrade/SKILL.md",
+    ...(existsSync(path.join(TARGET, "docs", "constraints.md")) ? ["file://../../docs/constraints.md"] : [])],
 };
 
 const CLAUDE_AGENT = `---
@@ -65,11 +66,19 @@ for (const [rel, content] of files) {
   writeFileSync(dest, content);
   written.push(rel);
 }
+const upgradeSkillDest = path.join(TARGET, "skills", "harness-upgrade");
+if (existsSync(upgradeSkillDest) && !FORCE) skipped.push("skills/harness-upgrade/**");
+else {
+  mkdirSync(path.dirname(upgradeSkillDest), { recursive: true });
+  cpSync(path.join(skillRoot, "onboarding-skills", "harness-upgrade"), upgradeSkillDest,
+    { recursive: true, force: true });
+  written.push("skills/harness-upgrade/**");
+}
 
 console.log(`\nOnboarder installed into: ${TARGET}`);
 for (const f of written) console.log(`  + ${f}`);
 for (const f of skipped) console.log(`  · ${f} (exists — re-run with --force to overwrite)`);
-console.log(`\nNothing else was touched. Next:\n`);
+console.log(`\nOnly the onboarder and its upgrade capability were touched. Next:\n`);
 console.log(`  cd ${TARGET}`);
 console.log(`  kiro-cli chat --agent harness-onboarder      # or:`);
 console.log(`  claude -p "Onboard this repository onto the harness." --agent harness-onboarder\n`);

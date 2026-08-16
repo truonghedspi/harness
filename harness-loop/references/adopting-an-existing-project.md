@@ -8,9 +8,11 @@ node harness-loop/scripts/install-onboarder.mjs --target /path/to/repo
 cd /path/to/repo && kiro-cli chat --agent harness-onboarder
 ```
 
-That installs **two files** — a prompt and an agent config — and touches nothing else. The agent
-surveys, asks one round of questions, and only then runs the scaffolder with the flags it worked
-out. Pointing `setup-harness-loop.mjs` at someone's repo before anyone has looked at it is how you
+That installs the prompt, runtime entry configs, and `skills/harness-upgrade/`; it touches no
+product file. The agent surveys, asks one round of questions, and only then runs the scaffolder
+with the flags it worked out. If harness machinery already exists, it loads the upgrade capability
+and performs an ownership-aware semantic merge instead of scaffolding again. Pointing
+`setup-harness-loop.mjs` at someone's repo before anyone has looked at it is how you
 overwrite an `AGENTS.md` and lose a maintainer's trust in one command.
 
 ## The problem adoption actually has
