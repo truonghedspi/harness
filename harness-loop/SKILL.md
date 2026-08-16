@@ -319,6 +319,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Proving full public command-to-outcome flows across deployed microservices, including optional
   Cucumber, isolation, distributed/fault oracles and journey metrics:
   [references/business-journey.md](references/business-journey.md)
+- Collecting integration context using Baoyu Design's route → inventory → scope → narrow
+  materialization → durable-binding pattern, plus the multi-repo gaps we must add:
+  [references/baoyu-design-context-collection.md](references/baoyu-design-context-collection.md)
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)
