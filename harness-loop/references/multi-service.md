@@ -62,7 +62,7 @@ services.manifest.json          # the registry — one entry per SERVICE, not pe
 | `replicas` | 1, or a cluster shape | no — a deployment fact |
 | `dependsOn` | other service ids that must be healthy first | no — a topology fact |
 | `chart` | Helm chart path, if one exists | yes |
-| `ownRules` | path to that service's own `AGENTS.md`/`CLAUDE.md`/`CONTRIBUTING.md` | yes |
+| `rules` | original path, applicability scope, collection digest and provenance for service rules | yes |
 
 The split down the "discoverable?" column is the same one this harness already runs on: what can be
 read from the repository belongs to a survey agent, and what cannot belongs to the
@@ -71,14 +71,13 @@ Running"* is not health, and nothing in a repository states which services a sce
 
 ## Each repo's rules stay in that repo
 
-An agent in the integration target loads **that** target's `AGENTS.md` and nothing else —
-`agent-context.mjs` resolves every resource against the current root. So cross-repo work read a
-service's source while never reading its conventions. Two of the first three services surveyed had
-their own `AGENTS.md`; nothing looked for them.
-
-The registry now records `ownRules` as a **pointer**, and `docs/services.md` tells the agent to read
-it in place. Deliberately not a copy: a second copy of another repo's conventions goes stale, and a
-stale copy of a rule is worse than no copy, because it is followed.
+An agent in an integration target normally loads only that target's rules. The registry therefore
+records each service's rules as original pointers with scope, digest and provenance — never copies.
+At dispatch, `context-plan.mjs` matches the active feature's `context.touches` against those scopes;
+`agent-context.mjs` reads only the matching originals and emits their actual digests as
+`harnessContextInputs`. Missing or changed inputs are loud, while unrelated service conventions add
+no context cost. The frozen paired measurements live in
+`references/context-collection-{baseline,after}.json` and are replayed by `demo.sh`.
 
 ## Where multi-service work lives
 

@@ -1,0 +1,13 @@
+{
+  "schema": "context-collection-benchmark/1",
+  "measuredAt": "2026-08-15",
+  "commit": "98f87ba",
+  "scenario": "two services have rules; the active feature touches only svc-a; svc-a rules change after collection",
+  "metrics": {
+    "discoveryRecall": 1,
+    "relevantRuleLoadRecall": 0,
+    "irrelevantRulesLoaded": 0,
+    "staleDigestDetected": false,
+    "injectedBytes": 212
+  }
+}

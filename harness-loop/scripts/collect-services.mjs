@@ -19,6 +19,7 @@
 //   node collect-services.mjs --roots ~/work/a,~/work/b [--out services.manifest.json] [--json]
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -113,9 +114,17 @@ function classify(dir) {
   // A service with its own AGENTS.md has its own rules, and an agent working across repos loads
   // only the integration target's. Record the POINTER, never a copy: the file belongs to that repo
   // and copying it here creates a second, staler source of its conventions.
-  const ownRules = ["AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"]
+  const rules = ["AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"]
     .filter((f) => existsSync(path.join(dir, f)))
-    .map((f) => `${dir}/${f}`);
+    .map((f) => {
+      const rulePath = path.join(dir, f);
+      return {
+        path: rulePath,
+        scope: dir,
+        sha256: createHash("sha256").update(read(rulePath) || "").digest("hex"),
+        provenance: "discovered",
+      };
+    });
 
   const dockerfiles = files.filter((f) => /\/Dockerfile[^/]*$/.test(f)).map((f) => path.relative(dir, f));
   const charts = files.filter((f) => /\/Chart\.ya?ml$/.test(f)).map((f) => path.dirname(path.relative(dir, f)));
@@ -123,7 +132,7 @@ function classify(dir) {
   const portEvidence = files.filter((f) => /Ports?\.java$|ports?\.(ts|js)$|application\.ya?ml$/.test(f))
     .map((f) => path.relative(dir, f)).slice(0, 3);
 
-  return { stack, hasMain, serviceShaped, build, start, dockerfiles, charts, portEvidence, ownRules };
+  return { stack, hasMain, serviceShaped, build, start, dockerfiles, charts, portEvidence, rules };
 }
 
 // --- build the registry ------------------------------------------------------------------------
@@ -147,7 +156,10 @@ for (const root of ROOTS) {
       dependsOn: null,     // needs-human: no repository states which services a scenario needs
       replicas: null,      // needs-human: a deployment fact, and some services here are cluster-shaped
       // Read these BEFORE touching that service. They are its rules, not this repo's.
-      ownRules: c.ownRules.length ? c.ownRules : null,
+      // `ownRules` remains as a compatibility pointer for existing targets. `rules` is the typed
+      // contract consumed by context-plan: source path, applicability scope and collection digest.
+      ownRules: c.rules.length ? c.rules.map((r) => r.path) : null,
+      rules: c.rules.length ? c.rules : null,
       evidence: { portsDeclaredIn: c.portEvidence },
     });
   }

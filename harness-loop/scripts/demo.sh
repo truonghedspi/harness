@@ -2268,7 +2268,10 @@ node -e "
 const m=require('$OR2/svc.json');
 const a=m.services.find(s=>s.id.endsWith('svc-a')), b=m.services.find(s=>s.id.endsWith('svc-b'));
 // a POINTER, never a copy: a second copy of another repo's conventions goes stale and misleads
-process.exit(a && a.ownRules && /svc-a\/AGENTS\.md$/.test(a.ownRules[0]) && b && b.ownRules===null ? 0 : 1);
+const r=a && a.rules && a.rules[0];
+process.exit(a && a.ownRules && /svc-a\/AGENTS\.md$/.test(a.ownRules[0]) && r &&
+  r.scope===a.path && r.provenance==='discovered' && /^[a-f0-9]{64}$/.test(r.sha256) &&
+  b && b.ownRules===null && b.rules===null ? 0 : 1);
 "; expect "the registry records where each service keeps its OWN rules, and null when it has none" $?
 IT2="$WORK/ownrules-target"; rm -rf "$IT2"; mkdir -p "$IT2"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$IT2" --name "SIT" --purpose x --integration "$OR2/svc.json" >/dev/null 2>&1
@@ -2283,6 +2286,22 @@ if (!fs.existsSync(p)) process.exit(0);   // k8s layer is off for this target
 const t=fs.readFileSync(p,'utf8').replace(/\s+/g,' ');
 process.exit(/read its own rules/i.test(t) && /ownRules/.test(t) ? 0 : 1);
 "; expect "the agent that works across service repos is told the same, in its own prompt" $?
+mv "$IT2/tools/context-plan.mjs" "$IT2/tools/context-plan.mjs.off"
+node "$SCRIPTS/verify-harness.mjs" --target "$IT2" --skip-baseline --quiet --report "$IT2/context-broken.json" >/dev/null 2>&1 || true
+node -e "
+const r=require('$IT2/context-broken.json');
+process.exit(r.findings.some(f=>f.gate==='context-supply' && f.id==='service-rules-unread' && f.layer==='harness') ? 0 : 1);
+"; expect "a registry whose service-rule pointers have no runtime consumer is a harness blocker" $?
+mv "$IT2/tools/context-plan.mjs.off" "$IT2/tools/context-plan.mjs"
+node "$SCRIPTS/context-collection-eval.mjs" > "$OR2/context-after.json"
+node -e "
+const before=require('$SCRIPTS/../references/context-collection-baseline.json');
+const after=require('$OR2/context-after.json');
+const b=before.metrics,a=after.metrics;
+process.exit(b.relevantRuleLoadRecall===0 && !b.staleDigestDetected &&
+  a.discoveryRecall===1 && a.relevantRuleLoadRecall===1 && a.irrelevantRulesLoaded===0 &&
+  a.staleDigestDetected && a.injectedBytes>b.injectedBytes ? 0 : 1);
+"; expect "the frozen before/after benchmark loads only the touched service rules and detects stale provenance" $?
 
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 # The fingerprint includes evidence and feature state, not only gate/id. Same blocker with changed

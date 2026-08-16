@@ -317,6 +317,8 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   the unit is a directory rather than a repository, and the four things a survey of seven real repos
   changed about the design: [references/multi-service.md](references/multi-service.md).
   `tools/collect-services.mjs` surveys N repos into `services.manifest.json`;
+  service-owned rules retain scope/digest/provenance, and `tools/context-plan.mjs` loads only the
+  originals relevant to the active feature while recording freshness evidence;
   `setup-harness-loop.mjs --integration <manifest>` scaffolds the target above them, generating
   `docs/services.md` from the registry and seeding `feat-registry`, whose verification
   (`tools/services-check.mjs`) stays **red** while any deployable service lacks a chart, an image, a

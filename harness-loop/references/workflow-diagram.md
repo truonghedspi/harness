@@ -18,6 +18,12 @@ flowchart TD
     ADOPT -- no --> B["setup-harness-loop.mjs"]
     ON --> CI
     B --> CI["context-interviewer\nLAYER: spec\nfacts the repo cannot contain"]
+    B --> CP
+    CS["collect-services\nwide inventory + rule provenance"] --> CP["context-plan\nactive feature touches → scoped rules"]
+    CP --> AC["agent-context\nload originals + freshness evidence"]
+    AC -. scoped context at dispatch .-> CI
+    AC -. scoped context at dispatch .-> DS
+    AC -. scoped context at dispatch .-> MK
     CI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
     DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG; invariant traceability"]
     FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]

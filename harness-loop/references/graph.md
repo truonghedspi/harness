@@ -13,7 +13,9 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | Node | Kind | Responsibility | Reads | Writes |
 |---|---|---|---|---|
 | `init.mjs` | code | baseline gate — build + test + constraint gates. `init.sh`/`init.cmd` are wrappers so the same gate runs on POSIX shells and cmd.exe | repo | exit code |
-| `tools/collect-services.mjs` | code | integration targets only — survey N repos into the registry; fills what is discoverable, marks the rest `needs-human` | the service repos | `services.manifest.json` |
+| `tools/collect-services.mjs` | code | integration targets only — survey N repos into the registry; fills what is discoverable, marks the rest `needs-human`; service rules carry scope + digest + provenance | the service repos | `services.manifest.json` |
+| `tools/context-plan.mjs` | code | select only external service rules whose scope contains the active feature's `context.touches`; compare stored/current digests | `services.manifest.json`, `feature_list.json`, `loop/current.json`, original rule files | typed `context-plan/1` |
+| `verify-harness.mjs` context-supply gate | code | reject a service-rule registry with no working selector/loader path | registry plus scaffolded context tools | `service-rules-unread`, layer harness |
 | `tools/services-check.mjs` | code | integration targets only — the registry's own verification: exits non-zero while a deployable service lacks chart/image/health/`dependsOn` | `services.manifest.json` | exit code |
 | `context-interviewer` | agent | ask only what the repo cannot answer; persist every answer | `assumptions.md`, audit output | `assumptions.md`, `cross-cutting.md`, `constraints.md`, `docs/context/**`, `DECISIONS.md` |
 | `designer` | agent | components, cited claims, assumption registry, **observable seam + invariants per component**, and a `## Feature impact` table (its only way to hand scope work over — it may not write `feature_list.json`) | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
@@ -22,7 +24,7 @@ Scope: the project loop (`loop/run-loop.sh`). The harness self-improvement loop
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
-| `tools/agent-context.mjs` | code | injects an agent's `resources` — Claude Code at spawn (`SubagentStart`), Codex via `codex-dispatch` calling the same script | `agents.manifest.json`, the listed files | nothing (emits context) |
+| `tools/agent-context.mjs` | code | injects role resources plus context-plan-selected original service rules; reports missing/stale inputs and their digests | `agents.manifest.json`, listed files, `context-plan/1` | context plus `harnessContextInputs` evidence |
 | `tools/guard-write.mjs` | code | denies an edit outside an agent's `writes` (`PreToolUse`) — Claude Code per-agent, Codex project-wide keyed on `HARNESS_AGENT` | `agents.manifest.json`, the tool payload | nothing (allow/deny) |
 | `tools/codex-dispatch.mjs` | code | Codex only — assembles a role (`codex exec` has no `--agent`): prompt + resources on stdin, identity in the environment | `agents.manifest.json`, prompts, `agent-context.mjs` | nothing (spawns codex) |
 | `loop/route.mjs` | code | **the router** — reads shared state, returns the next node + its layer + why (+ the marker hash, when a marker drove it). `--rules` prints the whole table, so nothing has to parse its source | `feature_list.json`, `docs/assumptions.md`, `loop/route-log.jsonl` | nothing (pure) |
@@ -87,7 +89,7 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `loop/route-log.jsonl` | `run-loop.sh` (the dispatcher) | `route.mjs`, `loop-status.mjs` | append-only. What was actually dispatched, per marker. The router reads it to tell "this node has not had a turn on this marker" from "it had one and nothing changed" — the router stays pure, the dispatcher records |
 | `loop/baseline-state.json` | `run-loop.sh` | `route.mjs` | typed `green|red` outcome plus evidence digest; red is routable state, not an out-of-graph shell exit |
 | `loop/design-review.json` | `design-reviewer` | `route.mjs`, designer | verdict is bound to the current design digest; a changed design invalidates the old verdict automatically |
-| `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; re-running it is a survey, not a reset |
+| `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `context-plan.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; rule entries retain original pointer, scope, collection digest and provenance |
 | `docs/services.md` | `setup-harness-loop.mjs --integration` | designer, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
 | `.kiro/settings/mcp.json`, `.mcp.json` **and** `.codex/config.toml` | `setup-harness-loop.mjs` | kiro / Claude Code / Codex respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not three decisions |
 

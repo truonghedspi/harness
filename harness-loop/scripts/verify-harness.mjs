@@ -571,6 +571,19 @@ function promoteFeatures() {
 // Gate 5 — loop artifacts: a loop is only as good as its goal, its split, and its stop conditions
 // ---------------------------------------------------------------------------------------------
 function gateLoop() {
+  const serviceManifest = readJSON(P("services.manifest.json"));
+  const hasExternalRules = ((serviceManifest && serviceManifest.services) || [])
+    .some((s) => (s.rules && s.rules.length) || (s.ownRules && s.ownRules.length));
+  if (hasExternalRules) {
+    const loader = read(P("tools/agent-context.mjs")) || "";
+    if (!exists(P("tools/context-plan.mjs")) || !/planContext/.test(loader) || !/harnessContextInputs/.test(loader)) {
+      add({
+        gate: "context-supply", id: "service-rules-unread", layer: "harness",
+        symptom: "services.manifest.json records service-owned rules, but the runtime cannot select, load and report them for the active feature",
+        remedy: "refresh skill-owned tools/context-plan.mjs and tools/agent-context.mjs; pointers without a consumer are discovery theatre",
+      });
+    }
+  }
   const goal = read(P("loop/goal.md"));
   if (goal) {
     if (!/stop condition/i.test(goal)) {

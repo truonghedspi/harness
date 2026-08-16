@@ -151,6 +151,8 @@ const EXTRA_COPIES = [
   ["scripts/adoption-baseline.mjs", "tools/adoption-baseline.mjs"],
   ["scripts/gen-agents.mjs", "tools/gen-agents.mjs"],
   ["scripts/agent-context.mjs", "tools/agent-context.mjs"],
+  ["scripts/context-plan.mjs", "tools/context-plan.mjs"],
+  ["scripts/context-collection-eval.mjs", "tools/context-collection-eval.mjs"],
   ["scripts/guard-write.mjs", "tools/guard-write.mjs"],
   ["scripts/codex-dispatch.mjs", "tools/codex-dispatch.mjs"],
   ["scripts/replay-parallel.mjs", "tools/replay-parallel.mjs"],
