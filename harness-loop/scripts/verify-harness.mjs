@@ -571,6 +571,11 @@ function promoteFeatures() {
 // Gate 5 — loop artifacts: a loop is only as good as its goal, its split, and its stop conditions
 // ---------------------------------------------------------------------------------------------
 function gateLoop() {
+  if (!exists(P("tools/telemetry.mjs")) || !exists(P("tools/telemetry-calibrate.mjs"))) {
+    add({ gate: "observability", id: "read-telemetry-missing", layer: "harness",
+      symptom: "runtime hooks cannot emit calibrated, redacted read/search telemetry",
+      remedy: "refresh skill-owned telemetry.mjs and telemetry-calibrate.mjs" });
+  }
   const serviceManifest = readJSON(P("services.manifest.json"));
   const hasExternalRules = ((serviceManifest && serviceManifest.services) || [])
     .some((s) => (s.rules && s.rules.length) || (s.ownRules && s.ownRules.length));

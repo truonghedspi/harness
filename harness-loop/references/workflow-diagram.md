@@ -24,6 +24,8 @@ flowchart TD
     AC -. scoped context at dispatch .-> CI
     AC -. scoped context at dispatch .-> DS
     AC -. scoped context at dispatch .-> MK
+    MK -. "PostToolUse (redacted)" .-> TEL["tool-events.jsonl\ndirect reads/searches ≠ shell inference"]
+    TEL --> RR["run-report\nduplicate reads · packet rediscovery\n+ coverage declaration"]
     CI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
     DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
     FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]

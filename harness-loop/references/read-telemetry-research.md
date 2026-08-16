@@ -111,5 +111,13 @@ entry point or `trace.mjs` must gain an explicit redacted schema before any read
 - Failed or refused runtime turns require a completion/state-transition check independently of
   telemetry; a zero-event, exit-0 run is exactly HI-032's failure mode.
 
-The safe rollout is: native direct events first, calibration and coverage labels second, reports
-third, and only then a human-reviewed warning such as “fresh packet rediscovery above baseline.”
+## Implemented first rollout
+
+`tools/telemetry.mjs`, generated runtime hooks, `tools/telemetry-calibrate.mjs`, and the telemetry
+section of `tools/run-report.mjs` now implement the first three rollout stages. Demo fixtures prove
+duplicate-read aggregation and that source/query content is absent from the stored stream. Codex
+remains explicitly `shell-incomplete`; Claude/Kiro remain `native-configured-needs-live-probe`
+until a live probe observes their installed runtime's payloads. No threshold is an enforcement gate.
+
+The remaining rollout is to collect calibrated distributions on real targets, then consider a
+human-reviewed warning such as “fresh packet rediscovery above baseline.”

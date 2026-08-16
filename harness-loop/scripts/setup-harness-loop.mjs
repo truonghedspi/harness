@@ -153,6 +153,8 @@ const EXTRA_COPIES = [
   ["scripts/agent-context.mjs", "tools/agent-context.mjs"],
   ["scripts/context-plan.mjs", "tools/context-plan.mjs"],
   ["scripts/context-collection-eval.mjs", "tools/context-collection-eval.mjs"],
+  ["scripts/telemetry.mjs", "tools/telemetry.mjs"],
+  ["scripts/telemetry-calibrate.mjs", "tools/telemetry-calibrate.mjs"],
   ["scripts/guard-write.mjs", "tools/guard-write.mjs"],
   ["scripts/codex-dispatch.mjs", "tools/codex-dispatch.mjs"],
   ["scripts/replay-parallel.mjs", "tools/replay-parallel.mjs"],

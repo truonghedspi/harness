@@ -220,7 +220,8 @@
         "docs/constraints.md",
         "loop/goal.md",
         "docs/architecture.md",
-        "memory/feature-planner/**"
+        "memory/feature-planner/**",
+        "loop/context-packets/**"
       ],
       "resources": [
         "AGENTS.md",

@@ -72,6 +72,26 @@ const verdicts = events.filter((e) => e.event === "verdict");
 const rejects = verdicts.filter((e) => /reject/i.test(e.detail || e.feature || ""));
 const blockedTraces = events.filter((e) => e.event === "blocked");
 
+// Tool telemetry is deliberately separate from trace.jsonl: hook responses may contain source
+// text, while this stream contains redacted metadata only.
+let toolEvents = [];
+if (exists(P("trace", "tool-events.jsonl"))) {
+  toolEvents = readFileSync(P("trace", "tool-events.jsonl"), "utf8").split("\n").filter(Boolean)
+    .map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  if (SINCE) toolEvents = toolEvents.filter((e) => new Date(e.ts) >= SINCE);
+}
+const directReads = toolEvents.filter((e) => e.class === "file-read" && e.observation === "direct" && e.success);
+const uniqueReadPaths = new Set(directReads.map((e) => e.path).filter(Boolean));
+const searches = toolEvents.filter((e) => e.class === "search" || e.class === "glob");
+const queryCounts = new Map();
+for (const e of searches) if (e.queryHash) queryCounts.set(e.queryHash, (queryCounts.get(e.queryHash) || 0) + 1);
+const coverage = [...new Set(toolEvents.map((e) => `${e.runtime}:${e.coverage}`).filter(Boolean))];
+const telemetry = { events: toolEvents.length, directReads: directReads.length,
+  uniquePaths: uniqueReadPaths.size,
+  duplicateReadRate: directReads.length ? +(1 - uniqueReadPaths.size / directReads.length).toFixed(3) : null,
+  searches: searches.length, repeatedQueryHashes: [...queryCounts.values()].filter((n) => n > 1).length,
+  unobservedShellReads: toolEvents.filter((e) => e.class === "shell").length, coverage };
+
 // --- 2. feature state -----------------------------------------------------------------------
 const fl = readJSON(P("feature_list.json"));
 const features = fl?.features || [];
@@ -81,6 +101,19 @@ const promoted = features.filter((f) => /mechanically promoted/.test(f.checkerNo
 const highAttempts = features.filter((f) => (f.attempts || 0) >= 2);
 const needsReplan = features.filter((f) => /^NEEDS RE-PLAN:/.test((f.checkerNotes || "").trim()));
 const blockedFeatures = features.filter((f) => (f.status || f.state) === "blocked");
+const currentFeatureId = readJSON(P("loop", "current.json"))?.feature || null;
+const currentFeature = features.find((f) => f.id === currentFeatureId);
+const packetRel = currentFeature?.context?.packet;
+const packet = packetRel ? readJSON(P(packetRel)) : null;
+if (packet) {
+  const normalized = (p) => path.relative(TARGET, path.resolve(TARGET, p));
+  const mustRead = new Set((packet.mustRead || []).map(normalized));
+  const sourceInputs = new Set((packet.sourceInputs || []).map((i) => normalized(i.path)));
+  const observed = new Set([...uniqueReadPaths]);
+  telemetry.packetMustReadCoverage = mustRead.size ?
+    +([...mustRead].filter((p) => observed.has(p)).length / mustRead.size).toFixed(3) : null;
+  telemetry.rediscoveryReads = directReads.filter((e) => sourceInputs.has(e.path) && !mustRead.has(e.path)).length;
+}
 
 // --- 3. latest verify snapshot ---------------------------------------------------------------
 const verify = readJSON(P("trace", "verify-report.json"));
@@ -163,12 +196,14 @@ if (!events.length) {
   insights.push("No trace events in window — either nothing ran, or agents ran without their hooks " +
     "(interactive sessions outside kiro-cli won't auto-trace; call tools/trace.mjs manually at decision points).");
 }
+if (!toolEvents.length) insights.push("No redacted tool telemetry in window — read/search cost is unknown, not zero; run tools/telemetry-calibrate.mjs and confirm runtime hooks fired.");
 
 // --- output ----------------------------------------------------------------------------------
 const report = {
   target: TARGET,
   window: SINCE ? { since: SINCE.toISOString() } : "all history",
   events: { total: events.length, byEvent },
+  telemetry,
   sessions,
   features: { total: features.length, statusCounts, promoted: promoted.map((f) => f.id),
     highAttempts: highAttempts.map((f) => ({ id: f.id, attempts: f.attempts, max: f.maxAttempts })),
@@ -185,6 +220,9 @@ if (JSON_OUT) { writeSync(1, JSON.stringify(report, null, 2) + "\n"); process.ex
 console.log(`Run report — ${TARGET}`);
 console.log(`Window: ${SINCE ? `since ${SINCE.toISOString()}` : "all history"}\n`);
 console.log(`Trace events: ${events.length} (${Object.entries(byEvent).map(([k, v]) => `${k}:${v}`).join(", ") || "none"})`);
+console.log(`Tool telemetry: ${telemetry.events} events; direct reads:${telemetry.directReads}; ` +
+  `unique paths:${telemetry.uniquePaths}; duplicate rate:${telemetry.duplicateReadRate ?? "unknown"}; ` +
+  `searches:${telemetry.searches}; shell-inferred:${telemetry.unobservedShellReads}; coverage:${coverage.join(",") || "none"}`);
 console.log(`\nSessions:`);
 for (const s of sessions) console.log(`  ${s.actor.padEnd(24)} ${s.start} → ${s.end || "(no end — crashed or still open)"}${s.minutes !== null ? `  ${s.minutes} min` : ""}  tools:${s.toolUses}`);
 if (!sessions.length) console.log("  (none in window)");

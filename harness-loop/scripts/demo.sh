@@ -1096,6 +1096,27 @@ const ctx=out.hookSpecificOutput.additionalContext;
 process.exit(out.hookSpecificOutput.hookEventName==='SubagentStart' &&
              ctx.includes('<file path=\"docs/constraints.md\">') ? 0 : 1);
 "; expect "agent-context injects the checker's resources at spawn, rulebook included" $?
+node "$T/tools/telemetry-calibrate.mjs" --target "$T" --runtime all > "$T/telemetry-calibration.log"
+node -e "
+const c=require('$T/trace/telemetry-capabilities.json');
+process.exit(c.results.length===3 && c.results.every(r=>r.adapter==='pass') &&
+  c.results.find(r=>r.runtime==='codex').coverage==='shell-incomplete' ? 0 : 1);
+"; expect "telemetry calibration exposes runtime coverage instead of making an unobserved zero look good" $?
+printf '%s' '{"session_id":"secret-session","tool_name":"Read","tool_input":{"file_path":"docs/architecture.md"},"tool_response":"SECRET SOURCE CONTENT"}' | node "$T/tools/telemetry.mjs" --target "$T" --runtime claude --actor maker
+printf '%s' '{"session_id":"secret-session","tool_name":"Read","tool_input":{"file_path":"docs/architecture.md"},"tool_response":"SECRET SOURCE CONTENT"}' | node "$T/tools/telemetry.mjs" --target "$T" --runtime claude --actor maker
+printf '%s' '{"session_id":"secret-session","tool_name":"Grep","tool_input":{"path":"src","pattern":"customer-password"},"tool_response":"SECRET MATCH"}' | node "$T/tools/telemetry.mjs" --target "$T" --runtime claude --actor maker
+node "$T/tools/run-report.mjs" --target "$T" --json > "$T/telemetry-report.json"
+node -e "
+const fs=require('fs'), text=fs.readFileSync('$T/trace/tool-events.jsonl','utf8'), r=require('$T/telemetry-report.json');
+process.exit(r.telemetry.directReads===2 && r.telemetry.uniquePaths===1 &&
+  r.telemetry.duplicateReadRate===0.5 && r.telemetry.searches===1 &&
+  !/SECRET|customer-password/.test(text) ? 0 : 1);
+"; expect "redacted telemetry measures duplicate reads and searches without storing contents or queries" $?
+node -e "
+const fs=require('fs');
+const k=fs.readFileSync('$T/.kiro/agents/maker.json','utf8'), c=fs.readFileSync('$T/.claude/agents/maker.md','utf8'), x=fs.readFileSync('$T/.codex/hooks.json','utf8');
+process.exit(/telemetry\.mjs/.test(k) && /PostToolUse:[\s\S]*telemetry\.mjs/.test(c) && /PostToolUse/.test(x) ? 0 : 1);
+"; expect "all generated runtimes route tool events through the same redacting adapter" $?
 node -e "
 const fs=require('fs'); const p='$TR/.claude/agents/maker.md';
 fs.writeFileSync(p, fs.readFileSync(p,'utf8').replace('name: maker','name: maker # hand-edited'));
