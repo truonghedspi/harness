@@ -584,6 +584,16 @@ function gateLoop() {
       });
     }
   }
+  const packetFeatures = (featureListArray || []).filter((f) => f.context && f.context.packet);
+  if (packetFeatures.length) {
+    const loader = read(P("tools/agent-context.mjs")) || "";
+    const planner = read(P("tools/context-plan.mjs")) || "";
+    if (!/harnessContextReceipt/.test(loader) || !/featurePacket/.test(planner)) {
+      add({ gate: "context-supply", id: "feature-context-packet-unread", layer: "harness",
+        symptom: `${packetFeatures.length} feature(s) point at context packets but dispatch cannot validate and receipt them`,
+        remedy: "refresh skill-owned context-plan.mjs and agent-context.mjs; a packet without a digest check and receipt is decorative" });
+    }
+  }
   const goal = read(P("loop/goal.md"));
   if (goal) {
     if (!/stop condition/i.test(goal)) {

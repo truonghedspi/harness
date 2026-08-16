@@ -20,12 +20,12 @@ flowchart TD
     B --> CI["context-interviewer\nLAYER: spec\nfacts the repo cannot contain"]
     B --> CP
     CS["collect-services\nwide inventory + rule provenance"] --> CP["context-plan\nactive feature touches → scoped rules"]
-    CP --> AC["agent-context\nload originals + freshness evidence"]
+    CP --> AC["agent-context\nload scoped rules + fresh feature packet\n+ mustRead originals + receipt"]
     AC -. scoped context at dispatch .-> CI
     AC -. scoped context at dispatch .-> DS
     AC -. scoped context at dispatch .-> MK
     CI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · assumptions\n+ observable seam & invariants per component"]
-    DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG; invariant traceability"]
+    DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
     FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]
     TD --> TI["test-implementer\nconditions → FAILING test\nred observed and recorded"]
     TI --> MK["maker\nLAYER: implementation\nmakes the existing oracle pass"]

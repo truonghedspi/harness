@@ -25,6 +25,8 @@ This repository holds the agent-harness assets for the team:
   `k8s-integration-tester` agent (`templates/k8s/.kiro/agents/k8s-integration-tester.json`) fills
   in the chart, writes and runs the real cross-service tests, and diagnoses failures via read-only
   cluster access — see `harness-loop/references/k8s-integration-testing.md`.
+  For non-obvious implementation seams, the planner can publish a digest-bound feature context
+  packet; dispatch injects fresh facts plus live `mustRead` sources and records a typed receipt.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster
@@ -40,4 +42,3 @@ This repository holds the agent-harness assets for the team:
 
 Read [`AGENTS.md`](AGENTS.md) — the router: what lives here, the rules that hold (fix the template
 not the target; every behaviour change gets a `demo.sh` step), and how a change is verified.
-

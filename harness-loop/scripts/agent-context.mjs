@@ -43,6 +43,7 @@ if (!agent) ok(`[harness] no manifest entry for agent "${agentName}" — no per-
 const parts = [];
 const missing = [];
 const contextInputs = [];
+let contextReceipt = null;
 for (const rel of agent.resources || []) {
   const abs = path.join(root, rel);
   if (!existsSync(abs)) { missing.push(rel); continue; }
@@ -54,7 +55,8 @@ for (const rel of agent.resources || []) {
 // A feature touching a sibling service opts into that service's original rules. Selection is
 // scope-based and deterministic; loading every service's rules would turn multi-repo awareness
 // into permanent context tax and make conflicting conventions impossible to apply correctly.
-for (const input of planContext({ target: root }).inputs) {
+const planned = planContext({ target: root });
+for (const input of planned.inputs) {
   contextInputs.push(input);
   if (input.status === "missing") { missing.push(input.path); continue; }
   let body;
@@ -66,6 +68,30 @@ for (const input of planContext({ target: root }).inputs) {
     `${body.trimEnd()}\n</external-file>`);
 }
 
+// A fresh feature packet is a bounded, provenance-bearing handoff: established facts are loaded
+// once, while mustRead keeps the implementation anchored to the actual code and frozen oracle.
+// If any cited source changed, do not inject conclusions that may no longer be true.
+if (planned.featurePacket) {
+  const fp = planned.featurePacket;
+  contextInputs.push({ kind: "feature-context-packet", path: fp.path, status: fp.status,
+    sourceInputs: fp.sourceInputs });
+  if (fp.status === "current") {
+    parts.push(`<feature-context-packet path="${fp.path}">\n${JSON.stringify(fp.packet, null, 2)}\n</feature-context-packet>`);
+    const read = [];
+    for (const input of fp.mustReadInputs) {
+      parts.push(`<feature-must-read path="${input.declaredPath}">\n${readFileSync(input.path, "utf8").trimEnd()}\n</feature-must-read>`);
+      read.push(input.declaredPath);
+    }
+    contextReceipt = { schema: "context-receipt/1", feature: planned.feature,
+      packet: fp.path, status: "consumed", mustRead: read };
+  } else {
+    parts.push(`[harness] feature context packet ${fp.path} is ${fp.status}; do not trust its facts. ` +
+      `Return to its cited sources and ask the planner to refresh the packet.`);
+    contextReceipt = { schema: "context-receipt/1", feature: planned.feature,
+      packet: fp.path, status: fp.status, mustRead: [] };
+  }
+}
+
 // A missing resource is reported, never swallowed. On kiro the same situation is silent, and
 // silent is how an agent ends up running without the rulebook it was configured to load (HI-005).
 const header = `The following files are loaded automatically for the "${agentName}" role. They are the\n` +
@@ -73,4 +99,6 @@ const header = `The following files are loaded automatically for the "${agentNam
   (missing.length ? `\n\nMISSING (declared in agents.manifest.json but not on disk — report this,\n` +
     `do not work around it): ${missing.join(", ")}` : "");
 
-ok(`${header}\n\n${parts.join("\n\n")}`, contextInputs);
+emit({ hookSpecificOutput: { hookEventName: "SubagentStart",
+  additionalContext: `${header}\n\n${parts.join("\n\n")}` },
+  harnessContextInputs: contextInputs, harnessContextReceipt: contextReceipt });

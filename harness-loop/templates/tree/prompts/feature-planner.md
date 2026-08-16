@@ -19,6 +19,11 @@ only supplies the project-loop handoffs around it.
 ## Project-loop outputs
 
 - Replace or re-cut only the scope the request owns; preserve state for unchanged feature IDs.
+- For an implementation feature whose seam required design discovery, write
+  `loop/context-packets/<feature-id>.json` (`schema: feature-context-packet/1`) and point
+  `feature.context.packet` at it. Include `mustRead` code/oracle paths, bounded established
+  `facts`, negative scope in `mustNotRead`, and `sourceInputs: [{path, sha256}]`. This is a
+  provenance-bearing handoff, not a copied design document; omit it when it adds no information.
 - Record non-obvious split/merge decisions in `DECISIONS.md`.
 - Put unresolved facts in `loop/goal.md` Human Checkpoints instead of guessing.
 - Run the skill's `check-plan.mjs`, then `tools/verify-harness.mjs --target . --skip-baseline

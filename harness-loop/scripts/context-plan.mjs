@@ -17,6 +17,31 @@ export function planContext({ target = process.cwd(), featureId = null, touches 
   const selectedId = featureId || (current && current.feature) || null;
   const features = (readJSON(path.join(root, "feature_list.json")) || {}).features || [];
   const feature = features.find((f) => f.id === selectedId);
+  let featurePacket = null;
+  const packetRel = feature && feature.context && feature.context.packet;
+  if (packetRel) {
+    const packetPath = path.isAbsolute(packetRel) ? path.normalize(packetRel) : path.resolve(root, packetRel);
+    const packet = readJSON(packetPath);
+    const sourceInputs = packet && Array.isArray(packet.sourceInputs) ? packet.sourceInputs.map((input) => {
+      const sourcePath = path.isAbsolute(input.path) ? path.normalize(input.path) : path.resolve(root, input.path);
+      const actualSha256 = digest(sourcePath);
+      return { ...input, path: sourcePath, actualSha256,
+        status: !existsSync(sourcePath) ? "missing" : input.sha256 && input.sha256 !== actualSha256 ? "stale" : "current" };
+    }) : [];
+    const mustReadInputs = packet && Array.isArray(packet.mustRead) ? packet.mustRead.map((rel) => {
+      const inputPath = path.isAbsolute(rel) ? path.normalize(rel) : path.resolve(root, rel);
+      return { path: inputPath, declaredPath: rel, status: existsSync(inputPath) ? "current" : "missing" };
+    }) : [];
+    featurePacket = {
+      path: packetPath,
+      status: !existsSync(packetPath) ? "missing" : !packet || packet.schema !== "feature-context-packet/1" ? "invalid" :
+        mustReadInputs.some((input) => input.status === "missing") ? "missing" :
+        sourceInputs.some((input) => input.status !== "current") ? "stale" : "current",
+      packet,
+      sourceInputs,
+      mustReadInputs,
+    };
+  }
   const requested = [...touches, ...((feature && feature.context && feature.context.touches) || [])]
     .map((p) => path.isAbsolute(p) ? path.normalize(p) : path.resolve(root, p));
   const inputs = [];
@@ -38,7 +63,7 @@ export function planContext({ target = process.cwd(), featureId = null, touches 
       });
     }
   }
-  return { schema: "context-plan/1", feature: selectedId, touches: requested, inputs };
+  return { schema: "context-plan/1", feature: selectedId, touches: requested, featurePacket, inputs };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

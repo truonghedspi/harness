@@ -22,6 +22,12 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    - a feature already `in-progress`/`active`, else
    - the first `not-started` feature whose dependencies are all `done`.
 
+   If its `context.packet` is loaded automatically and reported `consumed`, treat its fresh facts
+   as established and read the injected `mustRead` sources. Do not reopen every cited design file
+   defensively. If it is stale/invalid, return to the cited sources and request a planner refresh;
+   if a concrete implementation question is absent from a fresh packet, record the gap rather than
+   silently restarting repository-wide discovery.
+
    **Never pick a feature whose `checkerNotes` starts with `NEEDS DESIGN:`** — a design question is
    the `designer` agent's job, not something to solve inline while implementing. Skip it.
 

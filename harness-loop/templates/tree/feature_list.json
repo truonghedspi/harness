@@ -33,7 +33,7 @@
           "src/path/to/the-file-this-creates.ext",
           "src/path/to/the-one-it-changes.ext"
         ],
-        "note": "One line the implementer would otherwise have to rediscover: the seam, the gotcha, the existing thing to reuse."
+        "note": "One line the implementer would otherwise have to rediscover: the seam, the gotcha, the existing thing to reuse. Add context.packet only when the planner materializes a digest-bound packet for a non-obvious seam."
       },
       "falsifier": "REPLACE with the wrong implementation this command catches, e.g. 'returns the input unchanged' or 'rounds half-up instead of half-even'",
       "kind": "build",

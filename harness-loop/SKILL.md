@@ -313,6 +313,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Giving an agent its own persistent, self-reorganizing memory (world-standard grounding, entry
   schema, read/write lifecycle, the `memory-consolidate.mjs` mechanical reorganize pass):
   [references/agent-memory.md](references/agent-memory.md)
+- Avoiding repeated repository discovery between design/planning and implementation with bounded,
+  digest-bound context packets and receipts, including the Aeron A/B result:
+  [references/context-packets.md](references/context-packets.md)
 - More than one service has to be running for the test to mean anything — the service registry, why
   the unit is a directory rather than a repository, and the four things a survey of seven real repos
   changed about the design: [references/multi-service.md](references/multi-service.md).

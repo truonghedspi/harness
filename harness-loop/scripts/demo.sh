@@ -2303,6 +2303,43 @@ process.exit(b.relevantRuleLoadRecall===0 && !b.staleDigestDetected &&
   a.staleDigestDetected && a.injectedBytes>b.injectedBytes ? 0 : 1);
 "; expect "the frozen before/after benchmark loads only the touched service rules and detects stale provenance" $?
 
+# A reading list still makes the maker rediscover the designer's conclusions. A feature context
+# packet materializes bounded facts, keeps the live seam/oracle mandatory, and becomes unusable
+# rather than silently stale when one of its cited sources changes.
+mkdir -p "$IT2/loop/context-packets" "$IT2/src" "$IT2/tests"
+printf 'approved seam v1\n' > "$IT2/docs/design/packet-source.md"
+printf 'export const seam = 1;\n' > "$IT2/src/seam.js"
+printf 'oracle: seam must return 1\n' > "$IT2/tests/seam.test.txt"
+node -e "
+const fs=require('fs'),crypto=require('crypto'),root='$IT2';
+const fl=require(root+'/feature_list.json'),f=fl.features.find(x=>x.id==='feat-002');
+f.context={...(f.context||{}),packet:'loop/context-packets/feat-002.json'};
+fs.writeFileSync(root+'/feature_list.json',JSON.stringify(fl,null,2)+'\n');
+const src='docs/design/packet-source.md';
+const sha256=crypto.createHash('sha256').update(fs.readFileSync(root+'/'+src)).digest('hex');
+const p={schema:'feature-context-packet/1',objective:'use the approved seam',
+  mustRead:['src/seam.js','tests/seam.test.txt'],facts:['the public seam returns 1'],
+  mustNotRead:['unrelated subsystems'],sourceInputs:[{path:src,sha256}]};
+fs.writeFileSync(root+'/loop/context-packets/feat-002.json',JSON.stringify(p,null,2)+'\n');
+fs.writeFileSync(root+'/loop/current.json',JSON.stringify({feature:'feat-002'})+'\n');
+"
+node -e "
+const {execFileSync}=require('child_process');
+const out=JSON.parse(execFileSync('node',['tools/agent-context.mjs','maker'],{cwd:'$IT2',input:'{}'}));
+const text=out.hookSpecificOutput.additionalContext, receipt=out.harnessContextReceipt;
+process.exit(receipt && receipt.status==='consumed' && receipt.mustRead.length===2 &&
+  /the public seam returns 1/.test(text) && /export const seam = 1/.test(text) &&
+  !/approved seam v1/.test(text) ? 0 : 1);
+"; expect "a fresh feature packet injects established facts and live mustRead seams, with a typed receipt" $?
+printf 'approved seam v2\n' > "$IT2/docs/design/packet-source.md"
+node -e "
+const {execFileSync}=require('child_process');
+const out=JSON.parse(execFileSync('node',['tools/agent-context.mjs','maker'],{cwd:'$IT2',input:'{}'}));
+const text=out.hookSpecificOutput.additionalContext, receipt=out.harnessContextReceipt;
+process.exit(receipt && receipt.status==='stale' && !/the public seam returns 1/.test(text) &&
+  /do not trust its facts/.test(text) ? 0 : 1);
+"; expect "a changed source makes the packet stale and prevents old conclusions entering agent context" $?
+
 step 39 "meta loop: dispatch on the right layer, stop when nothing moves"
 # The fingerprint includes evidence and feature state, not only gate/id. Same blocker with changed
 # evidence is progress; returning to an earlier canonical state exposes an A-B-A cycle.
