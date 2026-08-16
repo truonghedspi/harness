@@ -53,7 +53,7 @@ so, show the state you think it misread, and stop. Never route around it.
    need me** (the exception, or explicitly "no"). Show the cost — sessions and elapsed time — because
    that is the resource they are deciding about. Suppress the routine: if nothing needs them, one
    line saying so is a complete report.
-3. **Dispatch one iteration** of the node the router named: `loop/run-loop.sh 1`. One at a time
+3. **Dispatch one iteration** of the node the router named: `node loop/run-loop.mjs 1`. One at a time
    unless the human asks for more — WIP=1 applies to you too.
 4. **Show what changed.** The diff and the new router decision. "It ran" is not a result.
 5. **Stop and ask** the moment the loop escalates (below). Do not keep spending sessions past a
@@ -91,14 +91,14 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
   human said, then hand it to the agent that owns that file:
 
   ```bash
-  loop/dispatch.sh designer "The human chose option 2: <the decision, and where you recorded it>"
+  node loop/dispatch.mjs designer "The human chose option 2: <the decision, and where you recorded it>"
   ```
 
   Designer for a design question and feature-planner for scope. For an assumption, use the
   user-scope `human-interview` skill in this conversation; do not dispatch an interview agent.
-  `docs/reference/graph.md` has the owner table. `loop/dispatch.sh` runs one NAMED agent on whichever
+  `docs/reference/graph.md` has the owner table. `node loop/dispatch.mjs` runs one NAMED agent on whichever
   runtime this machine has — use it only when a human has already decided. When nobody has,
-  `loop/run-loop.sh 1` runs the node the router chose, and that is the normal path.
+  `node loop/run-loop.mjs 1` runs the node the router chose, and that is the normal path.
 
 ## What you must not do
 
