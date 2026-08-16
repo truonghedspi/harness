@@ -577,6 +577,11 @@ function gateLoop() {
       remedy: "refresh skill-owned telemetry.mjs and telemetry-calibrate.mjs" });
   }
   const serviceManifest = readJSON(P("services.manifest.json"));
+  if (serviceManifest && !exists(P("skills/business-journey/SKILL.md"))) {
+    add({ gate: "business-journey", id: "capability-pack-missing", layer: "harness",
+      symptom: "integration target can deploy services but has no distributed business-journey capability contract",
+      remedy: "refresh the skill-owned skills/business-journey pack" });
+  }
   const hasExternalRules = ((serviceManifest && serviceManifest.services) || [])
     .some((s) => (s.rules && s.rules.length) || (s.ownRules && s.ownRules.length));
   if (hasExternalRules) {

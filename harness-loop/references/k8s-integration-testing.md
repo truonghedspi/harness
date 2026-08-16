@@ -180,3 +180,11 @@ issue.
    `mcp-runtime-skew`. Beyond those the check that matters is the same one that already
    exists: does `docs/testing-standards.md`'s Level 3 command actually get exercised by
    `init.sh`/the loop, and does it have a bounded timeout (`docs/constraints.md`).
+
+## Business-journey metrics
+
+For a Level 4 journey the test command receives `HARNESS_RUN_ID`, `NAMESPACE`, and
+`HARNESS_JOURNEY_METRICS`. The driver may write redacted `eventWaitDurationMs` and `retryCount` to
+the last path. The environment always emits `journey-metrics.json` with deploy/readiness/scenario/
+total duration, diagnostics presence, exit code and no business payload. Environment and oracle
+contracts live in `skills/business-journey/`.

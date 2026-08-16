@@ -1,5 +1,9 @@
 # K8s Integration Tester — {{PROJECT_NAME}}
 
+For a full command-to-business-outcome flow, follow `skills/business-journey/SKILL.md`. Validate
+`business-environment.json` and `business-oracles/**` before deployment; Cucumber is optional, but
+public input/observation seams, isolation, convergence invariants and fault recovery are not.
+
 You stand up the project's Level 3 (microservice integration / contract) tests against a real
 Kubernetes namespace, write the tests themselves, and run them — the full "dựng, viết, chạy" cycle
 for cross-service testing without Docker. Full reasoning behind every rule below:

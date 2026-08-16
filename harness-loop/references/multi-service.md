@@ -95,6 +95,11 @@ work, and forces a single `init.sh` to be green across seven projects before any
 The integration target is just another target: `setup-harness-loop.mjs` scaffolds it, the router
 routes it, the gates gate it. What is new is the registry and the collector, not the loop.
 
+Every integration target also receives `skills/business-journey/`, a deliberately red
+`business-environment.json`, and `feat-business-journey-contract`. Deployment capability alone is
+not proof of a business flow: it stays red until per-run isolation, public seed/input/observation
+seams, convergence invariants, cleanup, telemetry and at least one oracle are explicit.
+
 ```bash
 node tools/collect-services.mjs --roots ~/work/a,~/work/b --out services.manifest.json
 node setup-harness-loop.mjs --target ~/work/trading-sit --integration services.manifest.json

@@ -217,6 +217,11 @@ SHORT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)"
 NAMESPACE="${NAMESPACE_PREFIX}-${SHORT_SHA}-$(date +%s)-$$"
 REPORT_DIR="${REPORT_ROOT}/${NAMESPACE}"
 mkdir -p "$REPORT_DIR"
+JOURNEY_DETAIL_FILE="$REPORT_DIR/journey-detail.json"
+RUN_STARTED_MS="$(node -e 'process.stdout.write(String(Date.now()))')"
+DEPLOY_FINISHED_MS=""
+TEST_STARTED_MS=""
+TEST_FINISHED_MS=""
 log "namespace: $NAMESPACE   services: $PLAN_COUNT   report: $REPORT_DIR"
 
 EXIT_CODE=0
@@ -270,6 +275,19 @@ write_reading_order() {
 
 cleanup() {
   local code=$?
+  local ended_ms
+  ended_ms="$(node -e 'process.stdout.write(String(Date.now()))')"
+  node -e '
+    const fs=require("fs"), a=process.argv.slice(1), n=(x)=>x===null||x===undefined||x==="" ? null : Number(x);
+    const [file,detailFile,runId,namespace,started,deployFinished,testStarted,testFinished,ended,exitCode]=a;
+    let detail={}; try { detail=JSON.parse(fs.readFileSync(detailFile,"utf8")); } catch {}
+    const duration=(a,b)=>a&&b ? n(b)-n(a) : null;
+    fs.writeFileSync(file, JSON.stringify({schema:"business-journey-telemetry/1",runId,namespace,
+      deploymentDurationMs:duration(started,deployFinished||ended),readinessDurationMs:duration(started,deployFinished),
+      scenarioDurationMs:duration(testStarted,testFinished),eventWaitDurationMs:n(detail.eventWaitDurationMs),retryCount:n(detail.retryCount),
+      diagnosticsCollected:fs.existsSync(require("path").dirname(file)+"/READ-THIS-FIRST.txt"),
+      totalDurationMs:duration(started,ended),exitCode:n(exitCode),payloads:"redacted"},null,2)+"\n");
+  ' "$REPORT_DIR/journey-metrics.json" "$JOURNEY_DETAIL_FILE" "${HARNESS_RUN_ID:-$NAMESPACE}" "$NAMESPACE" "$RUN_STARTED_MS" "$DEPLOY_FINISHED_MS" "$TEST_STARTED_MS" "$TEST_FINISHED_MS" "$ended_ms" "$code" 2>/dev/null || true
   rm -f "$PLAN_FILE"
   if [ "$KEEP_ON_FAILURE" = "1" ] && [ "$code" != "0" ]; then
     log "KEPT for inspection (--keep-on-failure, exit $code): namespace=$NAMESPACE"
@@ -355,10 +373,13 @@ while IFS=$'\037' read -r ID CHART HEALTH DEPS; do
   INSTALLED="${INSTALLED:+$INSTALLED, }$ID"
 done < "$PLAN_FILE"
 
+DEPLOY_FINISHED_MS="$(node -e 'process.stdout.write(String(Date.now()))')"
 log "environment up: $INSTALLED"
 log "running test command (budget ${TEST_TIMEOUT_S}s): ${TEST_CMD[*]}"
-NAMESPACE="$NAMESPACE" run_with_timeout "$TEST_TIMEOUT_S" "${TEST_CMD[@]}"
+TEST_STARTED_MS="$(node -e 'process.stdout.write(String(Date.now()))')"
+NAMESPACE="$NAMESPACE" HARNESS_RUN_ID="${HARNESS_RUN_ID:-$NAMESPACE}" HARNESS_JOURNEY_METRICS="$JOURNEY_DETAIL_FILE" run_with_timeout "$TEST_TIMEOUT_S" "${TEST_CMD[@]}"
 EXIT_CODE=$?
+TEST_FINISHED_MS="$(node -e 'process.stdout.write(String(Date.now()))')"
 if [ "$EXIT_CODE" = "124" ]; then
   log "test command timed out after ${TEST_TIMEOUT_S}s"
 fi

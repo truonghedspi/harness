@@ -34,6 +34,18 @@ service boundary requires all three.
   don't agree on the wire." Never skip it to save time; a passing per-service suite on a broken
   contract is the classic false green.
 
+## Level 4 — Distributed Business Journey
+
+- Scope: a business command through all participating services until public events and query
+  projections converge, including retry/fault behavior for critical flows.
+- Contract: `business-environment.json` plus `business-oracles/*.json`, validated by
+  `skills/business-journey/scripts/check-business-journey.mjs`.
+- Execution: `tools/k8s-test-env.sh --services services.manifest.json -- <journey command>`.
+- Boundary: public input and observation only. SQL/repositories/pods are diagnostics, not passing
+  assertions. Cucumber is optional when stakeholders need executable Given/When/Then.
+- Required for: a business outcome spanning three or more independently deployed services, or one
+  whose correctness depends on distributed convergence/idempotent recovery.
+
 ## Rule
 
 A feature's `verification` in `feature_list.json` must exercise the highest level its change
@@ -60,4 +72,3 @@ and index it, so it is maintained rather than abandoned.
 
 `verify-harness.mjs` reports `verification-outside-test-framework` for the three shapes with no
 home: an inline `node -e`, a script that is not committed, and a script living outside `tools/`.
-

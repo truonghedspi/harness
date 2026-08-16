@@ -182,6 +182,7 @@ const EXTRA_COPIES = [
 const EXTRA_DIR_COPIES = [
   ["templates/test-design", "skills/test-design"],
   ["templates/feature-planning", "skills/feature-planning"],
+  ["templates/business-journey", "skills/business-journey"],
 ];
 for (const [src, destRel] of EXTRA_COPIES) {
   const dest = path.join(targetRoot, destRel);
@@ -418,6 +419,34 @@ if (INTEGRATION) {
     });
     writeFileSync(flPath, JSON.stringify(fl, null, 2) + "\n");
     written.push("feature_list.json (+ feat-registry)");
+  }
+  const envPath = path.join(targetRoot, "business-environment.json");
+  if (!exists(envPath) || FORCE) {
+    writeFileSync(envPath, JSON.stringify({ schema: "business-environment/1",
+      isolation: { mode: "namespace-per-run", runIdEnv: "HARNESS_RUN_ID",
+        derivedResources: ["sit-${HARNESS_RUN_ID}", "account-${HARNESS_RUN_ID}", "consumer-${HARNESS_RUN_ID}"] },
+      readiness: { serviceRegistry: "services.manifest.json",
+        businessConditions: ["NEEDS HUMAN: reference data/session state/consumer readiness"] },
+      seed: { command: "NEEDS HUMAN: public fixture/setup API command", publicBoundary: false },
+      cleanup: { command: "tools/k8s-test-env.sh trap-owned namespace teardown", idempotent: true },
+      telemetry: { metrics: ["deploymentDuration", "readinessDuration", "scenarioDuration",
+        "eventWaitDuration", "retryCount", "diagnosticsCollected"], payloads: "redacted" } }, null, 2) + "\n");
+    written.push("business-environment.json");
+  }
+  mkdirSync(path.join(targetRoot, "business-oracles"), { recursive: true });
+  const fl2 = exists(flPath) ? JSON.parse(readFileSync(flPath, "utf8")) : null;
+  if (fl2 && Array.isArray(fl2.features) && !fl2.features.some((f) => f.id === "feat-business-journey-contract")) {
+    fl2.features.splice(2, 0, { id: "feat-business-journey-contract",
+      name: "Business journey environment and distributed oracle are executable",
+      kind: "prove",
+      behavior: "A cross-service business journey uses per-run isolation, public setup/input/observation seams, bounded convergence invariants, idempotent cleanup and redacted telemetry",
+      verification: "node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles",
+      falsifier: "a journey that passes by querying a database, sleeps for convergence, reuses a fixed consumer group, or restarts a service without proving idempotent recovery",
+      dependencies: ["feat-registry"], status: "not-started", readyForCheck: false, evidence: "",
+      checkerNotes: "Start with one public happy-path tracer bullet; Cucumber is optional and belongs above the business driver, never around kubectl/SQL.", attempts: 0, maxAttempts: 3,
+      context: { touches: ["business-environment.json", "business-oracles"], note: "Use skills/business-journey/SKILL.md; public boundaries pass the test, internal state is diagnostics only." } });
+    writeFileSync(flPath, JSON.stringify(fl2, null, 2) + "\n");
+    written.push("feature_list.json (+ feat-business-journey-contract)");
   }
 }
 

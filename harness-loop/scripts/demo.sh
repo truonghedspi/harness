@@ -1275,6 +1275,11 @@ grep -q "environment up: db, cache, api" "$MS/run1.log"; expect "the test comman
     --services services.manifest.json --keep-on-failure -- true ) >"$MS/run2.log" 2>&1
 RPT="$(ls -d "$MS"/trace/k8s-test/*/ 2>/dev/null | tail -1)"
 node -e "
+const m=require('${RPT}journey-metrics.json');
+process.exit(m.schema==='business-journey-telemetry/1' && Number.isFinite(m.deploymentDurationMs) &&
+  m.payloads==='redacted' && m.exitCode===1 && !JSON.stringify(m).includes('HELM_FAIL_ON') ? 0 : 1);
+"; expect "the environment records redacted deployment/readiness/scenario telemetry even on failure" $?
+node -e "
 const fs=require('fs'); const t=fs.readFileSync('${RPT}READ-THIS-FIRST.txt','utf8');
 const iApi=t.indexOf('logs-api'), iDb=t.indexOf('logs-db'), iCache=t.indexOf('logs-cache');
 // the failing service first, then what it was waiting on — five services down produce five walls
@@ -1318,6 +1323,36 @@ cat > "$WORK/reg.json" <<'JSON'
 JSON
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$IT" --name "SIT" --purpose "cross-service" --integration "$WORK/reg.json" >/dev/null 2>&1
 test -x "$IT/tools/k8s-test-env.sh"; expect "--integration forces the cluster layer on — the charts live in the service repos, not here" $?
+test -f "$IT/skills/business-journey/SKILL.md" -a -f "$IT/business-environment.json"
+expect "an integration target receives the business-journey capability and environment contract" $?
+mv "$IT/skills/business-journey/SKILL.md" "$IT/skills/business-journey/SKILL.md.off"
+node "$SCRIPTS/verify-harness.mjs" --target "$IT" --skip-baseline --quiet --report "$IT/business-capability-missing.json" >/dev/null 2>&1 || true
+node -e "
+const r=require('$IT/business-capability-missing.json');
+process.exit(r.findings.some(f=>f.id==='capability-pack-missing' && f.layer==='harness') ? 0 : 1);
+"; expect "an integration registry with no business-journey capability is a harness defect, not a silent omission" $?
+mv "$IT/skills/business-journey/SKILL.md.off" "$IT/skills/business-journey/SKILL.md"
+( cd "$IT" && node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles >/dev/null 2>&1 ); test "$?" = "1"
+expect "the business journey gate starts RED while public seed/readiness and a distributed oracle are unanswered" $?
+node -e "
+const fs=require('fs'),root='$IT';
+const e=require(root+'/business-environment.json');
+e.seed={command:'journey-driver seed-account --run-id \${HARNESS_RUN_ID}',publicBoundary:true};
+e.readiness.businessConditions=['reference data loaded','matching session open','event consumers joined'];
+fs.writeFileSync(root+'/business-environment.json',JSON.stringify(e,null,2)+'\n');
+const o={schema:'journey-oracle/1',id:'JRN-ORDER-MATCH',requirement:'REQ-ORDER-001',
+ publicInput:{protocol:'FIX',operation:'NewOrderSingle',correlationField:'ClOrdID'},
+ observations:[{boundary:'trade-event',operation:'TradePublished',correlationField:'ClOrdID'},
+  {boundary:'position-query-api',operation:'GET /positions',correlationField:'accountId'}],
+ invariants:['exactly one execution id','filled plus remaining equals original quantity','positions balance across buyer and seller'],deadlineMs:30000,
+ diagnostics:['namespace events','correlated gateway/risk/matching/trade/position logs'],
+ faultProbe:{action:'restart matching pod after acknowledgement',repeatCommand:true,recoveryInvariant:'same ClOrdID creates no second execution'}};
+fs.writeFileSync(root+'/business-oracles/order-match.json',JSON.stringify(o,null,2)+'\n');
+"
+( cd "$IT" && node skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles >/dev/null 2>&1 ); test "$?" = "0"
+expect "public correlated observations, isolation, convergence and idempotent recovery turn the business journey contract GREEN" $?
+node "$IT/skills/business-journey/evals/run-fixtures.mjs" >/dev/null 2>&1
+expect "the capability fixture accepts a valid journey and rejects database/sleep/incomplete-fault oracles" $?
 node -e "
 const t=require('fs').readFileSync('$IT/docs/services.md','utf8');
 // the unanswered fields are as prominent as the known ones; a library is not a pile of gaps

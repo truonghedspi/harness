@@ -316,6 +316,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Avoiding repeated repository discovery between design/planning and implementation with bounded,
   digest-bound context packets and receipts, including the Aeron A/B result:
   [references/context-packets.md](references/context-packets.md)
+- Proving full public command-to-outcome flows across deployed microservices, including optional
+  Cucumber, isolation, distributed/fault oracles and journey metrics:
+  [references/business-journey.md](references/business-journey.md)
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)
@@ -343,7 +346,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   read-only Kubernetes MCP server config written for both runtimes, routed
   through `templates/k8s/tools/mcp-k8s-readonly-wrapper.sh` so a stopped local cluster's kubeconfig
   doesn't crash the MCP server before the connection handshake, so the agent
-  can diagnose a failed deploy without holding write access to a shared cluster.
+  can diagnose a failed deploy without holding write access to a shared cluster. Integration
+  targets also receive `skills/business-journey/`: Level 4 public command-to-outcome flows with
+  per-run isolation, distributed convergence/fault oracles, optional Cucumber and redacted metrics.
 
 ## The front door
 

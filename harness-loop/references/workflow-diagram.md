@@ -37,7 +37,10 @@ flowchart TD
     GATES -- yes --> LOOP["loop/run-loop.sh N\nrouted by loop/route.mjs"]
     LOOP --> K8S{"verification crosses a real\nservice boundary?"}
     K8S -- yes --> KT["k8s-integration-tester\nLAYER: integration (Level 3)\nsame test-authoring rules;\nreads the code, so its independence\nis the boundary, not blindness"]
-    KT --> STOP
+    KT --> BJ{"business outcome spans\nmultiple deployed services?"}
+    BJ -- yes --> BJC["business-journey capability (Level 4)\npublic driver · per-run isolation\nconvergence + fault/idempotency oracle\nredacted journey metrics"]
+    BJC --> STOP
+    BJ -- no --> STOP
     K8S -- no --> STOP{"loop/goal.md\nstop condition met?"}
     STOP -- no --> LOOP
     STOP -- yes --> I["DONE"]

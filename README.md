@@ -29,6 +29,9 @@ This repository holds the agent-harness assets for the team:
   packet; dispatch injects fresh facts plus live `mustRead` sources and records a typed receipt.
   Runtime hooks emit redacted read/search metadata to `trace/tool-events.jsonl`; the run report
   separates native coverage from inferred shell activity and never stores file contents.
+  Integration targets additionally receive a business-journey capability pack for public
+  command-to-outcome flows, optional Cucumber, per-run isolation, distributed/fault oracles and
+  redacted deployment/readiness/scenario metrics.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster
