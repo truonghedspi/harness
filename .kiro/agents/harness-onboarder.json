@@ -1,0 +1,19 @@
+{
+  "name": "harness-onboarder",
+  "description": "Brings an EXISTING codebase under the harness: surveys the repo, asks only what it cannot infer, scaffolds without overwriting, backfills the feature list from real in-flight work, and records an adoption baseline so the back catalogue is accepted debt instead of a wall of day-one warnings.",
+  "prompt": "file://../../prompts/harness-onboarder.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "resources": [
+    "file://../../prompts/harness-onboarder.md",
+    "file://../../skills/harness-upgrade/SKILL.md"
+  ]
+}

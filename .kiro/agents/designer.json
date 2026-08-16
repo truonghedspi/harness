@@ -1,0 +1,83 @@
+{
+  "name": "designer",
+  "description": "Turns a requirement into a design: named components and boundaries, a claims table where every fact is cited or spiked, a registry of load-bearing assumptions, and rejected alternatives. Stops the loop only on assumptions that cannot be known from the repo. Does not cut features and does not implement.",
+  "prompt": "file://../../prompts/designer.md",
+  "tools": [
+    "read",
+    "write",
+    "shell"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": false,
+  "model": "claude-sonnet-4",
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "docs/design/**",
+        "docs/architecture.md",
+        "docs/assumptions.md",
+        "DECISIONS.md",
+        "spikes/**",
+        "memory/designer/**",
+        "docs/cross-cutting.md"
+      ]
+    }
+  },
+  "resources": [
+    "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
+    "file://../../docs/reference/design-engineering.md",
+    "file://../../docs/INDEX.md",
+    "file://../../docs/architecture.md",
+    "file://../../docs/assumptions.md",
+    "file://../../docs/cross-cutting.md",
+    "file://../../DECISIONS.md",
+    "file://../../feature_list.digest.md",
+    "file://../../memory/designer/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node tools/trace.mjs designer session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/trace.mjs designer tool-use shell"
+      },
+      {
+        "matcher": "fs_write",
+        "command": "node tools/trace.mjs designer tool-use write"
+      },
+      {
+        "matcher": "fs_read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor designer"
+      },
+      {
+        "matcher": "read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor designer"
+      },
+      {
+        "matcher": "grep",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor designer"
+      },
+      {
+        "matcher": "glob",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor designer"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor designer"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node tools/trace.mjs designer session-end"
+      }
+    ]
+  },
+  "welcomeMessage": "Designer: point me at the requirement. I produce named components + boundaries, a claims table where every library fact is cited to a real file:line or proven by a runnable spike, a registry of load-bearing assumptions (verified / assumed-with-blast-radius / needs-human), and the rejected alternatives. I stop and ask you ONLY about assumptions that cannot be known from the repo — deployment facts, business intent, risk appetite. I don't cut features and I don't implement."
+}

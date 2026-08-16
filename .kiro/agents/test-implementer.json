@@ -1,0 +1,66 @@
+{
+  "name": "test-implementer",
+  "description": "Turns validated test conditions into running test code, red first. Writes tests only — never the implementation they judge.",
+  "prompt": "file://../../prompts/test-implementer.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4",
+  "resources": [
+    "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
+    "file://../../docs/INDEX.md",
+    "file://../../skills/test-design/SKILL.md",
+    "file://../../skills/test-design/references/anti-patterns.md",
+    "file://../../docs/reference/test-authoring.md",
+    "file://../../feature_list.digest.md",
+    "file://../../docs/testing-standards.md",
+    "file://../../loop/goal.md",
+    "file://../../memory/test-implementer/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node tools/trace.mjs test-implementer session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/trace.mjs test-implementer tool-use shell"
+      },
+      {
+        "matcher": "fs_read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-implementer"
+      },
+      {
+        "matcher": "read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-implementer"
+      },
+      {
+        "matcher": "grep",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-implementer"
+      },
+      {
+        "matcher": "glob",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-implementer"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-implementer"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node tools/trace.mjs test-implementer session-end"
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$comment": "Dogfood scope for applying the harness to its own repository. Only the checker or verification script may set done.",
+  "states": ["not-started", "active", "blocked", "in-progress", "passing", "done"],
+  "features": [
+    {
+      "id": "feat-dogfood-baseline",
+      "name": "Canonical harness demo remains green",
+      "behavior": "The canonical demo scaffolds disposable targets, injects failures, and proves every advertised harness gate end to end.",
+      "verification": "bash harness-loop/scripts/demo.sh",
+      "falsifier": "A template or verifier regression escapes because only static files were inspected instead of exercising a disposable target.",
+      "kind": "prove",
+      "dependencies": [],
+      "context": {
+        "touches": ["harness-loop/scripts/demo.sh", "harness-loop/templates/tree/"],
+        "note": "This is the repository's authoritative regression gate; do not replace it with root-level structural coverage."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-dogfood-structure",
+      "name": "Repository satisfies its own 13-lesson contract",
+      "behavior": "The repository root exposes all thirteen structural harness lessons without weakening the canonical coverage checker.",
+      "verification": "node check-coverage.mjs --target .",
+      "falsifier": "The skill claims a discipline that its own root lacks, such as no external state, readiness contract, or independent checker.",
+      "kind": "build",
+      "dependencies": ["feat-dogfood-baseline"],
+      "context": {
+        "touches": ["AGENTS.md", "docs/", "loop/", "agents.manifest.json"],
+        "note": "Root files are target-owned dogfood state; reusable fixes still belong under harness-loop/."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-dogfood-runtime",
+      "name": "Generated runtime agents and verifier agree",
+      "behavior": "Kiro, Claude, and Codex runtime entries are generated from one manifest and the target verifier reports no blocker.",
+      "verification": "node tools/gen-agents.mjs --target . --runtime all --check",
+      "falsifier": "A hand-edited or stale runtime agent silently diverges from the manifest used by the other runtimes.",
+      "kind": "prove",
+      "dependencies": ["feat-dogfood-structure"],
+      "context": {
+        "touches": ["agents.manifest.json", ".kiro/agents/", ".claude/agents/", ".codex/agents/"],
+        "note": "Regenerate with tools/gen-agents.mjs; never reconcile generated files by hand."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    }
+  ]
+}

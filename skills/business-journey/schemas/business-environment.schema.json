@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "business-environment.schema.json",
+  "type": "object",
+  "required": ["schema", "isolation", "readiness", "seed", "cleanup", "telemetry"],
+  "properties": {
+    "schema": { "const": "business-environment/1" },
+    "isolation": {
+      "type": "object",
+      "required": ["mode", "runIdEnv", "derivedResources"],
+      "properties": {
+        "mode": { "enum": ["namespace-per-run", "tenant-per-run", "account-prefix-per-run"] },
+        "runIdEnv": { "type": "string", "minLength": 1 },
+        "derivedResources": { "type": "array", "minItems": 2, "items": { "type": "string" } }
+      }
+    },
+    "readiness": { "type": "object", "required": ["serviceRegistry", "businessConditions"], "properties": { "serviceRegistry": { "const": "services.manifest.json" }, "businessConditions": { "type": "array", "minItems": 1, "items": { "type": "string" } } } },
+    "seed": { "type": "object", "required": ["command", "publicBoundary"], "properties": { "command": { "type": "string" }, "publicBoundary": { "const": true } } },
+    "cleanup": { "type": "object", "required": ["command", "idempotent"], "properties": { "command": { "type": "string" }, "idempotent": { "const": true } } },
+    "telemetry": { "type": "object", "required": ["metrics", "payloads"], "properties": { "metrics": { "type": "array", "minItems": 4, "items": { "type": "string" } }, "payloads": { "const": "redacted" } } }
+  }
+}

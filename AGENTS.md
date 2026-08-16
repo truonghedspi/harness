@@ -28,8 +28,15 @@ skill that teaches a discipline it does not follow is not evidence of anything.
 4. Read `harness-loop/SKILL.md`'s section for whatever you are changing. Do **not** preload the
    references; open the one the task names.
 
+## Startup Readiness
+
+Before feature work, confirm the demo baseline can run, at least one check can report red or green,
+`feature_list.json` and `progress.md` agree, and `node loop/route.mjs` names the next node. Fixing a
+failed readiness condition is the task; do not start the autonomous loop on top of it.
+
 ## Working Rules
 
+- **WIP = 1.** Keep one feature active and finish or explicitly block it before starting another.
 - **Fix the template, never the target.** A bug found while a target is being scaffolded belongs to
   `templates/tree/**` or `scripts/*.mjs`. Patching the one target hides the defect from every future
   project — that is what `layer: harness` findings exist to route.
@@ -55,6 +62,12 @@ skill that teaches a discipline it does not follow is not evidence of anything.
   (`harness-loop/references/knowledge-layout.md`). An indexed archive directory is exempt.
 - **`SKILL.md` is a router, not a manual.** Detail goes in `references/`; the skill file links.
 
+## How you write
+
+Lead with the verdict, decision, finding, or blocker in a first line under 200 characters. Put the
+support after a blank line. Keep claims traceable without turning every sentence into a citation;
+use [presenting guidance](docs/reference/presenting-and-proposing.md) for consequential reports.
+
 ## Verification Commands
 
 ```bash
@@ -65,6 +78,9 @@ node harness-loop/scripts/verify-harness.mjs --target <a scaffolded project> --r
 
 `demo.sh` green is the bar for any change to the skill. It scaffolds throwaway targets, breaks them
 deliberately, and asserts each gate catches what it claims to.
+
+The target-level testing hierarchy is recorded in [testing standards](docs/testing-standards.md),
+and the stable repository map is in [architecture](docs/architecture.md).
 
 ## Definition of Done (per change to the skill)
 

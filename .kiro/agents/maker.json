@@ -1,0 +1,75 @@
+{
+  "name": "maker",
+  "description": "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done.",
+  "prompt": "file://../../loop/maker-prompt.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4",
+  "resources": [
+    "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
+    "file://../../docs/architecture.md",
+    "file://../../docs/INDEX.md",
+    "file://../../feature_list.digest.md",
+    "file://../../progress.md",
+    "file://../../docs/cross-cutting.md",
+    "file://../../docs/assumptions.md",
+    "file://../../docs/testing-standards.md",
+    "file://../../DECISIONS.md",
+    "file://../../loop/goal.md",
+    "file://../../memory/maker/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node tools/trace.mjs maker session-start"
+      },
+      {
+        "command": "./init.sh"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/trace.mjs maker tool-use shell"
+      },
+      {
+        "matcher": "fs_write",
+        "command": "node tools/trace.mjs maker tool-use write"
+      },
+      {
+        "matcher": "fs_read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "grep",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "glob",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor maker"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node tools/trace.mjs maker session-end"
+      }
+    ]
+  }
+}

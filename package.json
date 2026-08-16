@@ -1,0 +1,11 @@
+{
+  "name": "harness-assets",
+  "private": true,
+  "description": "Environment manifest for the harness skill and its dogfood target.",
+  "scripts": {
+    "test": "bash harness-loop/scripts/demo.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
