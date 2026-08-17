@@ -13,6 +13,7 @@ defect came from, not one step back (`graph.md`).
 
 ```mermaid
 flowchart TD
+    HC["root/harness\nstate · tools · prompts · docs\ninstallation checksum"] -. "one interface: harness/cli.mjs" .-> O
     KS["Kiro global steering\nalways-loaded activation bridges"] -. "read applicable user skill" .-> HP
     HP["user-scope human-presenter\nreader task · provenance · uncertainty\nsmallest useful representation"] -. "audits substantive human-facing output\nwithout becoming a workflow node" .-> A
     A["User requirement"] --> O["orchestrator\nroute → native spawn one named sub-agent\nscript fallback for headless/CI"]

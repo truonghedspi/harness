@@ -31,7 +31,8 @@ const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const JSON_OUT = args.includes("--json");
 const MARK = args.includes("--mark");
-const TARGET = path.resolve(opt("--target", "."));
+const requestedTarget = path.resolve(opt("--target", "."));
+const TARGET = existsSync(path.join(requestedTarget, "harness", "feature_list.json")) ? path.join(requestedTarget, "harness") : requestedTarget;
 const P = (...p) => path.join(TARGET, ...p);
 const WATERMARK = P(".review-watermark");
 

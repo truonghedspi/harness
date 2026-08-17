@@ -10,9 +10,15 @@ Scope: the project loop (`node loop/run-loop.mjs`). The harness self-improvement
 
 ## Nodes
 
+All paths in this graph are relative to the contained `harness/` home unless they begin with a
+root runtime adapter such as `.kiro/`. `node harness/cli.mjs` is the stable project-root interface;
+the thin root `AGENTS.md` only points agents at `harness/AGENTS.md`.
+
 | Node | Kind | Responsibility | Reads | Writes |
 |---|---|---|---|---|
 | `init.mjs` | code | baseline gate — build + test + constraint gates. `init.sh`/`init.cmd` are wrappers so the same gate runs on POSIX shells and cmd.exe | repo | exit code |
+| `cli.mjs` | code | one stable interface for status, baseline, coverage, verification, routing and loop execution | command + contained home | delegated command result |
+| `tools/harness-status.mjs` | code | compare an uncommitted harness with its installation receipt; report modified, missing and unmanaged paths without Git history | `installation.json`, current harness tree | status report only |
 | `tools/collect-services.mjs` | code | integration targets only — survey N repos into the registry; fills what is discoverable, marks the rest `needs-human`; service rules carry scope + digest + provenance | the service repos | `services.manifest.json` |
 | `skills/harness-upgrade` | capability | onboarding-only three-way upgrade: classify ownership, plan drift/retirement merges, preserve target customization, regenerate and verify | canonical harness, target rules/status, upgrade dry-run | reviewed upgrade plan + upgraded target |
 | `tools/context-plan.mjs` | code | select scoped external rules and validate the active feature's digest-bound context packet | `services.manifest.json`, `feature_list.json`, `loop/current.json`, original rule files, `loop/context-packets/**` | typed `context-plan/1` with packet freshness |

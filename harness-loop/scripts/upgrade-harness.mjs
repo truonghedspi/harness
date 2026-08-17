@@ -26,7 +26,9 @@ import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
-const TARGET = path.resolve(opt("--target", "."));
+const PROJECT_ROOT = path.resolve(opt("--target", "."));
+const CONTAINED = existsSync(path.join(PROJECT_ROOT, "harness", "feature_list.json"));
+const TARGET = CONTAINED ? path.join(PROJECT_ROOT, "harness") : PROJECT_ROOT;
 const DRY = args.includes("--dry-run");
 const JSON_OUT = args.includes("--json");
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,6 +36,25 @@ const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
 const T = (...p) => path.join(TARGET, ...p);
 const S = (...p) => path.join(SKILL, ...p);
+const containedText = (text) => !CONTAINED || text === null ? text : text
+  .replaceAll("node tools/", "node harness/tools/")
+  .replaceAll("node loop/", "node harness/loop/")
+  .replaceAll("node init.mjs", "node harness/init.mjs")
+  .replaceAll("./init.sh", "./harness/init.sh")
+  .replaceAll("init.cmd", "harness/init.cmd");
+const canonical = (src) => {
+  const raw = read(S(src));
+  let text = src.startsWith("templates/tree/") ? containedText(raw) : raw;
+  if (!CONTAINED || src !== "templates/tree/agents.manifest.json" || text === null) return text;
+  const manifest = JSON.parse(text);
+  const harnessOwned = /^(AGENTS\.md|agents\.manifest\.json|feature_list(?:\.digest)?\.md|feature_list\.json|progress\.md|DECISIONS\.md|session-handoff\.md|requirement.*|docs\/|loop\/|memory\/|trace\/|prompts\/|skills\/|tools\/)/;
+  const prefix = (value) => value.startsWith("harness/") ? value : `harness/${value}`;
+  for (const agent of manifest.agents || []) {
+    agent.prompt = prefix(agent.prompt); agent.resources = (agent.resources || []).map(prefix);
+    agent.writes = (agent.writes || []).map((entry) => harnessOwned.test(entry) ? prefix(entry) : entry);
+  }
+  return JSON.stringify(manifest, null, 2) + "\n";
+};
 
 const filesUnder = (root, prefix = "") => {
   const out = [];
@@ -89,7 +110,7 @@ const report = [
 // --- do it ------------------------------------------------------------------------------------
 const changed = [], added = [], same = [], drifted = [], missing = [];
 for (const [src, dst] of refresh) {
-  const from = read(S(src));
+  const from = canonical(src);
   if (from === null) continue;                       // skill does not ship it in this version
   const cur = read(T(dst));
   if (cur === from) { same.push(dst); continue; }
@@ -110,7 +131,7 @@ const isPureSubstitution = (template, actual) => {
   return rx.test(actual);
 };
 for (const [src, dst] of report) {
-  const from = read(S(src)), cur = read(T(dst));
+  const from = canonical(src), cur = read(T(dst));
   if (from === null) continue;
   if (cur === null) { missing.push(dst); continue; }
   if (cur === from) continue;
@@ -121,7 +142,7 @@ for (const [src, dst] of report) {
 
 // Agents the skill now defines that this target's manifest never heard of — the orchestrator, when
 // it was added, is exactly this case. Config, so reported rather than merged.
-const skillManifest = (() => { try { return JSON.parse(read(S("templates", "tree", "agents.manifest.json"))); } catch { return null; } })();
+const skillManifest = (() => { try { return JSON.parse(canonical("templates/tree/agents.manifest.json")); } catch { return null; } })();
 const targetManifest = (() => { try { return JSON.parse(read(T("agents.manifest.json"))); } catch { return null; } })();
 const newAgents = (skillManifest && targetManifest)
   ? skillManifest.agents.filter((a) => !targetManifest.agents.some((b) => b.name === a.name)).map((a) => a.name)
@@ -147,10 +168,10 @@ const upgradeContext = (contextLedger.entries || []).filter((entry) =>
 // Regenerate what is generated, so the refresh actually takes effect.
 const ran = [];
 if (!DRY) {
-  for (const [tool, argv] of [["tools/gen-agents.mjs", ["--target", TARGET, "--runtime", "all"]],
+  for (const [tool, argv] of [["tools/gen-agents.mjs", ["--target", PROJECT_ROOT, "--runtime", "all"]],
                               ["tools/feature-digest.mjs", ["--target", TARGET]]]) {
     if (!existsSync(T(tool))) continue;
-    const r = spawnSync(process.execPath, [T(tool), ...argv], { cwd: TARGET, encoding: "utf8" });
+    const r = spawnSync(process.execPath, [T(tool), ...argv], { cwd: PROJECT_ROOT, encoding: "utf8" });
     ran.push(`${tool} → exit ${r.status}`);
   }
 }

@@ -10,9 +10,11 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const targetIdx = args.indexOf("--target");
 const TARGET = path.resolve(targetIdx >= 0 ? args[targetIdx + 1] : ".");
+const PROJECT_ROOT = path.basename(TARGET) === "harness" ? path.dirname(TARGET) : TARGET;
 const AS_JSON = args.includes("--json");
 
 const P = (...p) => path.join(TARGET, ...p);
+const R = (...p) => path.join(PROJECT_ROOT, ...p);
 const exists = (p) => { try { statSync(p); return true; } catch { return false; } };
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
 const isExec = (p) => { try { return (statSync(p).mode & 0o111) !== 0; } catch { return false; } };
@@ -23,7 +25,7 @@ const agentFile = exists(P("AGENTS.md")) ? "AGENTS.md" : exists(P("CLAUDE.md")) 
 const agent = agentFile ? read(P(agentFile)) : null;
 
 const MANIFESTS = ["package.json", "pyproject.toml", "requirements.txt", "go.mod", "Cargo.toml", "pom.xml", "build.gradle", "build.gradle.kts"];
-const hasManifest = MANIFESTS.some((m) => exists(P(m))) || readdirSyncSafe(TARGET).some((f) => f.endsWith(".csproj") || f.endsWith(".sln"));
+const hasManifest = MANIFESTS.some((m) => exists(R(m))) || readdirSyncSafe(PROJECT_ROOT).some((f) => f.endsWith(".csproj") || f.endsWith(".sln"));
 function readdirSyncSafe(d) { try { return readdirSync(d); } catch { return []; } }
 
 const fl = readJSON(P("feature_list.json"));
@@ -33,8 +35,8 @@ const VALID_STATES = new Set(["not-started", "not_started", "active", "in-progre
 // The gate itself is init.mjs; init.sh/init.cmd are wrappers. Read whichever exists so this
 // works both on targets scaffolded before the port and on ones scaffolded after.
 const initSh = read(P("init.mjs")) || read(P("init.sh"));
-const agentJsonFiles = readdirSyncSafe(P(".kiro", "agents")).filter((f) => f.endsWith(".json"));
-const agentJsonBlob = agentJsonFiles.map((f) => read(P(".kiro", "agents", f)) || "").join("\n");
+const agentJsonFiles = readdirSyncSafe(R(".kiro", "agents")).filter((f) => f.endsWith(".json"));
+const agentJsonBlob = agentJsonFiles.map((f) => read(R(".kiro", "agents", f)) || "").join("\n");
 
 // A check returns [pass:boolean, detail:string].
 const ok = (d) => [true, d];
@@ -137,8 +139,9 @@ const CHECKS = [
     return ok("exit checklist + handoff file present");
   }],
   ["L13 Autonomous loop", () => {
-    const required = ["loop/goal.md", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/run-loop.mjs", ".kiro/agents/maker.json", ".kiro/agents/checker.json"];
+    const required = ["loop/goal.md", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/run-loop.mjs"];
     const missing = required.filter((r) => !exists(P(r)));
+    for (const r of [".kiro/agents/maker.json", ".kiro/agents/checker.json"]) if (!exists(R(r))) missing.push(r);
     if (missing.length) return no("missing: " + missing.join(", "));
     const goal = read(P("loop/goal.md"));
     if (!goal || !/stop condition/i.test(goal)) return no("loop/goal.md lacks a stop-condition section");

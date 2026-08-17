@@ -19,12 +19,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-process.chdir(ROOT);
+const PROJECT_ROOT = path.basename(ROOT) === "harness" ? path.dirname(ROOT) : ROOT;
+const HARNESS_PREFIX = PROJECT_ROOT === ROOT ? "" : "harness/";
+process.chdir(PROJECT_ROOT);
 const IS_WIN = process.platform === "win32";
 
 const say = (m) => console.log(m);
 const die = (m) => { console.error(m); process.exit(1); };
-const has = (f) => existsSync(path.join(ROOT, f));
+const has = (f) => existsSync(path.join(PROJECT_ROOT, f));
+const hasHarness = (f) => existsSync(path.join(ROOT, f));
 
 // Every verification command goes through here, and a non-zero exit STOPS the run.
 //
@@ -35,7 +38,7 @@ const has = (f) => existsSync(path.join(ROOT, f));
 // RUN a step, never whether to accept its failure.
 function run(cmd, { label = null, okExitCodes = [0] } = {}) {
   if (label) say(`=== ${label} ===`);
-  const r = spawnSync(cmd, { stdio: "inherit", shell: true, cwd: ROOT });
+  const r = spawnSync(cmd, { stdio: "inherit", shell: true, cwd: PROJECT_ROOT });
   if (r.error) die(`init: could not run \`${cmd}\` — ${r.error.message}`);
   const code = r.status === null ? 1 : r.status;
   if (!okExitCodes.includes(code)) {
@@ -52,14 +55,14 @@ say(`=== Harness init: {{PROJECT_NAME}} ===`);
 
 // Observability (Lesson 11): ensure the trace sink exists and record this run.
 mkdirSync(path.join(ROOT, "trace"), { recursive: true });
-if (has("tools/trace.mjs")) {
+if (hasHarness("tools/trace.mjs")) {
   spawnSync(process.execPath, ["tools/trace.mjs", "init", "session-start", "init.mjs"],
     { stdio: "ignore", cwd: ROOT });
 }
 
 // Keep the always-loaded feature digest in step with the source of truth (docs/reference/
 // llm-failure-modes.md: the full list dominates every agent's context, the digest is what they read).
-if (has("tools/feature-digest.mjs")) {
+if (hasHarness("tools/feature-digest.mjs")) {
   spawnSync(process.execPath, ["tools/feature-digest.mjs", "--target", "."], { stdio: "ignore", cwd: ROOT });
 }
 
@@ -99,7 +102,7 @@ if (has("package.json")) {
 } else if (has("build.gradle") || has("build.gradle.kts")) {
   const gradle = IS_WIN ? (has("gradlew.bat") ? "gradlew.bat" : "gradle") : (has("gradlew") ? "./gradlew" : "gradle");
   run(`${gradle} build test`, { label: "Gradle verification" });
-} else if (readdirSync(ROOT).some((f) => f.endsWith(".csproj") || f.endsWith(".sln"))) {
+} else if (readdirSync(PROJECT_ROOT).some((f) => f.endsWith(".csproj") || f.endsWith(".sln"))) {
   run("dotnet build", { label: ".NET verification" });
   run("dotnet test");
 } else {
@@ -111,4 +114,4 @@ if (has("package.json")) {
 
 say("=== Baseline green ===");
 say("");
-say("Next: read feature_list.json, pick ONE eligible feature, advance it, re-verify before 'done'.");
+say(`Next: read ${HARNESS_PREFIX}feature_list.json, pick ONE eligible feature, advance it, re-verify before 'done'.`);

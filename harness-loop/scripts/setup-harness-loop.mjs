@@ -13,6 +13,7 @@
 //   --force                         overwrite existing files (requires explicit user OK)
 import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, chmodSync, utimesSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,6 +24,9 @@ const flag = (name) => args.includes(name);
 const TARGET = opt("--target");
 if (!TARGET) { console.error("error: --target /path/to/project is required"); process.exit(2); }
 const targetRoot = path.resolve(TARGET);
+const LAYOUT = opt("--layout", process.env.HARNESS_LAYOUT || "contained");
+if (!new Set(["contained", "legacy"]).has(LAYOUT)) { console.error("error: --layout must be contained|legacy"); process.exit(2); }
+const harnessRoot = LAYOUT === "contained" ? path.join(targetRoot, "harness") : targetRoot;
 const AGENT_FILE = opt("--agent-file", "AGENTS.md");
 const FORCE = flag("--force");
 const NAME = opt("--name", path.basename(targetRoot));
@@ -90,6 +94,15 @@ function substitute(content, relPath) {
   // Rename the router if a different agent file was requested, and fix in-text references.
   if (AGENT_FILE !== "AGENTS.md") out = out.replaceAll("AGENTS.md", AGENT_FILE);
 
+  if (LAYOUT === "contained") {
+    out = out
+      .replaceAll("node tools/", "node harness/tools/")
+      .replaceAll("node loop/", "node harness/loop/")
+      .replaceAll("node init.mjs", "node harness/init.mjs")
+      .replaceAll("./init.sh", "./harness/init.sh")
+      .replaceAll("init.cmd", "harness/init.cmd");
+  }
+
   // Swap the verification block when custom commands were provided.
   if (relPath === "init.mjs") {
     const custom = customVerificationBlock();
@@ -102,8 +115,8 @@ function substitute(content, relPath) {
 
 // Destination path for a template-relative path (handles agent-file rename).
 function destOf(relPath) {
-  if (relPath === "AGENTS.md" && AGENT_FILE !== "AGENTS.md") return path.join(targetRoot, AGENT_FILE);
-  return path.join(targetRoot, relPath);
+  if (relPath === ".gitignore") return path.join(targetRoot, relPath);
+  return path.join(harnessRoot, relPath);
 }
 
 // --- walk + write ---------------------------------------------------------------------------
@@ -126,13 +139,35 @@ if (!exists(treeRoot)) { console.error(`error: template tree not found at ${tree
 mkdirSync(targetRoot, { recursive: true });
 walk(treeRoot);
 
+if (LAYOUT === "contained") {
+  const manifestPath = path.join(harnessRoot, "agents.manifest.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const harnessOwned = /^(AGENTS\.md|agents\.manifest\.json|feature_list(?:\.digest)?\.md|feature_list\.json|progress\.md|DECISIONS\.md|session-handoff\.md|requirement.*|docs\/|loop\/|memory\/|trace\/|prompts\/|skills\/|tools\/)/;
+  const prefix = (value) => value.startsWith("harness/") ? value : `harness/${value}`;
+  for (const agent of manifest.agents || []) {
+    agent.prompt = prefix(agent.prompt);
+    agent.resources = (agent.resources || []).map(prefix);
+    agent.writes = (agent.writes || []).map((entry) => harnessOwned.test(entry) ? prefix(entry) : entry);
+  }
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+}
+
+// Runtime discovery requires one root instruction file. Keep it a tiny adapter; the complete,
+// versioned rules live with the rest of the harness instead of being duplicated here.
+if (LAYOUT === "contained") {
+  const rootAgent = path.join(targetRoot, AGENT_FILE);
+  const adapter = `# ${NAME} — agent entry\n\nThe project harness lives under \`harness/\`. Before acting, read \`harness/AGENTS.md\` completely and follow it.\n\nStart with \`node harness/tools/loop-status.mjs\` and \`node harness/loop/route.mjs\`. The router, not the current agent, selects the next role.\n`;
+  if (!exists(rootAgent) || FORCE) { writeFileSync(rootAgent, adapter); written.push(AGENT_FILE); }
+  else skipped.push(AGENT_FILE);
+}
+
 // The onboarder is intentionally installed before the target has docs/constraints.md, so its
 // minimal entry cannot reference that file yet. Once setup creates the rulebook, complete the
 // handoff: a writing agent must load the rules it can now violate. Preserve every other field and
 // resource because the onboarder is target-owned rather than part of agents.manifest.json.
 const onboarderPath = path.join(targetRoot, ".kiro", "agents", "harness-onboarder.json");
-const constraintsUri = "file://../../docs/constraints.md";
-if (exists(onboarderPath) && exists(path.join(targetRoot, "docs", "constraints.md"))) {
+const constraintsUri = LAYOUT === "contained" ? "file://../../harness/docs/constraints.md" : "file://../../docs/constraints.md";
+if (exists(onboarderPath) && exists(path.join(harnessRoot, "docs", "constraints.md"))) {
   try {
     const onboarder = JSON.parse(readFileSync(onboarderPath, "utf8"));
     onboarder.resources = Array.isArray(onboarder.resources) ? onboarder.resources : [];
@@ -148,11 +183,11 @@ if (exists(onboarderPath) && exists(path.join(targetRoot, "docs", "constraints.m
 }
 
 // Copy the coverage checker into the target root so the loop/setup agent can run it locally.
-const checkerDest = path.join(targetRoot, "check-coverage.mjs");
+const checkerDest = path.join(harnessRoot, "check-coverage.mjs");
 if (!exists(checkerDest) || FORCE) {
   writeFileSync(checkerDest, readFileSync(path.join(scriptDir, "check-coverage.mjs"), "utf8"));
-  written.push("check-coverage.mjs");
-} else skipped.push("check-coverage.mjs");
+  written.push(path.relative(targetRoot, checkerDest));
+} else skipped.push(path.relative(targetRoot, checkerDest));
 
 // Knowledge the agents' prompts cite, and tools they invoke, must live IN the target — a prompt
 // pointing at harness-loop/references/... resolves to nothing in a scaffolded repo (the Fresh
@@ -183,6 +218,8 @@ const EXTRA_COPIES = [
   ["scripts/survey-project.mjs", "tools/survey-project.mjs"],
   ["scripts/services-check.mjs", "tools/services-check.mjs"],
   ["scripts/check-capability-eval.mjs", "tools/check-capability-eval.mjs"],
+  ["scripts/harness-status.mjs", "tools/harness-status.mjs"],
+  ["scripts/harness-cli.mjs", "cli.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],
@@ -210,11 +247,11 @@ const EXTRA_DIR_COPIES = [
   ["templates/quality-strategy", "skills/quality-strategy"],
 ];
 for (const [src, destRel] of EXTRA_COPIES) {
-  const dest = path.join(targetRoot, destRel);
-  if (exists(dest) && !FORCE) { skipped.push(destRel); continue; }
+  const dest = path.join(harnessRoot, destRel);
+  if (exists(dest) && !FORCE) { skipped.push(path.relative(targetRoot, dest)); continue; }
   mkdirSync(path.dirname(dest), { recursive: true });
   writeFileSync(dest, readFileSync(path.join(skillRoot, src), "utf8"));
-  written.push(destRel);
+  written.push(path.relative(targetRoot, dest));
 }
 for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
   const walkDir = (rel) => {
@@ -222,11 +259,11 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
       const childRel = path.join(rel, name.name);
       if (name.isDirectory()) { walkDir(childRel); continue; }
       const destRel = path.join(destDir, childRel);
-      const dest = path.join(targetRoot, destRel);
-      if (exists(dest) && !FORCE) { skipped.push(destRel); continue; }
+      const dest = path.join(harnessRoot, destRel);
+      if (exists(dest) && !FORCE) { skipped.push(path.relative(targetRoot, dest)); continue; }
       mkdirSync(path.dirname(dest), { recursive: true });
       writeFileSync(dest, readFileSync(path.join(skillRoot, srcDir, childRel), "utf8"));
-      written.push(destRel);
+      written.push(path.relative(targetRoot, dest));
     }
   };
   walkDir(".");
@@ -238,13 +275,13 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
 // thing gateVendor flags — and having the scaffolder create that state on day one would teach
 // everyone to ignore the finding.
 {
-  const vm = path.join(targetRoot, "vendor.manifest.json");
+  const vm = path.join(harnessRoot, "vendor.manifest.json");
   const skillRef = (() => {
     const r = spawnSync("git", ["-C", skillRoot, "rev-parse", "--short", "HEAD"], { encoding: "utf8" });
     return r.status === 0 ? r.stdout.trim() : null;
   })();
   const entries = EXTRA_DIR_COPIES
-    .filter(([, dst]) => exists(path.join(targetRoot, dst)))
+    .filter(([, dst]) => exists(path.join(harnessRoot, dst)))
     .map(([src, dst]) => ({
       path: dst,
       upstream: `harness-loop skill, ${src}`,
@@ -290,10 +327,10 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
   const normalized = existing.replace(/^trace\/\s*$/m, "trace/*");
   const want = [
     ["# --- harness: run output. Regenerated every run; committing it is pure diff noise.", null],
-    ["trace/*", "ephemeral"],
-    ["!trace/adoption-baseline.json", "state"],
-    ["loop/current.json", "ephemeral"],
-    ["loop/route-log.jsonl", "ephemeral"],
+    [LAYOUT === "contained" ? "harness/trace/*" : "trace/*", "ephemeral"],
+    [LAYOUT === "contained" ? "!harness/trace/adoption-baseline.json" : "!trace/adoption-baseline.json", "state"],
+    [LAYOUT === "contained" ? "harness/loop/current.json" : "loop/current.json", "ephemeral"],
+    [LAYOUT === "contained" ? "harness/loop/route-log.jsonl" : "loop/route-log.jsonl", "ephemeral"],
   ];
   if (IGNORE_MACHINERY) {
     want.push(
@@ -340,7 +377,7 @@ if (k8sOn) {
     for (const e of readdirSync(path.join(k8sRoot, rel), { withFileTypes: true })) {
       const childRel = path.join(rel, e.name);
       if (e.isDirectory()) { walkK8s(childRel); continue; }
-      const dest = path.join(targetRoot, childRel);
+      const dest = path.join(harnessRoot, childRel);
       if (exists(dest) && !FORCE) { skipped.push(childRel); continue; }
       mkdirSync(path.dirname(dest), { recursive: true });
       writeFileSync(dest, readFileSync(path.join(k8sRoot, childRel), "utf8"));
@@ -545,7 +582,10 @@ if (INTEGRATION) {
 // does not error — it silently runs as a different agent (HI-005).
 {
   const gen = spawnSync(process.execPath,
-    [path.join(targetRoot, "tools", "gen-agents.mjs"), "--target", targetRoot, "--runtime", RUNTIME],
+    [path.join(harnessRoot, "tools", "gen-agents.mjs"), "--target", targetRoot,
+      "--manifest", path.relative(targetRoot, path.join(harnessRoot, "agents.manifest.json")),
+      "--receipt", path.relative(targetRoot, path.join(harnessRoot, "agents.generated.json")),
+      "--tool-root", path.relative(targetRoot, path.join(harnessRoot, "tools")), "--runtime", RUNTIME],
     { encoding: "utf8" });
   if (gen.status === 0) {
     for (const line of (gen.stdout || "").split("\n")) {
@@ -556,24 +596,54 @@ if (INTEGRATION) {
 
 // The graph ships describing exactly these agents, but generation writes them after the copy, so
 // their mtimes would make a brand-new scaffold report graph-stale on its first verify. Restamp it.
-{ const g = path.join(targetRoot, "docs", "reference", "graph.md");
+{ const g = path.join(harnessRoot, "docs", "reference", "graph.md");
   if (exists(g)) { const now = new Date(); try { utimesSync(g, now, now); } catch {} } }
 
 // Generated, not templated: six agents load feature_list.digest.md as a resource — it is what
 // keeps the full feature list out of every agent's context budget. Shipping those agents without
 // generating it means each one starts missing a file kiro will not complain about
 // (references/llm-failure-modes.md, and the agent-uri-broken gate that caught this).
-const digestPath = path.join(targetRoot, "feature_list.digest.md");
+const digestPath = path.join(harnessRoot, "feature_list.digest.md");
 if (!exists(digestPath) || FORCE) {
   const gen = spawnSync(process.execPath,
-    [path.join(targetRoot, "tools", "feature-digest.mjs"), "--target", targetRoot],
+    [path.join(harnessRoot, "tools", "feature-digest.mjs"), "--target", harnessRoot],
     { encoding: "utf8" });
   if (gen.status === 0 && exists(digestPath)) written.push("feature_list.digest.md");
   else console.error(`  ! could not generate feature_list.digest.md — run: node tools/feature-digest.mjs --target ${targetRoot}`);
 } else skipped.push("feature_list.digest.md");
 
+// Git cannot diff files that intentionally remain uncommitted. Record an installation receipt so
+// one cheap command can still distinguish modified, missing and newly introduced harness files.
+if (LAYOUT === "contained") {
+  const installationPath = path.join(harnessRoot, "installation.json");
+  if (exists(installationPath) && !FORCE) {
+    skipped.push("harness/installation.json");
+  } else {
+  const files = {};
+  const scan = (dir, rel = "") => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const child = rel ? path.join(rel, entry.name) : entry.name;
+      if (child === "installation.json" || child.startsWith(`trace${path.sep}`) ||
+          [path.join("loop", "current.json"), path.join("loop", "route-log.jsonl")].includes(child)) continue;
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) scan(abs, child);
+      else files[child.split(path.sep).join("/")] = {
+        sha256: createHash("sha256").update(readFileSync(abs)).digest("hex"),
+        ownership: /^(prompts|docs|AGENTS\.md|agents\.manifest\.json|init\.mjs)/.test(child)
+          ? "project-customizable" : "harness-owned",
+      };
+    }
+  };
+  scan(harnessRoot);
+  writeFileSync(installationPath, JSON.stringify({
+    schema: "harness-installation/1", installedAt: new Date().toISOString(), layout: "contained", files,
+  }, null, 2) + "\n");
+  written.push("harness/installation.json");
+  }
+}
+
 // --- report ---------------------------------------------------------------------------------
-console.log(`\nHarness loop scaffolded into: ${targetRoot}`);
+console.log(`\nHarness loop scaffolded into: ${harnessRoot}`);
 console.log(`  agent file: ${AGENT_FILE}   package manager: ${PM || "n/a (edit init.sh)"}\n`);
 console.log(`  Written (${written.length}):`);
 for (const f of written) console.log(`    + ${f}`);
@@ -583,16 +653,15 @@ if (skipped.length) {
 }
 console.log(`\nNext steps — you do not have to memorise the order:`);
 console.log(`  0. cd ${TARGET}`);
-console.log(`  1. Fill the placeholders. requirement*.md is yours to write; docs/architecture.md,`);
-console.log(`     docs/constraints.md and docs/testing-standards.md must describe THIS project, and`);
-console.log(`     loop/goal.md needs a real objective with a machine-checkable stopping condition.`);
+console.log(`  1. Fill the placeholders under ${LAYOUT === "contained" ? "harness/" : "the project root"}.`);
 console.log(`     verify-harness reports every placeholder left behind as a blocker, so nothing is`);
 console.log(`     silently skipped.`);
-console.log(`  2. ./init.sh                              # baseline green before any loop`);
-console.log(`  3. node check-coverage.mjs                # 13/13 lessons`);
-console.log(`  4. node tools/verify-harness.mjs --target . --run-features     # 0 blockers is the bar`);
-console.log(`  5. node loop/route.mjs                    # asks the state which agent runs next, and why`);
-console.log(`  6. node loop/run-loop.mjs 1                # one supervised iteration, routed automatically`);
+const hp = LAYOUT === "contained" ? "harness/" : "";
+console.log(`  2. node ${hp}init.mjs                     # baseline green before any loop`);
+console.log(`  3. node ${hp}check-coverage.mjs --target ${hp || "."}       # 13/13 lessons`);
+console.log(`  4. node ${hp}tools/verify-harness.mjs --target ${hp || "."} --run-features`);
+console.log(`  5. node ${hp}loop/route.mjs               # asks which agent runs next`);
+console.log(`  6. node ${hp}loop/run-loop.mjs 1          # one supervised iteration`);
 console.log(``);
 console.log(`The router picks the node; you do not. It walks deeper-first — a fact only a human has`);
 console.log(`(human-interview skill, without switching agents), then design, decomposition, the oracle, and code.`);
@@ -600,7 +669,7 @@ console.log(`Run it whenever you are unsure what to do next.`);
 console.log(``);
 console.log(`Runtimes: agents were generated for ${RUNTIME === "both" ? "kiro-cli AND Claude Code" : RUNTIME}.`);
 console.log(`Set HARNESS_RUNTIME=kiro|claude|codex to force one; run-loop.mjs otherwise detects it.`);
-console.log(`Regenerate after editing agents.manifest.json: node tools/gen-agents.mjs --target .`);
+console.log(`Regenerate agents through setup/upgrade; ${hp}agents.manifest.json is canonical.`);
 console.log(``);
 console.log(`Adopting a repo with history instead of starting fresh? Do NOT use this script directly —`);
 console.log(`run scripts/install-onboarder.mjs against it, and read`);

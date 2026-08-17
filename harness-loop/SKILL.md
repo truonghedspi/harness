@@ -448,15 +448,25 @@ and was already bitten: `skills/test-design`'s schema was widened here to accept
 requirement id, with nothing recording that as local — so the next sync would silently revert the
 fix, or silently keep a stale one.
 
-## What the harness commits, and what it ignores
+## Contained target layout, commits and ignores
+
+Fresh targets use `harness/` as the one home for state, machinery, prompts, memory and docs. Root
+keeps only a thin `AGENTS.md` pointer and the hidden runtime adapters whose discovery locations are
+fixed by Kiro, Claude Code and Codex. The stable interface is `node harness/cli.mjs
+<status|init|coverage|verify|route|run>`; internal paths are not the user's interface.
+
+`harness/installation.json` records the installed bytes. `node harness/cli.mjs status` therefore
+names modified, missing and unmanaged files even when the harness has never been committed. The
+directory is deliberately not added to `.gitignore`: Git shows that experimental machinery exists,
+while the receipt supplies the baseline Git cannot provide for untracked files.
 
 Three categories. Conflating them is how a harness quietly stops working:
 
 | | Examples | Tracked? |
 |---|---|---|
-| **Run output** | `trace/**`, `loop/current.json`, `loop/route-log.jsonl` | **ignored** — regenerated every run, pure diff noise |
-| **State** | `feature_list.json`, `progress.md`, `DECISIONS.md`, `session-handoff.md`, `memory/**`, `docs/**` | **always tracked.** This is the externalised memory the design rests on, and gates read it *out of git* — `feature-field-lost` compares against `git show HEAD:feature_list.json`, so ignoring it turns a blocker into a no-op |
-| **Machinery** | `tools/`, `prompts/`, `.kiro/`, `.claude/`, `.codex/`, `docs/reference/` | tracked by default; `setup --gitignore-harness` keeps it out of a product repo. The cost is real: a clone that ignores it cannot run the loop until the harness is re-installed |
+| **Run output** | `harness/trace/**`, `harness/loop/current.json`, `harness/loop/route-log.jsonl` | **ignored** — regenerated every run, pure diff noise |
+| **State** | `harness/feature_list.json`, `progress.md`, `DECISIONS.md`, `session-handoff.md`, `memory/**`, `docs/**` | under the contained home; track it when the experiment graduates because it is externalised memory |
+| **Machinery** | `harness/tools/`, `prompts/`, `skills/`, runtime adapters | visible but uncommitted during experimentation; the installation receipt detects drift |
 
 ## Upgrading a target that already exists
 

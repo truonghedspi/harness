@@ -11,7 +11,7 @@
 // END, bulk structured data in the middle where U-shaped recall costs least.
 //
 // Usage: node context-budget.mjs --target DIR [--json] [--budget N]
-import { readFileSync, readdirSync, statSync , writeSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync , writeSync } from "node:fs";
 import path from "node:path";
 
 // stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
@@ -21,7 +21,8 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const JSON_OUT = args.includes("--json");
-const TARGET = path.resolve(opt("--target", "."));
+const requestedTarget = path.resolve(opt("--target", "."));
+const TARGET = existsSync(path.join(requestedTarget, "harness", "feature_list.json")) ? path.join(requestedTarget, "harness") : requestedTarget;
 const BUDGET = Number(opt("--budget", 1200));   // lines auto-loaded before the agent starts work
 
 const P = (...p) => path.join(TARGET, ...p);

@@ -23,6 +23,10 @@ This repository holds the agent-harness assets for the team:
   natively on Windows, macOS and Linux through Node `.mjs` entry points; `.sh` and `.cmd` files are
   compatibility wrappers only. In an interactive session, the orchestrator natively spawns the
   one sub-agent selected by the router; Node dispatch is the headless/CI fallback.
+  Fresh scaffolds contain harness state, tools, prompts and documentation under one root-level
+  `harness/` directory. Only `AGENTS.md` and runtime-required `.kiro/`, `.claude/`, `.codex/`
+  adapters remain at project root. `node harness/cli.mjs status` detects local changes even while
+  the experimental harness remains uncommitted.
   Kubernetes-deployed microservice without Docker access: an opt-in
   `harness-loop/templates/k8s/tools/k8s-test-env.sh` does namespace-per-run Helm
   deploy/test/collect-diagnostics/teardown for Level 3 testing, and the opt-in

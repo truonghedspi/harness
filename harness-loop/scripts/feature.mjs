@@ -16,14 +16,15 @@
 //   node tools/feature.mjs --deps feat-sit-2       its dependencies, and whether each is done
 //
 // Exit 0 found · 1 no match (so `if node tools/feature.mjs X >/dev/null; then` works) · 2 usage.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { writeSync } from "node:fs";
 import path from "node:path";
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
-const TARGET = path.resolve(opt("--target", "."));
+const requestedTarget = path.resolve(opt("--target", "."));
+const TARGET = existsSync(path.join(requestedTarget, "harness", "feature_list.json")) ? path.join(requestedTarget, "harness") : requestedTarget;
 const JSON_OUT = has("--json");
 const out = (s) => writeSync(1, s.endsWith("\n") ? s : s + "\n");
 

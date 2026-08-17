@@ -29,12 +29,13 @@
 //
 // Usage (as a hook): node tools/guard-write.mjs <agent-name>    # payload on stdin
 //                    node tools/guard-write.mjs --from-env      # role from $HARNESS_AGENT (Codex)
-import { readFileSync, writeSync } from "node:fs";
+import { existsSync, readFileSync, writeSync } from "node:fs";
 import path from "node:path";
 
 const arg = process.argv[2];
 const agentName = arg === "--from-env" ? (process.env.HARNESS_AGENT || null) : arg;
 const root = process.cwd();
+const home = existsSync(path.join(root, "harness", "agents.manifest.json")) ? path.join(root, "harness") : root;
 
 const decide = (decision, reason) => {
   // writeSync, not process.stdout.write: exit() does not flush a pending async write to a pipe.
@@ -115,7 +116,7 @@ if (!agentName) {
 }
 
 let manifest;
-try { manifest = JSON.parse(readFileSync(path.join(root, "agents.manifest.json"), "utf8")); }
+try { manifest = JSON.parse(readFileSync(path.join(home, "agents.manifest.json"), "utf8")); }
 catch { decide("allow", "agents.manifest.json unreadable — not blocking on a missing rulebook"); }
 
 const agent = (manifest.agents || []).find((a) => a.name === agentName);

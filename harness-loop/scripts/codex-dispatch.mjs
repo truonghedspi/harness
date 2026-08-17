@@ -31,6 +31,8 @@ if (!name || !message) {
 }
 const root = process.cwd();
 const P = (...p) => path.join(root, ...p);
+const home = existsSync(P("harness", "agents.manifest.json")) ? P("harness") : root;
+const H = (...p) => path.join(home, ...p);
 
 if (!spawnSync("codex", ["--version"], { encoding: "utf8" }).stdout) {
   console.error("codex CLI not found on PATH. Install it, or set HARNESS_RUNTIME to kiro or claude.");
@@ -38,7 +40,7 @@ if (!spawnSync("codex", ["--version"], { encoding: "utf8" }).stdout) {
 }
 
 let manifest;
-try { manifest = JSON.parse(readFileSync(P("agents.manifest.json"), "utf8")); }
+try { manifest = JSON.parse(readFileSync(H("agents.manifest.json"), "utf8")); }
 catch (e) { console.error(`cannot read agents.manifest.json: ${e.message}`); process.exit(2); }
 const agent = (manifest.agents || []).find((a) => a.name === name);
 if (!agent) { console.error(`no agent "${name}" in agents.manifest.json`); process.exit(2); }
@@ -53,7 +55,7 @@ if (promptBody === null) {
 
 // Same context Claude Code injects, from the same script.
 let context = "";
-const ctx = spawnSync(process.execPath, [P("tools", "agent-context.mjs"), name], { encoding: "utf8", input: "{}" });
+const ctx = spawnSync(process.execPath, [H("tools", "agent-context.mjs"), name], { encoding: "utf8", input: "{}" });
 try { context = JSON.parse(ctx.stdout).hookSpecificOutput.additionalContext || ""; }
 catch { context = `[harness] tools/agent-context.mjs produced no context for "${name}" — this role is running without its resource list. Report it rather than working around it.`; }
 

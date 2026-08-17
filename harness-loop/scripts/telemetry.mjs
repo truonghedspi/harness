@@ -7,14 +7,15 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const opt = (name, fallback = null) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
 const root = path.resolve(opt("--target", process.cwd()));
+const home = existsSync(path.join(root, "harness", "feature_list.json")) ? path.join(root, "harness") : root;
 const runtime = opt("--runtime", "unknown");
 const actor = opt("--actor", process.env.HARNESS_AGENT || "unknown");
 const maxEvents = 20_000;
-const output = path.join(root, "trace", "tool-events.jsonl");
+const output = path.join(home, "trace", "tool-events.jsonl");
 const hash = (value) => createHash("sha256").update(`${root}\0${String(value || "")}`).digest("hex");
 const readJSON = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return null; } };
 const payload = (() => { try { return JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { return {}; } })();
-const current = readJSON(path.join(root, "loop", "current.json")) || {};
+const current = readJSON(path.join(home, "loop", "current.json")) || {};
 
 function relative(input) {
   if (!input || typeof input !== "string") return null;

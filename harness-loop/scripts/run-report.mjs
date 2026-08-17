@@ -13,7 +13,7 @@
 //   node tools/run-report.mjs --target DIR [--since ISO8601|-Nh] [--json]
 //
 // --since accepts an ISO timestamp or a relative "-6h" / "-30m" / "-2d". Default: everything.
-import { readFileSync, readdirSync, statSync , writeSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync , writeSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 
@@ -24,7 +24,8 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const JSON_OUT = args.includes("--json");
-const TARGET = path.resolve(opt("--target", "."));
+const requestedTarget = path.resolve(opt("--target", "."));
+const TARGET = existsSync(path.join(requestedTarget, "harness", "feature_list.json")) ? path.join(requestedTarget, "harness") : requestedTarget;
 
 function parseSince(v) {
   if (!v) return null;

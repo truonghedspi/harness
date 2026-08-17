@@ -19,7 +19,8 @@ import path from "node:path";
 
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
-const TARGET = path.resolve(opt("--target", "."));
+const requestedTarget = path.resolve(opt("--target", "."));
+const TARGET = existsSync(path.join(requestedTarget, "harness", "feature_list.json")) ? path.join(requestedTarget, "harness") : requestedTarget;
 const WATCH = args.includes("--watch");
 const EVERY = Number(opt("--every", 5)) * 1000;
 const JSON_OUT = args.includes("--json");

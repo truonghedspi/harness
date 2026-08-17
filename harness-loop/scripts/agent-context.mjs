@@ -25,6 +25,7 @@ import { planContext } from "./context-plan.mjs";
 
 const agentName = process.argv[2];
 const root = process.cwd();
+const home = existsSync(path.join(root, "harness", "agents.manifest.json")) ? path.join(root, "harness") : root;
 // writeSync, not process.stdout.write: exit() does not flush a pending async write to a pipe,
 // so the tail of a large payload is silently lost. Found by the demo cutting off mid-file.
 const emit = (o) => { writeSync(1, JSON.stringify(o)); process.exit(0); };
@@ -34,7 +35,7 @@ const ok = (text, contextInputs = []) => emit({
 });
 
 let manifest;
-try { manifest = JSON.parse(readFileSync(path.join(root, "agents.manifest.json"), "utf8")); }
+try { manifest = JSON.parse(readFileSync(path.join(home, "agents.manifest.json"), "utf8")); }
 catch { ok(`[harness] agents.manifest.json unreadable from ${root} — no per-agent context injected.`); }
 
 const agent = (manifest.agents || []).find((a) => a.name === agentName);
@@ -55,7 +56,7 @@ for (const rel of agent.resources || []) {
 // A feature touching a sibling service opts into that service's original rules. Selection is
 // scope-based and deterministic; loading every service's rules would turn multi-repo awareness
 // into permanent context tax and make conflicting conventions impossible to apply correctly.
-const planned = planContext({ target: root });
+const planned = planContext({ target: home });
 for (const input of planned.inputs) {
   contextInputs.push(input);
   if (input.status === "missing") { missing.push(input.path); continue; }

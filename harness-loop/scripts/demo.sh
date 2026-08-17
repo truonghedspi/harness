@@ -16,6 +16,7 @@ FAIL=0
 # Isolate the issue log: this run manufactures synthetic defects (an injected bug, a mechanism
 # test for regression detection) that must never land in the real harness-issues.jsonl.
 export HARNESS_ISSUE_LOG="$WORK/demo-issues.jsonl"
+export HARNESS_LAYOUT=legacy
 echo "demo issue log (isolated from production): $HARNESS_ISSUE_LOG"
 
 step() { echo ""; echo "── [$1] $2 ──"; }
@@ -2638,6 +2639,37 @@ PATH="$STUBBIN:$PATH" KIRO_API_KEY=demo-stub bash "$SCRIPTS/harness-loop.sh" --t
 tail -25 /tmp/demo-meta.$$
 grep -Eq "canonical workflow state repeated|router: features are open but no rule routes them" /tmp/demo-meta.$$; expect "loop stops itself on a repeated state or bounded human checkpoint instead of spinning forever" $?
 rm -f /tmp/demo-meta.$$
+
+step 43 "contained layout: one harness home, thin runtime adapters, observable uncommitted changes"
+CT="$WORK/contained"; rm -rf "$CT"; mkdir -p "$CT"
+printf '{"name":"contained-demo","private":true,"scripts":{"test":"node -e \\"process.exit(0)\\""}}\n' > "$CT/package.json"
+HARNESS_LAYOUT=contained node "$SCRIPTS/setup-harness-loop.mjs" --target "$CT" --name "Contained" --purpose "single harness home" --runtime all >/dev/null
+test -d "$CT/harness/tools" -a -d "$CT/harness/prompts" -a -d "$CT/harness/loop" -a -d "$CT/harness/docs" \
+  -a ! -e "$CT/tools" -a ! -e "$CT/prompts" -a ! -e "$CT/loop" -a ! -e "$CT/docs"
+expect "all non-runtime harness directories live under root/harness" $?
+test -f "$CT/AGENTS.md" -a -f "$CT/.kiro/agents/orchestrator.json" -a -f "$CT/.claude/agents/orchestrator.md" -a -f "$CT/.codex/agents/orchestrator.toml" \
+  && grep -q 'harness/AGENTS.md' "$CT/AGENTS.md" && grep -q 'file://../../harness/prompts/orchestrator.md' "$CT/.kiro/agents/orchestrator.json"
+expect "root keeps only the discovery adapters each runtime requires" $?
+git -C "$CT" init -q; git -C "$CT" check-ignore -q harness/AGENTS.md; [ "$?" != "0" ]
+expect "the contained harness is visible to git status rather than hidden by gitignore" $?
+node "$CT/harness/tools/harness-status.mjs" --target "$CT" >/dev/null
+expect "the installation checksum reports an untouched uncommitted harness clean" $?
+cp "$CT/harness/prompts/orchestrator.md" "$CT/orchestrator.original"
+printf '\nlocal experiment\n' >> "$CT/harness/prompts/orchestrator.md"
+node "$CT/harness/tools/harness-status.mjs" --target "$CT" > "$CT/status.out"; HS=$?
+[ "$HS" = "1" ] && grep -q 'MODIFIED' "$CT/status.out" && grep -q 'prompts/orchestrator.md' "$CT/status.out"
+expect "one command names the ignored-history file changed since setup" $?
+cp "$CT/orchestrator.original" "$CT/harness/prompts/orchestrator.md"
+node "$CT/harness/loop/route.mjs" --json > "$CT/route.json"
+node -e "const r=require('$CT/route.json');process.exit(r.node&&r.node!=='orchestrator'?0:1)"
+expect "the contained router still selects a real workflow node" $?
+( cd "$CT" && node harness/tools/gen-agents.mjs --target . --runtime all --check >/dev/null &&
+  node harness/tools/agent-context.mjs orchestrator </dev/null > context.json )
+node -e "const r=require('$CT/context.json');process.exit(/agents.manifest.json unreadable/.test(r.hookSpecificOutput.additionalContext)?1:0)"
+expect "runtime hooks resolve the contained manifest and resources from project root" $?
+node "$SCRIPTS/upgrade-harness.mjs" --target "$CT" --dry-run --json > "$CT/upgrade.json"
+node -e "const r=require('$CT/upgrade.json');process.exit(!r.changed.length&&!r.added.length&&!r.drifted.length&&!r.missing.length?0:1)"
+expect "a freshly contained scaffold reports no false upgrade drift" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

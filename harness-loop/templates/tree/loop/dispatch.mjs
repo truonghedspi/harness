@@ -7,11 +7,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PROJECT_ROOT = path.basename(ROOT) === "harness" ? path.dirname(ROOT) : ROOT;
 const IS_WIN = process.platform === "win32";
 const QUOTA = /monthly request limit reached|rate limit exceeded|quota exceeded|usage limit reached|temporarily unavailable/i;
 
 function commandRuns(command, args = ["--version"]) {
-  const result = spawnSync(command, args, { cwd: ROOT, stdio: "ignore", shell: IS_WIN });
+  const result = spawnSync(command, args, { cwd: PROJECT_ROOT, stdio: "ignore", shell: IS_WIN });
   return !result.error && result.status === 0;
 }
 
@@ -20,9 +21,9 @@ export function selectRuntime(forced = process.env.HARNESS_RUNTIME || "") {
     throw new Error(`unknown HARNESS_RUNTIME=${forced} (expected kiro, claude or codex)`);
   }
   if (forced) return forced;
-  if (existsSync(path.join(ROOT, ".kiro", "agents")) && commandRuns("kiro-cli")) return "kiro";
-  if (existsSync(path.join(ROOT, ".claude", "agents")) && commandRuns("claude")) return "claude";
-  if (existsSync(path.join(ROOT, ".codex", "agents")) && commandRuns("codex")) return "codex";
+  if (existsSync(path.join(PROJECT_ROOT, ".kiro", "agents")) && commandRuns("kiro-cli")) return "kiro";
+  if (existsSync(path.join(PROJECT_ROOT, ".claude", "agents")) && commandRuns("claude")) return "claude";
+  if (existsSync(path.join(PROJECT_ROOT, ".codex", "agents")) && commandRuns("codex")) return "codex";
   throw new Error("no runtime — install kiro-cli, claude or codex, with the matching agents directory");
 }
 
@@ -30,11 +31,11 @@ function checkRuntime(runtime) {
   if (runtime === "kiro" && !process.env.KIRO_API_KEY && !commandRuns("kiro-cli", ["whoami"])) {
     throw new Error("no auth — set KIRO_API_KEY or log in first (kiro-cli login)");
   }
-  if (runtime === "claude" && !existsSync(path.join(ROOT, ".claude", "agents"))) {
+  if (runtime === "claude" && !existsSync(path.join(PROJECT_ROOT, ".claude", "agents"))) {
     throw new Error("runtime=claude but .claude/agents/ is missing");
   }
   if (runtime === "codex") {
-    if (!existsSync(path.join(ROOT, ".codex", "hooks.json"))) {
+    if (!existsSync(path.join(PROJECT_ROOT, ".codex", "hooks.json"))) {
       throw new Error("runtime=codex but .codex/hooks.json is missing — write restrictions would not be enforced");
     }
     if (!commandRuns("codex", ["login", "status"])) throw new Error("codex is not logged in (codex login)");
@@ -44,7 +45,7 @@ function checkRuntime(runtime) {
 function invocation(runtime, agent, message) {
   if (runtime === "kiro") return ["kiro-cli", ["chat", "--agent", agent, "--no-interactive", "--trust-all-tools", message]];
   if (runtime === "claude") return ["claude", ["-p", message, "--agent", agent, "--dangerously-skip-permissions"]];
-  return [process.execPath, ["tools/codex-dispatch.mjs", agent, message]];
+  return [process.execPath, [path.join(ROOT, "tools", "codex-dispatch.mjs"), agent, message]];
 }
 
 export async function dispatch(agent, message, { runtime = selectRuntime() } = {}) {
@@ -52,7 +53,7 @@ export async function dispatch(agent, message, { runtime = selectRuntime() } = {
   const [command, args] = invocation(runtime, agent, message);
   return await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      cwd: ROOT, env: { ...process.env, HARNESS_AGENT: agent }, shell: IS_WIN,
+      cwd: PROJECT_ROOT, env: { ...process.env, HARNESS_AGENT: agent }, shell: IS_WIN,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";

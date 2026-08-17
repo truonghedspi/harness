@@ -40,11 +40,14 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const TARGET = path.resolve(opt("--target", "."));
+const CONTAINED = existsSync(path.join(TARGET, "harness", "agents.manifest.json"));
+const MANIFEST = opt("--manifest", CONTAINED ? "harness/agents.manifest.json" : "agents.manifest.json");
+const RECEIPT = opt("--receipt", CONTAINED ? "harness/agents.generated.json" : "agents.generated.json");
+const TOOL_ROOT = opt("--tool-root", CONTAINED ? "harness/tools" : "tools").replaceAll("\\", "/");
 const RUNTIME = opt("--runtime", "both");
 const CHECK = args.includes("--check");
 const P = (...p) => path.join(TARGET, ...p);
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
-const RECEIPT = "agents.generated.json";
 const previousGenerated = (() => {
   try {
     const j = JSON.parse(read(P(RECEIPT)) || "{}");
@@ -52,7 +55,7 @@ const previousGenerated = (() => {
   } catch { return new Set(); }
 })();
 
-const manifest = JSON.parse(readFileSync(P("agents.manifest.json"), "utf8"));
+const manifest = JSON.parse(readFileSync(P(MANIFEST), "utf8"));
 const agents = manifest.agents.filter((a) => !a.optional || existsSync(P(a.prompt)));
 
 const GEN_HEADER = (src) =>
@@ -78,20 +81,20 @@ function kiroAgent(a) {
   const hooks = {};
   if (a.trace || a.spawnCommands) {
     hooks.agentSpawn = [
-      ...(a.trace ? [{ command: `node tools/trace.mjs ${a.name} session-start` }] : []),
+      ...(a.trace ? [{ command: `node ${TOOL_ROOT}/trace.mjs ${a.name} session-start` }] : []),
       ...(a.spawnCommands || []).map((command) => ({ command })),
     ];
   }
   if (a.traceToolUse && a.traceToolUse.length) {
     hooks.postToolUse = a.traceToolUse.map((matcher) => ({
       matcher,
-      command: `node tools/trace.mjs ${a.name} tool-use ${matcher === "execute_bash" ? "shell" : "write"}`,
+      command: `node ${TOOL_ROOT}/trace.mjs ${a.name} tool-use ${matcher === "execute_bash" ? "shell" : "write"}`,
     }));
   }
   hooks.postToolUse = [...(hooks.postToolUse || []), ...["fs_read", "read", "grep", "glob", "execute_bash"]
     .map((matcher) => ({ matcher,
-      command: `node tools/telemetry.mjs --runtime kiro --actor ${a.name}` }))];
-  if (a.trace) hooks.stop = [{ command: `node tools/trace.mjs ${a.name} session-end` }];
+      command: `node ${TOOL_ROOT}/telemetry.mjs --runtime kiro --actor ${a.name}` }))];
+  if (a.trace) hooks.stop = [{ command: `node ${TOOL_ROOT}/trace.mjs ${a.name} session-end` }];
   if (Object.keys(hooks).length) j.hooks = hooks;
   if (a.welcomeMessage) j.welcomeMessage = a.welcomeMessage;
   return JSON.stringify(j, null, 2) + "\n";
@@ -103,7 +106,7 @@ function claudeAgent(a) {
   // Injects this agent's resources at spawn. The kiro equivalent is a static list; here it is
   // computed each run, which is strictly better — a stale resource list cannot happen.
   if (a.resources.length) {
-    hooks.push(`  SubagentStart:\n    - command: "node tools/agent-context.mjs ${a.name}"`);
+    hooks.push(`  SubagentStart:\n    - command: "node ${TOOL_ROOT}/agent-context.mjs ${a.name}"`);
   }
   // The only per-agent write restriction Claude Code can express.
   if (a.writes) {
@@ -112,12 +115,12 @@ function claudeAgent(a) {
     // named and was absent for the one every agent has. Shell inspection is best-effort by nature
     // (a script can always write through an API), so guard-write catches the common redirect shapes
     // and clean-state's stray-verification-script catches whatever gets through.
-    hooks.push(`  PreToolUse:\n    - matcher: "Edit|Write|NotebookEdit|Bash"\n      command: "node tools/guard-write.mjs ${a.name}"`);
+    hooks.push(`  PreToolUse:\n    - matcher: "Edit|Write|NotebookEdit|Bash"\n      command: "node ${TOOL_ROOT}/guard-write.mjs ${a.name}"`);
   }
   if (a.trace) {
-    hooks.push(`  SubagentStop:\n    - command: "node tools/trace.mjs ${a.name} session-end"`);
+    hooks.push(`  SubagentStop:\n    - command: "node ${TOOL_ROOT}/trace.mjs ${a.name} session-end"`);
   }
-  hooks.push(`  PostToolUse:\n    - matcher: "Read|Grep|Glob|Bash"\n      command: "node tools/telemetry.mjs --runtime claude --actor ${a.name}"`);
+  hooks.push(`  PostToolUse:\n    - matcher: "Read|Grep|Glob|Bash"\n      command: "node ${TOOL_ROOT}/telemetry.mjs --runtime claude --actor ${a.name}"`);
   const body = read(P(a.prompt));
   if (body === null) return null;
   // Claude Code has no welcomeMessage field. The text exists so a human knows what this role can
@@ -195,11 +198,11 @@ function codexHooks(list) {
     hooks: {
       PreToolUse: [{
         matcher: ".*",
-        hooks: [{ type: "command", command: "node tools/guard-write.mjs --from-env" }],
+        hooks: [{ type: "command", command: `node ${TOOL_ROOT}/guard-write.mjs --from-env` }],
       }],
       PostToolUse: [{
         matcher: ".*",
-        hooks: [{ type: "command", command: "node tools/telemetry.mjs --runtime codex --actor \${HARNESS_AGENT:-unknown}" }],
+        hooks: [{ type: "command", command: `node ${TOOL_ROOT}/telemetry.mjs --runtime codex --actor \${HARNESS_AGENT:-unknown}` }],
       }],
     },
   }, null, 2) + "\n";
