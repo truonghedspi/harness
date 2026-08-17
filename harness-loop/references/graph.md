@@ -67,7 +67,10 @@ product file (`guard-write.mjs` enforces it on Claude Code and Codex, `allowedPa
 
 `human-presenter` is likewise absent from routing because it is not an agent or state transition. It
 wraps substantive communication in the current context; routing it as a node would recreate the
-context switch the user-scope skill exists to remove.
+context switch the user-scope skill exists to remove. For Kiro, `install-user-skill.mjs` writes a
+global `inclusion: always` steering bridge that points at the installed skill. The bridge is loaded
+with agent context; it exposes activation rules rather than copying the full skill into every turn.
+`human-interview` uses the same bridge but remains conditional on a human-owned information gap.
 
 Every agent node above is generated from `agents.manifest.json` into all three runtimes. Adding one
 means adding a manifest entry, not writing three config files.

@@ -42,7 +42,9 @@ This repository holds the agent-harness assets for the team:
   constraints, including ownership/isolation/cleanup for cluster-sized evidence.
   The versioned `user-skills/human-presenter` package is installed once at user scope with
   `install-user-skill.mjs`; it applies a lightweight communication audit to substantive answers,
-  conditionally loading intent, provenance, language and visual-routing references.
+  conditionally loading intent, provenance, language and visual-routing references. The installer
+  also writes an always-included global Kiro steering bridge, because installing a skill alone does
+  not guarantee that an agent will notice its trigger.
   `user-skills/human-interview` replaces the context-switching interviewer agent: the agent that
   discovers a human-owned gap exhausts evidence, asks in place, validates the answer and records a
   durable receipt.

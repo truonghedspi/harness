@@ -338,10 +338,12 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Making every substantive agent-to-human message audience-aware, provenance-honest and visually
   appropriate through a user-scope thin-router skill:
   [references/human-presenter-research.md](references/human-presenter-research.md). Install with
-  `node harness-loop/scripts/install-user-skill.mjs --name human-presenter`.
+  `node harness-loop/scripts/install-user-skill.mjs --name human-presenter`; this also installs an
+  always-included Kiro steering bridge under `~/.kiro/steering/` (or `$KIRO_HOME/steering/`).
 - Resolving human-owned information gaps without dispatching a new agent: install the user-scope
   `human-interview` capability with
-  `node harness-loop/scripts/install-user-skill.mjs --name human-interview`.
+  `node harness-loop/scripts/install-user-skill.mjs --name human-interview`. Its always-loaded Kiro
+  bridge exposes the trigger but preserves the skill's evidence-first conditional activation.
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)

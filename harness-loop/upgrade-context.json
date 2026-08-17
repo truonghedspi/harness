@@ -47,6 +47,25 @@
         "node skills/harness-upgrade/scripts/check-upgrade-plan.mjs <plan> rejects missing or unacknowledged source context",
         "node tools/verify-harness.mjs --target . --skip-baseline"
       ]
+    },
+    {
+      "id": "HUC-2026-08-17-kiro-global-skill-activation",
+      "summary": "User-scope skill installation now includes an always-loaded Kiro steering bridge.",
+      "why": "A globally copied skill remained passive: Kiro agents could complete a turn without seeing its activation rule.",
+      "targetImpact": "Kiro loads a thin global trigger for each installed harness user skill while the full workflow remains in the versioned SKILL.md.",
+      "paths": [
+        "user-skills/*/KIRO_STEERING.md",
+        "scripts/install-user-skill.mjs"
+      ],
+      "mergeActions": [
+        "Install or refresh each user skill and its Kiro steering bridge outside the target repository.",
+        "Preserve local EXTEND.md customization before using --force.",
+        "If a Kiro custom agent disables default-resource inheritance, explicitly include the global steering resource."
+      ],
+      "verification": [
+        "Confirm ~/.kiro/steering/harness-skill-<name>.md uses inclusion: always and points to the installed SKILL.md.",
+        "Run bash harness-loop/scripts/demo.sh."
+      ]
     }
   ]
 }

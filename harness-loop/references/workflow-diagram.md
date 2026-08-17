@@ -13,6 +13,7 @@ defect came from, not one step back (`graph.md`).
 
 ```mermaid
 flowchart TD
+    KS["Kiro global steering\nalways-loaded activation bridges"] -. "read applicable user skill" .-> HP
     HP["user-scope human-presenter\nreader task · provenance · uncertainty\nsmallest useful representation"] -. "audits substantive human-facing output\nwithout becoming a workflow node" .-> A
     A["User requirement"] --> ADOPT{"Existing repo\nwith history?"}
     ADOPT -- yes --> EH{"existing harness\nmachinery?"}
@@ -22,6 +23,7 @@ flowchart TD
     ADOPT -- no --> B["setup-harness-loop.mjs"]
     ON --> HI
     B --> HI["current agent + human-interview\nLAYER: spec\nfind evidence → ask → receipt\nno context switch"]
+    KS -. "only on a human-owned gap" .-> HI
     IIR["init-integration-project\ncheap inventory → evidence-rich\ntyped questions"] --> HR{"human answers complete\nand digest-current?"}
     HR -- no --> IIR
     HR -- yes --> IIF["finalize-integration-init\nvalidate → registry + environment\n+ journey oracle + risk portfolio"]

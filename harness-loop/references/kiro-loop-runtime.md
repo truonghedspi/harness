@@ -60,6 +60,19 @@ Each `.kiro/agents/<name>.json` defines one custom agent:
 
 ## Running it
 
+### Global user skills
+
+Copying a skill into a global skills directory does not by itself prove that Kiro will invoke it.
+`install-user-skill.mjs` therefore also writes
+`$KIRO_HOME/steering/harness-skill-<name>.md` (default `~/.kiro/steering/`) with
+`inclusion: always`. This thin bridge points to the installed `SKILL.md` and states its trigger;
+the complete workflow stays in the skill. Use `--steering-only` to add the bridge for an existing
+installation, `--no-kiro-steering` for another runtime, and `--kiro-home DIR` in isolated tests.
+
+Kiro custom agents inherit default resources unless that inheritance is explicitly disabled. An
+agent configured to disable default-resource inheritance will also opt out of these global steering
+bridges and must include the resource explicitly.
+
 ```bash
 # Local, interactive (Level 1 — one maker run):
 kiro-cli chat --agent maker

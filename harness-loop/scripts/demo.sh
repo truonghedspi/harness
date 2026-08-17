@@ -2534,9 +2534,16 @@ rm -f /tmp/demo-ii.$$ /tmp/demo-iif.$$
 
 step 40 "user-scope communication skill: thin routing, provenance and visual judgment"
 USR="$WORK/user-skills"
-node "$SCRIPTS/install-user-skill.mjs" --name human-presenter --skills-root "$USR" >/dev/null
+KIRO_USER_HOME="$WORK/kiro-home"
+node "$SCRIPTS/install-user-skill.mjs" --name human-presenter --skills-root "$USR" --kiro-home "$KIRO_USER_HOME" >/dev/null
 test -f "$USR/human-presenter/SKILL.md" -a -f "$USR/human-presenter/references/visuals.md" -a -f "$USR/human-presenter/EXTEND.md"
 expect "human-presenter installs as a self-contained user-scope skill with progressive references and overlay" $?
+node -e "
+const fs=require('fs'),p='$KIRO_USER_HOME/steering/harness-skill-human-presenter.md';
+const s=fs.readFileSync(p,'utf8');
+process.exit(/inclusion: always/.test(s) && /Before every substantive/.test(s) &&
+  s.includes('$USR/human-presenter/SKILL.md') && !s.includes('{{SKILL_PATH}}') ? 0 : 1);
+"; expect "Kiro receives an always-loaded bridge to the installed human-presenter skill" $?
 node -e "
 const fs=require('fs'),p='$USR/human-presenter';
 const s=fs.readFileSync(p+'/SKILL.md','utf8');
@@ -2553,13 +2560,19 @@ cat > "$WORK/presentation-bad.json" <<'JSON'
 JSON
 node "$USR/human-presenter/scripts/check-presentation.mjs" "$WORK/presentation-bad.json" > "$WORK/presentation-bad.out"; [ "$?" = "1" ] && grep -q 'source-fact-unbound' "$WORK/presentation-bad.out" && grep -q 'inference-unbound' "$WORK/presentation-bad.out" && grep -q 'decorative-visual' "$WORK/presentation-bad.out" && grep -q 'countercase-missing' "$WORK/presentation-bad.out"
 expect "the audit rejects unbound claims, decorative visuals and one-sided recommendations" $?
-node "$SCRIPTS/install-user-skill.mjs" --name human-presenter --skills-root "$USR" >/dev/null 2>&1; [ "$?" = "3" ]
+node "$SCRIPTS/install-user-skill.mjs" --name human-presenter --skills-root "$USR" --kiro-home "$KIRO_USER_HOME" >/dev/null 2>&1; [ "$?" = "3" ]
 expect "user customization is not overwritten without explicit --force" $?
 
 step 41 "human interview: keep discovery context and stop the router at the person"
-node "$SCRIPTS/install-user-skill.mjs" --name human-interview --skills-root "$USR" >/dev/null
+node "$SCRIPTS/install-user-skill.mjs" --name human-interview --skills-root "$USR" --kiro-home "$KIRO_USER_HOME" >/dev/null
 test -f "$USR/human-interview/SKILL.md" -a -f "$USR/human-interview/references/question-design.md" -a -f "$USR/human-interview/references/persistence.md"
 expect "human-interview installs as a user-scope capability with progressive references" $?
+node -e "
+const fs=require('fs'),p='$KIRO_USER_HOME/steering/harness-skill-human-interview.md';
+const s=fs.readFileSync(p,'utf8');
+process.exit(/inclusion: always/.test(s) && /When progress depends/.test(s) &&
+  /does not make every\s+conversation an interview/.test(s) && s.includes('$USR/human-interview/SKILL.md') ? 0 : 1);
+"; expect "Kiro always sees the human-interview trigger without invoking it on every turn" $?
 cat > "$WORK/question-good.json" <<'JSON'
 {"id":"fault.restart","title":"Matching restart permission","need":"May the journey restart matching after FIX acknowledgement?","impact":"determines whether recovery/idempotency is in the executable plan","answerContract":"approve|deny plus environment scope","evidenceChecked":["services.manifest.json:matching","runbook.md#restart"],"humanOwnedReason":"the repositories expose the mechanism but not authorization","options":["approve in isolated namespace","deny"],"recommendation":{"value":"approve in isolated namespace","basis":"reversible and needed to test recovery"},"dependsOn":[],"sameRound":[]}
 JSON
