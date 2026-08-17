@@ -2650,8 +2650,22 @@ expect "all non-runtime harness directories live under root/harness" $?
 test -f "$CT/AGENTS.md" -a -f "$CT/.kiro/agents/orchestrator.json" -a -f "$CT/.claude/agents/orchestrator.md" -a -f "$CT/.codex/agents/orchestrator.toml" \
   && grep -q 'harness/AGENTS.md' "$CT/AGENTS.md" && grep -q 'file://../../harness/prompts/orchestrator.md' "$CT/.kiro/agents/orchestrator.json"
 expect "root keeps only the discovery adapters each runtime requires" $?
+node -e "
+const fs=require('fs'), files=['harness/AGENTS.md','harness/prompts/designer.md','harness/prompts/orchestrator.md'];
+const bad=files.flatMap(f=>[...fs.readFileSync('$CT/'+f,'utf8').matchAll(/(^|[^/])\\b(docs|prompts|loop|tools|skills|memory|trace)\//gm)].map(()=>f));
+process.exit(bad.length?1:0);
+"
+expect "contained instructions never send an agent back to legacy harness paths at project root" $?
 git -C "$CT" init -q; git -C "$CT" check-ignore -q harness/AGENTS.md; [ "$?" != "0" ]
 expect "the contained harness is visible to git status rather than hidden by gitignore" $?
+touch "$CT/mvnw" "$CT/mvnw.cmd"
+KIRO_API_KEY=demo-secret JAVA_HOME=/demo/java node "$CT/harness/cli.mjs" env --capture --json > "$CT/env.json"
+git -C "$CT" check-ignore -q harness/env/local.json
+node -e "const fs=require('fs'),e=require('$CT/env.json'),l=require('$CT/harness/env/local.json');process.exit(
+  e.java.home==='/demo/java' && l.apiKeys.KIRO_API_KEY.present===true &&
+  e.maven.wrapper?.endsWith('/mvnw') &&
+  !fs.readFileSync('$CT/harness/env/local.json','utf8').includes('demo-secret') ? 0 : 1)"
+expect "local environment selects the POSIX Maven wrapper and captures context without storing API-key values" $?
 node "$CT/harness/tools/harness-status.mjs" --target "$CT" >/dev/null
 expect "the installation checksum reports an untouched uncommitted harness clean" $?
 cp "$CT/harness/prompts/orchestrator.md" "$CT/orchestrator.original"
@@ -2663,6 +2677,9 @@ cp "$CT/orchestrator.original" "$CT/harness/prompts/orchestrator.md"
 node "$CT/harness/loop/route.mjs" --json > "$CT/route.json"
 node -e "const r=require('$CT/route.json');process.exit(r.node&&r.node!=='orchestrator'?0:1)"
 expect "the contained router still selects a real workflow node" $?
+( cd "$CT" && node harness/cli.mjs route --json > cli-route.json )
+cmp "$CT/route.json" "$CT/cli-route.json"
+expect "direct and CLI routing read the same contained state from project root" $?
 ( cd "$CT" && node harness/tools/gen-agents.mjs --target . --runtime all --check >/dev/null &&
   node harness/tools/agent-context.mjs orchestrator </dev/null > context.json )
 node -e "const r=require('$CT/context.json');process.exit(/agents.manifest.json unreadable/.test(r.hookSpecificOutput.additionalContext)?1:0)"

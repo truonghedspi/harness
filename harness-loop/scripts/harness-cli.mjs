@@ -15,9 +15,10 @@ const entries = {
   route: [path.join(home, "loop", "route.mjs"), []],
   run: [path.join(home, "loop", "run-loop.mjs"), []],
   init: [path.join(home, "init.mjs"), []],
+  env: [path.join(home, "tools", "environment.mjs"), []],
 };
 if (!entries[command]) {
-  console.error("usage: node harness/cli.mjs <status|init|coverage|verify|route|run> [args]");
+  console.error("usage: node harness/cli.mjs <status|env|init|coverage|verify|route|run> [args]");
   process.exit(2);
 }
 const [script, baseArgs] = entries[command];

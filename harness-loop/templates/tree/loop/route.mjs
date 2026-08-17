@@ -18,6 +18,12 @@
 //   node loop/route.mjs --rules         # the whole routing table, in precedence order
 import { readFileSync, existsSync, readdirSync, statSync, writeSync } from "node:fs";
 import { createHash } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PROJECT_ROOT = path.basename(ROOT) === "harness" ? path.dirname(ROOT) : ROOT;
+process.chdir(ROOT);
 
 // stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
 // past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
@@ -33,8 +39,9 @@ const lsSafe = (d) => { try { return readdirSync(d); } catch { return []; } };
 // An agent exists if EITHER runtime has it — both are generated from agents.manifest.json.
 // All three runtimes. Missing codex here meant that on a codex-only target every agent rule
 // evaluated to false and the router fell through to `human` with work plainly available.
-const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync(`.claude/agents/${name}.md`)
-  || existsSync(`.codex/agents/${name}.toml`);
+const hasAgent = (name) => existsSync(path.join(PROJECT_ROOT, `.kiro/agents/${name}.json`)) ||
+  existsSync(path.join(PROJECT_ROOT, `.claude/agents/${name}.md`)) ||
+  existsSync(path.join(PROJECT_ROOT, `.codex/agents/${name}.toml`));
 // A NEEDS DESIGN: marker lives in feature_list.json, which the designer is forbidden to write — it
 // may not write scope. So the node that answers the question cannot clear the flag that asked it,
 // and a rule keyed only on "marker present" re-dispatches the designer forever (observed on

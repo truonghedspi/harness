@@ -460,6 +460,11 @@ names modified, missing and unmanaged files even when the harness has never been
 directory is deliberately not added to `.gitignore`: Git shows that experimental machinery exists,
 while the receipt supplies the baseline Git cannot provide for untracked files.
 
+Machine-specific inputs belong in `harness/env/`. Run `node harness/cli.mjs env --capture` to
+record Java/Maven paths, Maven wrapper, `KUBECONFIG`, current Kubernetes context and API-key
+presence in ignored `env/local.json`. It records secret variable names and presence only, never
+their values; `env/secrets.env` is also ignored for users who explicitly need a local secret file.
+
 Three categories. Conflating them is how a harness quietly stops working:
 
 | | Examples | Tracked? |

@@ -26,7 +26,8 @@ This repository holds the agent-harness assets for the team:
   Fresh scaffolds contain harness state, tools, prompts and documentation under one root-level
   `harness/` directory. Only `AGENTS.md` and runtime-required `.kiro/`, `.claude/`, `.codex/`
   adapters remain at project root. `node harness/cli.mjs status` detects local changes even while
-  the experimental harness remains uncommitted.
+  the experimental harness remains uncommitted. Machine-specific Java/Maven paths, Kubernetes
+  context and redacted API-key presence live under local-only `harness/env/`.
   Kubernetes-deployed microservice without Docker access: an opt-in
   `harness-loop/templates/k8s/tools/k8s-test-env.sh` does namespace-per-run Helm
   deploy/test/collect-diagnostics/teardown for Level 3 testing, and the opt-in

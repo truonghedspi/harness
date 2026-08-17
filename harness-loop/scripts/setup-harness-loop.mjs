@@ -101,6 +101,11 @@ function substitute(content, relPath) {
       .replaceAll("node init.mjs", "node harness/init.mjs")
       .replaceAll("./init.sh", "./harness/init.sh")
       .replaceAll("init.cmd", "harness/init.cmd");
+    if (relPath.endsWith(".md")) {
+      out = out
+        .replace(/(?<!harness\/)\b(docs|prompts|loop|tools|skills|memory|trace)\//g, "harness/$1/")
+        .replace(/(?<!harness\/)\b(feature_list(?:\.digest)?\.md|feature_list\.json|progress\.md|DECISIONS\.md|session-handoff\.md|agents\.manifest\.json)\b/g, "harness/$1");
+    }
   }
 
   // Swap the verification block when custom commands were provided.
@@ -220,6 +225,7 @@ const EXTRA_COPIES = [
   ["scripts/check-capability-eval.mjs", "tools/check-capability-eval.mjs"],
   ["scripts/harness-status.mjs", "tools/harness-status.mjs"],
   ["scripts/harness-cli.mjs", "cli.mjs"],
+  ["scripts/environment.mjs", "tools/environment.mjs"],
   ["references/agent-memory.md", "docs/reference/agent-memory.md"],
   ["references/feature-decomposition.md", "docs/reference/feature-decomposition.md"],
   ["references/design-engineering.md", "docs/reference/design-engineering.md"],
@@ -331,6 +337,8 @@ for (const [srcDir, destDir] of EXTRA_DIR_COPIES) {
     [LAYOUT === "contained" ? "!harness/trace/adoption-baseline.json" : "!trace/adoption-baseline.json", "state"],
     [LAYOUT === "contained" ? "harness/loop/current.json" : "loop/current.json", "ephemeral"],
     [LAYOUT === "contained" ? "harness/loop/route-log.jsonl" : "loop/route-log.jsonl", "ephemeral"],
+    [LAYOUT === "contained" ? "harness/env/local.json" : "env/local.json", "local-environment"],
+    [LAYOUT === "contained" ? "harness/env/secrets.env" : "env/secrets.env", "secret"],
   ];
   if (IGNORE_MACHINERY) {
     want.push(
@@ -624,6 +632,7 @@ if (LAYOUT === "contained") {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const child = rel ? path.join(rel, entry.name) : entry.name;
       if (child === "installation.json" || child.startsWith(`trace${path.sep}`) ||
+          [path.join("env", "local.json"), path.join("env", "secrets.env")].includes(child) ||
           [path.join("loop", "current.json"), path.join("loop", "route-log.jsonl")].includes(child)) continue;
       const abs = path.join(dir, entry.name);
       if (entry.isDirectory()) scan(abs, child);

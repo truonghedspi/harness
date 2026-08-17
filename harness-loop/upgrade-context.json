@@ -91,7 +91,7 @@
       "id": "HUC-2026-08-17-contained-harness-home",
       "summary": "Fresh scaffolds place harness state, machinery and documentation under root/harness.",
       "why": "Scattering tools, prompts, loop state, skills and harness documentation across the product root made experimental files hard to identify and remove; ignoring them hid all change visibility.",
-      "targetImpact": "Root retains only AGENTS.md and runtime-mandated discovery adapters. The harness directory stays visible to Git, while installation.json and `node harness/cli.mjs status` identify changes without requiring a product commit.",
+      "targetImpact": "Root retains only AGENTS.md and runtime-mandated discovery adapters. The harness directory stays visible to Git, installation.json identifies changes without a product commit, and ignored harness/env/local.json contains redacted machine-specific configuration.",
       "paths": [
         "harness/**",
         "AGENTS.md",
@@ -102,6 +102,9 @@
       "mergeActions": [
         "Create the contained harness home and move only classified harness-owned files; do not move product-owned docs or tools by directory name alone.",
         "Keep root runtime adapters generated from harness/agents.manifest.json.",
+        "Rewrite harness-owned references in prompts and docs to their harness/ paths; a physical move without instruction migration is incomplete.",
+        "Run the router relative to its contained home while resolving generated runtime agents at project root.",
+        "Capture local Java/Maven and Kubernetes selectors under harness/env; never copy API-key values into a tracked or checksummed artifact.",
         "Retain the legacy layout until target-specific drift has been classified; this structural migration is a human-reviewed merge."
       ],
       "verification": [

@@ -36,15 +36,21 @@ const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
 const T = (...p) => path.join(TARGET, ...p);
 const S = (...p) => path.join(SKILL, ...p);
-const containedText = (text) => !CONTAINED || text === null ? text : text
-  .replaceAll("node tools/", "node harness/tools/")
-  .replaceAll("node loop/", "node harness/loop/")
-  .replaceAll("node init.mjs", "node harness/init.mjs")
-  .replaceAll("./init.sh", "./harness/init.sh")
-  .replaceAll("init.cmd", "harness/init.cmd");
+const containedText = (text, markdown = false) => {
+  if (!CONTAINED || text === null) return text;
+  let out = text.replaceAll("node tools/", "node harness/tools/")
+    .replaceAll("node loop/", "node harness/loop/")
+    .replaceAll("node init.mjs", "node harness/init.mjs")
+    .replaceAll("./init.sh", "./harness/init.sh")
+    .replaceAll("init.cmd", "harness/init.cmd");
+  if (markdown) out = out
+    .replace(/(?<!harness\/)\b(docs|prompts|loop|tools|skills|memory|trace)\//g, "harness/$1/")
+    .replace(/(?<!harness\/)\b(feature_list(?:\.digest)?\.md|feature_list\.json|progress\.md|DECISIONS\.md|session-handoff\.md|agents\.manifest\.json)\b/g, "harness/$1");
+  return out;
+};
 const canonical = (src) => {
   const raw = read(S(src));
-  let text = src.startsWith("templates/tree/") ? containedText(raw) : raw;
+  let text = src.startsWith("templates/tree/") ? containedText(raw, src.endsWith(".md")) : raw;
   if (!CONTAINED || src !== "templates/tree/agents.manifest.json" || text === null) return text;
   const manifest = JSON.parse(text);
   const harnessOwned = /^(AGENTS\.md|agents\.manifest\.json|feature_list(?:\.digest)?\.md|feature_list\.json|progress\.md|DECISIONS\.md|session-handoff\.md|requirement.*|docs\/|loop\/|memory\/|trace\/|prompts\/|skills\/|tools\/)/;

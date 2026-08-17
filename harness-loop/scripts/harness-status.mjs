@@ -17,6 +17,7 @@ function walk(dir, prefix = "") {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const rel = prefix ? path.join(prefix, e.name) : e.name;
     if (rel === "installation.json" || rel.startsWith(`trace${path.sep}`) ||
+        [path.join("env", "local.json"), path.join("env", "secrets.env")].includes(rel) ||
         [path.join("loop", "current.json"), path.join("loop", "route-log.jsonl")].includes(rel)) continue;
     const abs = path.join(dir, e.name);
     if (e.isDirectory()) walk(abs, rel); else files.push(rel.split(path.sep).join("/"));
