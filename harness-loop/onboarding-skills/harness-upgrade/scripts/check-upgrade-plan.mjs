@@ -11,6 +11,23 @@ for (const r of p.retire || []) {
   if (!['retired','kept-approved'].includes(r.status)) add("retirement-unresolved", `${r.agent} remains ${r.status}`);
   if (r.stateExists && !r.stateDisposition) add("retirement-state-unhandled", `${r.agent} has state but no disposition`);
 }
+for (const c of p.upgradeContext || []) {
+  if (!['acknowledged','applied','not-applicable'].includes(c.status)) {
+    add("upgrade-context-unacknowledged", `${c.id || "unknown context"} remains ${c.status}`);
+  }
+  if (!String(c.disposition || "").trim()) {
+    add("upgrade-context-disposition-missing", `${c.id || "unknown context"} records no target disposition`);
+  }
+}
+try {
+  const report = JSON.parse(readFileSync(p.sourceReport, "utf8"));
+  const planned = new Set((p.upgradeContext || []).map((c) => c.id));
+  for (const source of report.upgradeContext || []) {
+    if (!planned.has(source.id)) add("upgrade-context-lost", `${source.id} exists in source report but not in plan`);
+  }
+} catch (error) {
+  add("source-report-unreadable", `cannot validate plan context against ${p.sourceReport}: ${error.message}`);
+}
 if (!(p.verify || []).length) add("verification-missing", "an upgrade needs target and harness verification commands");
 if (p.preexistingDirty === null || p.preexistingDirty === undefined) add("dirty-state-unrecorded", "record whether the target was dirty before upgrade");
 process.stdout.write(JSON.stringify({ schema: "harness-upgrade-plan-check/1", green: findings.length === 0, findings }, null, 2) + "\n");

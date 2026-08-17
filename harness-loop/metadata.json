@@ -35,9 +35,10 @@
   "bundled": {
     "scripts": [
       "scripts/setup-harness-loop.mjs",
-      "scripts/check-coverage.mjs"
+      "scripts/check-coverage.mjs",
+      "scripts/check-upgrade-context.mjs"
     ],
-    "assets": [],
+    "assets": ["upgrade-context.json"],
     "templates": [
       "templates/tree/AGENTS.md",
       "templates/tree/feature_list.json",

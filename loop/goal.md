@@ -34,7 +34,7 @@ doesn't reproduce.
 - A requirement/architecture decision is needed that `docs/` doesn't answer — mark the affected
   feature `blocked`, move to the next eligible feature; stop only if NO feature is eligible.
 - Any irreversible or production-touching action would be required.
-- The iteration budget (`run-loop.sh N`) is exhausted.
+- The iteration budget (`node loop/run-loop.mjs N`) is exhausted.
 
 ## Human checkpoints (never automated)
 

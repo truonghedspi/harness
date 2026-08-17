@@ -35,6 +35,16 @@ const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return nul
 const T = (...p) => path.join(TARGET, ...p);
 const S = (...p) => path.join(SKILL, ...p);
 
+const filesUnder = (root, prefix = "") => {
+  const out = [];
+  for (const name of readdirSync(root)) {
+    const absolute = path.join(root, name), relative = path.join(prefix, name);
+    if (statSync(absolute).isDirectory()) out.push(...filesUnder(absolute, relative));
+    else out.push(relative);
+  }
+  return out;
+};
+
 if (!existsSync(T("feature_list.json"))) {
   console.error(`${TARGET} does not look like a harness target (no feature_list.json).`);
   console.error("To scaffold a new one: node scripts/setup-harness-loop.mjs --target DIR");
@@ -58,6 +68,12 @@ for (const f of ["init.sh", "init.cmd"]) {
   if (existsSync(S("templates", "tree", f))) refresh.push([`templates/tree/${f}`, f]);
 }
 refresh.push(["scripts/check-coverage.mjs", "check-coverage.mjs"]);   // the root copy setup writes
+// The target-local planner/checker must understand the report emitted by THIS canonical upgrader.
+// Refreshing the capability closes the compatibility loop: an old planner may drop new report
+// fields, but the refreshed checker compares the plan back to its source report and refuses that.
+for (const file of filesUnder(S("onboarding-skills", "harness-upgrade"))) {
+  refresh.push([`onboarding-skills/harness-upgrade/${file}`, `skills/harness-upgrade/${file}`]);
+}
 
 const report = [
   ["templates/tree/AGENTS.md", "AGENTS.md"],
@@ -114,6 +130,20 @@ const retiredAgents = (skillManifest && targetManifest)
   ? targetManifest.agents.filter((a) => !skillManifest.agents.some((b) => b.name === a.name)).map((a) => a.name)
   : [];
 
+// File lists say WHAT differs; they cannot tell the onboarder WHY the canonical harness changed or
+// which target customization must survive. Keep that context in a versioned ledger and attach only
+// entries that intersect this target's actual upgrade surface, so old targets get the relevant
+// migration knowledge without carrying the whole history in every plan.
+const contextLedger = (() => {
+  try { return JSON.parse(read(S("upgrade-context.json"))); }
+  catch { return { schema: "harness-upgrade-context/1", entries: [] }; }
+})();
+const upgradeSurface = new Set([...changed, ...added, ...drifted, ...missing]);
+const pathMatches = (declared, actual) => declared.endsWith("/**")
+  ? actual.startsWith(declared.slice(0, -3)) : declared === actual;
+const upgradeContext = (contextLedger.entries || []).filter((entry) =>
+  (entry.paths || []).some((declared) => [...upgradeSurface].some((actual) => pathMatches(declared, actual))));
+
 // Regenerate what is generated, so the refresh actually takes effect.
 const ran = [];
 if (!DRY) {
@@ -127,7 +157,8 @@ if (!DRY) {
 
 if (JSON_OUT) {
   process.stdout.write(JSON.stringify({ schema: "harness-upgrade/1", target: TARGET, dryRun: DRY,
-    changed, added, same: same.length, drifted, missing, newAgents, retiredAgents, regenerated: ran }, null, 2) + "\n");
+    changed, added, same: same.length, drifted, missing, newAgents, retiredAgents,
+    upgradeContext, regenerated: ran }, null, 2) + "\n");
   process.exit(0);
 }
 const out = [];
@@ -156,6 +187,11 @@ if (retiredAgents.length) {
   out.push(`  RETIRED AGENTS still declared by this target: ${retiredAgents.join(", ")}`);
   out.push(`      remove those manifest entries after merging their replacement capability,`);
   out.push(`      then: node tools/gen-agents.mjs --target . --runtime all`);
+}
+if (upgradeContext.length) {
+  out.push("");
+  out.push("  UPGRADE CONTEXT — read before merging customized files:");
+  for (const entry of upgradeContext) out.push(`      ${entry.id}: ${entry.summary}`);
 }
 out.push("");
 out.push("  Next: run the baseline gate, then `node tools/verify-harness.mjs --target . --skip-baseline`.");

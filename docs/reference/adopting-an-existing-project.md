@@ -117,6 +117,18 @@ pure cost.
    `feature-planner`, then **one supervised
    `node loop/run-loop.mjs 1`** before any longer run
 
+## Upgrade context is part of the artifact
+
+`upgrade-harness.mjs` reports more than changed filenames. It selects the entries in canonical
+`upgrade-context.json` whose declared paths intersect this target and carries their reason, target
+impact, semantic merge actions and verification into the upgrade plan. The plan checker stays red
+until every applicable entry has a target-specific disposition.
+
+The upgrader also refreshes `skills/harness-upgrade/**` before final validation. This matters for
+old targets: an older planner may not understand a new report field, so the refreshed checker reads
+the source report and rejects any context ID the plan dropped. Rebuild that plan; never translate a
+new canonical behavior from filenames alone.
+
 ## Honest limits
 
 - **The baseline forgives whatever was wrong on day one.** If the existing suite is full of
@@ -125,7 +137,8 @@ pure cost.
   choosing where to start.
 - **Family-level counting is coarse.** Fixing one `test-untraceable` and adding another nets to
   zero and passes. Precise enough to stop a trend, not to police individual files.
-- **The vendored `tools/*.mjs` copies drift from the skill.** Found while building this: the
+- **Vendored tools can drift until the next upgrade.** Found while building this: the
   adoption snapshot on the dogfood target read 4 warnings instead of 49, because the target's
-  vendored `verify-harness.mjs` predated the newer gates. Re-copy the tools when adopting, and
-  re-copy after upgrading the skill — a stale vendored gate silently under-reports.
+  vendored `verify-harness.mjs` predated the newer gates. The upgrader refreshes harness-owned
+  tools and its own upgrade capability; skipping the upgrade still leaves stale gates that silently
+  under-report.

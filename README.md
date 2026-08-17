@@ -47,7 +47,9 @@ This repository holds the agent-harness assets for the team:
   discovers a human-owned gap exhausts evidence, asks in place, validates the answer and records a
   durable receipt.
   The onboarding installer also ships `skills/harness-upgrade`: existing harness targets are
-  upgraded through an ownership-aware merge plan instead of ad-hoc prompt/manifest edits.
+  upgraded through an ownership-aware merge plan instead of ad-hoc prompt/manifest edits. A
+  versioned `upgrade-context.json` carries each relevant change's reason, target impact, merge
+  actions and verification into that plan; dropped or unacknowledged context keeps it red.
   `harness-loop/scripts/demo.sh` proves the whole lifecycle end-to-end on a disposable target in
   one command. Lesson 10's top verification tier is microservice integration / contract testing.
 - **`examples/timesten-migration/`** — a dormant worked example: a real TimesTen → Aeron Cluster

@@ -1,0 +1,52 @@
+{
+  "schema": "harness-upgrade-context/1",
+  "entries": [
+    {
+      "id": "HUC-2026-08-16-node-native-loop",
+      "summary": "The autonomous loop and named-agent dispatcher moved from Bash into Node.js.",
+      "why": "Targets on native Windows could run the baseline but still needed Git Bash or WSL for the autonomous loop.",
+      "targetImpact": "Core target orchestration now runs on Windows, macOS and Linux through one implementation; shell and cmd files are compatibility wrappers only.",
+      "paths": [
+        "loop/run-loop.mjs",
+        "loop/run-loop.sh",
+        "loop/run-loop.cmd",
+        "loop/dispatch.mjs",
+        "loop/dispatch.sh",
+        "loop/dispatch.cmd",
+        "AGENTS.md",
+        "prompts/orchestrator.md",
+        "loop/maker-prompt.md",
+        "loop/checker-prompt.md",
+        "loop/goal.md"
+      ],
+      "mergeActions": [
+        "Preserve project-specific goals, commands and permissions in customized files.",
+        "Replace workflow instructions that invoke run-loop.sh or dispatch.sh with node loop/run-loop.mjs or node loop/dispatch.mjs.",
+        "Regenerate every runtime from agents.manifest.json after prompt merges."
+      ],
+      "verification": [
+        "node loop/run-loop.mjs --headless exits cleanly when all features are settled",
+        "node tools/gen-agents.mjs --target . --runtime all --check",
+        "node tools/verify-harness.mjs --target . --skip-baseline"
+      ]
+    },
+    {
+      "id": "HUC-2026-08-17-upgrade-context-contract",
+      "summary": "Harness updates now carry canonical upgrade context into the onboarder's merge plan.",
+      "why": "Changed and drifted filename lists forced the onboarder to rediscover why a harness behavior changed and how target customizations should be reconciled.",
+      "targetImpact": "Upgrade plans now retain the relevant reason, compatibility impact, merge actions and verification; a plan cannot pass while that context is unread or unacknowledged.",
+      "paths": [
+        "skills/harness-upgrade/**"
+      ],
+      "mergeActions": [
+        "Refresh the harness-owned upgrade capability before final plan validation.",
+        "Rebuild an old plan if its source report contains context IDs the plan omitted.",
+        "Record an explicit target disposition for every applicable context entry."
+      ],
+      "verification": [
+        "node skills/harness-upgrade/scripts/check-upgrade-plan.mjs <plan> rejects missing or unacknowledged source context",
+        "node tools/verify-harness.mjs --target . --skip-baseline"
+      ]
+    }
+  ]
+}

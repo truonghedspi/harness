@@ -2,7 +2,7 @@
 
 | Class | Typical paths | Default action |
 |---|---|---|
-| Harness-owned | `tools/**`, loop executables, generated runtime configs, copied references | refresh from canonical source, then verify |
+| Harness-owned | `tools/**`, loop executables, generated runtime configs, copied references, `skills/harness-upgrade/**` | refresh from canonical source, then verify |
 | Project-owned | source, tests, requirements, architecture, constraints, objective, feature state | never overwrite; preserve |
 | Merge-owned | `AGENTS.md`, `agents.manifest.json`, `init.mjs`, prompts | semantic merge with target-specific content retained |
 | Generated | `.kiro/agents/**`, `.claude/agents/**`, `.codex/agents/**` | regenerate from manifest/prompt; never hand-edit |

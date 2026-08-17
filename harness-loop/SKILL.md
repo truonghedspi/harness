@@ -159,6 +159,11 @@ old debt alone, you may not add to it.* New work is held to the full standard, `
 debt paid down, and blockers and a red baseline are never grandfathered. Full contract:
 [references/adopting-an-existing-project.md](references/adopting-an-existing-project.md).
 
+Upgrades carry intent as data: canonical `upgrade-context.json` records why each upgrade-relevant
+behavior changed, its target impact, semantic merge actions and verification. The upgrader selects
+only entries intersecting the target diff; the onboarding plan cannot pass until it preserves and
+acknowledges them. This prevents an onboarder from reverse-engineering intent from filenames.
+
 ## Setup workflow
 
 For a fresh project, or once the onboarder has surveyed an existing one:

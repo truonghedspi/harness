@@ -5,14 +5,15 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-16
+- **Last updated:** 2026-08-17
 - **Active feature:** none
-- **Latest commit:** b22b11e — harness: close eight observed workflow failures
+- **Latest pre-session commit:** a36f820 — orchestrator: use the Node-native loop entry points; upgrade-context work verified this session
 - **Baseline (`./init.sh`):** green — canonical demo passed all 42 end-to-end steps
 
 ## Done
 
 - [x] feat-windows-native-loop — Node-native loop/dispatch control plane with thin `.sh`/`.cmd` wrappers; HI-045 reverified and resolved
+- [x] HI-046 — canonical upgrade context flows into onboarding plans and cannot be dropped or left unacknowledged
 
 ## In Progress
 

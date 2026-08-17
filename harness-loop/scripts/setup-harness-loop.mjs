@@ -203,6 +203,7 @@ const EXTRA_COPIES = [
 // Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
 // without the strategy matrix, property catalog and schemas it dispatches to.
 const EXTRA_DIR_COPIES = [
+  ["onboarding-skills/harness-upgrade", "skills/harness-upgrade"],
   ["templates/test-design", "skills/test-design"],
   ["templates/feature-planning", "skills/feature-planning"],
   ["templates/business-journey", "skills/business-journey"],

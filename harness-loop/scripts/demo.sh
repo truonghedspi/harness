@@ -1873,7 +1873,8 @@ node -e "
 const j=require('$UP/fresh.json');
 // setup substitutes {{PROJECT_NAME}}: a byte comparison marks every prompt on a minute-old scaffold
 // as customised, and a report nobody reads is worse than none
-process.exit(j.changed.length===0 && j.added.length===0 && j.drifted.length===0 && j.same>0 ? 0 : 1);
+process.exit(j.changed.length===0 && j.added.length===0 && j.drifted.length===0 &&
+  j.same>0 && Array.isArray(j.upgradeContext) && j.upgradeContext.length===0 ? 0 : 1);
 "; expect "a freshly scaffolded target needs no upgrade and reports no drift" $?
 # age it the way a real target ages
 printf '#!/usr/bin/env bash\necho old\n' > "$UP/loop/route.mjs"
@@ -1887,6 +1888,11 @@ process.exit(j.changed.includes('loop/route.mjs') && j.added.includes('loop/disp
   && j.added.includes('tools/feature.mjs') ? 0 : 1);
 "; expect "stale machinery is refreshed and missing machinery is added" $?
 node -e "
+const j=require('$UP/aged.json'),c=j.upgradeContext.find(x=>x.id==='HUC-2026-08-16-node-native-loop');
+process.exit(c && c.why && c.targetImpact && c.paths.includes('loop/dispatch.sh') &&
+  c.mergeActions.length && c.verification.length ? 0 : 1);
+"; expect "the upgrade report carries canonical reason, impact, merge actions and verification for the target's actual diff" $?
+node -e "
 const j=require('$UP/aged.json');
 // the customised prompt is REPORTED, never overwritten — merge, don't overwrite
 process.exit(j.drifted.includes('prompts/designer.md') ? 0 : 1);
@@ -1896,11 +1902,26 @@ expect "and the customisation is still there afterwards" $?
 node -e "const j=require('$UP/aged.json');process.exit(j.retiredAgents.includes('context-interviewer')?0:1)"
 expect "upgrade reports the retired interview agent for an explicit manifest merge" $?
 node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/plan-upgrade.mjs" --report "$UP/aged.json" --target "$UP" --output "$UP/upgrade-plan.json"
-node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/check-upgrade-plan.mjs" "$UP/upgrade-plan.json" > "$UP/upgrade-plan-red.json"; [ "$?" = "1" ] && grep -q 'drift-unresolved' "$UP/upgrade-plan-red.json" && grep -q 'retirement-unresolved' "$UP/upgrade-plan-red.json" && grep -q 'dirty-state-unrecorded' "$UP/upgrade-plan-red.json"
-expect "the upgrade skill refuses unresolved customized files, retirement state and unknown dirty state" $?
-node -e "const fs=require('fs'),p='$UP/upgrade-plan.json',j=require(p);j.preexistingDirty=false;j.merge.forEach(x=>x.status='merged');j.retire.forEach(x=>{x.status='retired';x.stateDisposition='template-only, removed'});fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+cp "$UP/upgrade-plan.json" "$UP/upgrade-plan-context-lost.json"
+node -e "const fs=require('fs'),p='$UP/upgrade-plan-context-lost.json',j=require(p);delete j.upgradeContext;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/check-upgrade-plan.mjs" "$UP/upgrade-plan-context-lost.json" > "$UP/upgrade-plan-context-lost.out"; [ "$?" = "1" ] && grep -q 'upgrade-context-lost' "$UP/upgrade-plan-context-lost.out"
+expect "a refreshed checker catches context dropped by an older target-local planner" $?
+node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/check-upgrade-plan.mjs" "$UP/upgrade-plan.json" > "$UP/upgrade-plan-red.json"; [ "$?" = "1" ] && grep -q 'drift-unresolved' "$UP/upgrade-plan-red.json" && grep -q 'retirement-unresolved' "$UP/upgrade-plan-red.json" && grep -q 'dirty-state-unrecorded' "$UP/upgrade-plan-red.json" && grep -q 'upgrade-context-unacknowledged' "$UP/upgrade-plan-red.json" && grep -q 'upgrade-context-disposition-missing' "$UP/upgrade-plan-red.json"
+expect "the upgrade skill refuses unresolved drift, retirement, dirty state or canonical update context" $?
+node -e "const fs=require('fs'),p='$UP/upgrade-plan.json',j=require(p);j.preexistingDirty=false;j.merge.forEach(x=>x.status='merged');j.retire.forEach(x=>{x.status='retired';x.stateDisposition='template-only, removed'});j.upgradeContext.forEach(x=>{x.status='applied';x.disposition='Node entry points merged; target customization preserved'});fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
 node "$SCRIPTS/../onboarding-skills/harness-upgrade/scripts/check-upgrade-plan.mjs" "$UP/upgrade-plan.json" >/dev/null
 expect "a reviewed ownership-aware plan with retirement disposition becomes executable" $?
+UC="$WORK/upgrade-context-gate"; mkdir -p "$UC/harness-loop/templates/tree" "$UC/harness-loop/scripts"
+cp "$SCRIPTS/check-upgrade-context.mjs" "$UC/harness-loop/scripts/check-upgrade-context.mjs"
+printf '{"schema":"harness-upgrade-context/1","entries":[]}\n' > "$UC/harness-loop/upgrade-context.json"
+printf 'v1\n' > "$UC/harness-loop/templates/tree/x.txt"
+( cd "$UC" && git init -q && git add -A && git -c user.email=d@d -c user.name=d commit -qm context-base )
+printf 'v2\n' > "$UC/harness-loop/templates/tree/x.txt"
+node "$UC/harness-loop/scripts/check-upgrade-context.mjs" --target "$UC" > "$UC/red.json"; [ "$?" = "1" ] && grep -q 'working-tree' "$UC/red.json"
+expect "a harness change without a same-change context ledger update is mechanically red" $?
+printf ' {"id":"fixture"}\n' >> "$UC/harness-loop/upgrade-context.json"
+node "$UC/harness-loop/scripts/check-upgrade-context.mjs" --target "$UC" >/dev/null
+expect "updating the ledger beside the harness change clears the producer-side gate" $?
 node -e "
 const fs=require('fs');
 process.exit(fs.readFileSync('$UP/loop/route.mjs','utf8').includes('echo old') ? 1 : 0);

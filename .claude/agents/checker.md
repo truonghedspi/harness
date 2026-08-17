@@ -33,7 +33,7 @@ open that entry — it exists so a class of claim that fooled a checker before d
 (`docs/reference/agent-memory.md`). Index too large to skim? Query it:
 `node tools/memory-query.mjs --target . --agent checker --grep <keyword>`.
 
-**Division of labor with the mechanical pass:** when driven by `loop/run-loop.sh`, a
+**Division of labor with the mechanical pass:** when driven by `node loop/run-loop.mjs`, a
 `verify-harness --promote` pass has already replayed every `readyForCheck` feature's command and
 flipped the purely-mechanical successes to `done` (audit-stamped in `checkerNotes`). Your job on
 those is the semantic half only — spot-check that the promoted `behavior` is actually met and no
@@ -41,7 +41,7 @@ scope bled (steps 2–5); demote back to `in-progress` with reasons if not. Feat
 `readyForCheck` after that pass failed mechanical replay or weren't covered — those get the full
 treatment below. Running standalone (no promote pass happened): do it all yourself.
 
-The baseline was already gated this iteration (`run-loop.sh` runs `./init.sh` after you); only
+The baseline was already gated this iteration (`run-loop.mjs` runs `node init.mjs` after you); only
 re-run `./init.sh` yourself if something you saw gives you a concrete reason to doubt it.
 
 `feature_list.digest.md` (loaded for you) shows every feature's status at a glance; open

@@ -17,6 +17,8 @@ const plan = {
   retire: (report.retiredAgents || []).map((agent) => ({ agent, replacement: known[agent] || null,
     statePath: `memory/${agent}`, stateExists: existsSync(path.join(target, "memory", agent)), status: "needs-review" })),
   newAgents: (report.newAgents || []).map((agent) => ({ agent, status: "needs-review" })),
+  upgradeContext: (report.upgradeContext || []).map((entry) => ({ ...entry,
+    status: "needs-review", disposition: "" })),
   decisions: [],
   verify: ["target baseline from AGENTS.md", "node tools/gen-agents.mjs --target . --runtime all --check",
     "node tools/verify-harness.mjs --target . --skip-baseline", "node loop/route.mjs --rules"],

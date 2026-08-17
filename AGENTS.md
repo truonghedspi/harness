@@ -42,6 +42,10 @@ failed readiness condition is the task; do not start the autonomous loop on top 
   project — that is what `layer: harness` findings exist to route.
 - **Every behaviour change gets a `demo.sh` step that would fail without it.** The demo is this
   repo's verification; a change it does not exercise is unverified, whatever the reasoning says.
+- **Every upgrade-relevant harness change updates `harness-loop/upgrade-context.json`.** Record why
+  it changed, target impact, affected paths, semantic merge actions and verification. The onboarder
+  must receive context, not reverse-engineer intent from a filename diff. Gate:
+  `node harness-loop/scripts/check-upgrade-context.mjs --target .`.
 - **Record a defect before fixing it:** `harness-issue.mjs add`, then fix, then
   `improve-harness.mjs --reverify`. An issue is closed by the defect no longer reproducing, never
   by a claim that it was fixed.

@@ -32,6 +32,9 @@ The plan separates:
 - `merge`: customized/project-owned files requiring semantic reconciliation;
 - `retire`: target agents removed from the canonical manifest;
 - `verify`: commands proving the target still works.
+- `upgradeContext`: canonical reasons, target impact, semantic merge actions and verification for
+  every recorded harness update that intersects this target's diff. A filename list is not context.
+  Read each entry before reviewing drift and record its target-specific `disposition`.
 
 ## 2. Resolve the decision frontier
 
@@ -54,7 +57,7 @@ wins unless it contradicts a newly approved harness invariant; then show the con
 4. Regenerate all runtime representations from `agents.manifest.json`; never edit generated agent
    files by hand.
 5. Run `check-upgrade-plan.mjs` before verification. It rejects unreviewed drift, retired agents
-   without a disposition, and plans with no verification.
+   without a disposition, unacknowledged upgrade context, and plans with no verification.
 
 ## 4. Prove and hand off
 
@@ -80,4 +83,6 @@ operations, failed command and exact remaining merge—never claim “upgraded w
 - Never delete project memory with substantive entries; migrate its facts and provenance first.
 - Never infer that process exit 0 means success when regeneration or verification produced no
   expected receipt.
+- Never merge from `changed`/`drifted` filenames alone. If the report has no upgrade context for a
+  behavior-changing canonical update, stop and fix the harness ledger before upgrading the target.
 - Keep scratch plans outside the target or under its ignored `trace/scratch/`; do not commit them.
