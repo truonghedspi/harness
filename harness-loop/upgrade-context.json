@@ -66,6 +66,26 @@
         "Confirm ~/.kiro/steering/harness-skill-<name>.md uses inclusion: always and points to the installed SKILL.md.",
         "Run bash harness-loop/scripts/demo.sh."
       ]
+    },
+    {
+      "id": "HUC-2026-08-17-orchestrator-native-spawn",
+      "summary": "The interactive orchestrator now uses native sub-agent spawn as its primary execution mode.",
+      "why": "Routing an interactive orchestration session back through a CLI script discarded the runtime's native parent-child coordination and made result collection indirect.",
+      "targetImpact": "The router still chooses exactly one node, but orchestrator spawns that named role in-session and waits for it; Node dispatch remains available for headless, CI and unsupported runtimes.",
+      "paths": [
+        "prompts/orchestrator.md",
+        "AGENTS.md",
+        "agents.manifest.json"
+      ],
+      "mergeActions": [
+        "Merge the native-spawn-first orchestrator contract without weakening route.mjs ownership.",
+        "Regenerate runtime agent files from agents.manifest.json.",
+        "Keep loop/dispatch.mjs and loop/run-loop.mjs for unattended execution and fallback."
+      ],
+      "verification": [
+        "The orchestrator prompt requires the exact router-named role, one active child and post-spawn state inspection.",
+        "Run bash harness-loop/scripts/demo.sh."
+      ]
     }
   ]
 }

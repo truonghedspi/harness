@@ -378,9 +378,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 ## The front door
 
 `orchestrator` is the agent a human talks to, and the role a session takes when nobody names one
-(`AGENTS.md` says so, and all three runtimes read it). It reports where the loop is, dispatches the
-node the router named, and brings decisions back — translated, with numbered options and a
-recommendation.
+(`AGENTS.md` says so, and all three runtimes read it). It reports where the loop is, uses native
+sub-agent spawn for the exact node the router named, and brings decisions back — translated, with
+numbered options and a recommendation. `run-loop.mjs` and `dispatch.mjs` remain the execution
+adapter for headless/CI or a session without native spawning.
 
 Its safety is two mechanical constraints, not two sentences of good intent:
 

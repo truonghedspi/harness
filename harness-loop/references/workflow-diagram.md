@@ -15,7 +15,8 @@ defect came from, not one step back (`graph.md`).
 flowchart TD
     KS["Kiro global steering\nalways-loaded activation bridges"] -. "read applicable user skill" .-> HP
     HP["user-scope human-presenter\nreader task · provenance · uncertainty\nsmallest useful representation"] -. "audits substantive human-facing output\nwithout becoming a workflow node" .-> A
-    A["User requirement"] --> ADOPT{"Existing repo\nwith history?"}
+    A["User requirement"] --> O["orchestrator\nroute → native spawn one named sub-agent\nscript fallback for headless/CI"]
+    O --> ADOPT{"Existing repo\nwith history?"}
     ADOPT -- yes --> EH{"existing harness\nmachinery?"}
     EH -- no --> ON["harness-onboarder\nsurvey → ask → scaffold →\nadoption-baseline --record"]
     EH -- yes --> HU["harness-upgrade skill\ndry-run → ownership plan → human merge\n→ regenerate → verify"]

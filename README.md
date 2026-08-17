@@ -21,7 +21,9 @@ This repository holds the agent-harness assets for the team:
   `node harness-loop/scripts/verify-harness.mjs --target <proj> --run-features` (must report 0
   blockers). Scaffolded targets run the baseline, router, named dispatch and autonomous loop
   natively on Windows, macOS and Linux through Node `.mjs` entry points; `.sh` and `.cmd` files are
-  compatibility wrappers only. Kubernetes-deployed microservice without Docker access: an opt-in
+  compatibility wrappers only. In an interactive session, the orchestrator natively spawns the
+  one sub-agent selected by the router; Node dispatch is the headless/CI fallback.
+  Kubernetes-deployed microservice without Docker access: an opt-in
   `harness-loop/templates/k8s/tools/k8s-test-env.sh` does namespace-per-run Helm
   deploy/test/collect-diagnostics/teardown for Level 3 testing, and the opt-in
   `k8s-integration-tester` agent (`templates/k8s/.kiro/agents/k8s-integration-tester.json`) fills

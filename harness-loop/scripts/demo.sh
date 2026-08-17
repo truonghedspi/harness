@@ -1700,8 +1700,9 @@ process.exit(f && /orchestrator/.test(f.evidence||'') ? 1 : 0);
 node -e "
 const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
 process.exit(/You do not choose the next node/.test(t) && /harness defect, not an override/.test(t)
-             && /Never answer it yourself/.test(t) ? 0 : 1);
-"; expect "its prompt forbids choosing a node, overriding the router, and answering the human's question for them" $?
+             && /Never answer it yourself/.test(t) && /runtime's native sub-agent facility/.test(t)
+             && /exact role/.test(t) && /one child active at a time/.test(t) ? 0 : 1);
+"; expect "its prompt makes native single-agent spawn primary without letting the LLM choose the node" $?
 # A prohibition SECTION is a normal prompt shape — the orchestrator's whole safety case is a list of
 # things it may not write. The gate read the heading's negation as an instruction and flagged it,
 # which is how a gate teaches people to ignore it.
@@ -1860,8 +1861,9 @@ process.exit(rl.includes('./dispatch.mjs') && !rl.includes('kiro-cli chat --agen
 "; expect "run-loop.mjs imports one dispatcher instead of keeping a second runtime implementation" $?
 node -e "
 const t=require('fs').readFileSync('$DP/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
-process.exit(/node loop\/dispatch\.mjs designer/.test(t) && /only when a human has already decided/.test(t) ? 0 : 1);
-"; expect "and the orchestrator is told to use it only once a human has decided — the router still owns the rest" $?
+process.exit(/Spawn .designer. for a design question/.test(t) && /native spawn is unavailable/.test(t) &&
+  /node loop\/dispatch\.mjs <owner>/.test(t) && /already-decided handoff/.test(t) ? 0 : 1);
+"; expect "and human decisions use native owner spawn first, with named dispatch only as fallback" $?
 
 # setup never overwrites, --force overwrites everything including the project's own work. Neither
 # is an upgrade, so targets get hand-synced file by file — which is how one ended up with
