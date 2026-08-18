@@ -139,18 +139,18 @@ const RULES = [
     },
   },
   {
-    node: "designer", kind: "agent", layer: "design",
-    when: "a feature's checkerNotes starts NEEDS DESIGN: and the designer has not had a turn on that marker",
+    node: "design-facilitator", kind: "agent", layer: "design",
+    when: "a feature's checkerNotes starts NEEDS DESIGN: and the design-facilitator has not had a turn on that marker",
     match: () => {
-      // Only until the designer has had its turn on THIS marker. Its answer cannot clear the marker,
-      // so "marker still present" is not evidence that the designer failed to answer.
+      // Only until the design-facilitator has had its turn on THIS marker. Its answer cannot clear
+      // the marker, so "marker still present" is not evidence that it failed to answer.
       const f = open.find((x) => /^NEEDS DESIGN:/.test(marker(x)) &&
-        !alreadyDispatched("designer", x.id, markerHash(marker(x))));
+        !alreadyDispatched("design-facilitator", x.id, markerHash(marker(x))));
       return f ? { why: `${f.id} raised a design question the maker is forbidden to answer inline`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
   {
-    node: "designer", kind: "agent", layer: "design",
+    node: "design-facilitator", kind: "agent", layer: "design",
     when: "a docs/design/*.md states no observable seam or no invariants",
     // Same predicate as verify-harness's design-untestable gate. Without this rule the router
     // matched only the NEEDS DESIGN: marker, so a design that simply never said how anyone would
@@ -172,64 +172,55 @@ const RULES = [
     },
   },
   {
-    node: "designer", kind: "agent", layer: "design",
-    when: "the current design revision has a typed rejected review",
+    // Replaces what used to be two rules: `designer` bounced off a typed `rejected` verdict from
+    // `design-reviewer`, and back again, each round burning a paid session and neither agent having
+    // the business context to know when the design was actually done — a design that changed even
+    // slightly got a new digest, which reset the one-bounded-retry counter, so the loop never
+    // reliably converged and never reliably escalated either. There is no retry counter here because
+    // there is no auto-loop to bound: this rule always routes to `human`, never back to an agent, and
+    // stays that way until a human writes the approval themselves.
+    node: "human", kind: "human", layer: "design",
+    when: "a design revision exists and has no human approval matching its current digest",
     match: () => {
-      const review = readJSON("loop/design-review.json");
-      const digest = designDigest();
-      if (!digest || !review || review.status !== "rejected" || review.designDigest !== digest) return null;
-      const requestId = `design-reject:${digest}:${review.revision || 1}`;
-      if (requestDispatched(requestId, "designer")) {
-        return { node: "human", kind: "human", layer: "design", why: "the rejected design did not change after one bounded revision turn", requestId };
-      }
-      return { why: "design-reviewer rejected the current design revision", detail: review.summary || "see loop/design-review.json", requestId };
-    },
-  },
-  {
-    node: "design-reviewer", kind: "agent", layer: "design",
-    when: "a substantive design revision has no typed review for its current digest",
-    match: () => {
-      if (!hasAgent("design-reviewer")) return null;
       const digest = designDigest();
       if (!digest) return null;
-      const review = readJSON("loop/design-review.json");
-      if (review && review.designDigest === digest && ["approved", "rejected", "needs-human"].includes(review.status)) return null;
-      const requestId = `design-review:${digest}`;
-      if (requestDispatched(requestId, "design-reviewer")) {
-        return { node: "human", kind: "human", layer: "design", why: "design-reviewer ran but did not publish a valid verdict for the current revision", requestId };
-      }
-      return { why: `the current design revision ${digest} has not been independently reviewed`, detail: digest, requestId };
+      const approval = readJSON("loop/design-approval.json");
+      // The digest match IS the invalidation mechanism: edit the design after it was approved, even
+      // a one-line edit, and the digest changes, so a stale approval simply stops matching — no
+      // separate "expire the old approval" step exists or is needed.
+      if (approval && approval.status === "approved" && approval.designDigest === digest) return null;
+      return { why: `docs/design/* revision ${digest} has no human approval on record — decomposition, the oracle layer, and implementation all stay blocked until loop/design-approval.json names this exact digest`, detail: digest };
     },
   },
   {
     node: "feature-planner", kind: "agent", layer: "decomposition",
-    when: "a NEEDS DESIGN: marker the designer has already had a turn on — the planner must clear it",
-    // The designer answered; someone has to retire the marker and re-cut if the answer changed the
-    // scope. That is the planner: it is the one node downstream of the designer allowed to write
-    // feature_list.json.
+    when: "a NEEDS DESIGN: marker the design-facilitator has already had a turn on — the planner must clear it",
+    // The design-facilitator answered; someone has to retire the marker and re-cut if the answer
+    // changed the scope. That is the planner: it is the one node downstream of design allowed to
+    // write feature_list.json.
     match: () => {
       const f = open.find((x) => {
         const h = markerHash(marker(x));
-        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("designer", x.id, h) &&
+        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("design-facilitator", x.id, h) &&
           !alreadyDispatched("feature-planner", x.id, h);
       });
-      return f ? { why: `${f.id}'s NEEDS DESIGN: already went to the designer and the marker is still there — the designer cannot clear it. Consume the answer, re-cut if it changed the scope, and clear the marker`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+      return f ? { why: `${f.id}'s NEEDS DESIGN: already went to the design-facilitator and the marker is still there — it cannot clear the marker itself. Consume the answer, re-cut if it changed the scope, and clear the marker`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
   {
     node: "human", kind: "human", layer: "decomposition",
-    when: "the same marker after both the designer and the planner have had a turn — nobody else can clear it",
+    when: "the same marker after both the design-facilitator and the planner have had a turn — nobody else can clear it",
     // Terminating case. Without it the previous rule is just a different livelock: the planner runs,
     // makes feature_list.json the newest file, does NOT clear the marker, and the answer is no
-    // longer "newer" — so the designer rule takes over again. Nobody is left to route to, so say so
-    // instead of spending another session.
+    // longer "newer" — so the design-facilitator rule takes over again. Nobody is left to route to,
+    // so say so instead of spending another session.
     match: () => {
       const f = open.find((x) => {
         const h = markerHash(marker(x));
-        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("designer", x.id, h) &&
+        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("design-facilitator", x.id, h) &&
           alreadyDispatched("feature-planner", x.id, h);
       });
-      return f ? { why: `${f.id} still carries the SAME NEEDS DESIGN: marker after both the designer and the planner have had a turn on it. Nobody else can clear it. Clear it by hand, or say why it is still open.`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
+      return f ? { why: `${f.id} still carries the SAME NEEDS DESIGN: marker after both the design-facilitator and the planner have had a turn on it. Nobody else can clear it. Clear it by hand, or say why it is still open.`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
   {

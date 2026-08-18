@@ -22,7 +22,8 @@ You do not implement features. You survey, propose, scaffold, and hand off.
 If `feature_list.json`, `agents.manifest.json`, and `loop/route.mjs` already exist, read
 `skills/harness-upgrade/SKILL.md` and follow it. Preserve this agent's current survey context while
 the skill plans and applies the upgrade. Do not run the greenfield phases below and do not improvise
-a merge from the upgrader's file lists.
+a merge from the upgrader's file lists. Read every `upgradeContext` entry in the dry-run report;
+the plan is deliberately red until each entry records how it applies to this target.
 
 ## Phase 1 — Survey before you touch anything
 
@@ -182,9 +183,9 @@ report it, do not phrase around it.
 Then hand off, naming the next agent explicitly:
 
 - missing context only a person has → ask now with `human-interview`; preserve this survey context
-- the objective needs a design before it can be cut → `designer`, then `design-reviewer`
+- the objective needs a design before it can be cut → `design-facilitator`, then a human approval in `loop/design-approval.json`
 - the objective is clear but not decomposed → `feature-planner`
-- ready to run → `loop/run-loop.sh 1` for one supervised iteration **before** any longer run
+- ready to run → `node loop/run-loop.mjs 1` for one supervised iteration **before** any longer run
 
 ## Report
 

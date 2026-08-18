@@ -1,5 +1,5 @@
 {
-  "$comment": "Single source of truth for every agent in this harness. setup-harness-loop.mjs generates ALL THREE runtimes from it: .kiro/agents/*.json (kiro-cli), .claude/agents/*.md (Claude Code) and .codex/agents/*.toml (Codex CLI). Edit this file, then re-run setup with --force, or `node tools/gen-agents.mjs --target .`. Never hand-edit the generated agent files — verify-harness reports agent-generated-stale. Field mapping: prompt -> kiro `prompt` file:// URI / Claude system-prompt body (inlined at generation); resources -> kiro `resources` / Claude SubagentStart hook injecting them as additionalContext (computed at spawn, so never stale); writes -> kiro toolsSettings.write.allowedPaths / Claude PreToolUse hook denying edits outside the list / Codex project-level PreToolUse hook in .codex/hooks.json, which learns the role from the HARNESS_AGENT env var because Codex agent TOML has no per-agent hooks field (Claude has no per-agent path permission field, and an Edit(...) rule in settings.json is session-wide, so the hook is the only per-agent enforcement); trace -> lifecycle hooks; model -> per-runtime model, null meaning \"the runtime default\". Evaluator roles (checker, design-reviewer) get the strongest model available because their whole job is to catch what a cheaper model produced; executors run cheap. kiro offers no Opus on this account (kiro-cli chat --list-models), so its evaluators use claude-sonnet-4.5, the strongest it has. Executors are PINNED to claude-sonnet-4 rather than left on kiro's `auto`: on 2026-08-12 `auto` returned \"temporarily unavailable\" mid-run and killed a maker part-way through a fix. `auto` is a router, not a model, and it can route to nothing. Codex models: evaluators get gpt-5.6-terra with high reasoning effort (OpenAI's own reviewer example); executors get gpt-5.6-sol, the documented default. `codex debug models` lists sol/terra/luna with no cost or capability ordering, so no cheaper tier is guessed for executors — a wrong guess there downgrades the role whose job is catching what a cheaper model got wrong.",
+  "$comment": "Single source of truth for every agent in this harness. setup-harness-loop.mjs generates ALL THREE runtimes from it: .kiro/agents/*.json (kiro-cli), .claude/agents/*.md (Claude Code) and .codex/agents/*.toml (Codex CLI). Edit this file, then re-run setup with --force, or `node tools/gen-agents.mjs --target .`. Never hand-edit the generated agent files — verify-harness reports agent-generated-stale. Field mapping: prompt -> kiro `prompt` file:// URI / Claude system-prompt body (inlined at generation); resources -> kiro `resources` / Claude SubagentStart hook injecting them as additionalContext (computed at spawn, so never stale); writes -> kiro toolsSettings.write.allowedPaths / Claude PreToolUse hook denying edits outside the list / Codex project-level PreToolUse hook in .codex/hooks.json, which learns the role from the HARNESS_AGENT env var because Codex agent TOML has no per-agent hooks field (Claude has no per-agent path permission field, and an Edit(...) rule in settings.json is session-wide, so the hook is the only per-agent enforcement); trace -> lifecycle hooks; model -> per-runtime model, null meaning \"the runtime default\". Evaluator roles (checker, design-facilitator) get the strongest model available because their whole job is to catch what a cheaper model produced — design-facilitator only gets one deep pass now instead of a cheap generator plus a reviewer loop, so it runs on the strongest model rather than the executor tier `designer` used to; executors run cheap. kiro offers no Opus on this account (kiro-cli chat --list-models), so its evaluators use claude-sonnet-4.5, the strongest it has. Executors are PINNED to claude-sonnet-4 rather than left on kiro's `auto`: on 2026-08-12 `auto` returned \"temporarily unavailable\" mid-run and killed a maker part-way through a fix. `auto` is a router, not a model, and it can route to nothing. Codex models: evaluators get gpt-5.6-terra with high reasoning effort (OpenAI's own reviewer example); executors get gpt-5.6-sol, the documented default. `codex debug models` lists sol/terra/luna with no cost or capability ordering, so no cheaper tier is guessed for executors — a wrong guess there downgrades the role whose job is catching what a cheaper model got wrong.",
   "runtimes": [
     "kiro",
     "claude",
@@ -83,47 +83,9 @@
       "codexReasoningEffort": "high"
     },
     {
-      "name": "design-reviewer",
-      "description": "Adversarial reviewer for designs: hunts uncited claims, unwritten load-bearing assumptions, dishonest assumption status, and a too-narrow option space. Asks of every conclusion 'which assumption, if false, flips this?'. Write-restricted so it cannot fix the design itself.",
-      "prompt": "prompts/design-reviewer.md",
-      "tools": [
-        "read",
-        "write",
-        "shell"
-      ],
-      "mcp": false,
-      "writes": [
-        "docs/assumptions.md",
-        "loop/design-review.json",
-        "session-handoff.md",
-        "trace/**",
-        "memory/design-reviewer/**"
-      ],
-      "resources": [
-        "AGENTS.md",
-        "docs/constraints.md",
-        "docs/reference/design-engineering.md",
-        "docs/INDEX.md",
-        "docs/architecture.md",
-        "docs/assumptions.md",
-        "docs/cross-cutting.md",
-        "DECISIONS.md",
-        "memory/design-reviewer/MEMORY.md"
-      ],
-      "trace": true,
-      "traceToolUse": [],
-      "welcomeMessage": "Design reviewer: I try to falsify a design, not confirm it. For every conclusion I ask 'which assumption, if false, flips this?' — and if that assumption isn't in docs/assumptions.md, I reject. I also check every claim's citation actually exists, run any spikes it cites, flag assumptions marked verified on nothing but confidence, and reject a designer that punts to a human what it could have grepped. Point me at a design doc.",
-      "model": {
-        "claude": "claude-opus-5",
-        "kiro": "claude-sonnet-4.5",
-        "codex": "gpt-5.6-terra"
-      },
-      "codexReasoningEffort": "high"
-    },
-    {
-      "name": "designer",
-      "description": "Turns a requirement into a design: named components and boundaries, a claims table where every fact is cited or spiked, a registry of load-bearing assumptions, and rejected alternatives. Stops the loop only on assumptions that cannot be known from the repo. Does not cut features and does not implement.",
-      "prompt": "prompts/designer.md",
+      "name": "design-facilitator",
+      "description": "Turns a requirement into a design by sharpening a human's thinking, not by deciding for them: named components and boundaries, a claims table where every fact is cited or spiked, a registry of load-bearing assumptions, at least two real options with an argument map each, and a structured self-applied critique (Key Assumptions Check, premortem, Devil's Advocacy, steelman gate). Never sets status=approved — that is the human's alone, recorded in loop/design-approval.json.",
+      "prompt": "prompts/design-facilitator.md",
       "tools": [
         "read",
         "write",
@@ -136,32 +98,37 @@
         "docs/assumptions.md",
         "DECISIONS.md",
         "spikes/**",
-        "memory/designer/**",
-        "docs/cross-cutting.md"
+        "docs/cross-cutting.md",
+        "loop/design-approval.json",
+        "session-handoff.md",
+        "trace/**",
+        "memory/design-facilitator/**"
       ],
       "resources": [
         "AGENTS.md",
         "docs/constraints.md",
         "docs/reference/design-engineering.md",
+        "docs/reference/critique-technique-sources.md",
         "docs/INDEX.md",
         "docs/architecture.md",
         "docs/assumptions.md",
         "docs/cross-cutting.md",
         "DECISIONS.md",
         "feature_list.digest.md",
-        "memory/designer/MEMORY.md"
+        "memory/design-facilitator/MEMORY.md"
       ],
       "trace": true,
       "traceToolUse": [
         "execute_bash",
         "fs_write"
       ],
-      "welcomeMessage": "Designer: point me at the requirement. I produce named components + boundaries, a claims table where every library fact is cited to a real file:line or proven by a runnable spike, a registry of load-bearing assumptions (verified / assumed-with-blast-radius / needs-human), and the rejected alternatives. I stop and ask you ONLY about assumptions that cannot be known from the repo — deployment facts, business intent, risk appetite. I don't cut features and I don't implement.",
+      "welcomeMessage": "Design facilitator: point me at the requirement. I generate at least two real options — each with an argument map, not just a support chain — before I ever ask which you're leaning toward, so I don't anchor on your first instinct. I build the claims table, the assumption registry, and the seams/invariants, then run a structured critique on the option you lean toward: Key Assumptions Check, premortem, Devil's Advocacy for the option you're NOT leaning toward, and a steelman gate before any objection of mine appears. I never write status: approved — only you do, in loop/design-approval.json, and if you override a concern of mine I record it as an accepted risk rather than dropping it.",
       "model": {
-        "claude": "sonnet",
-        "kiro": "claude-sonnet-4",
-        "codex": "gpt-5.6-sol"
-      }
+        "claude": "claude-opus-5",
+        "kiro": "claude-sonnet-4.5",
+        "codex": "gpt-5.6-terra"
+      },
+      "codexReasoningEffort": "high"
     },
     {
       "name": "feature-planner",

@@ -31,7 +31,7 @@ independent oracle.
 ## Where this sits in the loop
 
 ```
-requirement → designer → feature-planner ──┬─→ test-designer  → test-implementer ─┐
+requirement → design-facilitator → [human approval] → feature-planner ──┬─→ test-designer  → test-implementer ─┐
                                            │   (spec→conditions) (conditions→tests)│
                                            └─→ maker (implementation) ─────────────┴─→ checker
 ```

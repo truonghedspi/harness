@@ -147,7 +147,7 @@ the laziest escalations, which are the common ones.
 It cannot catch the interesting case. The feature that cost a week *did* carry evidence — a real
 reproduction with vanilla upstream code — it just never ran the one experiment that would have
 settled it. **No mechanical check knows which experiment you did not think of.** That gap is what
-the checker and the design-reviewer are for, and why both are instructed to ask of any escalation:
+the checker and the design-facilitator are for, and why both are instructed to ask of any escalation:
 *what would have settled this without a human, and was it tried?*
 
 `tools/run-report.mjs` prints the standing human-attention ledger — every open `needs-human`

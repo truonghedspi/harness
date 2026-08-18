@@ -7,7 +7,7 @@ against reality). Contract: `docs/reference/design-engineering.md`.
 
 **Status values**
 - `verified` — with *how*: a `path:line` citation, a spike that ran, or a dated human statement.
-  Designer confidence is never verification.
+  The design-facilitator's own confidence is never verification.
 - `assumed` — plausible but unverified. The **If false** column is mandatory: without a stated
   blast radius nobody can judge the risk.
 - `needs-human` — cannot be known from the repo (deployment fact, business intent, risk appetite).

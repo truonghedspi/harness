@@ -49,7 +49,7 @@ Scripts use only Node.js built-ins, so they run after copying the skill into any
 `loop/{goal,maker-prompt,checker-prompt}.md` + `run-loop.mjs` (`.sh`/`.cmd` wrappers) ·
 `skills/test-design/` (spec→test-condition discipline) · `skills/feature-planning/` (build/prove
 DAG capability, schema, checker and fixtures) ·
-`.kiro/agents/{maker,checker,harness-setup,feature-planner,designer,design-reviewer,test-designer,test-implementer}.json`
+`.kiro/agents/{maker,checker,harness-setup,feature-planner,design-facilitator,test-designer,test-implementer}.json`
 + `.kiro/settings/mcp.json` · `check-coverage.mjs`.
 
 ## The 13-lesson contract

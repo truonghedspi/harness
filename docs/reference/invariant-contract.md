@@ -57,7 +57,7 @@ component with three invariants gets three rows and three ids.
 | `INV-BOD-3` | `LedgerCore` | A correlationId reused after an intervening BOD is applied again, not replayed from cache | response bytes of the second application |
 ```
 
-Markdown, not JSON, deliberately: it is the format the designer already produces unprompted, it
+Markdown, not JSON, deliberately: it is the format the design-facilitator already produces unprompted, it
 stays readable in the document it belongs to, and it matches how `docs/assumptions.md` and
 `docs/cross-cutting.md` are already parsed. The id column is the machine-readable part.
 
@@ -92,7 +92,7 @@ when a single wrong implementation breaks several rules.
 than no citation: it converts an honest gap into a false claim of coverage, and the gate then
 reports green on a feature nobody checked. If a feature's verification genuinely proves something
 no invariant states, that is a design gap — write `NEEDS DESIGN: no invariant covers <what>` and
-let the designer answer it.
+let the design-facilitator answer it.
 
 ## When there is nothing to derive from
 
@@ -100,7 +100,7 @@ Do not invent one. The planner's rule is unchanged and this contract makes it en
 `falsifier` with no invariant behind it is a guess wearing the costume of a requirement.
 
 Write `NEEDS DESIGN: no invariants stated for <component>` into the feature's `checkerNotes`. The
-router sends it to the designer, which is the role that owns the answer.
+router sends it to the design-facilitator, which is the role that owns the answer.
 
 ## The gates
 

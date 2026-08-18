@@ -63,19 +63,32 @@ Models agree under pressure — especially with a confident human. The maker/che
 the *maker's* self-agreement, but nothing stopped a **checker** from folding when a human pushed
 back on a verdict.
 
-- Fix: a verdict may change only on **new evidence** — a command output, a citation, a spike — never
-  on restatement, insistence, or authority. Written into the checker and design-reviewer prompts.
+- Fix: a **concern** may change only on **new evidence** — a command output, a citation, a spike —
+  never on restatement, insistence, or authority. Written into the checker and design-facilitator
+  prompts. For design-facilitator this cuts both ways: it must not fold a concern under pressure, and
+  it must not fabricate agreement — if the human overrides a concern anyway, that is recorded as an
+  accepted risk in `loop/design-approval.json`, never silently dropped.
 
 ### 5. Self-preference between same-model agents
 An LLM rates its own output higher, and two instances of the same model share blind spots. Our
 generator/evaluator separation is real for *mechanical* claims (the checker re-runs the command —
-an anchor outside both models), but **design review has no such anchor**: designer and
-design-reviewer are the same model reasoning about the same thing.
+an anchor outside both models), but **design review never had such an anchor**: `designer` and
+`design-reviewer` were the same model reasoning about the same thing, so the "independent" reviewer
+was never independent in the way that matters. Believing otherwise is what let that pairing loop —
+each rejection cost a session and neither agent could tell the other "we are done" (`graph.md` row
+11).
 
-- Partly countered: the reviewer must attempt a falsification and state it before any verdict.
-- **Still open, honestly:** the load-bearing defence for design is not the reviewer, it is the
-  mechanical gates plus the human on `needs-human` rows. Do not count the reviewer as insurance
-  against a judgement error the designer would also make.
+- **The fix stops pretending there are two anchors and names the one real one.** `design-facilitator`
+  merges the two roles explicitly instead of running them as two prompts hoping for diversity that
+  was never structurally there, and the actual anchor moves to where it always should have been: the
+  human, who alone decides and writes `status: approved`.
+- **Still open, honestly:** a self-applied critique from one model can still miss what a genuinely
+  different perspective would catch. The techniques in
+  `docs/reference/critique-technique-sources.md` (Devil's Advocacy, premortem, steelman gate) are
+  chosen specifically because they force the *same* model to argue a position it would not
+  spontaneously generate — a structural countermeasure, not a second independent judge. Do not count
+  the facilitator's own critique as insurance against a judgement error it would also make; that
+  insurance is the human's review, not another agent's.
 
 ### 6. Goal drift within a long session
 Later instructions dominate earlier ones; the original objective fades as a session grows.

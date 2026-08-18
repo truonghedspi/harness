@@ -695,7 +695,7 @@ function gateLoop() {
     }
     // An agent told to update a file it has no write permission for will fail at the moment it
     // matters, in a way no test covers — the instruction reads fine and the config reads fine; only
-    // the pair is wrong. Found in the wild: the designer's prompt says "register it in
+    // the pair is wrong. Found in the wild: the design-facilitator's prompt says "register it in
     // docs/cross-cutting.md" while its allowedPaths omitted that file.
     if (Array.isArray(a.writes)) {
       const covers = (f) => a.writes.some((w) => w === f || (w.endsWith("/**") && f.startsWith(w.slice(0, -2))));
@@ -824,7 +824,7 @@ function gateMemory() {
 // Gate 8 — design hygiene (references/design-engineering.md). All warn: design quality is a
 // heuristic and a false positive must never stop a loop. These catch the mechanical half —
 // uncited claims, a blocked feature resting on an unverified assumption, a named component no
-// feature covers — leaving the reasoning defects to the design-reviewer's judgment.
+// feature covers — leaving the reasoning defects to the design-facilitator's self-applied critique and, ultimately, the human who approves.
 // ---------------------------------------------------------------------------------------------
 const WEAK_EVIDENCE = /^(|todo|tbd|n\/a|—|-|\?|recall|from memory|typically|should be)$/i;
 
@@ -936,7 +936,7 @@ function gateDesign() {
         add({
           gate: "design", id: "falsifier-orphan", layer: "project", severity: "warn", count: orphans.length,
           symptom: `${orphans.length} falsifier(s) cite an invariant id that exists in no design document — the citation is to something that was never stated`,
-          remedy: "either the id is a typo, or the falsifier was written first and the citation added to satisfy the gate. The second is worse than no citation: it reports coverage nobody checked. Fix the id, or write NEEDS DESIGN and let the designer state the invariant",
+          remedy: "either the id is a typo, or the falsifier was written first and the citation added to satisfy the gate. The second is worse than no citation: it reports coverage nobody checked. Fix the id, or write NEEDS DESIGN and let the design-facilitator state the invariant",
           evidence: orphans.slice(0, 6).map((id) => `${id} ← ${cited.get(id).slice(0, 2).join(",")}`).join("; "),
         });
       }

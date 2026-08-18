@@ -113,7 +113,7 @@ Verdict per feature:
   set `readyForCheck` back to `false`.
 - **REJECT because the claim rests on an unexamined design assumption** (the behavior may be
   implemented correctly, but only under a premise nobody wrote down) → start `checkerNotes` with
-  `NEEDS DESIGN:` and name the assumption. The `designer` picks it up; the maker is forbidden from
+  `NEEDS DESIGN:` and name the assumption. The `design-facilitator` picks it up; the maker is forbidden from
   touching it meanwhile. Check `docs/assumptions.md` — if the premise is not a row there, that is
   itself the defect (`docs/reference/design-engineering.md`).
   This is also where a test-design `ESCALATE_SPEC` lands: when the code and the test are *both*

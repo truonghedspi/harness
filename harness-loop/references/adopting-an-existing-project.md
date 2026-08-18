@@ -113,7 +113,7 @@ pure cost.
 3. **`adoption-baseline.mjs --record`** — before anything else runs
 4. `check-coverage.mjs` = 13/13, `verify-harness --run-features` = 0 blockers,
    `adoption-baseline` = no new debt
-5. Resolve human-owned gaps in place with `human-interview`, then hand off to `designer` /
+5. Resolve human-owned gaps in place with `human-interview`, then hand off to `design-facilitator` /
    `feature-planner`, then **one supervised
    `node loop/run-loop.mjs 1`** before any longer run
 

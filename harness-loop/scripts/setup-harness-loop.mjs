@@ -242,6 +242,7 @@ const EXTRA_COPIES = [
   ["references/multi-service.md", "docs/reference/multi-service.md"],
   ["references/multi-service.md", "docs/reference/multi-service.md"],
   ["references/how-google-tests-software-research.md", "docs/reference/how-google-tests-software-research.md"],
+  ["references/critique-technique-sources.md", "docs/reference/critique-technique-sources.md"],
 ];
 // Whole directories copied verbatim. The test-design skill ships as a unit — SKILL.md is useless
 // without the strategy matrix, property catalog and schemas it dispatches to.

@@ -20,7 +20,7 @@ can be mechanically checked, and stop only where knowledge genuinely cannot exis
 | Wrong about a library/API (hallucinated, misremembered) | **Yes, mechanically** | Every factual claim cites `file:line` in a real checkout, or a **spike** that runs and proves it |
 | Doesn't know a deployment/business fact | **Never** | Must be declared an assumption tagged `needs-human` — the only thing a human is asked |
 | Weighing trade-offs by business context | Partly | Options + explicit trade-off axes; the human assigns weight, the agent doesn't pretend to |
-| Unknown unknowns | Partly | **Adversarial `design-reviewer`**: "which assumption, if false, flips this conclusion?" |
+| Unknown unknowns | Partly | **Self-applied critique in `design-facilitator`**: Key Assumptions Check, premortem, Devil's Advocacy — "which assumption, if false, flips this conclusion?" — surfaced for the human, never resolved by the agent |
 
 That last row is not hypothetical. A feature in this skill's own dogfood project sat `blocked` for a
 week as "no API path exists — needs a human decision among three lossy options". The API finding was
@@ -70,7 +70,7 @@ tells a future reader what breaks if the decision is revisited.
 
 ## Spikes — converting belief into proof
 
-When a claim can't be cited from source, the designer writes a **throwaway** spike that proves it:
+When a claim can't be cited from source, `design-facilitator` writes a **throwaway** spike that proves it:
 a test, a script, a one-file program. Rules: it lives under `spikes/`, it is never imported by
 production code, it must actually run, and its result goes in the claims table.
 
@@ -91,17 +91,35 @@ settles a fact; a prototype settles a preference. Both beat another round of que
 live under `spikes/` under the same rules. (The distinction comes from the `grilling` skill by Matt
 Pocock — github.com/mattpocock/skills.)
 
-## Generator / evaluator separation, applied to design
+## One role, structured to critique itself — and a human who decides
 
-The same rule that keeps the maker from grading itself applies here — a designer is its own
-design's best defense attorney:
+An earlier version of this split the work into two agents: `designer` produced a design,
+`design-reviewer` tried to falsify it and could reject it back to the designer. That loop had a
+failure mode neither agent could see from the inside: **a design that changed even slightly between
+rounds got a new digest, which reset the "one unchanged revision escalates" bound, so rejection could
+cycle indefinitely** — every round a paid session, and neither agent had the business context to know
+when the design was actually *done*. Only a human does. `docs/reference/graph.md` row 11 has the
+full incident.
 
-- **`designer`** explores, produces the four artifacts, records assumptions honestly. It may not
-  mark its own assumptions `verified` on its own say-so.
-- **`design-reviewer`** tries to **falsify**: hunts uncited claims, load-bearing assumptions that
-  were never written down, a suspiciously narrow option space, and above all asks of every
-  conclusion: *which assumption, if false, flips this?* If the answer is an assumption not in the
-  registry, the design is rejected.
+The replacement, `design-facilitator`, keeps the adversarial move — it still asks of every
+conclusion *which assumption, if false, flips this?* — but runs it as one structured session, not an
+inter-agent loop, and produces a **critique**, never a **verdict**:
+
+- It explores, produces the four artifacts below, and records assumptions honestly. It may not mark
+  its own assumptions `verified` on its own say-so.
+- Before any of that, it generates at least two real options **blind to which one the human favors**
+  — argument-mapped, with an objection branch, not just support — so it does not anchor its own
+  generation on the human's first instinct.
+- After the artifacts exist, it runs a self-applied critique in a fixed order — Key Assumptions
+  Check, premortem, Devil's Advocacy for the option the human is *not* leaning toward, a steelman
+  gate before any objection may appear — sourced from `docs/reference/critique-technique-sources.md`,
+  not improvised.
+- **Only a human writes `status: approved`**, to `loop/design-approval.json`, bound to the design's
+  exact digest. `prompts/design-facilitator.md` has the full session protocol.
+
+This is the same generator/evaluator idea the maker-checker loop uses (a role is its own best
+defense attorney), applied one level higher: here the *evaluator* is not another agent grading a
+peer, it is the human the whole scheme exists to serve.
 
 ## Cross-cutting decisions are not assumptions — they need their own register
 
@@ -134,13 +152,18 @@ the agent itself*, which every other gate had passed.
 
 ## Where the human is actually needed
 
-Not "approve every design" — that is the interruption pattern that makes people turn automation
-off. Only this:
+Two distinct stops, not one, and it is worth being precise about why there are two:
 
-**The loop stops exactly on `needs-human` assumptions.** These are mechanically detectable, few, and
-high-value: they are the facts about deployment, business intent, and risk appetite that do not
-exist in the repo and never will. Everything else — exploring options, citing sources, running
-spikes, recording decisions — proceeds without asking.
+**The loop stops on `needs-human` assumptions** the same way it always did — mechanically detectable,
+few, and high-value: facts about deployment, business intent, and risk appetite that do not exist in
+the repo and never will.
+
+**The loop also stops on the design itself, in full, until a human approves it.** This is new, and it
+is not "approve every design" in the interruption-fatigue sense that makes people turn automation
+off — it is one approval per design revision, not one per agent turn, and there is no reject-and-retry
+churn behind it to get tired of. `design-facilitator` does the exploring, the citing, the spiking,
+and the self-critique without asking; what it produces is a **recommendation with its reasoning shown
+and its concerns on record**, and the human's one job is to decide, not to referee an agent debate.
 
 ## Mechanical gates (`verify-harness.mjs`, gate `design`, severity `warn`)
 
@@ -158,18 +181,25 @@ are signals a reviewer or a human reads.
 
 ## Routing
 
-Reuses the mechanism already built for re-planning:
+```
+requirement → design-facilitator ⇄ human (design session)
+                                       ↓
+                          human writes loop/design-approval.json
+                          (status: approved, bound to the exact digest)
+                                       ↓
+                    feature-planner → test-designer → test-implementer → maker → checker
+```
 
-```
-requirement → designer → design-reviewer → [human: needs-human assumptions only]
-                 ↑                                    ↓
-                 └── NEEDS DESIGN: ──┐        feature-planner → maker → checker
-                                     └──────────────────────────────────────┘
-```
+Everything below the approval line is **blocked** — `loop/route.mjs` will not dispatch
+feature-planner, test-designer, test-implementer, maker, or checker while the current design digest
+has no matching approval. Edit the design after it is approved, even one line, and the digest
+changes, the approval stops matching, and the loop stops for a fresh human decision — there is no
+partial-credit "still basically approved" state, and no agent can restart the loop on its own.
 
 A maker or checker that hits a design-level question writes `NEEDS DESIGN:` as the first token of
 `checkerNotes` instead of quietly setting `blocked`. The maker is forbidden from touching such a
-feature — exactly as with `NEEDS RE-PLAN:` — and the designer picks it up on its next pass.
+feature — exactly as with `NEEDS RE-PLAN:` — and `design-facilitator` picks it up on its next pass;
+the feature-planner clears the marker once the answer is on record, same as before.
 
 ## What this does not solve
 

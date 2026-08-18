@@ -26,9 +26,8 @@ the thin root `AGENTS.md` only points agents at `harness/AGENTS.md`.
 | `verify-harness.mjs` context-supply gate | code | reject a service-rule registry with no working selector/loader path | registry plus scaffolded context tools | `service-rules-unread`, layer harness |
 | `tools/services-check.mjs` | code | integration targets only — the registry's own verification: exits non-zero while a deployable service lacks chart/image/health/`dependsOn` | `services.manifest.json` | exit code |
 | user-scope `human-interview` | capability | let the agent that found a human-owned gap ask in the same context after exhausting discoverable evidence; persist a typed answer receipt | current task context, scoped evidence, unresolved decision | canonical assumption/decision/context artifact or allowed handoff receipt |
-| `designer` | agent | components, cited claims, assumption registry, **observable seam + invariants per component**, and a `## Feature impact` table (its only way to hand scope work over — it may not write `feature_list.json`) | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**` |
-| `design-reviewer` | agent | falsify the design; verify claims by citation; publish a typed verdict for the exact design digest | `docs/design/**` | `loop/design-review.json`, `assumptions.md`, `session-handoff.md` |
-| `feature-planner` | agent | cut the design into a build/prove DAG and materialize bounded, digest-bound context packets where discovery found a non-obvious implementation seam | requirement, approved design, capability skill | `feature_list.json`, `loop/context-packets/**`, `goal.md`, `constraints.md`, checker report |
+| `design-facilitator` | agent | components, cited claims, assumption registry, **observable seam + invariants per component**, at least two options with an argument map each, a self-applied critique (Key Assumptions Check, premortem, Devil's Advocacy), and a `## Feature impact` table (its only way to hand scope work over — it may not write `feature_list.json`). **Never writes `status: approved`** — only a human does, to `loop/design-approval.json` | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**`, `loop/design-approval.json` (drafted, human dictates the verdict fields) |
+| `feature-planner` | agent | cut the design into a build/prove DAG and materialize bounded, digest-bound context packets where discovery found a non-obvious implementation seam | requirement, human-approved design (`loop/design-approval.json` matching digest) | `feature_list.json`, `loop/context-packets/**`, `goal.md`, `constraints.md`, checker report |
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
 | `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
@@ -102,11 +101,11 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `feature_list.json[].status` | `checker`, `--promote` | all | single writer per feature; `blocked` beats mechanical promotion |
 | `feature_list.json[].readyForCheck` | `maker` | `--promote`, `checker` | maker sets, checker clears |
 | `feature_list.json[].evidence` | `maker` | `checker`, `--promote` | overwrite per attempt |
-| `feature_list.json[].checkerNotes` | `checker`, `maker`, `test-designer` | `maker`, `designer`, `feature-planner` | append; **first line is the routing marker** |
+| `feature_list.json[].checkerNotes` | `checker`, `maker`, `test-designer` | `maker`, `design-facilitator`, `feature-planner` | append; **first line is the routing marker** |
 | `feature_list.json[].attempts` | `maker` | gate `over-budget` | +1 per iteration, never reset |
 | `feature_list.json[].falsifier` | `feature-planner`, `test-designer` | `checker` | overwrite |
-| `docs/assumptions.md` | `designer`, `design-reviewer`, `test-designer`; human answer captured in place with `human-interview` | all | row-level; status only moves toward `verified` |
-| `docs/cross-cutting.md` | `designer`; human choice captured in place with `human-interview` | all | a row closes only with mechanism + owner + enforcing rule |
+| `docs/assumptions.md` | `design-facilitator`, `test-designer`; human answer captured in place with `human-interview` | all | row-level; status only moves toward `verified` |
+| `docs/cross-cutting.md` | `design-facilitator`; human choice captured in place with `human-interview` | all | a row closes only with mechanism + owner + enforcing rule |
 | `progress.md` / `session-handoff.md` | `maker`, `checker` | next session | append |
 | `trace/**`, `memory/<agent>/**` | each agent, its own dir only | that agent at spawn | append |
 | `loop/approval.md` | **the human** | `approval-gate.mjs` | first line is the verdict; a verdict with no reason is treated as a rejection |
@@ -114,23 +113,23 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `loop/current.json` | `run-loop.mjs` (the dispatcher) | `loop-status.mjs` | written at dispatch, stamped `finishedAt` on return. A stale entry with no live process means that iteration crashed or was killed |
 | `loop/route-log.jsonl` | `run-loop.mjs` (the dispatcher) | `route.mjs`, `loop-status.mjs` | append-only. What was actually dispatched, per marker. The router reads it to tell "this node has not had a turn on this marker" from "it had one and nothing changed" — the router stays pure, the dispatcher records |
 | `loop/baseline-state.json` | `run-loop.mjs` | `route.mjs` | typed `green|red` outcome plus evidence digest; red is routable state, not an out-of-graph shell exit |
-| `loop/design-review.json` | `design-reviewer` | `route.mjs`, designer | verdict is bound to the current design digest; a changed design invalidates the old verdict automatically |
+| `loop/design-approval.json` | **the human** (dictated in a `design-facilitator` session; the facilitator may never write `status: approved` itself) | `route.mjs`, feature-planner, test-designer, maker, checker | approval is bound to the current design digest; a changed design — even one line — invalidates the old approval automatically, no expiry step needed |
 | `agents.generated.json` | `gen-agents.mjs` | next generator run, upgrade audit | generated-path ownership receipt; partial runtime generation preserves other runtimes, retired paths are removed without touching unmanaged agents |
 | `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `context-plan.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; rule entries retain original pointer, scope, collection digest and provenance |
 | `business-environment.json`, `business-oracles/**` | current agent + `human-interview`, then test-designer/implementer via business-journey capability | capability checker, quality-strategy checker, k8s integration tester, checker | public seams and business facts are project-owned; environment lifecycle stays with k8s-test-env |
 | `test-risk.json` | human risk owner + quality-strategy capability | feature planner, test designer, quality-strategy checker | consequence/likelihood/detectability are human judgements; components and oracle links are mechanically checked |
-| `docs/services.md` | `setup-harness-loop.mjs --integration` | designer, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
+| `docs/services.md` | `setup-harness-loop.mjs --integration` | design-facilitator, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
 | `.kiro/settings/mcp.json`, `.mcp.json` **and** `.codex/config.toml` | `setup-harness-loop.mjs` | kiro / Claude Code / Codex respectively | **must stay identical in server set** — gate `mcp-runtime-skew`. One file per runtime is a format constraint, not three decisions |
 
 ## Routing rules
 
 ```
 if recorded baseline is red              → maker once → human if the evidence digest is unchanged
-if feature.checkerNotes ^ "NEEDS DESIGN:" → designer
+if feature.checkerNotes ^ "NEEDS DESIGN:" → design-facilitator
 if a design doc states no seam or
-   no invariants                          → designer   [the gate, not just the marker]
-if current design has no typed verdict    → design-reviewer
-if current design verdict is rejected     → designer once → human if its digest is unchanged
+   no invariants                          → design-facilitator   [the gate, not just the marker]
+if current design digest has no matching
+   human approval                         → human checkpoint   [no retry counter — no auto-loop to bound]
 if feature.checkerNotes ^ "NEEDS RE-PLAN:"→ feature-planner once → human if marker unchanged
 if a design's Feature-impact table marks
    change/new and is newer than the
@@ -148,7 +147,7 @@ if feature.readyForCheck                  → verify-harness --promote → check
 if done feature starts FOLLOW-UP:         → feature-planner          (turn review debt into scope)
 if checker APPROVE                        → done
 if checker REJECT                         → maker            (rollback: implementation layer)
-if checker REJECT + NEEDS DESIGN          → designer         (rollback: design layer)
+if checker REJECT + NEEDS DESIGN          → design-facilitator (rollback: design layer)
 if checker REJECT + NEEDS RE-PLAN         → feature-planner  (rollback: decomposition layer)
 if every feature done|blocked-with-reason → exit
 ```
@@ -157,16 +156,15 @@ if every feature done|blocked-with-reason → exit
 flowchart TD
   I([init.sh]) --> R{{"loop/route.mjs<br/>picks the next node + layer"}}
   R -->|spec| H["human checkpoint<br/>current agent + human-interview"]
-  R -->|design| D[designer]
+  R -->|design| DF[design-facilitator]
+  R -->|"design, digest unapproved"| H
   R -->|decomposition| FP[feature-planner]
   R -->|oracle| TD[test-designer]
   R -->|oracle| TI[test-implementer]
   R -->|integration| K["k8s-integration-tester<br/>Level 3"]
   R -->|implementation| M[maker]
   H --> R
-  D --> DR[design-reviewer]
-  DR -->|"REJECT — typed verdict for current digest"| D
-  DR --> R
+  DF --> R
   FP --> R
   TD --> TI
   TI --> R
@@ -186,8 +184,10 @@ flowchart TD
 Every rollback returns through `route.mjs`, which is the point: a verdict names the **layer** the
 defect came from, and the router — not the checker, and not the next agent — decides who that is.
 
-Every verdict now has a consumer. Design-review state is typed and digest-bound, so prose in a
-handoff cannot masquerade as an executable edge and a changed design cannot inherit an old review.
+Every verdict now has a consumer. Design-approval state is typed and digest-bound, so prose in a
+handoff cannot masquerade as a human's sign-off and a changed design cannot inherit an old approval —
+not even a design changed by one line, which is deliberate: there is no partial-credit "still
+basically approved" state.
 
 Integration-project creation has a pre-graph checkpoint: `init-integration-project.mjs` inventories
 the service roots and writes digest-bound, evidence-rich decision requests; a human supplies typed
@@ -208,15 +208,17 @@ human read a report and typed the next command.
 | 3 | `needs-human` assumption → human checkpoint | designer, design-reviewer | current agent using `human-interview` | ~~dedicated context-switching agent~~ **`route.mjs` stops without dispatch** | *closed; migrated 2026-08-16* |
 | 4 | k8s feature → `k8s-integration-tester` | maker (skips it) | — | ~~nothing~~ **`route.mjs`** | *closed* |
 | 5 | conditions → `test-implementer` | test-designer | test-implementer | ~~nothing~~ **`route.mjs`** | *closed 2026-08-10* — with it open, the maker wrote the test it was to be judged by |
-| 6 | `design-reviewer` REJECT → `designer` | design-reviewer | designer | ~~nothing~~ **typed `loop/design-review.json` + `route.mjs`** | *closed 2026-08-15* — verdict is bound to a design digest; one unchanged revision escalates |
+| 6 | `design-reviewer` REJECT → `designer` | design-reviewer | designer | ~~nothing~~ **typed `loop/design-review.json` + `route.mjs`** | *closed 2026-08-15* — verdict is bound to a design digest; one unchanged revision escalates — **superseded 2026-08-18, see row 11: bounded a digest that stayed identical after rejection, not one that changed a little every round** |
 | 7 | baseline red → `maker` repair | `init.sh` | maker step 2 | ~~contradicted~~ **typed `loop/baseline-state.json` + `route.mjs`** | *closed 2026-08-15* — the dispatcher records the gate outcome instead of exiting before routing |
 | 8 | chart present → `k8s-integration-tester` **exists** | the repo itself | setup | ~~nothing — a manual copy~~ **`setup-harness-loop.mjs --k8s auto`** | *closed 2026-08-13* — the node was reachable by the router and installable only by hand, so on every project that never ran that copy, rule 4 routed to an agent that did not exist |
 | 9 | conditions **absent** → `test-designer` | — | test-implementer | ~~nothing — the rule keyed on the falsifier only~~ **`route.mjs`** | *closed 2026-08-13* — test-designer has two outputs (`falsifier` and `tests/design/**`) and only the first was routed on. Where the feature-planner derives falsifiers from the invariant contract, the designer rule never fires, `tests/design/` is never created, and the implementer is dispatched to implement conditions that do not exist. Measured on aeron-demo: two paid Codex sessions on `feat-sit-2`, zero output |
 
 | 10 | `NEEDS DESIGN:` **answered** → `feature-planner` (clear the marker) | designer | — | ~~nothing — the marker rule kept matching~~ **`route.mjs`** | *closed 2026-08-13* — the marker lives in `feature_list.json`, which the designer may not write, so the node that answers the question cannot clear the flag that asked it. Observed live: the designer settled `feat-sit-2` in `DECISIONS.md`, and the router named the designer again, indefinitely. The fix needs three states, not two — unanswered → designer, answered → planner, both-turns-spent → **human**. First attempt keyed the middle state on "a design document mentions this feature, and when" — a proxy that cannot tell WHICH question was answered, so when the test-designer raised a *new* question on the same feature the router escalated a live question to a human. It now keys on dispatch history (`loop/route-log.jsonl`) and identifies a marker by a hash of its own text, so a new question is a new ladder |
+| 11 | rejected design digest changes → retry counter resets, reject loop never bounded or escalated | `design-reviewer` (retired) | `designer` (retired) | ~~`loop/design-review.json` revision counter, reset by any digest change however small~~ **`design-facilitator` (merged role, one session) + human-authored `loop/design-approval.json`, matched on exact digest — no retry counter, because there is no auto-loop between agents to bound** | *closed 2026-08-18* — row 6's fix bounded a design that stayed byte-identical after rejection, not one that changed a little every round, which is what a real reject-and-redesign cycle actually looks like: each small revision was a new digest, so the "one unchanged revision escalates" rule never fired and the two agents could cycle indefinitely, each round a paid session. Neither `designer` nor `design-reviewer` had the business context to know when a design was actually *done* — only a human does, so the loop was replaced rather than re-bounded: one facilitator session produces the options, the critique, and the concerns; only a human can write `status: approved`, and every downstream layer is blocked until it matches the current digest exactly |
 
-**Status, 2026-08-15.** All ten named edges are closed by executable state and routing. The latest
-two use typed digest-bound records rather than free-text markers. Gate `agent-unrouted` fails any
+**Status, 2026-08-18.** All eleven named edges are closed by executable state and routing; row 11
+supersedes row 6, which bounded the wrong axis of the same loop. Design state is a typed,
+digest-bound human artifact rather than an inter-agent verdict. Gate `agent-unrouted` fails any
 agent that neither the router nor `route.mjs` names, while `demo.sh` exercises the return edges and
 their bounded escalation so a documented edge cannot silently regress into prose.
 

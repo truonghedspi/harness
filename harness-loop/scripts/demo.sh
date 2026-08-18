@@ -745,11 +745,11 @@ route_node(){ (cd "$TO" && node loop/route.mjs --json | node -e 'let s="";proces
 # test-designer to derive falsifiers from invariants nobody had written (HI-014).
 mkdir -p "$TO/docs/design"
 printf '# Reconciler\n\nIt reads the log and fills the gap. It writes to the sink.\n%.0s' 1 2 3 4 5 6 7 8 > "$TO/docs/design/recon.md"
-[ "$(route_node)" = "designer" ]; expect "a design stating no seam and no invariants outranks the oracle layer" $?
+[ "$(route_node)" = "design-facilitator" ]; expect "a design stating no seam and no invariants outranks the oracle layer" $?
 printf '\n## Observable seam\n\nThe GapEventSink, externally visible.\n\n## Invariants\n\nEvent count is conserved for every replay; reconcile is idempotent.\n' >> "$TO/docs/design/recon.md"
 # A design that changes what a feature MEANS leaves feature_list.json a version behind, and the
-# designer is (correctly) not allowed to write scope — so route on what it can write: its own
-# Feature impact table. Without this the router jumped decomposition and sent the oracle layer to
+# design-facilitator is (correctly) not allowed to write scope — so route on what it can write: its
+# own Feature impact table. Without this the router jumped decomposition and sent the oracle layer to
 # write falsifiers for features that were about to be re-cut.
 cat >> "$TO/docs/design/recon.md" <<'MD'
 
@@ -758,12 +758,19 @@ cat >> "$TO/docs/design/recon.md" <<'MD'
 | `feat-b` | **change** | the seam moved; this feature means something else now |
 | `feat-1` | keep | untouched |
 MD
-# The design is now testable but not yet independently reviewed. Its typed verdict is bound to the
-# exact digest, so the planner cannot consume a design the evaluator has not seen.
-[ "$(route_node)" = "design-reviewer" ]; expect "a valid but unreviewed design routes to the independent reviewer before decomposition" $?
+# The design is now testable but has no human approval on record. There is no reviewer agent to
+# route to any more — this always goes straight to a human, and stays there until a human writes
+# loop/design-approval.json themselves; no agent can unblock it.
+[ "$(route_node)" = "human" ]; expect "a valid but unapproved design routes to a human, never back to an agent" $?
 TO_DIGEST="$(cd "$TO" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')"
-printf '{"schema":"design-review/1","designDigest":"%s","revision":1,"status":"approved","summary":"demo approval","evidence":["docs/design/recon.md"]}\n' "$TO_DIGEST" > "$TO/loop/design-review.json"
-[ "$(route_node)" = "feature-planner" ]; expect "a design marking a feature change/new outranks the oracle layer" $?
+printf '{"schema":"design-approval/1","designDigest":"%s","status":"approved","approvedBy":"demo-human","approvedAt":"2026-08-18","decisions":["demo approval"],"acceptedRisks":[]}\n' "$TO_DIGEST" > "$TO/loop/design-approval.json"
+[ "$(route_node)" = "feature-planner" ]; expect "a design marking a feature change/new outranks the oracle layer, once approved" $?
+# Edit the design after approval — even one line — and the digest changes, so the approval silently
+# stops matching: there is no partial-credit "still basically approved" state.
+printf '\n' >> "$TO/docs/design/recon.md"
+[ "$(route_node)" = "human" ]; expect "a design edited after approval invalidates the approval automatically, no expiry step needed" $?
+printf '{"schema":"design-approval/1","designDigest":"%s","status":"approved","approvedBy":"demo-human","approvedAt":"2026-08-18","decisions":["re-approved after trailing newline"],"acceptedRisks":[]}\n' "$(cd "$TO" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')" > "$TO/loop/design-approval.json"
+[ "$(route_node)" = "feature-planner" ]; expect "re-approving the new digest unblocks the loop again" $?
 node -e "
 const fs=require('fs');const p='$TO/feature_list.json';
 fs.writeFileSync(p, fs.readFileSync(p,'utf8'));   // planner catches up = feature_list is newer
@@ -1032,7 +1039,7 @@ const fs=require('fs');
 // auto: command not found.)
 const cc=(n)=>(fs.readFileSync('$TR/.claude/agents/'+n+'.md','utf8').match(/^model: (.+)\$/m)||[])[1];
 const kiro=(n)=>require('$TR/.kiro/agents/'+n+'.json').model;
-process.exit(cc('checker')==='claude-opus-5' && cc('design-reviewer')==='claude-opus-5' &&
+process.exit(cc('checker')==='claude-opus-5' && cc('design-facilitator')==='claude-opus-5' &&
              cc('maker')==='sonnet' && cc('test-designer')==='sonnet' &&
              kiro('checker')==='claude-sonnet-4.5' && kiro('maker')==='claude-sonnet-4' ? 0 : 1);
 "; expect "evaluators get the strongest model each runtime offers; executors run cheap" $?
@@ -1556,9 +1563,10 @@ const r=require('$RB/trace/verify-report.json');
 process.exit(r.findings.some(f=>f.id==='router-no-writing-rule') ? 0 : 1);
 "; expect "deleting the writing rule is caught, not silently tolerated" $?
 
-# The designer answers a NEEDS DESIGN: question but may not write feature_list.json — it is
-# forbidden to write scope — so it cannot clear the marker that asked. Observed live on aeron-demo:
-# the designer settled feat-sit-2 in DECISIONS.md, and the router named the designer again, forever.
+# The design-facilitator answers a NEEDS DESIGN: question but may not write feature_list.json — it
+# is forbidden to write scope — so it cannot clear the marker that asked. Observed live on
+# aeron-demo (with the role then named `designer`): it settled feat-sit-2 in DECISIONS.md, and the
+# router named the same agent again, forever.
 FU="$WORK/follow-up"; rm -rf "$FU"; mkdir -p "$FU"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$FU" --name "FollowUp" --purpose "routable review debt" >/dev/null
 node -e "
@@ -1588,12 +1596,12 @@ dispatched(){ (cd "$MK" && node loop/route.mjs --json | node -e '
   let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);
   if(j.hash||j.requestId) require("fs").appendFileSync("loop/route-log.jsonl",
     JSON.stringify({node:j.node,feature:j.feature||null,hash:j.hash||null,requestId:j.requestId||null})+"\n");});'); }
-[ "$(route_of)" = "designer" ]; expect "a NEEDS DESIGN: marker the designer has not seen routes to the designer" $?
+[ "$(route_of)" = "design-facilitator" ]; expect "a NEEDS DESIGN: marker the design-facilitator has not seen routes to it" $?
 dispatched
-# The designer answers but CANNOT clear the marker — it may not write feature_list.json.
-[ "$(route_of)" = "feature-planner" ]; expect "after the designer's turn the same marker routes to the planner, the only node that may clear it" $?
+# The design-facilitator answers but CANNOT clear the marker — it may not write feature_list.json.
+[ "$(route_of)" = "feature-planner" ]; expect "after the design-facilitator's turn the same marker routes to the planner, the only node that may clear it" $?
 # Appending evidence below the marker is not a new request. Previously the whole notes body was
-# hashed, so this restarted the ladder at designer.
+# hashed, so this restarted the ladder at the design layer.
 node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFileSync(p));d.features.find(x=>x.id==='feat-q').checkerNotes+='\nextra diagnostic';fs.writeFileSync(p,JSON.stringify(d,null,2))"
 [ "$(route_of)" = "feature-planner" ]; expect "appending diagnostics does not change the first-line routing request identity" $?
 ( cd "$MK" && node loop/route.mjs --json ) | grep -q "clear the marker"
@@ -1609,14 +1617,14 @@ const d=JSON.parse(fs.readFileSync(p,'utf8'));
 d.features.find(x=>x.id==='feat-q').checkerNotes='NEEDS DESIGN: a different question entirely';
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(route_of)" = "designer" ]; expect "a NEW question on the same feature restarts the ladder at the designer" $?
+[ "$(route_of)" = "design-facilitator" ]; expect "a NEW question on the same feature restarts the ladder at the design-facilitator" $?
 node -e "
 const fs=require('fs'); const p='$MK/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
 d.features.find(x=>x.id==='feat-q').checkerNotes='resolved: first reading, see docs/design/q.md';
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(route_of)" != "designer" ] && [ "$(route_of)" != "human" ]; expect "clearing the marker returns the loop to ordinary routing" $?
+[ "$(route_of)" != "design-facilitator" ] && [ "$(route_of)" != "human" ]; expect "clearing the marker returns the loop to ordinary routing" $?
 
 # Re-plan uses the same finite request ladder: one planner turn, then human if the typed request is
 # unchanged instead of an unbounded paid-session loop.
@@ -1634,15 +1642,21 @@ dispatched
 [ "$(route_of)" = "human" ]; expect "an unchanged red baseline escalates instead of retrying forever" $?
 printf '{"schema":"baseline-state/1","status":"green","evidenceDigest":"green"}\n' > "$MK/loop/baseline-state.json"
 
-# Design review is a typed edge keyed by the design digest: unreviewed → reviewer, rejected →
-# designer, unchanged after that bounded revision turn → human.
+# Design approval is a typed edge keyed by the design digest: unapproved → human, always — there is
+# no agent to bounce back to any more, and therefore no retry counter to reset by editing the design
+# a little each round (the failure this replaced: graph.md row 11).
 printf '# Design\n\nObservable seam: command output. Invariant: always preserves input identity.\n\n%s\n' "$(printf 'detail %.0s' {1..30})" > "$MK/docs/design/reviewed.md"
-[ "$(route_of)" = "design-reviewer" ]; expect "an unreviewed design revision routes to the independent reviewer" $?
-REVIEW_JSON="$(cd "$MK" && node loop/route.mjs --json)"; REVIEW_DIGEST="$(printf '%s' "$REVIEW_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')"
-printf '{"schema":"design-review/1","designDigest":"%s","revision":1,"status":"rejected","summary":"missing option","evidence":["docs/design/reviewed.md:1"]}\n' "$REVIEW_DIGEST" > "$MK/loop/design-review.json"
-[ "$(route_of)" = "designer" ]; expect "a typed rejected review returns to the designer" $?
-dispatched
-[ "$(route_of)" = "human" ]; expect "an unchanged rejected revision escalates after its bounded designer turn" $?
+[ "$(route_of)" = "human" ]; expect "an unapproved design revision routes straight to a human, not an agent" $?
+APPROVAL_JSON="$(cd "$MK" && node loop/route.mjs --json)"; APPROVAL_DIGEST="$(printf '%s' "$APPROVAL_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')"
+# A malformed or wrong-digest approval file must not count — only an exact digest match unblocks.
+printf '{"schema":"design-approval/1","designDigest":"stale-digest-does-not-match","status":"approved","approvedBy":"demo-human","approvedAt":"2026-08-18","decisions":[],"acceptedRisks":[]}\n' > "$MK/loop/design-approval.json"
+[ "$(route_of)" = "human" ]; expect "an approval for the wrong digest does not unblock the loop" $?
+printf '{"schema":"design-approval/1","designDigest":"%s","status":"approved","approvedBy":"demo-human","approvedAt":"2026-08-18","decisions":["accepted the observable seam as written"],"acceptedRisks":[]}\n' "$APPROVAL_DIGEST" > "$MK/loop/design-approval.json"
+[ "$(route_of)" != "human" ]; expect "a human approval matching the exact current digest unblocks the loop" $?
+# Edit the design after approval, even by appending one line, and the digest changes — the approval
+# silently stops matching. No agent can restart the loop; only a fresh human approval can.
+printf '\nAppended after approval.\n' >> "$MK/docs/design/reviewed.md"
+[ "$(route_of)" = "human" ]; expect "editing an approved design invalidates its approval automatically — no expiry step, no partial credit" $?
 
 # A loop you cannot watch is a loop you cannot correct. Early on the whole value is a human seeing
 # where it goes wrong and fixing the harness; unattended is what you graduate to.
@@ -1656,7 +1670,7 @@ const s=require('$LS/st.json');
 process.exit(s.next && typeof s.features.total==='number' && Array.isArray(s.dispatched) ? 0 : 1);
 "; expect "it answers where the loop is and what the router would do next" $?
 mkdir -p "$LS/loop"
-for i in 1 2 3 4; do echo '{"node":"designer","feature":"feat-x","hash":"abc"}' >> "$LS/loop/route-log.jsonl"; done
+for i in 1 2 3 4; do echo '{"node":"design-facilitator","feature":"feat-x","hash":"abc"}' >> "$LS/loop/route-log.jsonl"; done
 node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -q "livelock"
 expect "four identical dispatches in a row are called a livelock, in the view a human is already reading" $?
 node -e "
@@ -1843,10 +1857,10 @@ DP="$WORK/dispatch"; rm -rf "$DP"; mkdir -p "$DP/bin"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$DP" --name "Disp" --purpose "named dispatch" >/dev/null
 test -f "$DP/loop/dispatch.mjs" -a -f "$DP/loop/dispatch.cmd" -a -x "$DP/loop/dispatch.sh"; expect "every scaffold ships a runtime-agnostic way to dispatch one named agent" $?
 printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs designer "decided" ) > "$DP/d.log" 2>&1
-grep -q "agent=designer" "$DP/d.log"; expect "it runs the agent the caller named, not the one the router would have picked" $?
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/d.log" 2>&1
+grep -q "agent=design-facilitator" "$DP/d.log"; expect "it runs the agent the caller named, not the one the router would have picked" $?
 printf '#!/usr/bin/env bash\necho "Monthly request limit reached; resets later"\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs designer "decided" ) > "$DP/q.log" 2>&1
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/q.log" 2>&1
 QC=$?; [ "$QC" = "75" ] && grep -q "runtime refused" "$DP/q.log"
 expect "a quota refusal that exits zero is classified as no agent work" $?
 printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
@@ -1862,7 +1876,7 @@ process.exit(rl.includes('./dispatch.mjs') && !rl.includes('kiro-cli chat --agen
 "; expect "run-loop.mjs imports one dispatcher instead of keeping a second runtime implementation" $?
 node -e "
 const t=require('fs').readFileSync('$DP/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
-process.exit(/Spawn .designer. for a design question/.test(t) && /native spawn is unavailable/.test(t) &&
+process.exit(/Spawn .design-facilitator. for a design question/.test(t) && /native spawn is unavailable/.test(t) &&
   /node loop\/dispatch\.mjs <owner>/.test(t) && /already-decided handoff/.test(t) ? 0 : 1);
 "; expect "and human decisions use native owner spawn first, with named dispatch only as fallback" $?
 
@@ -1882,7 +1896,7 @@ process.exit(j.changed.length===0 && j.added.length===0 && j.drifted.length===0 
 # age it the way a real target ages
 printf '#!/usr/bin/env bash\necho old\n' > "$UP/loop/route.mjs"
 rm -f "$UP/loop/dispatch.sh" "$UP/tools/feature.mjs"
-printf '\n<!-- this project: never touch the ledger -->\n' >> "$UP/prompts/designer.md"
+printf '\n<!-- this project: never touch the ledger -->\n' >> "$UP/prompts/design-facilitator.md"
 node -e "const fs=require('fs'),p='$UP/agents.manifest.json',j=require(p),a=structuredClone(j.agents.find(x=>x.name==='maker'));a.name='context-interviewer';j.agents.push(a);fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
 node "$SCRIPTS/upgrade-harness.mjs" --target "$UP" --json > "$UP/aged.json" 2>/dev/null
 node -e "
@@ -1898,9 +1912,9 @@ process.exit(c && c.why && c.targetImpact && c.paths.includes('loop/dispatch.sh'
 node -e "
 const j=require('$UP/aged.json');
 // the customised prompt is REPORTED, never overwritten — merge, don't overwrite
-process.exit(j.drifted.includes('prompts/designer.md') ? 0 : 1);
+process.exit(j.drifted.includes('prompts/design-facilitator.md') ? 0 : 1);
 "; expect "a customised prompt is reported as drift, not silently replaced" $?
-grep -q "never touch the ledger" "$UP/prompts/designer.md"
+grep -q "never touch the ledger" "$UP/prompts/design-facilitator.md"
 expect "and the customisation is still there afterwards" $?
 node -e "const j=require('$UP/aged.json');process.exit(j.retiredAgents.includes('context-interviewer')?0:1)"
 expect "upgrade reports the retired interview agent for an explicit manifest merge" $?
@@ -2264,10 +2278,10 @@ process.exit(f && f.count>=2 ? 0 : 1);
 node -e "
 const m=require('$CX/agents.manifest.json');
 const mk=m.agents.find(a=>a.name==='maker');
-// the designer and planner both loaded the orientation doc; the agent that actually navigates the
-// codebase did not
+// the design-facilitator and planner both loaded the orientation doc; the agent that actually
+// navigates the codebase did not
 process.exit(mk.resources.includes('docs/architecture.md') ? 0 : 1);
-"; expect "the maker loads docs/architecture.md — the map the designer maintains, for the agent that navigates" $?
+"; expect "the maker loads docs/architecture.md — the map the design-facilitator maintains, for the agent that navigates" $?
 node "$SCRIPTS/context-budget.mjs" --target "$CX" > "$CX/budget.log" 2>&1
 grep -q "0 agent(s) over budget" "$CX/budget.log"
 expect "and it still fits: shared context is only cheaper than rediscovery if it is inside the budget" $?
@@ -2460,7 +2474,7 @@ process.exit(b.relevantRuleLoadRecall===0 && !b.staleDigestDetected &&
   a.staleDigestDetected && a.injectedBytes>b.injectedBytes ? 0 : 1);
 "; expect "the frozen before/after benchmark loads only the touched service rules and detects stale provenance" $?
 
-# A reading list still makes the maker rediscover the designer's conclusions. A feature context
+# A reading list still makes the maker rediscover the design-facilitator's conclusions. A feature context
 # packet materializes bounded facts, keeps the live seam/oracle mandatory, and becomes unusable
 # rather than silently stale when one of its cited sources changes.
 mkdir -p "$IT2/loop/context-packets" "$IT2/src" "$IT2/tests"
@@ -2651,7 +2665,7 @@ test -f "$CT/AGENTS.md" -a -f "$CT/.kiro/agents/orchestrator.json" -a -f "$CT/.c
   && grep -q 'harness/AGENTS.md' "$CT/AGENTS.md" && grep -q 'file://../../harness/prompts/orchestrator.md' "$CT/.kiro/agents/orchestrator.json"
 expect "root keeps only the discovery adapters each runtime requires" $?
 node -e "
-const fs=require('fs'), files=['harness/AGENTS.md','harness/prompts/designer.md','harness/prompts/orchestrator.md'];
+const fs=require('fs'), files=['harness/AGENTS.md','harness/prompts/design-facilitator.md','harness/prompts/orchestrator.md'];
 const bad=files.flatMap(f=>[...fs.readFileSync('$CT/'+f,'utf8').matchAll(/(^|[^/])\\b(docs|prompts|loop|tools|skills|memory|trace)\//gm)].map(()=>f));
 process.exit(bad.length?1:0);
 "

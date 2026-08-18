@@ -35,7 +35,7 @@ The harness already implements part of this model:
 - `maker` owns implementation quality; `test-designer`/`test-implementer` provide an independent
   oracle; `checker` evaluates it. This resembles the responsibility split but improves it with
   enforced information asymmetry.
-- Designer output already names components, public seams, invariants, and a feature-impact table.
+- Design-facilitator output already names components, public seams, invariants, and a feature-impact table.
   Feature planning already emits build/prove pairs and falsifiers. These are strong inputs to ACC,
   but **Capabilities and Attributes are not yet typed or checked as a total mapping**.
 - `docs/testing-standards.md` and business journeys express scope/fidelity. They do not express

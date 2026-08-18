@@ -105,4 +105,4 @@ Good — answer first, then the decision as a decision:
 > 3. **Not yet** — park SIT-2 and let the oracle chain work other features. Costs nothing now,
 >    but every later SIT hits this same wall.
 >
-> Answer with a number. It lands in `DECISIONS.md` and the designer picks it up from there.
+> Answer with a number. It lands in `DECISIONS.md` and the design-facilitator picks it up from there.

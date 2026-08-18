@@ -177,7 +177,7 @@ report it, do not phrase around it.
 Then hand off, naming the next agent explicitly:
 
 - missing context only a person has → ask now with `human-interview`; preserve this survey context
-- the objective needs a design before it can be cut → `designer`, then `design-reviewer`
+- the objective needs a design before it can be cut → `design-facilitator`, then a human approval in `loop/design-approval.json`
 - the objective is clear but not decomposed → `feature-planner`
 - ready to run → `node loop/run-loop.mjs 1` for one supervised iteration **before** any longer run
 

@@ -83,7 +83,7 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
 - **Route the answer to its owner.** You do not write designs, scope, code or tests. Record what the
   human said, then hand it to the agent that owns that file:
 
-  Spawn `designer` for a design question or `feature-planner` for scope, passing: "The human chose
+  Spawn `design-facilitator` for a design question or `feature-planner` for scope, passing: "The human chose
   option 2: <the decision, and where you recorded it>." For an assumption, use the
   user-scope `human-interview` skill in this conversation; do not dispatch an interview agent.
   `docs/reference/graph.md` has the owner table. If native spawn is unavailable,

@@ -38,7 +38,7 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    silently restarting repository-wide discovery.
 
    **Never pick a feature whose `checkerNotes` starts with `NEEDS DESIGN:`** — a design question is
-   the `designer` agent's job, not something to solve inline while implementing. Skip it.
+   the `design-facilitator` agent's job, not something to solve inline while implementing. Skip it.
 
    **Never pick a feature whose `checkerNotes` starts with `NEEDS RE-PLAN:`** — the checker has
    ruled it mis-cut, and re-cutting is the `feature-planner`'s job, not yours. Skip it; if it's
@@ -84,8 +84,8 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    decision alone.
 8. Any requirement/architecture question `docs/` doesn't answer is a DESIGN question, not a
    blocker for you to absorb: write `NEEDS DESIGN: <the question>` as the first line of
-   `checkerNotes`, leave `status` as it was, and pick the next eligible feature. The `designer`
-   agent answers it (`docs/reference/design-engineering.md`); do not invent an answer inline —
+   `checkerNotes`, leave `status` as it was, and pick the next eligible feature. The
+   `design-facilitator` agent answers it (`docs/reference/design-engineering.md`); do not invent an answer inline —
    an undeclared design assumption is the most expensive defect in this loop. If no feature is
    eligible, write `session-handoff.md` and stop.
 9. Trace decision points as they happen:

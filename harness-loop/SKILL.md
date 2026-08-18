@@ -202,7 +202,8 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    the next session.
 5. **Design before decomposing — including how anyone would know it works.** The feature-planner cuts a *design* into features — it does not
    create one (`references/feature-decomposition.md` Step 1 assumes the requirement "already names
-   its parts"). When it doesn't, run the `designer` agent, then `design-reviewer`: named components
+   its parts"). When it doesn't, run the `design-facilitator` agent — a human session, not an
+   auto-looping agent pair: named components
    and boundaries, a claims table where every library fact cites a real `path:line` or a runnable
    spike, and `docs/assumptions.md` — a registry of load-bearing assumptions tagged
    `verified`/`assumed`/`needs-human`. Each component must also state its **observable seam** and
@@ -502,11 +503,11 @@ earlier step already settled. Three channels, each fixing a specific leak:
 | Leak | Channel |
 |---|---|
 | The planner names the 1-3 files a feature touches **in order to size it**, then discards them | `context: { touches, note }` on the feature. Free to record — you cannot size a feature without knowing it. Gate: `feature-context-missing` |
-| The maker navigates the codebase without the map the designer maintains | `docs/architecture.md` is now one of the maker's resources |
+| The maker navigates the codebase without the map the design-facilitator maintains | `docs/architecture.md` is now one of the maker's resources |
 | Facts the repo cannot contain get re-asked | `docs/assumptions.md`, already loaded by the maker — a row flipped to `verified` is answered forever |
 
-What is deliberately **not** shared: agent memory stays per-role. `memory/designer/` is the
-designer's lessons about designing, not about this codebase; broadcasting it would cost every agent
+What is deliberately **not** shared: agent memory stays per-role. `memory/design-facilitator/` is the
+facilitator's lessons about designing, not about this codebase; broadcasting it would cost every agent
 context to carry advice for a job it does not do. Codebase facts belong in
 `docs/architecture.md` and in the feature's `context`, which is why those exist.
 
@@ -619,7 +620,7 @@ After setup, the target project should contain:
       limits) and `tools/codex-dispatch.mjs` (Codex has no `--agent` flag)
       ([references/runtimes.md](references/runtimes.md))
 - [ ] `.kiro/agents/*.json`, `.claude/agents/*.md` and/or `.codex/agents/*.toml` for
-      {maker,checker,harness-setup,feature-planner,designer,design-reviewer,test-designer,test-implementer}
+      {maker,checker,harness-setup,feature-planner,design-facilitator,test-designer,test-implementer}
       (+ the MCP config for each installed runtime: `.kiro/settings/mcp.json`, `.mcp.json`,
       `.codex/config.toml` — and `.codex/hooks.json`, without which no Codex write limit is enforced)
 - [ ] `check-coverage.mjs` reports all 13 lessons covered, and `./init.sh` is green

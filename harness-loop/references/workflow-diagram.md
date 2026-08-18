@@ -37,9 +37,11 @@ flowchart TD
     AC -. scoped context at dispatch .-> MK
     MK -. "PostToolUse (redacted)" .-> TEL["tool-events.jsonl\ndirect reads/searches ≠ shell inference"]
     TEL --> RR["run-report\nduplicate reads · packet rediscovery\n+ coverage declaration"]
-    HI --> DS["designer → design-reviewer\nLAYER: design\ncomponents · cited claims · live assumptions\n(HTML examples excluded)\n+ observable seam & invariants per component"]
+    HI --> DS["design-facilitator\nLAYER: design\ncomponents · cited claims · live assumptions\n(HTML examples excluded)\n+ observable seam & invariants per component\n+ self-applied critique, never a verdict"]
     CK -- "APPROVE + FOLLOW-UP" --> FP
-    DS --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
+    DS --> DA{"human writes\nloop/design-approval.json\nmatching the design digest?"}
+    DA -- no --> DS
+    DA -- yes --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
     IIF --> QS["quality-strategy\nCapability–Attribute risk → oracle\nscope ≠ execution size"]
     QS --> FP
     FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]
@@ -72,7 +74,7 @@ But *case-level* test design needs a unit and an interface, which do not exist b
 while *"how would we know this works"* — the observable seam and the invariants — is a property of
 the design itself. A component whose behaviour can only be seen by reaching inside it is a boundary
 defect, and discovering that at test-writing time forces the choice between a bad test and a
-redesign; the bad test always wins. So the designer states seam + invariants, the planner derives
+redesign; the bad test always wins. So the design-facilitator states seam + invariants, the planner derives
 each `falsifier` from them, and the test-designer builds cases on top
 ([test-authoring.md](test-authoring.md)).
 

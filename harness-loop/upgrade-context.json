@@ -112,6 +112,39 @@
         "node harness/cli.mjs route --json",
         "bash harness-loop/scripts/demo.sh"
       ]
+    },
+    {
+      "id": "HUC-2026-08-18-design-facilitator",
+      "summary": "`designer` and `design-reviewer` are retired and merged into one `design-facilitator` agent; the auto-reject loop between them is replaced by a human-authored `loop/design-approval.json`.",
+      "why": "designer/design-reviewer could reject and re-dispatch each other with no human in the loop, and a design that changed even slightly between rounds reset the one-bounded-retry escalation counter, so rejection could cycle indefinitely — every round a paid session, and neither agent had the business context to know when a design was actually done. Full incident: docs/reference/graph.md row 11.",
+      "targetImpact": "route.mjs no longer dispatches design-reviewer or bounces a rejected design back to designer; any design revision without an approval matching its exact digest routes straight to a human, always. loop/design-review.json is no longer produced or read. A design edited after approval — even by one line — silently invalidates the approval (digest mismatch), which is intentional: there is no partial-credit 'still basically approved' state.",
+      "paths": [
+        "prompts/design-facilitator.md",
+        "prompts/designer.md",
+        "prompts/design-reviewer.md",
+        "agents.manifest.json",
+        "loop/route.mjs",
+        "loop/design-approval.json",
+        "loop/design-review.json",
+        "docs/design/README.md",
+        "docs/reference/design-engineering.md",
+        "docs/reference/critique-technique-sources.md",
+        "memory/design-facilitator/**",
+        "AGENTS.md"
+      ],
+      "mergeActions": [
+        "If prompts/designer.md or prompts/design-reviewer.md were customized here, port the customization into prompts/design-facilitator.md by hand — a diff cannot merge two files into one.",
+        "Delete the now-orphaned prompts/designer.md and prompts/design-reviewer.md, and their .kiro/.claude/.codex generated files, once customizations are ported — the file-diff refresh does not remove files that no longer exist in the canonical templates, only agents.manifest.json's newAgents/retiredAgents comparison surfaces that they are gone.",
+        "If a feature is mid-flight in the old cycle (a NEEDS DESIGN: marker already answered, or a rejected loop/design-review.json sitting unresolved), resolve it under the old contract first, or explicitly re-open it: have a human review the current docs/design/*.md and write loop/design-approval.json before continuing.",
+        "Delete any lingering loop/design-review.json — it is not read by the new routing rules and its presence is misleading.",
+        "Regenerate every runtime from agents.manifest.json after the prompt merge."
+      ],
+      "verification": [
+        "node loop/route.mjs --rules shows design-facilitator, not designer/design-reviewer, in the design-layer rows",
+        "an unapproved docs/design/*.md routes to human, never to an agent (node loop/route.mjs --json)",
+        "node tools/gen-agents.mjs --target . --runtime all --check",
+        "bash harness-loop/scripts/demo.sh"
+      ]
     }
   ]
 }
