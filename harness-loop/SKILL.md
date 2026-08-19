@@ -345,6 +345,11 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   `human-interview` capability with
   `node harness-loop/scripts/install-user-skill.mjs --name human-interview`. Its always-loaded Kiro
   bridge exposes the trigger but preserves the skill's evidence-first conditional activation.
+- Writing a pull request description reviewers can act on — What this PR does, a Files table, Why
+  this matters, an honest How I verified, Out of scope, and a reproducible Reviewer checklist —
+  install the user-scope `pr-description` capability with
+  `node harness-loop/scripts/install-user-skill.mjs --name pr-description`; this also installs an
+  always-included Kiro steering bridge under `~/.kiro/steering/` (or `$KIRO_HOME/steering/`).
 - Measuring read/search rediscovery across runtimes without persisting source contents, including
   coverage calibration and the proposed normalized event contract:
   [references/read-telemetry-research.md](references/read-telemetry-research.md)
