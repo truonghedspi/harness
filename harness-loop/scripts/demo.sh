@@ -1045,6 +1045,17 @@ process.exit(cc('checker')==='claude-opus-5' && cc('design-facilitator')==='clau
 "; expect "evaluators get the strongest model each runtime offers; executors run cheap" $?
 node -e "
 const fs=require('fs');
+// kiro's own subagent tool is what 'native sub-agent facility' means for kiro specifically — this
+// is what turns 'never spawn the orchestrator itself' from a prompt-only MUST NOT into something
+// kiro refuses. Computed at generation time, not a list hand-copied into the manifest, so it cannot
+// drift when an agent is added or renamed.
+const orch=require('$TR/.kiro/agents/orchestrator.json');
+const avail=orch.toolsSettings && orch.toolsSettings.subagent && orch.toolsSettings.subagent.availableAgents;
+process.exit(orch.tools.includes('subagent') && Array.isArray(avail) &&
+  avail.includes('maker') && !avail.includes('orchestrator') ? 0 : 1);
+"; expect "kiro's orchestrator can spawn every other agent but never itself, enforced by config" $?
+node -e "
+const fs=require('fs');
 // the two things Claude Code has no field for are carried by per-agent hooks
 const md=fs.readFileSync('$TR/.claude/agents/checker.md','utf8');
 process.exit(/SubagentStart:[\s\S]*agent-context\.mjs checker/.test(md) &&

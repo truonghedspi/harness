@@ -5,7 +5,8 @@
   "tools": [
     "read",
     "shell",
-    "write"
+    "write",
+    "subagent"
   ],
   "allowedTools": [
     "read"
@@ -20,6 +21,17 @@
         "loop/approval.md",
         "trace/**",
         "memory/orchestrator/**"
+      ]
+    },
+    "subagent": {
+      "availableAgents": [
+        "checker",
+        "design-facilitator",
+        "feature-planner",
+        "harness-setup",
+        "maker",
+        "test-designer",
+        "test-implementer"
       ]
     }
   },

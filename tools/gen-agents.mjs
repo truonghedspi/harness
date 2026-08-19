@@ -74,6 +74,16 @@ function kiroAgent(a) {
   // manifest names that for kiro evaluators rather than pretending the runtimes are equal.
   if (a.model && a.model.kiro) j.model = a.model.kiro;
   if (a.writes) j.toolsSettings = { write: { allowedPaths: a.writes } };
+  // Computed, not a static list in the manifest: a hardcoded roster drifts the moment an agent is
+  // added or renamed, silently under- or over-permissioning who this role may spawn. kiro's own
+  // `subagent` tool is what "the runtime's native sub-agent facility" in prompts/orchestrator.md
+  // means for kiro specifically (verified: kiro.dev/docs/custom-agents/subagents/), and
+  // `toolsSettings.subagent.availableAgents` is the one field that turns "never spawn yourself"
+  // from a prompt-only MUST NOT into something kiro itself refuses.
+  if (a.subagentAllExceptSelf) {
+    j.toolsSettings = { ...(j.toolsSettings || {}),
+      subagent: { availableAgents: agents.filter((x) => x.name !== a.name).map((x) => x.name) } };
+  }
   j.resources = a.resources.map(uri);
   const hooks = {};
   if (a.trace || a.spawnCommands) {

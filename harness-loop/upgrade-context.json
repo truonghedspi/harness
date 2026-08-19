@@ -145,6 +145,27 @@
         "node tools/gen-agents.mjs --target . --runtime all --check",
         "bash harness-loop/scripts/demo.sh"
       ]
+    },
+    {
+      "id": "HUC-2026-08-19-kiro-orchestrator-subagent-scope",
+      "summary": "On kiro, orchestrator's generated config now declares the built-in `subagent` tool and a computed `toolsSettings.subagent.availableAgents` naming every other agent — enforcing 'never spawn the orchestrator itself' by config instead of prompt text alone.",
+      "why": "kiro-cli has a native in-session `subagent` tool (verified against kiro.dev's docs, not assumed) gated by `toolsSettings.subagent.availableAgents`/`.trustedAgents`, but this harness's manifest never declared either for orchestrator — so on kiro specifically, 'never spawn the orchestrator itself' (prompts/orchestrator.md, 'What you must not do') was purely prompt-only, the same unenforced-MUST-NOT gap verify-harness.mjs's `rules` gate already flags elsewhere.",
+      "targetImpact": "kiro's orchestrator.json gains `tools: [..., \"subagent\"]` and `toolsSettings.subagent.availableAgents` listing every other manifest agent (computed by gen-agents.mjs at generation time, so it never needs hand-updating when an agent is added or renamed). Claude Code and Codex are unaffected — no verified native in-session subagent mechanism is documented for them in this repo, so nothing changed there.",
+      "paths": [
+        "agents.manifest.json",
+        "tools/gen-agents.mjs",
+        "docs/reference/runtimes.md"
+      ],
+      "mergeActions": [
+        "Add `subagentAllExceptSelf: true` and `\"subagent\"` in `tools` to this target's own orchestrator manifest entry — do not hand-list agent names; gen-agents.mjs computes the roster.",
+        "If this target's orchestrator entry was customized (a narrower `tools` list, a hand-written `toolsSettings`), merge rather than overwrite — `subagentAllExceptSelf` only adds a `subagent` sub-key, it does not touch `toolsSettings.write`.",
+        "Regenerate kiro's config and confirm the roster excludes only \"orchestrator\"."
+      ],
+      "verification": [
+        "node tools/gen-agents.mjs --target . --runtime kiro --check",
+        "require('./.kiro/agents/orchestrator.json').toolsSettings.subagent.availableAgents excludes \"orchestrator\" and includes every other agent",
+        "bash harness-loop/scripts/demo.sh"
+      ]
     }
   ]
 }

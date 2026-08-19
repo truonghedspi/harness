@@ -39,9 +39,30 @@ broken `file://` URI. `verify-harness.mjs` reports `agent-generated-stale`.
 | welcome message | `welcomeMessage` | no field — first line of the body | no field — first line of the instructions |
 | MCP config | `.kiro/settings/mcp.json` | `.mcp.json` | `[mcp_servers.x]` in `.codex/config.toml` |
 | headless invocation | `kiro-cli chat --agent X --no-interactive --trust-all-tools` | `claude -p "…" --agent X --dangerously-skip-permissions` | **no `--agent` flag exists** — `node tools/codex-dispatch.mjs X "…"` |
+| native in-session sub-agent spawn | built-in `subagent` tool — verified, see below | the Agent/Task tool | not established in this repo; no citation found, treat as unverified rather than assumed |
 
 `loop/run-loop.mjs` picks the runtime from `HARNESS_RUNTIME`, or detects it from which agent
 directory exists and which CLI is installed, and routes everything through one `dispatch()`.
+
+**kiro-cli's native spawn, verified 2026-08-18** (`https://kiro.dev/docs/custom-agents/subagents/`,
+`https://kiro.dev/docs/reference/built-in-tools/`) — this is the mechanism `prompts/orchestrator.md`
+means by "the runtime's native sub-agent facility" for kiro specifically:
+
+- An orchestrating agent must list the built-in **`subagent`** tool in its `tools` array (or
+  `@builtin`) — without it, it cannot delegate.
+- Spawns either automatically (the main agent matches a task to a target agent's `description`
+  field) or explicitly (a human or the agent names one directly).
+- `toolsSettings.subagent.availableAgents` (glob patterns; omitted means "allow all") and
+  `.trustedAgents` (run without a permission prompt) gate which agents an orchestrator may spawn.
+  `orchestrator`'s manifest entry sets `subagentAllExceptSelf: true`, and `gen-agents.mjs` computes
+  `availableAgents` as every other agent's name at generation time (not a hand-maintained list, so it
+  cannot drift when an agent is added or renamed) — closing "never spawn the orchestrator itself"
+  (`prompts/orchestrator.md`, "What you must not do") mechanically on kiro instead of leaving it
+  prompt-only. "Never spawn a role other than the one the router named" stays prompt-only: it depends
+  on the router's live, per-turn output, which a static allowlist cannot express.
+- Spawned sub-agents run **in-process** within the same kiro-cli session, in parallel, each with its
+  own isolated context; the main agent waits for all to finish before continuing — genuinely distinct
+  from the `kiro-cli chat --agent X` row above, which starts a separate process/session.
 
 ## The two places kiro and Claude Code genuinely differ
 
