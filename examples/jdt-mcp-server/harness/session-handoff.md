@@ -6,8 +6,8 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 
 - Goal: Implement TP-POOL-0002 conditions TCON-POOL-0004 through TCON-POOL-0006 as the red-first oracle for `feat-prove-pool-crash-handling`.
 - Current status: Stopped without test changes because a behavioral red run is impossible before both build dependencies exist.
-- Branch / commit: current branch / HEAD `45cc0fa`
-- Revalidated: 2026-08-20 iteration 3; both dependencies remain `not-started`, no callable `src/` interface exists, and `./harness/init.sh` is green.
+- Branch / commit: current branch / HEAD `dd78770`
+- Revalidated: 2026-08-20 iteration 4; both dependencies remain `not-started`, no callable `src/` interface exists, and `./harness/init.sh` is green.
 
 ## Completed This Session
 
@@ -17,6 +17,7 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 - [x] Read the required integration template and anti-pattern rules.
 - [x] Inspected only permitted interface/signature surfaces; did not read implementation bodies.
 - [x] Reproduced the same dependency blocker after the prior handoff commit; the router still selects this oracle despite both build dependencies being ineligible.
+- [x] Confirmed for a third consecutive dispatched iteration that no behavioral-red seam exists; further test-implementer retries cannot advance this feature.
 
 ## Verification Evidence
 
@@ -26,6 +27,7 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 | Router | `node harness/loop/route.mjs` | PASS | Selected `test-implementer` for `feat-prove-pool-crash-handling`. |
 | Dependency readiness | `node harness/tools/feature.mjs --deps feat-prove-pool-crash-handling` | BLOCKED | `feat-lsp-client` and `feat-workspace-pool` are both `not-started`; no callable production interfaces exist. |
 | Revalidation baseline | `./harness/init.sh` | PASS | Iteration 3 again ended with `=== Baseline green ===`. |
+| Third blocker revalidation | `./harness/init.sh` | PASS | Iteration 4 again ended with `=== Baseline green ===`; dependency readiness remains blocked. |
 
 ## Files Changed
 
@@ -41,7 +43,7 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 
 TP-POOL-0002 requires a real child process with one or more in-flight LSP requests, a parameterized per-call deadline, and the ability to kill that child after either no response or a partial Content-Length frame. Neither dependency currently supplies an interface through which the test can establish or observe those states.
 
-The router is repeatedly dispatching this proof before its build dependencies are eligible. Treat that ordering as a harness-routing defect; rerunning the same test-implementer iteration cannot create behavioral red evidence.
+The router has dispatched this proof with the same dependency blocker for three consecutive iterations. Treat that ordering as a harness-routing defect; rerunning the same test-implementer iteration cannot create behavioral red evidence.
 
 ## Recommended Next Step
 
