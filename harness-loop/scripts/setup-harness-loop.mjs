@@ -201,6 +201,7 @@ const EXTRA_COPIES = [
   ["scripts/verify-harness.mjs", "tools/verify-harness.mjs"],
   ["scripts/memory-query.mjs", "tools/memory-query.mjs"],
   ["scripts/memory-consolidate.mjs", "tools/memory-consolidate.mjs"],
+  ["scripts/memory-promote.mjs", "tools/memory-promote.mjs"],
   ["scripts/run-report.mjs", "tools/run-report.mjs"],
   ["scripts/loop-status.mjs", "tools/loop-status.mjs"],
   ["scripts/timeline.mjs", "tools/timeline.mjs"],

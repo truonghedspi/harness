@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0012",
+  "plan_id": "TP-TOOL-0002",
+  "requirement_id": "INV-TOOL-2",
+  "behavior": "A java_rename call carrying an explicit `apply: false` argument leaves every file's mtime across the fixture's whole tree unchanged -- the same outcome as omitting `apply` entirely; the opt-in is the value `true`, not merely the `apply` key being present in the call.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "INV-TOOL-2 requires an explicit opt-in; A-002 confirms 'apply:true is opt-in per call' -- a specific value, not mere presence. A presence/truthy check (`if(args.apply)`) still passes TCON-TOOL-0011 (apply absent -> no write) yet mis-fires once apply is present but false; needs a real call, real fixture -- integration/e2e_scenario [INV-TOOL-2]. Falsifies: writing whenever `apply` is present at all, regardless of its boolean value."
+}

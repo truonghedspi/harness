@@ -48,6 +48,16 @@ const RUNTIME = opt("--runtime", "both");
 const CHECK = args.includes("--check");
 const P = (...p) => path.join(TARGET, ...p);
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
+// docs/design/shared-memory-tier.md INV-RES-1: every agent reads memory/shared/*.md, computed
+// here at generation time (not hand-listed in the manifest) — same reasoning as
+// `subagentAllExceptSelf`'s roster: a hand-maintained list drifts the moment a fact is promoted
+// or an entry is rotated out. Never appended to `writes`/`allowedPaths` anywhere in this file —
+// that keeps INV-SHARED-2 (only memory-promote.mjs writes there) true by construction.
+const MEMORY_SHARED_DIR = CONTAINED ? "harness/memory/shared" : "memory/shared";
+const sharedMemoryResources = () => {
+  try { return readdirSync(P(MEMORY_SHARED_DIR)).filter((f) => f.endsWith(".md")).sort().map((f) => `${MEMORY_SHARED_DIR}/${f}`); }
+  catch { return []; }
+};
 const previousGenerated = (() => {
   try {
     const j = JSON.parse(read(P(RECEIPT)) || "{}");
@@ -87,7 +97,7 @@ function kiroAgent(a) {
     j.toolsSettings = { ...(j.toolsSettings || {}),
       subagent: { availableAgents: agents.filter((x) => x.name !== a.name).map((x) => x.name) } };
   }
-  j.resources = a.resources.map(uri);
+  j.resources = [...a.resources, ...sharedMemoryResources()].map(uri);
   const hooks = {};
   if (a.trace || a.spawnCommands) {
     hooks.agentSpawn = [
@@ -168,9 +178,10 @@ function codexAgent(a) {
   // Codex exposes no `resources` mechanism to an agent file, so the list becomes an instruction.
   // tools/codex-dispatch.mjs inlines the same files for headless runs; together that is what makes
   // an interactively-spawned Codex agent load the same context as the other two runtimes.
-  const resources = a.resources.length
+  const allResources = [...a.resources, ...sharedMemoryResources()];
+  const resources = allResources.length
     ? "\n\n## Read these before you do anything else\n\n" +
-      a.resources.map((r) => `- \`${r}\``).join("\n") +
+      allResources.map((r) => `- \`${r}\``).join("\n") +
       "\n\nThese are your context. Skipping them is how a role does confident work on stale facts.\n"
     : "";
   const welcome = a.welcomeMessage ? `> **What this role does:** ${a.welcomeMessage}\n\n` : "";

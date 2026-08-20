@@ -1,0 +1,10 @@
+{
+  "id": "TCON-DIAG-0003",
+  "plan_id": "TP-DIAG-0001",
+  "requirement_id": "INV-DIAG-3",
+  "behavior": "Given two separate workspace instances (two distinct JDT LS processes over two distinct project roots, per the spike-B two-workspace fixture) each containing a file at the same relative path, when workspace A's instance publishes a diagnostic for its file while workspace B's instance has published something different (or nothing) for its file at that same relative path, querying java_diagnostics scoped to workspace B for that path never returns workspace A's diagnostic.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Cross-workspace attribution is only observable running two real, concurrently-live JDT LS instances over two roots sharing a relative path -- spike B's fixture, named by feat-prove-diagnostics' own context note -- a mocked setup cannot represent two instance identities [INV-DIAG-3]; falsifies a cache keyed only by relative path/URI, reintroducing the cross-instance leak spike B proved JDT LS itself avoids (\"[]\")."
+}

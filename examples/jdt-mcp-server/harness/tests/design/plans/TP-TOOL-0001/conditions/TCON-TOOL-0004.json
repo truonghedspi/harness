@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0004",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-3",
+  "behavior": "Against a fixture symbol whose real reference count is strictly greater than the tool layer's configured cap, java_references returns exactly `truncated: true` together with the true total reference count (not the capped count, not omitted) and a result list whose length is exactly the configured cap -- never a silently shorter or silently uncapped list with no truncated flag.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Needs a real fixture whose true reference count exceeds the real configured cap and a real java_references round trip -- integration/e2e_scenario per this feature's falsifier and context (read the configured cap, don't hard-code a number) [INV-TOOL-3]. Falsifies exactly the failure named: a beyond-cap result silently truncated with no truncated:true flag, or returned fully uncapped."
+}

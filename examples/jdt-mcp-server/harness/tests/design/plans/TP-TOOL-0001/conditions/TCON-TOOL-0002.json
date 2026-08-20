@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0002",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-1",
+  "behavior": "Against a fixture line containing an astral-plane character (a UTF-16 surrogate pair, two code units per codepoint) before a known symbol, java_hover, java_definition and java_references each report line/column matching the file's true offset in 1-based coordinates; none counts the astral character as one code unit or as one codepoint instead of its true two-code-unit width.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Distinct from TCON-TOOL-0001: a conversion can handle single-unit non-ASCII correctly yet still mishandle surrogate pairs, since LSP counts UTF-16 code units and an astral codepoint is two of them -- the exact fixture this feature's context and INV-TOOL-1's observable seam name [INV-TOOL-1]. Falsifies iterating by Unicode codepoint (e.g. `for...of`) instead of raw UTF-16 code units (`.length`) -- the classic off-by-one this fixture exposes."
+}

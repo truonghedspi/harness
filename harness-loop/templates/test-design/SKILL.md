@@ -46,8 +46,11 @@ báo harness thay vì sử dụng nó.
 
 Đọc spec, tách thành danh sách behavior nguyên tử. Mỗi behavior:
 - Một câu, dạng kiểm chứng được (given/when/then hoặc "X luôn/không bao giờ Y").
-- Gắn `requirement_id` (định dạng `REQ-<AREA>-<NNN>`). Behavior không có
-  requirement_id trong spec → ghi vào mục `spec_gaps` của test plan, KHÔNG tự bịa.
+- Gắn `requirement_id` — `REQ-<AREA>-<NNN>` nếu spec dùng requirement doc riêng, hoặc
+  `INV-<AREA>-<N>` nếu trích thẳng từ bảng invariant của design
+  (`docs/reference/invariant-contract.md`) — cả hai đều hợp lệ, dùng đúng cái spec
+  thực sự tạo ra. Behavior không có requirement_id trong spec → ghi vào mục
+  `spec_gaps` của test plan, KHÔNG tự bịa id.
 - Nếu spec mơ hồ (hai cách hiểu hợp lệ), ghi vào `spec_gaps` kèm cả hai cách hiểu.
   Không tự chọn một cách hiểu rồi đi tiếp.
 

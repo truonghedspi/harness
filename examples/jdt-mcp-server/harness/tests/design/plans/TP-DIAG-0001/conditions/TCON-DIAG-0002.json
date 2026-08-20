@@ -1,0 +1,10 @@
+{
+  "id": "TCON-DIAG-0002",
+  "plan_id": "TP-DIAG-0001",
+  "requirement_id": "INV-DIAG-2",
+  "behavior": "For a URI that first receives a publishDiagnostics notification carrying one or more problems and, within the same live workspace instance, later receives a second publishDiagnostics notification for that URI carrying an empty list, querying java_diagnostics for that URI after the second (empty) publish always returns a clean, empty result -- never the problems from the first publish, and never a result that merges or unions both publishes.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Proving replace-not-append needs a real publish-then-republish sequence against a live instance (spike C's plant-then-fix shape triggers two real publishes for one URI); a mocked notification could be stubbed to already replace instead of exercising the cache's write path, matching e2e_scenario for integration [INV-DIAG-2]; falsifies a cache appending each publish instead of overwriting -- tool-surface.md's own 'mirror image of the spike C failure'."
+}

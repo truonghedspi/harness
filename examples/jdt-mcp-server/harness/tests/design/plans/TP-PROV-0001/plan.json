@@ -1,0 +1,25 @@
+{
+  "plan_id": "TP-PROV-0001",
+  "component": "jdtls-provisioner",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-PROV-1",
+    "docs/design/runtime-model.md#INV-PROV-2",
+    "docs/design/runtime-model.md#INV-PROV-3",
+    "docs/design/runtime-model.md#INV-PROV-4",
+    "docs/assumptions.md#A-005",
+    "docs/assumptions.md#A-015",
+    "feature_list.json#feat-prove-provisioner",
+    "feature_list.json#feat-jdtls-provisioner"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "RESOLVED 2026-08-20 by the orchestrator: skills/test-design/schemas/test-condition.schema.json's requirement_id pattern was widened to ^(REQ-[A-Z]+-\\d{3}|INV-[A-Z]+-\\d+)$, accepting this project's INV-<AREA>-<N> ids directly (docs/reference/invariant-contract.md already declared INV-/REQ-/TCON- the same id family). The synthetic REQ-PROV-001/002 bridge this plan originally used has been reverted — TCON-PROV-0001/0002/0003 now cite INV-PROV-1/INV-PROV-2 directly, no relabeling. Left as history so a later pass understands why spec_refs no longer mentions a bridge.",
+      "location": "skills/test-design/schemas/test-condition.schema.json:22 (fixed); previously also harness-loop/templates/test-design and the root skills/test-design copy, fixed in the same pass"
+    },
+    {
+      "description": "RESOLVED 2026-08-20: docs/design/runtime-model.md's INV-PROV table now carries INV-PROV-3 (JDTLS_HOME override — no network request on any path, fail closed by name if the launcher jar is unresolvable, never fall back to cache/download) and INV-PROV-4 (empty cache + unreachable network — always settle inside the deadline with an error naming the pin, host, and JDTLS_HOME, never hang, never an opaque stack trace); feat-prove-provisioner's falsifier was amended to cite both. TCON-PROV-0004/0005 cover INV-PROV-3, TCON-PROV-0006/0007 cover INV-PROV-4. Left as history: this gap is what originally caused the design amendment.",
+      "location": "docs/design/runtime-model.md#INV-PROV-3, #INV-PROV-4 (added); docs/assumptions.md#A-005; feature_list.json#feat-prove-provisioner falsifier (amended)"
+    }
+  ]
+}

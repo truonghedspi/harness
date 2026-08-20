@@ -1,0 +1,10 @@
+{
+  "id": "TCON-SHIM-0002",
+  "plan_id": "TP-SHIM-0001",
+  "requirement_id": "INV-SHIM-2",
+  "behavior": "When N (N >= 3) independent jdt-mcp shim processes are launched concurrently against the same socket path with no daemon yet running, all N converge on exactly one daemon process: after every shim has connected, reading the daemon pid each shim's connection was served by yields the same single pid across all N, and the process table shows exactly one daemon process listening on that socket path -- never two or more racing to spawn under the single-instance lock.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable by actually racing real OS processes against the real lock and real $XDG_RUNTIME_DIR/jdt-mcp.sock path -- a mocked lock cannot exercise the actual race window the single-instance lock exists to close -- matching the matrix's e2e_scenario technique for the integration shape and mirroring TCON-POOL-0005's use of a small fixed multiplicity (here N>=3 concurrent launches) standing in for a generative property when spawning real processes per case is too slow [INV-SHIM-2]. Falsifies an implementation where the lock check-then-spawn is not atomic (e.g. checking socket existence before acquiring the lock), so two of the N launches each spawn their own daemon -- exactly the failure this feature's own falsifier names."
+}

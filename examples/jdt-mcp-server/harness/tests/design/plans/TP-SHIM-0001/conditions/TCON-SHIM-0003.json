@@ -1,0 +1,10 @@
+{
+  "id": "TCON-SHIM-0003",
+  "plan_id": "TP-SHIM-0001",
+  "requirement_id": "INV-SHIM-4",
+  "behavior": "With two or more distinct workspaces made live under one daemon (so two or more real JDT LS child processes are running, not just one), issuing the daemon's shutdown always results in the process table holding none of those JDT LS children afterward -- every one it spawned is terminated, not merely the first or the most-recently-used.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Requires a real daemon supervising real JDT LS subprocesses and a real OS process-table check after a real shutdown -- the matrix's e2e_scenario technique for the integration shape, and the feature's own context note is explicit that this is 'a process-table assertion, not a return-value one' [INV-SHIM-4]. Using two-or-more live children (not one) mirrors TCON-POOL-0005/TCON-READY-0002's plurality argument: it falsifies an implementation that iterates and kills only one tracked child (e.g. a single 'current workspace' reference instead of the full pool) and would pass a single-child test while still orphaning a JVM -- exactly the failure this feature's falsifier names."
+}

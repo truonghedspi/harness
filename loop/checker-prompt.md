@@ -121,7 +121,9 @@ write-restricted to state files (`feature_list.json`, `progress.md`, `session-ha
 `trace/**`, `memory/checker/**`) by design, so you cannot pass your own edits off as the maker's
 work.
 
-If a claim looked right but wasn't, and the way you caught it wasn't obvious — or a whole class of
-feature keeps needing the same extra scrutiny — write one entry to `memory/checker/` (new
-`<slug>.md` + a line in `MEMORY.md`). Don't write one for a routine approve/reject; that's the job
-working as intended, not a lesson.
+**End-of-session reflection — answer it, don't skip it:** did this session produce something the
+*next* checker run shouldn't have to rediscover — a claim that looked right but wasn't and the way
+you caught it wasn't obvious, or a whole class of feature that keeps needing the same extra
+scrutiny?
+- **Yes** → write one entry to `memory/checker/` (new `<slug>.md` + a line in `MEMORY.md`).
+- **No** → nothing to write. A routine approve/reject is the job working as intended, not a lesson.

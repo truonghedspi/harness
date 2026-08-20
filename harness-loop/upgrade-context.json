@@ -166,6 +166,85 @@
         "require('./.kiro/agents/orchestrator.json').toolsSettings.subagent.availableAgents excludes \"orchestrator\" and includes every other agent",
         "bash harness-loop/scripts/demo.sh"
       ]
+    },
+    {
+      "id": "HUC-2026-08-20-memory-bootstrap",
+      "summary": "`memory-consolidate.mjs` gains `--bootstrap`: it mines `feature_list.json` checkerNotes and `trace/trace.jsonl` blocked/REJECT events for a reason that recurred across >=2 features and isn't already written into `memory/**`, and lists it as a candidate. Also removed the empty, orphaned `memory/context-interviewer/` template dir left over from the interviewer-agent retirement (HI-052).",
+      "why": "A project that never wrote a memory entry does not start from zero knowledge — the raw material for a lesson (a checkerNotes reason a maker/checker kept re-hitting, a blocked reason that recurred) was already sitting in state files the harness already writes. Requiring someone to notice the pattern by eye before memory got its first real entry meant the mechanism only ever got exercised on projects mature enough to have already built the habit by hand.",
+      "targetImpact": "`tools/memory-consolidate.mjs --target . --bootstrap [--json]` is a new, additive CLI surface; the existing structural report (index budget, orphans, duplicates) is unchanged and still runs without `--bootstrap`. It never writes to `memory/**` itself — same report-not-rewrite division of labor the rest of the script already uses. `memory/context-interviewer/` (template only, never scaffolded into a real project) is gone; nothing reads it.",
+      "paths": [
+        "tools/memory-consolidate.mjs",
+        "docs/reference/agent-memory.md",
+        "harness-loop/scripts/demo.sh"
+      ],
+      "mergeActions": [
+        "Copy the updated `tools/memory-consolidate.mjs` into the target as-is — it is additive (a new flag), so a local customization to the structural-report path is unaffected.",
+        "No action needed for the removed `memory/context-interviewer/` dir — it was never scaffolded into an existing target in the first place."
+      ],
+      "verification": [
+        "node tools/memory-consolidate.mjs --target . --bootstrap --json",
+        "bash harness-loop/scripts/demo.sh"
+      ]
+    },
+    {
+      "id": "HUC-2026-08-20-end-of-run-reflection",
+      "summary": "Every writing agent's prompt (maker, checker, feature-planner, test-designer, test-implementer, harness-setup, design-facilitator, orchestrator) now closes with an explicit, uniformly-worded Yes/No reflection gate before it stops, instead of a one-off sentence phrased differently per agent. `test-implementer` previously had no closing memory guidance at all — that gap is now closed too.",
+      "why": "`docs/reference/agent-memory.md` already named the `stop` hook's moment as 'the natural place to also prompt' this question, but the hook itself can only run a shell command (it fired `trace.mjs`'s `session-end` event and nothing else) — it cannot force an honest self-assessment. The enforceable half of that intention was always the prompt text, and it existed per-agent as loose prose an agent could skim past inside a longer numbered list, phrased slightly differently every time, which made it easy to treat as one more instruction rather than a forced branch to actually answer.",
+      "targetImpact": "Each agent prompt's memory-writing instruction is now a literal two-branch question ('did this run produce something the next run shouldn't have to rediscover? Yes -> write an entry. No -> nothing to write') instead of a single conditional sentence. The underlying trigger criteria (a non-obvious mistake, an approach that worked for a non-obvious reason, an ambiguity that was hard to call, etc.) are unchanged per agent — only the framing is uniform. No hook or tool behavior changed.",
+      "paths": [
+        "prompts/feature-planner.md",
+        "prompts/test-designer.md",
+        "prompts/test-implementer.md",
+        "prompts/harness-setup.md",
+        "prompts/design-facilitator.md",
+        "prompts/orchestrator.md",
+        "loop/maker-prompt.md",
+        "loop/checker-prompt.md"
+      ],
+      "mergeActions": [
+        "If a target customized the closing memory paragraph of any of these prompts, port the customization's specific trigger criteria into the new Yes/No framing by hand — a mechanical diff would overwrite the customization.",
+        "No tool, hook, or schema changed; this is prompt text only."
+      ],
+      "verification": [
+        "grep -l \"End-of-.*reflection\" prompts/*.md loop/*-prompt.md",
+        "bash harness-loop/scripts/demo.sh"
+      ]
+    },
+    {
+      "id": "HUC-2026-08-20-constraints-terse-state-and-toolbox",
+      "summary": "Two new MUST rules in docs/constraints.md: write progress.md/DECISIONS.md as short bullets not prose, and check the existing tools/*.mjs toolbox before writing a new script.",
+      "why": "Observed both problems in practice: progress.md entries drifting into essay-length prose, and ad-hoc one-off scripts/inline checks duplicating tools that already exist.",
+      "targetImpact": "docs/constraints.md gains two MUST rules, auto-loaded into every writing agent. No new gate, no new script — prompt-only fix.",
+      "paths": ["docs/constraints.md"],
+      "mergeActions": ["Copy the two new bullets into the target's docs/constraints.md as-is."],
+      "verification": ["grep -c 'MUST write .progress.md' docs/constraints.md"]
+    },
+    {
+      "id": "HUC-2026-08-20-project-root-name-heuristic",
+      "summary": "6 files (harness-cli.mjs, check-coverage.mjs, environment.mjs, init.mjs, loop/route.mjs, loop/dispatch.mjs) no longer infer 'contained layout' from directory name alone — a flat project named literally 'harness' was misdetected as contained, resolving PROJECT_ROOT one level too high.",
+      "why": "Found live running upgrade-harness.mjs against this skill's own repo (named harness, flat layout): check-coverage.mjs flipped 3 lessons to blockers because its manifest/agent checks started reading the parent of the repo instead of the repo itself.",
+      "targetImpact": "The heuristic now also requires the parent directory to have its own AGENTS.md (the thin pointer a contained scaffold writes) before treating a harness-named directory as contained. Only affects targets whose own directory happens to be named 'harness'.",
+      "paths": ["harness-cli.mjs", "check-coverage.mjs", "tools/environment.mjs", "init.mjs", "loop/route.mjs", "loop/dispatch.mjs"],
+      "mergeActions": ["Copy the 6 refreshed files as-is; the fix is additive to an existing condition, not a behavior change for any target not named 'harness'."],
+      "verification": ["node check-coverage.mjs --target . --json", "bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-20-check-plan-invariant-scoping",
+      "summary": "check-plan.mjs's invariant-citation-missing check now only applies to a feature whose context.touches/note names the design file that declared the invariant; falsifier-orphan and invariant-uncovered stay global.",
+      "why": "HI-053: on a project with multiple, temporally separate designs, adding invariants to ONE design retroactively flagged every unrelated open feature in the plan the moment it was added.",
+      "targetImpact": "A feature from an unrelated subsystem no longer needs a citation just because some other docs/design/*.md elsewhere declares invariants. A feature that does cite a made-up invariant id is still caught (that check stayed global).",
+      "paths": ["skills/feature-planning/scripts/check-plan.mjs"],
+      "mergeActions": ["Copy the updated check-plan.mjs as-is; verify with skills/feature-planning/evals/run-fixtures.mjs (all 3 fixtures must still PASS)."],
+      "verification": ["node skills/feature-planning/evals/run-fixtures.mjs", "bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-20-graph-doc-layout-neutral",
+      "summary": "docs/reference/graph.md's intro no longer asserts contained harness/ layout unconditionally.",
+      "why": "HI-054: flat layout is the default; a flat target's copy of graph.md described paths (harness/cli.mjs, harness/AGENTS.md) that don't exist for it.",
+      "targetImpact": "The intro paragraph now names both layouts. No path in the rest of the table changed.",
+      "paths": ["docs/reference/graph.md"],
+      "mergeActions": ["Copy the updated intro paragraph; the rest of the file is unaffected."],
+      "verification": ["grep -q 'flat layout' docs/reference/graph.md"]
     }
   ]
 }

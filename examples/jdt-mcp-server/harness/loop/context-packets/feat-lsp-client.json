@@ -1,0 +1,22 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-lsp-client",
+  "mustRead": [
+    "docs/design/runtime-model.md",
+    "docs/design/evidence.md"
+  ],
+  "mustNotRead": [
+    "docs/design/tool-surface.md"
+  ],
+  "facts": [
+    "Two different framings meet in this system and the design names confusing them as the most likely early bug: LSP (this component's job) is Content-Length-header framed, JSON-RPC over the JDT LS child's stdio; MCP (mcp-shim's job, not this one) is newline-delimited with no embedded newlines. Nothing else in the system should parse either framing directly — lsp-client owns Content-Length, mcp-shim owns newline-delimited.",
+    "No design document states a dedicated INV- id for lsp-client's own framing/correlation correctness (there is no INV-LSP-*). The closest real, citable invariant is INV-POOL-1..5 in docs/design/runtime-model.md, specifically INV-POOL-3: 'when a JDT LS process exits for any reason, every in-flight request routed to it completes with an error — it never hangs and never resolves with a partial answer.' That invariant's mechanism (the pending-request/id-correlation table rejecting every entry on process exit) lives entirely inside lsp-client even though the design's invariant table files it under workspace-pool. Derive this feature's falsifier from INV-POOL-3, honestly, rather than inventing a new id.",
+    "vscode-jsonrpc@9.0.1 and vscode-languageserver-protocol@3.18.2 cover every LSP method this design needs (spike E, docs/design/evidence.md) — there is no missing typed request object to hand-roll.",
+    "The client must also handle server-initiated requests (e.g. workspace/configuration) — JDT LS is described in docs/design/critique.md's Devil's Advocacy section as sending 'server-initiated workspace/configuration requests that block startup if unanswered.' A client that only handles client-initiated request/response and ignores server-initiated ones will stall JDT LS's own startup.",
+    "This is a genuine design gap worth knowing about rather than guessing past: no INV- id covers basic Content-Length round-trip correctness (a malformed header, a body length mismatch) on its own. Test it as part of this feature's own unit-level verification even though no invariant citation applies to that specific case — only the process-exit/pending-request behavior is invariant-backed."
+  ],
+  "sourceInputs": [
+    { "path": "docs/design/runtime-model.md", "sha256": "d7dd205bc2920fc786cff92d953250fa3e27390ea8ffca3887d739310444c72c" },
+    { "path": "docs/design/evidence.md", "sha256": "a3f2d83271307113c35c1bab644789abbd3cef1463866d42fa1f0f38473b44a6" }
+  ]
+}

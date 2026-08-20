@@ -19,7 +19,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.basename(ROOT) === "harness" ? path.dirname(ROOT) : ROOT;
+// A directory literally named "harness" is not proof of a contained layout (the harness-loop
+// skill's own repo is named "harness" and is flat) — only the thin root AGENTS.md a contained
+// scaffold writes is (HI-055). Require both.
+const PROJECT_ROOT = path.basename(ROOT) === "harness" && existsSync(path.join(path.dirname(ROOT), "AGENTS.md"))
+  ? path.dirname(ROOT) : ROOT;
 const HARNESS_PREFIX = PROJECT_ROOT === ROOT ? "" : "harness/";
 process.chdir(PROJECT_ROOT);
 const IS_WIN = process.platform === "win32";

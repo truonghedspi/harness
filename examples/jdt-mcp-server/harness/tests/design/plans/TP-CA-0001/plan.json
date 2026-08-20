@@ -1,0 +1,20 @@
+{
+  "plan_id": "TP-CA-0001",
+  "component": "mcp-tool-layer",
+  "spec_refs": [
+    "docs/design/tool-surface.md#INV-CA-1",
+    "docs/design/tool-surface.md#INV-CA-2",
+    "docs/design/tool-surface.md (Build order item 7 — java_code_actions + java_apply_code_action, the only tool with server-side state and a two-phase protocol)",
+    "docs/design/evidence.md (spike D: JDT LS returns actions unresolved — edit: undefined, command: undefined, data: <opaque> — a second codeAction/resolve round-trip fills in the edit)",
+    "feature_list.json#feat-prove-code-actions",
+    "feature_list.json#feat-tool-code-actions",
+    "feature_list.json#feat-tool-apply-code-action"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "INV-TOOL-2 ('no tool writes to disk without explicit opt-in') governs every mutating tool per A-002, which names both java_rename and java_apply_code_action. TP-TOOL-0002's plan already recorded that feat-prove-rename's falsifier scopes its sweep to java_rename only, and that feat-prove-code-actions -- the only other candidate owner -- cites only INV-CA-1/INV-CA-2, never apply or disk writes. Re-checked here against the current feature_list.json entry and `node loop/route.mjs --json` (names only INV-CA-1, INV-CA-2 as uncovered): still real. This plan does not add INV-TOOL-2 conditions -- feat-prove-code-actions' falsifier doesn't cite it, and expanding scope beyond a feature's own falsifier is feature-planner's call, not this role's. java_apply_code_action's write-opt-in obligation remains unowned by any prove feature.",
+      "location": "docs/design/tool-surface.md#INV-TOOL-2; docs/assumptions.md#A-002; feature_list.json#feat-prove-code-actions (falsifier); feature_list.json#feat-prove-rename (falsifier); tests/design/plans/TP-TOOL-0002/plan.json#spec_gaps[0]"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-SYNC-0002",
+  "plan_id": "TP-SYNC-0001",
+  "requirement_id": "INV-SYNC-1",
+  "behavior": "A probe call issued after the watcher's `workspace/didChangeWatchedFiles` notification for a prior on-disk edit has been delivered and JDT LS has reached quiescence -- spike C's `3_afterDidChangeWatchedFiles` state -- returns the corrected post-edit answer (the deleted symbol no longer resolves and the expected diagnostic is present), not an explicit `resyncing` error.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Completes the disjunction INV-SYNC-1 states ('reflects the change OR fails explicitly'): without this condition, an implementation that always answers `resyncing` regardless of watcher state would vacuously satisfy TCON-SYNC-0001's 'never the stale answer' assertion without ever proving the resync path delivers a correct view, so this reproduces spike C's positive state 3 explicitly (`resolves: false`, real diagnostic `\"The method greet(String) is undefined...\"` present) [INV-SYNC-1]."
+}

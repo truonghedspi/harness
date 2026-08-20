@@ -1,0 +1,11 @@
+{
+  "id": "TCON-ROUTE-0003",
+  "plan_id": "TP-ROUTE-0001",
+  "requirement_id": "INV-ROUTE-1",
+  "behavior": "For any path already known to belong to one of the fixture tree's two managed roots (the single-module project or the multi-module reactor), calling resolveWorkspace with that path returns the same workspace id regardless of what path under the other root was resolved immediately before it in the same process -- the result is never the id that was last returned for a different root.",
+  "behavior_shape": "stateful",
+  "technique": "property",
+  "property_kind": "invariant",
+  "priority": "P0",
+  "rationale": "INV-ROUTE-1 names the defect class -- a sticky, cached or default instance -- observable only across a sequence of calls, so it needs an invariant property over command sequences, the stateful shape's mandatory technique; interleaving a call under root A between two calls under root B falsifies an implementation caching the last-resolved workspace and reusing it under a different root -- exactly what spike B's silent-[] misroute finding makes dangerous if it leaks past this layer."
+}

@@ -1,0 +1,19 @@
+{
+  "plan_id": "TP-TOOL-0002",
+  "component": "mcp-tool-layer",
+  "spec_refs": [
+    "docs/design/tool-surface.md#INV-TOOL-2",
+    "docs/design/tool-surface.md (Result shaping — Mutation)",
+    "docs/assumptions.md#A-002",
+    "docs/design/evidence.md (spike A: rename greet->salute produced a WorkspaceEdit touching 2 files)",
+    "feature_list.json#feat-prove-rename",
+    "feature_list.json#feat-tool-rename"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "INV-TOOL-2's own wording ('No tool writes to disk unless...an explicit opt-in') is generic to every mutating tool; A-002 names both java_rename and java_apply_code_action as the tools it governs. But feat-prove-rename's own behavior/falsifier scope its sweep to java_rename only ('a rename call with no apply argument'), and the only other candidate prove feature -- feat-prove-code-actions -- scopes itself to INV-CA-1/INV-CA-2 (stale/cross-wired handles) instead; its falsifier never mentions apply or disk writes. So INV-TOOL-2's opt-in-to-write guarantee for java_apply_code_action has no owning prove feature yet. This plan follows feat-prove-rename's own scope (rename only) rather than assuming coverage for a sibling tool no feature currently claims.",
+      "location": "docs/design/tool-surface.md#INV-TOOL-2; docs/assumptions.md#A-002; feature_list.json#feat-prove-rename (behavior, falsifier); feature_list.json#feat-prove-code-actions (behavior, falsifier)"
+    }
+  ]
+}

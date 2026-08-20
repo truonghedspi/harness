@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0014",
+  "plan_id": "TP-TOOL-0002",
+  "requirement_id": "INV-TOOL-2",
+  "behavior": "In one sequence, a java_rename call carrying `apply: true` (which writes) is immediately followed by a second java_rename call, for a different symbol/location, with no `apply` argument; the second call does not write to disk either -- the first call's opt-in never persists as a session- or daemon-level default that a later call inherits.",
+  "behavior_shape": "integration",
+  "technique": "state_transition",
+  "priority": "P1",
+  "rationale": "feat-tool-rename's context says apply 'must be opt-in per call, never a server-side default' -- history dependence, the stateful shape's defining question, observable only via a real integration harness. A two-call sequence with state-transition technique matches TCON-SYNC-0003's precedent for per-call independence [INV-TOOL-2]. Falsifies: a global/session flag latching 'writes allowed' after one apply:true call, inherited by a later no-apply call."
+}

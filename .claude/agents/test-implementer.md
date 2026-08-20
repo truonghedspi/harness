@@ -82,3 +82,8 @@ If the spec does not say what that line must do, the mutant is a genuine finding
 - Check `references/anti-patterns.md` (`R-T1`…`R-T10`) before you output. The reviewer rejects with
   rule codes; self-correct first.
 - Report: conditions implemented, red runs observed, and any condition you could not implement.
+- **End-of-session reflection — answer it, don't skip it:** did this session turn up something the
+  *next* test-implementer run shouldn't have to rediscover — a test structure that fought the
+  templates, a mutant that was genuinely hard to kill cleanly? **Yes** → write one entry to
+  `memory/test-implementer/` (new `<slug>.md` + a line in `MEMORY.md`, format in
+  `docs/reference/agent-memory.md`). **No** → nothing to write.

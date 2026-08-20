@@ -1,0 +1,45 @@
+{
+  "vendored": [
+    {
+      "path": "skills/harness-upgrade",
+      "upstream": "harness-loop skill, onboarding-skills/harness-upgrade",
+      "ref": "b461933",
+      "vendoredAt": "2026-08-19",
+      "vendoredCommit": null,
+      "localModifications": []
+    },
+    {
+      "path": "skills/test-design",
+      "upstream": "harness-loop skill, templates/test-design",
+      "ref": "b461933",
+      "vendoredAt": "2026-08-19",
+      "vendoredCommit": null,
+      "localModifications": []
+    },
+    {
+      "path": "skills/feature-planning",
+      "upstream": "harness-loop skill, templates/feature-planning",
+      "ref": "b461933",
+      "vendoredAt": "2026-08-19",
+      "vendoredCommit": null,
+      "localModifications": []
+    },
+    {
+      "path": "skills/business-journey",
+      "upstream": "harness-loop skill, templates/business-journey",
+      "ref": "b461933",
+      "vendoredAt": "2026-08-19",
+      "vendoredCommit": null,
+      "localModifications": []
+    },
+    {
+      "path": "skills/quality-strategy",
+      "upstream": "harness-loop skill, templates/quality-strategy",
+      "ref": "b461933",
+      "vendoredAt": "2026-08-19",
+      "vendoredCommit": null,
+      "localModifications": []
+    }
+  ],
+  "$comment": "Provenance for code this project did not write. Without `ref` you cannot re-sync or diff against the source; without `localModifications` a re-sync silently reverts a fix made here, or silently keeps a stale one. Set `vendoredCommit` to the commit that added the directory to THIS repo — that is what the drift check diffs against."
+}

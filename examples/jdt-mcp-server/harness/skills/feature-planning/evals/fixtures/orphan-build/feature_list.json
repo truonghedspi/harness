@@ -1,0 +1,3 @@
+{"features":[
+  {"id":"feat-cache","name":"Cache","kind":"build","behavior":"The cache stores an item until expiry","verification":"node --test test/cache.test.mjs","falsifier":"A cache that expires every item immediately","context":{"touches":["src/cache.mjs"],"note":"Use the injected clock."},"dependencies":[],"status":"not-started","readyForCheck":false,"evidence":"","checkerNotes":"","attempts":0,"maxAttempts":3}
+]}

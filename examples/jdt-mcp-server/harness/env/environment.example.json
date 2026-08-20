@@ -1,0 +1,20 @@
+{
+  "schema": "harness-environment/1",
+  "java": {
+    "home": null,
+    "executable": null
+  },
+  "maven": {
+    "executable": null,
+    "wrapper": null
+  },
+  "kubernetes": {
+    "kubeconfig": null,
+    "context": null
+  },
+  "apiKeys": {
+    "KIRO_API_KEY": { "source": "environment", "present": false },
+    "OPENAI_API_KEY": { "source": "environment", "present": false },
+    "ANTHROPIC_API_KEY": { "source": "environment", "present": false }
+  }
+}

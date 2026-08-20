@@ -21,7 +21,5 @@ agent would otherwise have assumed silently.
 
 | id | Assumption | Status | If false | Recommended answer | Depended on by |
 |---|---|---|---|---|---|
-
-<!-- Example of a filled row (delete this comment once the table has real content):
-| A-001 | The Archive endpoint never changes address in this deployment | needs-human | scenario 7's premise returns and the design must handle it | Likely fixed — the deployment pins it; confirm? | feat-sit-7 |
--->
+| A-001 | `memory-promote.mjs`'s v1 recurrence trigger (same normalized `checkerNotes`/trace `detail` across ≥2 features, `docs/design/shared-memory-tier.md`) fires often enough on a real, mature project to be worth the new tier at all | assumed | `memory/shared/` ships in the template but rarely populates — infrastructure with no payoff, the exact premortem failure the design already named for the deferred v2 path | Calibrate `memory-promote.mjs` against a real, mature onboarded target before treating v1 as validated, same discipline `AGENTS.md` already requires for any mechanical gate | v1 rollout of `docs/design/shared-memory-tier.md` |
+| A-002 | A trace `detail` event (unlike `checkerNotes`) has a concrete, implementable rule for inheriting `evidence: test\|tool-output` from its source | assumed | `memory-promote.mjs` cannot type trace-sourced candidates and INV-SHARED-1 either blocks all trace-sourced promotion or is checked less strictly than intended | Scope v1's trace source to only events whose payload already carries a verification command/result (mirrors how `checkerNotes` inherits from the feature's own `evidence` array) | `memory-promote.mjs` implementation |

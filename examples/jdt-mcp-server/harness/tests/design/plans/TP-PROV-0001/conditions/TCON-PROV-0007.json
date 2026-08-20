@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0007",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-4",
+  "behavior": "In that same empty-cache, unreachable-network scenario, the error that resolveInstall() settles with names all three of the pinned version, the specific host it could not reach, and JDTLS_HOME as the override escape hatch -- an error message missing any one of the three does not satisfy this behavior.",
+  "behavior_shape": "decision",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "Boundedness (TCON-PROV-0006) and message completeness are independently falsifiable: an implementation can fail fast within the deadline yet surface an opaque stack trace, or eventually produce a correct-content message after hanging past the deadline [INV-PROV-4]; a fixed-content example asserting all three named facts are present catches the former class of defect that a settles-in-time assertion alone would pass."
+}

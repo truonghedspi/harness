@@ -86,5 +86,7 @@ environment, spike. A question you could have grepped costs the one resource thi
 - Every P0 requirement gets at least one condition. No exceptions.
 - Finish with `checklists/designer-checklist.md`. Output only when every item passes.
 - Report: conditions written, spec gaps opened, and any P0 requirement you could not cover.
-- If a spec turned out to be ambiguous in a way that was not obvious, or a shape classification
-  was genuinely hard to call, write one entry to `memory/test-designer/`.
+- **End-of-session reflection — answer it, don't skip it:** did this session turn up something the
+  *next* test-designer run shouldn't have to rediscover — a spec ambiguity that was not obvious, or
+  a shape classification that was genuinely hard to call? **Yes** → write one entry to
+  `memory/test-designer/`. **No** → nothing to write.

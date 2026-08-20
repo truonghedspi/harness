@@ -1,0 +1,84 @@
+{
+  "name": "orchestrator",
+  "description": "The human-facing front door: reports loop state, natively spawns the node harness/loop/route.mjs names, and escalates decisions. Uses scripts only as a fallback; does not choose nodes or write product files.",
+  "prompt": "file://../../harness/prompts/orchestrator.md",
+  "tools": [
+    "read",
+    "shell",
+    "write",
+    "subagent"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4",
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "harness/session-handoff.md",
+        "harness/progress.md",
+        "harness/loop/approval.md",
+        "harness/trace/**",
+        "harness/memory/orchestrator/**"
+      ]
+    },
+    "subagent": {
+      "availableAgents": [
+        "checker",
+        "design-facilitator",
+        "feature-planner",
+        "harness-setup",
+        "maker",
+        "test-designer",
+        "test-implementer"
+      ]
+    }
+  },
+  "resources": [
+    "file://../../harness/AGENTS.md",
+    "file://../../harness/docs/constraints.md",
+    "file://../../harness/docs/reference/graph.md",
+    "file://../../harness/docs/reference/presenting-and-proposing.md",
+    "file://../../harness/docs/reference/human-attention.md",
+    "file://../../harness/feature_list.digest.md",
+    "file://../../harness/loop/goal.md",
+    "file://../../harness/docs/INDEX.md",
+    "file://../../harness/memory/orchestrator/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node harness/tools/trace.mjs orchestrator session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
+      },
+      {
+        "matcher": "read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
+      },
+      {
+        "matcher": "grep",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
+      },
+      {
+        "matcher": "glob",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node harness/tools/trace.mjs orchestrator session-end"
+      }
+    ]
+  },
+  "welcomeMessage": "Reports where the loop is, spawns the next sub-agent the router names, and brings decisions to you. It never picks the node itself."
+}

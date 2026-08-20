@@ -1,0 +1,11 @@
+{
+  "id": "TCON-POOL-0002",
+  "plan_id": "TP-POOL-0001",
+  "requirement_id": "INV-POOL-2",
+  "behavior": "Over sequences of calls to distinct projects -- some held in-flight ('busy'), some completing promptly ('idle'), across more distinct projects than the cap -- whenever the pool must evict to serve a new project, the workspace evicted always matches a reference model of 'the least-recently-used idle workspace': never a busy one, and never an idle one other than the least-recently-used, even when the overall-oldest workspace is busy.",
+  "behavior_shape": "stateful",
+  "technique": "property",
+  "property_kind": "model_based",
+  "priority": "P0",
+  "rationale": "Which workspace is 'least-recently-used and idle' is defined over the full call history, so correctness is a differential against a simple reference model -- the matrix's designated technique for stateful code, mirroring INV-ROUTE-1's model-based pairing [INV-POOL-2]; per generators.md G1, bias the generator so the overall-oldest workspace is sometimes busy, falsifying a naive LRU-only eviction that would corrupt an in-flight request, which INV-POOL-3 forbids."
+}

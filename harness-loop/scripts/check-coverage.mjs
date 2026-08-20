@@ -4,13 +4,17 @@
 // Implements references/13-lesson-coverage.md. Exit code 0 iff 13/13 pass — so it can gate a
 // loop or CI. Structural only: a green report on a red ./init.sh proves files are in place, not
 // that the project works. Always run ./init.sh too.
-import { readFileSync, statSync, readdirSync } from "node:fs";
+import { readFileSync, statSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 
 const args = process.argv.slice(2);
 const targetIdx = args.indexOf("--target");
 const TARGET = path.resolve(targetIdx >= 0 ? args[targetIdx + 1] : ".");
-const PROJECT_ROOT = path.basename(TARGET) === "harness" ? path.dirname(TARGET) : TARGET;
+// A directory literally named "harness" is not proof of a contained layout (this skill's own repo
+// is named "harness" and is flat) — only the thin root AGENTS.md a contained scaffold writes is
+// (HI-055). Require both, or PROJECT_ROOT wrongly resolves one level above the real project.
+const PROJECT_ROOT = path.basename(TARGET) === "harness" && existsSync(path.join(path.dirname(TARGET), "AGENTS.md"))
+  ? path.dirname(TARGET) : TARGET;
 const AS_JSON = args.includes("--json");
 
 const P = (...p) => path.join(TARGET, ...p);

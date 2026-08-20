@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0004",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-3",
+  "behavior": "Given JDTLS_HOME set and a separate valid pinned cache also on disk, resolveInstall() with egress stubbed to throw either succeeds with installDir = JDTLS_HOME and zero outbound requests (valid override), or fails/rejects with zero outbound requests and never returns the sibling cache's installDir/version instead (invalid override).",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "One condition (whether JDTLS_HOME resolves to a valid launcher jar) deciding two outcomes (use override / fail closed) is a two-column decision table [INV-PROV-3]; seeding a simultaneously valid, pinned cache alongside JDTLS_HOME in both columns is what actually falsifies an implementation that ignores the override and quietly resolves from cache instead -- a network-request-count assertion alone cannot catch that, since a cache read makes no outbound request either."
+}

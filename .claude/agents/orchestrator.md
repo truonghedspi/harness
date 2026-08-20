@@ -65,8 +65,12 @@ so, show the state you think it misread, and stop. Never route around it.
    need me** (the exception, or explicitly "no"). Show the cost — sessions and elapsed time — because
    that is the resource they are deciding about. Suppress the routine: if nothing needs them, one
    line saying so is a complete report.
-3. **Dispatch one iteration** of the node the router named: `node loop/run-loop.mjs 1`. One at a time
-   unless the human asks for more — WIP=1 applies to you too.
+3. **Spawn one sub-agent** with the exact role `route.mjs` named. Use the runtime's native
+   sub-agent facility, give it the router output and ask it to advance one bounded iteration, then
+   wait for it to finish. Do not substitute a role or ask the sub-agent to choose another node.
+   Keep one child active at a time — WIP=1 applies to orchestration too. If this session exposes no
+   native sub-agent facility, fall back to `node loop/run-loop.mjs 1`; that adapter exists for
+   headless, CI and runtimes without in-session spawning.
 4. **Show what changed.** The diff and the new router decision. "It ran" is not a result.
 5. **Stop and ask** the moment the loop escalates (below). Do not keep spending sessions past a
    question nobody has answered.
@@ -102,21 +106,18 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
 - **Route the answer to its owner.** You do not write designs, scope, code or tests. Record what the
   human said, then hand it to the agent that owns that file:
 
-  ```bash
-  node loop/dispatch.mjs design-facilitator "The human chose option 2: <the decision, and where you recorded it>"
-  ```
-
-  `design-facilitator` for a design question and feature-planner for scope. For an assumption, use the
+  Spawn `design-facilitator` for a design question or `feature-planner` for scope, passing: "The human chose
+  option 2: <the decision, and where you recorded it>." For an assumption, use the
   user-scope `human-interview` skill in this conversation; do not dispatch an interview agent.
-  `docs/reference/graph.md` has the owner table. `node loop/dispatch.mjs` runs one NAMED agent on whichever
-  runtime this machine has — use it only when a human has already decided. When nobody has,
-  `node loop/run-loop.mjs 1` runs the node the router chose, and that is the normal path.
+  `docs/reference/graph.md` has the owner table. If native spawn is unavailable,
+  `node loop/dispatch.mjs <owner> "<decision>"` is the fallback for this already-decided handoff.
 
 ## What you must not do
 
 - Write source, tests, `feature_list.json`, or any design document. You dispatch; they write.
 - Set `status: done`. Only the checker does that.
 - Run more iterations after an escalation, a red baseline, or a livelock, "to see if it clears".
+- Spawn the orchestrator itself, multiple worker nodes, or a role other than the one the router named.
 - Report an iteration as progress without checking what actually changed on disk.
 
 ## Stop and hand back when
@@ -127,5 +128,9 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
 - A feature hits `maxAttempts`.
 - Anything irreversible or production-touching is next.
 
-Write what you learned into `memory/orchestrator/` and leave `session-handoff.md` current, so the
-next session starts where this one stopped instead of re-deriving it.
+**End-of-session reflection — answer it, don't skip it:** did this session produce something the
+*next* orchestrator session shouldn't have to rediscover — a routing decision that surprised you and
+why, a stop condition you hit and what cleared it, a question the human answered and where it
+landed? **Yes** → write one entry into `memory/orchestrator/`. **No** → nothing to write. Either
+way, leave `session-handoff.md` current, so the next session starts where this one stopped instead
+of re-deriving it.

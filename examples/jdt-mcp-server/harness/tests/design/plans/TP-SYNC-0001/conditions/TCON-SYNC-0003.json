@@ -1,0 +1,10 @@
+{
+  "id": "TCON-SYNC-0003",
+  "plan_id": "TP-SYNC-0001",
+  "requirement_id": "INV-SYNC-1",
+  "behavior": "For a single on-disk edit followed by a sequence of probes issued at increasing delays spanning both before and after the watcher's notification lands, once any probe in that sequence has left the stale pre-edit state (by returning either the corrected answer or a `resyncing` error), no later probe in the same sequence ever reports the stale pre-edit successful answer again.",
+  "behavior_shape": "integration",
+  "technique": "state_transition",
+  "priority": "P1",
+  "rationale": "INV-SYNC-1's table header requires the invariant hold for EVERY input, not only the first call after an edit; modelling the probe/edit interaction as a state machine (pre-edit -> resyncing/pending -> synced), checked at every probe in a sequence, is the matrix's state-transition technique for the integration shape [INV-SYNC-1]; falsifies a staleness check built on an expiring cache/TTL that can re-serve the stale successful answer after already having corrected itself once."
+}

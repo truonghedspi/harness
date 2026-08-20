@@ -119,6 +119,153 @@
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3
+    },
+    {
+      "id": "feat-shared-memory-promote",
+      "name": "Mechanical promotion into memory/shared/ (v1)",
+      "behavior": "node harness-loop/scripts/memory-promote.mjs --target DIR writes a memory/shared/facts.md entry when the same normalized checkerNotes-first-line or trace `detail` recurs across >=2 features/occurrences, and at least one source has evidence type test or tool-output. Never promotes from evidence:inference alone.",
+      "verification": "bash harness-loop/scripts/demo.sh",
+      "falsifier": "memory-promote.mjs promotes from a single occurrence (violates [INV-PROMOTE-1]), promotes when every source is evidence:inference (violates [INV-SHARED-1]), or writes something other than a templated entry citing its sources.",
+      "kind": "build",
+      "dependencies": [],
+      "context": {
+        "touches": [
+          "harness-loop/scripts/memory-promote.mjs",
+          "harness-loop/scripts/demo.sh",
+          "docs/design/shared-memory-tier.md"
+        ],
+        "note": "v1 scope only (docs/design/shared-memory-tier.md INV-PROMOTE-1) \u2014 reuses memory-consolidate.mjs --bootstrap's exact recurrence detection, adds evidence-typed mechanical writing. Free-text matching is v2, not this feature."
+      },
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-20",
+          "run": "red",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "mutation test: removing memory-promote.mjs's INV-SHARED-1 skip guard (or verify-harness.mjs's evidence check) made demo.sh exit 1 with real FAIL lines in the relevant step"
+        },
+        {
+          "date": "2026-08-20",
+          "run": "green",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "48/48 demo steps passed with the mutation reverted"
+        }
+      ],
+      "checkerNotes": "Checker rejected the grep-on-step-header verification (mutation-tested: passed even with INV-SHARED-1's skip guard removed). Fixed to check demo.sh's own exit code; re-mutation-tested \u2014 now correctly fails.",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-shared-memory-gate",
+      "name": "verify-harness gate for memory/shared/",
+      "behavior": "verify-harness.mjs flags (warn, gate memory-shared) any memory/shared/*.md entry with evidence: inference or a missing evidence field, and flags a memory/shared/ index over the same 200-line budget MEMORY.md already uses.",
+      "verification": "bash harness-loop/scripts/demo.sh",
+      "falsifier": "the memory-shared gate misses an inference-only entry (violates [INV-SHARED-1]), fires as a blocker instead of warn, or does not fire on an over-budget index.",
+      "kind": "build",
+      "dependencies": [
+        "feat-shared-memory-promote"
+      ],
+      "context": {
+        "touches": [
+          "harness-loop/scripts/verify-harness.mjs",
+          "harness-loop/scripts/demo.sh"
+        ],
+        "note": "docs/design/shared-memory-tier.md INV-SHARED-1; mirrors the existing gate memory (MEMORY.md budget check)."
+      },
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-20",
+          "run": "red",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "mutation test: removing memory-promote.mjs's INV-SHARED-1 skip guard (or verify-harness.mjs's evidence check) made demo.sh exit 1 with real FAIL lines in the relevant step"
+        },
+        {
+          "date": "2026-08-20",
+          "run": "green",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "48/48 demo steps passed with the mutation reverted"
+        }
+      ],
+      "checkerNotes": "Same class of rejection as feat-shared-memory-promote (shared verification pattern). Fixed and re-mutation-tested on the gate's own evidence check \u2014 now correctly fails when disabled.",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-shared-memory-resources",
+      "name": "Every agent reads memory/shared/ read-only",
+      "behavior": "gen-agents.mjs computes memory/shared/*.md into every generated agent's resources at generation time (same pattern as subagentAllExceptSelf's roster), and no agent's writes/allowedPaths ever includes memory/shared/**.",
+      "verification": "bash harness-loop/scripts/demo.sh",
+      "falsifier": "a generated agent config omits memory/shared/*.md from its resources (violates [INV-RES-1]), or memory/shared/** appears in any agent's writes/allowedPaths (violates [INV-SHARED-2]).",
+      "kind": "build",
+      "dependencies": [],
+      "context": {
+        "touches": [
+          "harness-loop/scripts/gen-agents.mjs",
+          "harness-loop/scripts/demo.sh"
+        ],
+        "note": "docs/design/shared-memory-tier.md INV-RES-1/INV-SHARED-2; guard-write.mjs already denies writes outside an agent's allowedPaths, so this feature only needs to keep memory/shared/** out of every agent's writes list."
+      },
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-20",
+          "run": "red",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "mutation test: removing memory-promote.mjs's INV-SHARED-1 skip guard (or verify-harness.mjs's evidence check) made demo.sh exit 1 with real FAIL lines in the relevant step"
+        },
+        {
+          "date": "2026-08-20",
+          "run": "green",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "48/48 demo steps passed with the mutation reverted"
+        }
+      ],
+      "checkerNotes": "Same class of rejection as feat-shared-memory-promote (shared verification pattern, not independently mutation-tested \u2014 same fix applies).",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-shared-memory-v1",
+      "name": "memory/shared/ v1 works end-to-end",
+      "behavior": "In a fixture project, a recurring evidence-typed reason gets mechanically promoted into memory/shared/, every generated agent's resources includes it, and a hand-planted evidence:inference entry is caught by the memory-shared gate.",
+      "verification": "bash harness-loop/scripts/demo.sh",
+      "falsifier": "the fixture reason never reaches memory/shared/ [INV-PROMOTE-1], a generated agent's resources omit it [INV-RES-1], or the inference-only fixture entry is not flagged [INV-SHARED-1].",
+      "kind": "prove",
+      "dependencies": [
+        "feat-shared-memory-promote",
+        "feat-shared-memory-gate",
+        "feat-shared-memory-resources"
+      ],
+      "context": {
+        "touches": [
+          "harness-loop/scripts/demo.sh",
+          "docs/design/shared-memory-tier.md"
+        ],
+        "note": "the prove counterpart to the three build features above (skills/feature-planning/references/cutting-rules.md build/prove pairing)."
+      },
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-20",
+          "run": "red",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "mutation test: removing memory-promote.mjs's INV-SHARED-1 skip guard (or verify-harness.mjs's evidence check) made demo.sh exit 1 with real FAIL lines in the relevant step"
+        },
+        {
+          "date": "2026-08-20",
+          "run": "green",
+          "cmd": "bash harness-loop/scripts/demo.sh",
+          "result": "48/48 demo steps passed with the mutation reverted"
+        }
+      ],
+      "checkerNotes": "Same class of rejection as feat-shared-memory-promote (shared verification pattern, not independently mutation-tested \u2014 same fix applies).",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "readyForCheck": false
     }
   ]
 }

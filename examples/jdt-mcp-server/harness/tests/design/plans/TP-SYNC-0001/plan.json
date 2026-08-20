@@ -1,0 +1,26 @@
+{
+  "plan_id": "TP-SYNC-0001",
+  "component": "file-sync-watcher",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-SYNC-1",
+    "docs/design/runtime-model.md (Filesystem synchronisation — the correctness centre of this system)",
+    "docs/design/evidence.md (spike C: `spikes/jdtls-disk-sync.mjs`, `2_afterSilentDiskEdit` / `3_afterDidChangeWatchedFiles`)",
+    "docs/constraints.md (MUST make every tool call either reflect the on-disk change or fail explicitly as resyncing)",
+    "docs/assumptions.md#A-016",
+    "docs/assumptions.md#A-014",
+    "docs/cross-cutting.md#X-001",
+    "feature_list.json#feat-prove-sync",
+    "feature_list.json#feat-file-sync-watcher"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "A-014 ('a recursive filesystem watcher observes every relevant change, including temp-write-then-rename and edits under large source trees') is filed against INV-SYNC-1 in docs/assumptions.md, and could be read as asking this plan to also cover watcher blind spots on specific edit patterns (temp-write-then-rename, large trees). Not treated as in-scope here: the task explicitly scopes this plan to INV-SYNC-1 as reproduced by feat-prove-sync's own context note (probe immediately after a silent edit, and again after the watcher's notification lands), and edit-class completeness (create/modify/delete/rename all producing the correct notification) is INV-SYNC-2's stated territory, owned by feat-file-sync-watcher (a different, dependency feature) per docs/assumptions.md#A-008. This plan's conditions therefore exercise a single plain-modify edit and assume the watcher notification for it either arrives or does not within the deadline; they do not vary edit class.",
+      "location": "docs/assumptions.md#A-014; docs/design/runtime-model.md#INV-SYNC-2"
+    },
+    {
+      "description": "INV-SYNC-1's disjunction ('reflects the change or fails explicitly ... within its deadline') depends on a deadline/timeout value that docs/cross-cutting.md#X-001 marks explicitly 'open' — only a recommended default (30 s, one deadline budget propagated through the readiness wait, the LSP request and the resync wait) is proposed, not confirmed. This plan's conditions describe the observable outcome (never the stale successful answer; either the corrected answer or an explicit `resyncing` error) without asserting a specific deadline magnitude, since no settled value exists to trace to; a concrete wait/timeout bound used by the eventual test implementation is an implementation/fixture choice, not a spec fact, until X-001 resolves.",
+      "location": "docs/cross-cutting.md#X-001; docs/design/runtime-model.md#INV-SYNC-1"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-file-sync-watcher",
+  "mustRead": [
+    "docs/design/runtime-model.md",
+    "docs/design/evidence.md",
+    "../spikes/jdtls-disk-sync.mjs"
+  ],
+  "mustNotRead": [
+    "docs/design/tool-surface.md"
+  ],
+  "facts": [
+    "Spike C is the finding that most changed this design: rewriting a source file on disk to delete a method, with NO LSP notification sent, left JDT LS still resolving the deleted method and reporting ZERO errors — a confidently wrong, well-formed answer. One workspace/didChangeWatchedFiles notification corrected it within 8 seconds. JDT LS does not watch the filesystem itself; the client (this component) must.",
+    "This is why the human-approved build order puts file-sync-watcher + readiness-gate BEFORE any capability tool (loop/design-approval.json decision list) — a tool built before the watcher exists would be a tool that returns confidently wrong answers, and no amount of tool-level testing catches that, because the wrong answer is well-formed.",
+    "A-008/A-009 (docs/assumptions.md, both 'assumed') record the two edges this component must not miss: every edit CLASS (create, modify, delete, rename — including editor/agent temp-write-then-rename patterns) must produce a notification (INV-SYNC-2), and a pom.xml change specifically needs a project-configuration refresh, not just a generic watched-file notification (INV-SYNC-3), because a dependency change produces confidently wrong diagnostics until the daemon is told.",
+    "INV-SYNC-1 is proved through this component's quiescence marker (settledAt) and the readiness-gate's semantic probe directly — NOT through a public MCP tool, since no capability tool exists yet at this point in the build order. A tool call later 'carries the watcher's last-observed change generation' per the design; that wiring belongs to feat-tool-layer-core, downstream of this feature.",
+    "The watcher publishes a settledAt marker after debouncing — do not treat 'notification sent' and 'settled' as the same event; a tool waiting on quiescence needs the debounced settle point, not the raw per-file notification."
+  ],
+  "sourceInputs": [
+    { "path": "docs/design/runtime-model.md", "sha256": "d7dd205bc2920fc786cff92d953250fa3e27390ea8ffca3887d739310444c72c" },
+    { "path": "docs/design/evidence.md", "sha256": "a3f2d83271307113c35c1bab644789abbd3cef1463866d42fa1f0f38473b44a6" }
+  ]
+}

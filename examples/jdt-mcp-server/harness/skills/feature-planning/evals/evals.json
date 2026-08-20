@@ -1,0 +1,23 @@
+{
+  "skill_name": "feature-planning",
+  "evals": [
+    {
+      "id": "valid-build-prove-plan",
+      "prompt": "Plan a ledger component from an approved invariant and produce a build/prove DAG.",
+      "expected_output": "A dependency-ordered plan with complete handoffs and traceability.",
+      "files": ["fixtures/valid/feature_list.json", "fixtures/valid/docs/design/ledger.md"]
+    },
+    {
+      "id": "reject-orphan-build",
+      "prompt": "Check a plan whose build feature has no independent prove consumer.",
+      "expected_output": "The capability checker reports build-unproven.",
+      "files": ["fixtures/orphan-build/feature_list.json"]
+    },
+    {
+      "id": "reject-invented-invariant",
+      "prompt": "Check a plan whose falsifier cites an invariant absent from the approved design.",
+      "expected_output": "The capability checker reports falsifier-orphan.",
+      "files": ["fixtures/invented-invariant/feature_list.json", "fixtures/invented-invariant/docs/design/ledger.md"]
+    }
+  ]
+}

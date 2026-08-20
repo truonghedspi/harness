@@ -19,7 +19,7 @@
 // the authority on what that agent should see.
 //
 // Usage (as a hook): node tools/agent-context.mjs <agent-name>
-import { readFileSync, existsSync, writeSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, writeSync } from "node:fs";
 import path from "node:path";
 import { planContext } from "./context-plan.mjs";
 
@@ -41,11 +41,21 @@ catch { ok(`[harness] agents.manifest.json unreadable from ${root} — no per-ag
 const agent = (manifest.agents || []).find((a) => a.name === agentName);
 if (!agent) ok(`[harness] no manifest entry for agent "${agentName}" — no per-agent context injected.`);
 
+// docs/design/shared-memory-tier.md INV-RES-1: read at spawn (not baked at generation, unlike
+// kiro/Codex), so a fact promoted mid-session is visible without regenerating anything — the
+// same "strictly better than kiro's static list" property this file already claims above.
+const sharedMemoryResources = () => {
+  try {
+    return readdirSync(path.join(home, "memory", "shared")).filter((f) => f.endsWith(".md")).sort()
+      .map((f) => path.relative(root, path.join(home, "memory", "shared", f)));
+  } catch { return []; }
+};
+
 const parts = [];
 const missing = [];
 const contextInputs = [];
 let contextReceipt = null;
-for (const rel of agent.resources || []) {
+for (const rel of [...(agent.resources || []), ...sharedMemoryResources()]) {
   const abs = path.join(root, rel);
   if (!existsSync(abs)) { missing.push(rel); continue; }
   let body;

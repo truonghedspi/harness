@@ -37,6 +37,13 @@ possible — mechanically enforceable (a lint rule or a check in `init.sh` beats
 - MUST add every new document to `docs/INDEX.md` with a *"read it when"* line. An indexed archive
   directory is exempt from the size budget — you follow its index to one entry instead of reading
   it through.
+- MUST write `progress.md`/`DECISIONS.md` entries as short factual bullets — what changed, what
+  state now — never prose narrative. Reasoning belongs in a memory entry or design doc, not the
+  state log.
+- MUST check the existing toolbox before writing a new script to inspect state: `node
+  loop/route.mjs`, `tools/loop-status.mjs`, `tools/feature.mjs <id>`, `tools/timeline.mjs`,
+  `tools/memory-query.mjs`, `tools/verify-harness.mjs`, `tools/run-report.mjs`. A one-off `node -e`
+  check is the same waste as a throwaway script — reach for these first.
 
 ## MUST NOT
 

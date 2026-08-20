@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0001",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-1",
+  "behavior": "Against a fixture line containing non-ASCII, single-UTF-16-code-unit characters (e.g. accented Latin or CJK) before a known symbol, java_hover, java_definition and java_references each report line/column matching the file's true offset in the documented 1-based coordinate system; none under- or over-counts the column by measuring bytes or codepoints instead of UTF-16 code units.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable end-to-end: JDT LS answers in 0-based UTF-16 code units, so the tool layer's real conversion boundary must run against a real fixture and real pool, per the matrix's integration/e2e_scenario guidance and this feature's context note [INV-TOOL-1]. Falsifies a conversion that counts UTF-8 bytes or Unicode codepoints instead of UTF-16 code units -- correct on ASCII, wrong once a multi-byte character precedes the symbol."
+}

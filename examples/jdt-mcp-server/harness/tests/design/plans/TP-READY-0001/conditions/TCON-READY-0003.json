@@ -1,0 +1,10 @@
+{
+  "id": "TCON-READY-0003",
+  "plan_id": "TP-READY-0001",
+  "requirement_id": "INV-READY-1",
+  "behavior": "For the same permanently-blocked-probe workspace, when a call against it settles (having exceeded its deadline while the workspace still never became ready), the settled outcome is an explicit error (isError: true) carrying a progress payload describing warm-up state -- it is never a successful result, and specifically never a successful empty array [] or a successful partial result.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Independent of TCON-READY-0001/0002's boundedness claim, an implementation can settle on time yet still resolve successfully with [] or a truncated/partial value instead of erroring -- the same content-vs-timing split TCON-PROV-0006/0007 uses for INV-PROV-4 -- so this needs its own condition asserting response content, not just pass/fail timing [INV-READY-1]; falsifies exactly the failure feat-prove-readiness's own falsifier names: 'a call during warm-up returns [] instead of isError+progress'."
+}

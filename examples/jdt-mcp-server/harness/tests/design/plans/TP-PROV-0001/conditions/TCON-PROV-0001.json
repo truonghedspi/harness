@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0001",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-1",
+  "behavior": "Given the JVM resolvable via JAVA_HOME, the provisioner spawns JDT LS if and only if that JVM's major version is >= 21: at Java 20 it refuses and never spawns JDT LS, at exactly Java 21 it proceeds and spawns JDT LS, and at a higher version (e.g. 25) it also proceeds and spawns JDT LS.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "One condition (JVM major version) deciding a binary outcome (spawn vs. refuse) is a degenerate two-column decision table [INV-PROV-1]; each column's fixture is drawn at the version-21 boundary (just below, at, just above) per the boundary-value discipline, which catches an off-by-one comparison a single fixed Java-17 example alone would miss."
+}

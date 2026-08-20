@@ -1,0 +1,15 @@
+{
+  "schema": "design-approval/1",
+  "designDigest": "9ed7de3377ee397d",
+  "status": "approved",
+  "approvedBy": "Quoc Truong",
+  "approvedAt": "2026-08-20",
+  "decisions": [
+    "Chose Option B (a typed memory/shared/ tier, written only by a mechanical promotion gate) over Option A (mechanically extending docs/) for the cross-agent fact-sharing gap docs/reference/agent-memory.md left open.",
+    "A spike against memory-consolidate.mjs's actual normalize() matcher falsified the premise that string-normalization could detect 'the same fact, worded differently' across free-text memory entries (0/3 realistic paraphrase pairs matched) — this narrowed scope to v1: mechanical-only, seeded from exactly the recurrence --bootstrap already proves it can find (checkerNotes/trace detail, not free prose).",
+    "Deferred agent-judged free-text matching plus the memory/proposals/ staging + confirmation-count pathway to a named, unbuilt v2, pending real operational data from v1 and a closed retention/TTL policy.",
+    "Registered docs/cross-cutting.md row X-001 (retention/TTL for an unconfirmed memory/proposals/ entry) as not yet decided — must close before v2 starts.",
+    "Registered docs/assumptions.md rows A-001 (v1's recurrence trigger needs calibration against a real, mature onboarded target before being treated as validated) and A-002 (trace-event evidence-typing needs a concrete implementation-time rule)."
+  ],
+  "acceptedRisks": []
+}

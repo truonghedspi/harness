@@ -31,5 +31,9 @@ only supplies the project-loop handoffs around it.
 - Regenerate `feature_list.digest.md` before reporting.
 
 Report build/prove counts, DAG depth, capability-check findings resolved, accepted exceptions with
-their decision, and remaining human checkpoints. If a failed cut taught a project-specific lesson,
-write one entry under `memory/feature-planner/`; routine planning is not a memory event.
+their decision, and remaining human checkpoints.
+
+**End-of-session reflection — answer it, don't skip it:** did this cut produce something the *next*
+feature-planner run shouldn't have to rediscover — a split/merge call that failed for a non-obvious
+reason, a capability-check finding that took real digging to place? **Yes** → write one entry under
+`memory/feature-planner/`. **No** → routine planning is not a memory event.

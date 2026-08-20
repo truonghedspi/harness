@@ -1,0 +1,10 @@
+{
+  "id": "TCON-CA-0003",
+  "plan_id": "TP-CA-0001",
+  "requirement_id": "INV-CA-1",
+  "behavior": "In a single real workspace, resolving an actionId handle through java_apply_code_action with no intervening edit to any file in the workspace since the handle was minted succeeds and returns the edit belonging to that same minted action.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Completes the disjunction INV-CA-1 implies ('only ever resolvable against the same...generation that produced it' presupposes success under a matching generation): without this, an implementation erroring on every resolve would vacuously pass TCON-CA-0001/0002 without ever proving the non-stale path resolves -- same completion-of-disjunction reasoning as TP-SYNC-0001/TCON-SYNC-0002 [INV-CA-1]. Falsifies a resolve path that always errors, or resolves to an edit not belonging to the minted action."
+}

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-READY-0002",
+  "plan_id": "TP-READY-0001",
+  "requirement_id": "INV-READY-3",
+  "behavior": "For that same permanently-blocked-probe workspace, several concurrent calls dispatched against it before any of them has settled (e.g. 3, to different tool methods) each individually settle within their own deadline -- not just the first call dispatched -- and none is left pending while its siblings settle.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "INV-READY-3's own text quantifies over 'every waiting call', not one call, mirroring TCON-POOL-0005's plurality argument for INV-POOL-3; a small fixed multiplicity of concurrent real calls is the matrix's integration/e2e_scenario technique applied generatively-in-miniature [INV-READY-3]; falsifies an implementation that tracks a single 'current waiter' deadline timer/promise and releases only the first registered call, leaving the rest of the waiting calls hanging indefinitely."
+}

@@ -1,0 +1,77 @@
+{
+  "name": "feature-planner",
+  "description": "Turns a raw requirement into a right-sized, dependency-ordered feature_list.json. Runs once at setup (and again only when scope changes enough to need re-planning) — not a per-iteration loop role like maker/checker.",
+  "prompt": "file://../../harness/prompts/feature-planner.md",
+  "tools": [
+    "read",
+    "write",
+    "shell"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": false,
+  "model": "claude-sonnet-4",
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "harness/feature_list.json",
+        "harness/DECISIONS.md",
+        "harness/docs/constraints.md",
+        "harness/loop/goal.md",
+        "harness/docs/architecture.md",
+        "harness/memory/feature-planner/**",
+        "harness/loop/context-packets/**"
+      ]
+    }
+  },
+  "resources": [
+    "file://../../harness/AGENTS.md",
+    "file://../../harness/docs/constraints.md",
+    "file://../../harness/docs/INDEX.md",
+    "file://../../harness/feature_list.digest.md",
+    "file://../../harness/docs/architecture.md",
+    "file://../../harness/docs/assumptions.md",
+    "file://../../harness/docs/cross-cutting.md",
+    "file://../../harness/docs/testing-standards.md",
+    "file://../../harness/skills/feature-planning/SKILL.md",
+    "file://../../harness/init.sh",
+    "file://../../harness/loop/goal.md",
+    "file://../../harness/memory/feature-planner/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node harness/tools/trace.mjs feature-planner session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
+      },
+      {
+        "matcher": "read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
+      },
+      {
+        "matcher": "grep",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
+      },
+      {
+        "matcher": "glob",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node harness/tools/trace.mjs feature-planner session-end"
+      }
+    ]
+  },
+  "welcomeMessage": "Feature planner: point me at the requirement (a file, or describe it) and I'll decompose it into a right-sized feature_list.json — build features for named components, prove features mapped to acceptance scenarios, sized so one maker iteration can finish each. I don't implement anything."
+}

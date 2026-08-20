@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0013",
+  "plan_id": "TP-TOOL-0002",
+  "requirement_id": "INV-TOOL-2",
+  "behavior": "A java_rename call carrying `apply: true` against the two-file rename fixture (docs/design/evidence.md: `greet` -> `salute` touching 2 files) actually writes to disk: exactly the file(s) named in that call's own proposed WorkspaceEdit have their mtime change and their on-disk content updated to match the proposed edit, while every other file in the fixture tree -- including files not named in this particular edit -- keeps its original mtime and content.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Completes INV-TOOL-2's disjunction as TCON-SYNC-0002 completes INV-SYNC-1's: without proving apply:true writes, an implementation that never writes -- vacuously 'safe' -- passes every no-apply condition here without exercising the write path. Reproduces evidence.md's own fixture (greet->salute, 2 files) -- integration/e2e_scenario [INV-TOOL-2]. Falsifies: apply:true never writing, writing only one of two named files, wrong content, or an unnamed file."
+}

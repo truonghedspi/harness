@@ -7,4 +7,4 @@ Write a new entry when a maker's claim looked right but wasn't (and how you actu
 or a class of feature keeps needing the same scrutiny. Don't write one for a routine approve/reject
 — that's the job working as intended, not a lesson.
 
-<!-- - [Title](slug.md) — one-line hook -->
+- [grep demo step header is not falsifiable](grep-demo-step-header-not-falsifiable.md) — a verification that greps a demo.sh step title always matches; grep the assertion result or the exit code instead

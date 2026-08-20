@@ -1,0 +1,10 @@
+{
+  "id": "TCON-POOL-0005",
+  "plan_id": "TP-POOL-0002",
+  "requirement_id": "INV-POOL-3",
+  "behavior": "When a workspace has several concurrently in-flight requests (e.g. 3, dispatched to different LSP methods before any responds) and its JDT LS process is killed, every one of those pending requests settles as an explicit error within its deadline -- not just the first one dispatched or the first entry in the pending table -- and none is left hanging while its siblings settle.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "feat-lsp-client's behavior commits to rejecting EVERY pending request on exit (a table, not one slot); INV-POOL-3 quantifies the same way. Integration/e2e_scenario, same real-process reason as TCON-POOL-0004; small fixed multiplicity stands in for a generative property since spawning real JDT LS per case is too slow [INV-POOL-3]. Falsifies a table settling only one entry (single 'current request' slot, or a reject-loop stopping at its first match), leaving the rest hanging."
+}

@@ -18,6 +18,12 @@
 //   node loop/route.mjs --rules         # the whole routing table, in precedence order
 import { readFileSync, existsSync, readdirSync, statSync, writeSync } from "node:fs";
 import { createHash } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PROJECT_ROOT = path.basename(ROOT) === "harness" ? path.dirname(ROOT) : ROOT;
+process.chdir(ROOT);
 
 // stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
 // past the pipe buffer (~8 KB on macOS) is silently truncated for any caller using
@@ -33,8 +39,9 @@ const lsSafe = (d) => { try { return readdirSync(d); } catch { return []; } };
 // An agent exists if EITHER runtime has it — both are generated from agents.manifest.json.
 // All three runtimes. Missing codex here meant that on a codex-only target every agent rule
 // evaluated to false and the router fell through to `human` with work plainly available.
-const hasAgent = (name) => existsSync(`.kiro/agents/${name}.json`) || existsSync(`.claude/agents/${name}.md`)
-  || existsSync(`.codex/agents/${name}.toml`);
+const hasAgent = (name) => existsSync(path.join(PROJECT_ROOT, `.kiro/agents/${name}.json`)) ||
+  existsSync(path.join(PROJECT_ROOT, `.claude/agents/${name}.md`)) ||
+  existsSync(path.join(PROJECT_ROOT, `.codex/agents/${name}.toml`));
 // A NEEDS DESIGN: marker lives in feature_list.json, which the designer is forbidden to write — it
 // may not write scope. So the node that answers the question cannot clear the flag that asked it,
 // and a rule keyed only on "marker present" re-dispatches the designer forever (observed on
@@ -75,6 +82,35 @@ const conditionsExist = () => {
     return false;
   };
   return walk("tests/design");
+};
+// Which INV- ids a falsifier cites — same pattern verify-harness.mjs's invariant-uncovered gate
+// uses, so a falsifier and a design doc are read the same way everywhere in this codebase.
+const citedInvariants = (text) => [...new Set([...String(text || "").matchAll(/\bINV-[A-Z]+-\d+\b/g)].map((m) => m[0]))];
+// Every requirement_id any TCON-*.json anywhere under tests/design actually cites. Existence alone
+// (conditionsExist()) answers "has this project designed ANY test, ever" — it does not answer
+// "does THIS falsifier's citation have a condition behind it". Those diverge the moment a falsifier
+// is amended (a design amendment adds an invariant, feature-planner cites it) after conditions were
+// already written for the pre-amendment falsifier: conditionsExist() stays true, the router jumps
+// straight to test-implementer, and the amendment ships with zero test coverage. Found live on
+// examples/jdt-mcp-server.
+const conditionCitations = () => {
+  const ids = new Set();
+  const walk = (dir, depth = 4) => {
+    if (depth < 0) return;
+    for (const e of lsSafe(dir)) {
+      const p = `${dir}/${e}`;
+      if (/^TCON-.*\.json$/.test(e)) {
+        const j = readJSON(p);
+        if (j && j.requirement_id) ids.add(j.requirement_id);
+        continue;
+      }
+      let isDir = false;
+      try { isDir = statSync(p).isDirectory(); } catch { continue; }
+      if (isDir) walk(p, depth - 1);
+    }
+  };
+  walk("tests/design");
+  return ids;
 };
 
 const fl = readJSON("feature_list.json");
@@ -144,22 +180,30 @@ const RULES = [
   },
   {
     node: "design-facilitator", kind: "agent", layer: "design",
-    when: "a docs/design/*.md states no observable seam or no invariants",
+    when: "docs/design/*.md collectively state no observable seam or no invariants",
     // Same predicate as verify-harness's design-untestable gate. Without this rule the router
     // matched only the NEEDS DESIGN: marker, so a design that simply never said how anyone would
     // know the thing works did not register as a design problem at all — and the loop went
     // straight to the oracle layer to derive falsifiers from invariants nobody had written.
     // That is the router jumping its own deeper-first precedence (HI-014, found on aeron-demo).
+    //
+    // Checked across the WHOLE folder, not file-by-file: a design split into topic files (claims
+    // table, components, critique) legitimately has files that mention neither word on their own —
+    // e.g. a critique.md about premises and premortems has no reason to say "seam". Per-file
+    // checking flagged a real, complete design as broken the first time a design-facilitator split
+    // one across topic files (examples/jdt-mcp-server, found live). The `why` text already said
+    // "nothing downstream can derive a falsifier from it" — that claim is about the design as a
+    // whole, so the check now matches what it always claimed to test.
     match: () => {
       const SEAM = /\b(seam|observable|observability|from outside|externally visible)\b/i;
       const INV = /\b(invariant|always|never|for every|conserv|idempoten|monotonic|round[- ]trip)\b/i;
-      for (const f of lsSafe("docs/design").filter((x) => x.endsWith(".md") && x.toLowerCase() !== "readme.md")) {
-        const text = read(`docs/design/${f}`);
-        if (!text || text.trim().length < 200) continue;      // stubs are not designs
-        const missing = [!SEAM.test(text) && "no observable seam", !INV.test(text) && "no invariants"].filter(Boolean);
-        if (missing.length) {
-          return { why: `docs/design/${f} states ${missing.join(" and ")} — nothing downstream can derive a falsifier from it`, detail: f };
-        }
+      const files = lsSafe("docs/design").filter((x) => x.endsWith(".md") && x.toLowerCase() !== "readme.md");
+      const substantive = files.filter((f) => (read(`docs/design/${f}`) || "").trim().length >= 200);
+      if (!substantive.length) return null;                   // stubs are not designs
+      const combined = substantive.map((f) => read(`docs/design/${f}`)).join("\n");
+      const missing = [!SEAM.test(combined) && "no observable seam", !INV.test(combined) && "no invariants"].filter(Boolean);
+      if (missing.length) {
+        return { why: `docs/design/*.md collectively state ${missing.join(" and ")} — nothing downstream can derive a falsifier from it`, detail: substantive.join(", ") };
       }
       return null;
     },
@@ -249,10 +293,21 @@ const RULES = [
         catch (e) { if (e.code === "ENOENT") continue; throw e; }
         if (st.mtimeMs <= fl) continue;                 // planner already caught up
         const text = read(`docs/design/${f}`) || "";
-        // tolerate the markdown a designer actually writes: `id`, **id**, (new), **change** (note)
-        const rows = [...text.matchAll(/^\|[\s`*(]*([\w-]+)[\s`*)]*\|[\s`*]*(change|new)\b/gim)];
+        // Line-based, not a two-column regex: an id-then-verdict pattern broke the first time a
+        // facilitator wrote `feat-002` (placeholder) | change (an annotation after the id) or
+        // *(new)* `mcp-shim`, `daemon-supervisor`, ... | new (a bundle of many new components in
+        // one row) — both real, reasonable ways to write this table that a strict per-cell regex
+        // rejected. Found live on examples/jdt-mcp-server. A row only needs to: live under the
+        // `## Feature impact` heading, start with `|`, not be the separator row, and say
+        // change/new somewhere in it.
+        const section = text.split(/^## /m).find((s) => /^Feature impact\b/i.test(s)) || "";
+        const rows = section.split("\n").filter((l) => {
+          const t = l.trim();
+          return t.startsWith("|") && !/^[|\-\s]+$/.test(t) && /\b(change|new)\b/i.test(t);
+        });
         if (rows.length) {
-          return { why: `docs/design/${f} marks ${rows.length} feature(s) change/new and is newer than feature_list.json — the cut has not caught up with the design`, detail: rows.slice(0, 4).map((m) => `${m[1]}:${m[2].toLowerCase()}`).join(", ") };
+          const ids = [...new Set(rows.flatMap((l) => [...l.matchAll(/`([\w.-]+)`/g)].map((m) => m[1])))].slice(0, 6);
+          return { why: `docs/design/${f} marks ${rows.length} feature(s) change/new and is newer than feature_list.json — the cut has not caught up with the design`, detail: ids.join(", ") || f };
         }
       }
       return null;
@@ -260,32 +315,48 @@ const RULES = [
   },
   {
     node: "test-designer", kind: "agent", layer: "oracle",
-    when: "an unfinished feature has no falsifier, or tests/design/ does not exist yet",
-    // Two outputs, so two reasons to route here: the `falsifier` in feature_list.json, AND the
-    // condition files under tests/design/. Only the first used to be checked, and on a project
-    // where the feature-planner derives falsifiers from the invariant contract that rule never
-    // fires — so tests/design/ was never created, and test-implementer was dispatched to implement
-    // conditions that did not exist. Measured on aeron-demo: two paid sessions on feat-sit-2, the
-    // agent hunting for tests/design/, zero output. A node handed a missing input does not fail; it
-    // improvises or stalls.
+    when: "an unfinished feature has no falsifier, or its falsifier cites an invariant no test condition covers",
+    // Three outputs to check, not two: the `falsifier` in feature_list.json, whether ANY condition
+    // files exist under tests/design/ at all, and — the newest of the three — whether the SPECIFIC
+    // invariants this falsifier cites are the ones conditions were written against. The first two
+    // were already learned the hard way (aeron-demo: falsifier missing entirely; a project deriving
+    // falsifiers from the invariant contract never tripped the old rule, so tests/design/ was never
+    // created and test-implementer hunted for conditions that did not exist). The third: a design
+    // amendment adds an invariant, feature-planner cites it in the falsifier, but conditions written
+    // BEFORE the amendment still only cover the original ones — conditionsExist() stays true (some
+    // TCON-*.json exist, just not for the new citation), so the router jumped straight past
+    // test-designer to test-implementer, which would have implemented tests for the old conditions
+    // and silently shipped the amendment with zero coverage. Found live on examples/jdt-mcp-server.
+    // A node handed a missing input does not fail; it improvises or stalls.
     match: () => {
       const missing = open.filter((x) => !String(x.falsifier || "").trim());
       if (missing.length && hasAgent("test-designer")) {
         return { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id };
       }
-      // Guard against the livelock this rule could otherwise create: if the designer has already
+      if (!hasAgent("test-designer")) return null;
+      const candidates = open.filter((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
+        !String(x.evidence || "").trim());
+      if (!candidates.length) return null;
+      // Guard against the livelock this rule could otherwise create: if test-designer has already
       // been sent here for this feature and tests/design/ is STILL absent, that is a human problem,
       // not another session. The marker is written below via `why`, and checkerNotes carries it.
-      if (hasAgent("test-designer") && !conditionsExist()) {
-        const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
-          !String(x.evidence || "").trim());
-        if (f) {
-          const requestId = `test-design:${f.id}:${markerHash(String(f.falsifier))}`;
-          if (requestDispatched(requestId, "test-designer")) {
-            return { node: "human", kind: "human", layer: "oracle", why: `${f.id} still has no validated conditions after one test-designer turn`, feature: f.id, requestId };
-          }
-          return { why: `no validated test condition (TCON-*.json) exists yet, so ${f.id} has a falsifier but nothing to implement from`, feature: f.id, requestId };
+      if (!conditionsExist()) {
+        const f = candidates[0];
+        const requestId = `test-design:${f.id}:${markerHash(String(f.falsifier))}`;
+        if (requestDispatched(requestId, "test-designer")) {
+          return { node: "human", kind: "human", layer: "oracle", why: `${f.id} still has no validated conditions after one test-designer turn`, feature: f.id, requestId };
         }
+        return { why: `no validated test condition (TCON-*.json) exists yet, so ${f.id} has a falsifier but nothing to implement from`, feature: f.id, requestId };
+      }
+      const citedIds = conditionCitations();
+      for (const f of candidates) {
+        const uncovered = citedInvariants(f.falsifier).filter((id) => !citedIds.has(id));
+        if (!uncovered.length) continue;
+        const requestId = `test-design:${f.id}:${markerHash(String(f.falsifier))}`;
+        if (requestDispatched(requestId, "test-designer")) {
+          return { node: "human", kind: "human", layer: "oracle", why: `${f.id}'s falsifier still cites ${uncovered.join(", ")} with no matching test condition after one test-designer turn`, feature: f.id, requestId };
+        }
+        return { why: `${f.id}'s falsifier cites ${uncovered.join(", ")} but no test condition covers ${uncovered.length > 1 ? "them" : "it"} yet`, feature: f.id, requestId };
       }
       return null;
     },

@@ -20,7 +20,4 @@ Find candidates with `node tools/cross-cutting-audit.mjs --target .`. That audit
 
 | id | Concern | Chosen mechanism | Owner / date | Enforced by | Inherited by |
 |---|---|---|---|---|---|
-
-<!-- Example of a closed row (delete once the table has real content):
-| X-001 | Message identity & de-duplication | (logPosition, indexWithinEntry) | Alice, 2026-08-09 | docs/constraints.md MUST rule + wire-format test | feat-a, feat-b |
--->
+| X-001 | Retention/TTL for an unconfirmed entry in `memory/proposals/` (`docs/design/shared-memory-tier.md` v2) | not yet decided | — | — | v2 of the shared-memory-tier design; must close before v2 starts |

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0003",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-1",
+  "behavior": "When java_hover, java_definition and java_references are each called for the same known symbol location within one test sweep, the position value(s) present in each of the three results are expressed in the identical documented coordinate system -- none of the three reports a 0-based (or otherwise differently-based) value while the others report the documented 1-based value.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "INV-TOOL-1 has two clauses: correctness against ground truth (TCON-TOOL-0001/0002) and 'no result ever mixes bases' -- a consistency claim about one shared boundary. Per-tool ad-hoc conversions could each pass in isolation yet still disagree with each other; only cross-checking siblings falsifies 'single conversion boundary' directly [INV-TOOL-1]. Falsifies e.g. hover left 0-based while definition/references convert correctly, because hover's own conversion call was skipped."
+}

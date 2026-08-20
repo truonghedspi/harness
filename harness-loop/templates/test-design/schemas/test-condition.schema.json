@@ -5,7 +5,16 @@
   "description": "Một condition = một file tại plans/<plan_id>/conditions/<id>.json. Sharded theo ID để mọi mutation là ghi đè nguyên tử một file nhỏ, không bao giờ patch file lớn.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "plan_id", "requirement_id", "behavior", "behavior_shape", "technique", "priority", "rationale"],
+  "required": [
+    "id",
+    "plan_id",
+    "requirement_id",
+    "behavior",
+    "behavior_shape",
+    "technique",
+    "priority",
+    "rationale"
+  ],
   "properties": {
     "id": {
       "type": "string",
@@ -19,7 +28,8 @@
     },
     "requirement_id": {
       "type": "string",
-      "pattern": "^REQ-[A-Z]+-\\d{3}$"
+      "pattern": "^(REQ-[A-Z]+-\\d{3}|INV-[A-Z]+-\\d+)$",
+      "description": "Cites either a REQ- requirement id or an INV-<AREA>-<N> design invariant id (docs/reference/invariant-contract.md) — this harness uses both families for citable requirements, and a test condition traces to whichever one the spec actually produced."
     },
     "behavior": {
       "type": "string",
@@ -28,17 +38,50 @@
       "description": "Một câu kiểm chứng được, given/when/then hoặc bất biến"
     },
     "behavior_shape": {
-      "enum": ["mapping", "stateful", "computational", "decision", "parsing", "concurrent", "integration", "fixed_rule"]
+      "enum": [
+        "mapping",
+        "stateful",
+        "computational",
+        "decision",
+        "parsing",
+        "concurrent",
+        "integration",
+        "fixed_rule"
+      ]
     },
     "technique": {
-      "enum": ["property", "decision_table", "mcdc", "boundary_value", "equivalence_partition", "state_transition", "example", "contract", "e2e_scenario", "jcstress", "deterministic_replay", "fuzzing"]
+      "enum": [
+        "property",
+        "decision_table",
+        "mcdc",
+        "boundary_value",
+        "equivalence_partition",
+        "state_transition",
+        "example",
+        "contract",
+        "e2e_scenario",
+        "jcstress",
+        "deterministic_replay",
+        "fuzzing"
+      ]
     },
     "property_kind": {
-      "enum": ["invariant", "round_trip", "model_based", "metamorphic", "field_sensitivity", "algebraic"],
+      "enum": [
+        "invariant",
+        "round_trip",
+        "model_based",
+        "metamorphic",
+        "field_sensitivity",
+        "algebraic"
+      ],
       "description": "Bắt buộc khi technique = property, cấm khi khác"
     },
     "priority": {
-      "enum": ["P0", "P1", "P2"]
+      "enum": [
+        "P0",
+        "P1",
+        "P2"
+      ]
     },
     "rationale": {
       "type": "string",
@@ -48,12 +91,22 @@
     }
   },
   "if": {
-    "properties": { "technique": { "const": "property" } }
+    "properties": {
+      "technique": {
+        "const": "property"
+      }
+    }
   },
   "then": {
-    "required": ["property_kind"]
+    "required": [
+      "property_kind"
+    ]
   },
   "else": {
-    "not": { "required": ["property_kind"] }
+    "not": {
+      "required": [
+        "property_kind"
+      ]
+    }
   }
 }

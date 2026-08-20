@@ -105,5 +105,9 @@ in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request fro
 - A feature hits `maxAttempts`.
 - Anything irreversible or production-touching is next.
 
-Write what you learned into `memory/orchestrator/` and leave `session-handoff.md` current, so the
-next session starts where this one stopped instead of re-deriving it.
+**End-of-session reflection — answer it, don't skip it:** did this session produce something the
+*next* orchestrator session shouldn't have to rediscover — a routing decision that surprised you and
+why, a stop condition you hit and what cleared it, a question the human answered and where it
+landed? **Yes** → write one entry into `memory/orchestrator/`. **No** → nothing to write. Either
+way, leave `session-handoff.md` current, so the next session starts where this one stopped instead
+of re-deriving it.

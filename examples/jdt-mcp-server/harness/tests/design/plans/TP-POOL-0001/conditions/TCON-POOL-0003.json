@@ -1,0 +1,11 @@
+{
+  "id": "TCON-POOL-0003",
+  "plan_id": "TP-POOL-0001",
+  "requirement_id": "INV-POOL-4",
+  "behavior": "For any sequence of calls causing one or more evictions (more distinct projects than the cap, including a project evicted and later re-requested and evicted again), immediately after each eviction -- observed via pool.status() no longer listing that workspace -- the evicted workspace's absolute -data directory still exists on disk; it is never deleted.",
+  "behavior_shape": "stateful",
+  "technique": "property",
+  "property_kind": "invariant",
+  "priority": "P0",
+  "rationale": "Directory survival is a postcondition of the same pool state machine TCON-POOL-0001/0002 exercise, and must hold at every eviction across a sequence, not once, catching an implementation that deletes -data only on a later eviction of the same identity rather than the first [INV-POOL-4]; asserting existence right after each eviction, not just at sequence end, falsifies 'delete -data on evict' directly, matching the stated cost: warm 1.5s degrading toward cold 25min."
+}

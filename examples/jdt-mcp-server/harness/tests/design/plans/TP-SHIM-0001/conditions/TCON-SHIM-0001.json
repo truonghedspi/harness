@@ -1,0 +1,10 @@
+{
+  "id": "TCON-SHIM-0001",
+  "plan_id": "TP-SHIM-0001",
+  "requirement_id": "INV-SHIM-1",
+  "behavior": "Across a real shim+daemon session that includes at least one exchange producing daemon-side log/warning/error output (e.g. an auto-spawn cold start and a call that triggers a daemon-side error), capturing everything the shim writes to its own stdout for the whole session and splitting it on newlines yields a sequence in which every single line parses as exactly one well-formed MCP JSON-RPC message -- no line is a fragment of a message split across writes, no line is a daemon log/warning/error line, and no message's own JSON spans more than one line.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable by running a real shim process piped to a real daemon over the real Unix socket and capturing actual stdout bytes -- the matrix's e2e_scenario technique for the integration shape, the same reasoning TP-SYNC-0001/TP-READY-0001 use for their real-process invariants [INV-SHIM-1]. Falsifies two distinct wrong implementations at once: (a) the shim naively forwards the daemon's own stdout/console output instead of routing it to stderr/a file, so a daemon error line leaks into the captured stream; and (b) the shim's MCP-side framing is not write-atomic per message, so a multi-field JSON-RPC response is split across two stdout writes and a line fails to parse. Either produces a captured line that is not exactly one valid MCP message, which this condition's single pass over the full capture catches."
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TCON-ROUTE-0004",
+  "plan_id": "TP-ROUTE-0001",
+  "requirement_id": "INV-ROUTE-1",
+  "behavior": "Over any generated sequence of resolveWorkspace calls interleaving paths from the single-module project and the multi-module reactor (its root and paths nested inside any of its modules) in arbitrary order and with arbitrary repeats, every call's returned workspace id always matches a reference model computed independently from that call's own path argument alone -- never the id the model assigns to a different call's path in the same sequence.",
+  "behavior_shape": "stateful",
+  "technique": "property",
+  "property_kind": "model_based",
+  "priority": "P0",
+  "rationale": "The fixture path-to-root mapping is fully known, so a trivial reference oracle is feasible, and model-based is the strategy matrix's highest-value technique for stateful code once a model is feasible [INV-ROUTE-1]; long random call sequences, versus TCON-ROUTE-0003's fixed three-call interleaving, falsify subtler drift -- e.g. an LRU/count-triggered cache reusing a stale id after several calls -- matching the 'derived fresh every time, never sticky/cached' context note."
+}

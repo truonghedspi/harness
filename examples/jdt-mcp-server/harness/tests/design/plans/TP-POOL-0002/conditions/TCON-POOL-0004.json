@@ -1,0 +1,10 @@
+{
+  "id": "TCON-POOL-0004",
+  "plan_id": "TP-POOL-0002",
+  "requirement_id": "INV-POOL-3",
+  "behavior": "When a workspace has exactly one in-flight request and its JDT LS process is killed (the real child process, not merely its stdio stream closed), that request's pending promise settles as an explicit error within its (parameterized, not hard-coded 30s) deadline -- it never hangs past the deadline and never resolves as a successful result.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable with a real JDT LS subprocess plus the real lsp-client/workspace-pool exit handling talking to each other -- the context note requires killing the actual process, not closing the stream, to exercise the real exit-detection path, matching the matrix's integration-shape guidance (E2E over a mocked contract) [INV-POOL-3]. Falsifies a pending-request table never wired to the child's exit event, so the request simply hangs -- the base failure this invariant names."
+}

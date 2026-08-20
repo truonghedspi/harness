@@ -1,0 +1,12 @@
+{
+  "schema": "design-approval/1",
+  "designDigest": "cc42ac15e4bfd912",
+  "status": "approved",
+  "approvedBy": "truong.hn.1994@gmail.com",
+  "approvedAt": "2026-08-20",
+  "decisions": [
+    "INV-TOOL-6 accepted: java_hover always returns a daemon-computed range on success, never echoed from JDT LS's own Hover response (which omits range) and never a passthrough of the request position — the echo alternative was rejected because it is self-inverse and cannot falsify",
+    "A-020 (assumed) accepted as-is: INV-TOOL-6's fixture catches coordinate-conversion disagreement but not JDT LS resolving a wider construct than the daemon's token scan — recorded, not silently dropped"
+  ],
+  "acceptedRisks": []
+}

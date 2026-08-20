@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0006",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-4",
+  "behavior": "Calling any of java_hover, java_definition or java_references with a `path` that does not resolve to any known workspace root always produces a structured error explicitly naming the unroutable case -- never a successful result, and never a successful empty result standing in for 'no workspace found'.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Requires a real project-router decision against a real unroutable path -- the matrix's integration/e2e_scenario technique, and this feature's own falsifier explicitly names the unroutable sweep case [INV-TOOL-4]. Falsifies an unroutable path silently returning `[]`/`null`/an empty success instead of a structured error naming which failure case it is -- the exact failure X-003's closed taxonomy and this feature's falsifier both forbid."
+}

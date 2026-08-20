@@ -1,0 +1,10 @@
+{
+  "id": "TCON-READY-0001",
+  "plan_id": "TP-READY-0001",
+  "requirement_id": "INV-READY-3",
+  "behavior": "For a workspace whose semantic probe is deliberately blocked forever (it never answers, so the workspace never becomes index-ready), a single tool call issued against that workspace always settles -- resolves or, since it can never become ready, fails with an explicit error -- within its configured deadline; it never remains pending past that deadline.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable by wiring a real readiness-gate against a real semantic probe and letting the deadline race actually run -- the matrix's e2e_scenario technique for integration, the same reasoning TCON-POOL-0004 uses for INV-POOL-3's sibling deadline claim [INV-READY-3]; falsifies an implementation awaiting the probe with no bounding timer, hanging forever once the probe never resolves -- the 'waits past its deadline' failure this invariant forbids."
+}

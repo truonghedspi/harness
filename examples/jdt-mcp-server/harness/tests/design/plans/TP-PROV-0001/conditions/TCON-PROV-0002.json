@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0002",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-1",
+  "behavior": "When the provisioner refuses because the resolved JVM is below Java 21 (e.g. JAVA_HOME on a Java 17 JDK, the design's own documented scenario), the surfaced error explicitly names the required Java version — it is never a generic message and never JDT LS's own raw crash/stack-trace output.",
+  "behavior_shape": "decision",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The design's stated observable seam for this invariant is message content, not just pass/fail [INV-PROV-1]; a fixed-content example on the documented Java-17 scenario catches an implementation that gates correctly but reports a generic failure instead of naming the version — a defect class TCON-PROV-0001's pass/fail assertion alone cannot detect."
+}

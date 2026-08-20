@@ -1,0 +1,10 @@
+{
+  "id": "TCON-ROUTE-0002",
+  "plan_id": "TP-ROUTE-0001",
+  "requirement_id": "INV-ROUTE-3",
+  "behavior": "Given the fixture tree's single-module project (its own standalone pom.xml with no <modules>) and its multi-module reactor as two separate roots, resolving any path under the single-module project and any path under the multi-module reactor (the reactor root or any file nested inside any of its modules) always yields two distinct workspace ids -- the two roots never resolve to the same id.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Whether two paths share a root is itself a decision outcome driven by which pom.xml/reactor a path's ancestors resolve to, so a decision table pairing single-module-root rows against multi-module-root rows and asserting inequality is the direct technique [INV-ROUTE-3]; it falsifies an implementation deriving the id from something coarser than the resolved root -- e.g. a shared cache-root hash or a first-resolved/default workspace -- that would make two distinct project roots collide."
+}

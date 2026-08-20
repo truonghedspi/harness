@@ -821,6 +821,56 @@ function gateMemory() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gate memory-shared — docs/design/shared-memory-tier.md v1, INV-SHARED-1. Warn, not a blocker,
+// same reasoning as gateMemory: a bad entry here means an agent trusts an unverified "shared fact",
+// not a broken harness. Only memory-promote.mjs should ever write here, so a hand-edited entry
+// with evidence: inference (or missing evidence) is the one thing this gate exists to catch —
+// defense in depth against a human/agent bypassing the script.
+// ---------------------------------------------------------------------------------------------
+const SHARED_MEMORY_MAX_LINES = 200; // same budget MEMORY.md uses, applied to the combined tier
+
+function parseSharedEntry(content) {
+  const m = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!m) return {};
+  const out = {};
+  let inMetadata = false;
+  for (const line of m[1].split("\n")) {
+    if (/^metadata:\s*$/.test(line)) { inMetadata = true; continue; }
+    const nested = line.match(/^\s+(\w+):\s*(.*)$/);
+    if (inMetadata && nested) { out[nested[1]] = nested[2].trim(); continue; }
+    const top = line.match(/^(\w+):\s*(.*)$/);
+    if (top) out[top[1]] = top[2].trim();
+  }
+  return out;
+}
+
+function gateMemorySharedTier() {
+  const dir = P("memory", "shared");
+  if (!exists(dir)) return; // nothing promoted yet — not a defect
+  const files = lsSafe(dir).filter((f) => f.endsWith(".md"));
+  let totalLines = 0;
+  for (const f of files) {
+    const raw = read(path.join(dir, f));
+    totalLines += raw.split("\n").length;
+    const fm = parseSharedEntry(raw);
+    if (fm.evidence !== "test" && fm.evidence !== "tool-output") {
+      add({
+        gate: "memory-shared", id: `memory-shared-bad-evidence:${f}`, layer: "project", severity: "warn",
+        symptom: `memory/shared/${f} has evidence: ${fm.evidence || "(missing)"} — only test or tool-output may promote (INV-SHARED-1)`,
+        remedy: "delete the entry or fix its evidence source; memory-promote.mjs never writes evidence: inference, so this was hand-edited or hand-added",
+      });
+    }
+  }
+  if (totalLines > SHARED_MEMORY_MAX_LINES) {
+    add({
+      gate: "memory-shared", id: "memory-shared-over-budget", layer: "project", severity: "warn",
+      symptom: `memory/shared/ is ${totalLines} lines combined (budget ${SHARED_MEMORY_MAX_LINES}) — every agent loads this, so it must stay cheap`,
+      remedy: "rotate the oldest/least-cited entries into an archive (docs/reference/knowledge-layout.md Pattern B)",
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Gate 8 — design hygiene (references/design-engineering.md). All warn: design quality is a
 // heuristic and a false positive must never stop a loop. These catch the mechanical half —
 // uncited claims, a blocked feature resting on an unverified assumption, a named component no
@@ -889,13 +939,19 @@ function gateDesign() {
     .filter((d) => d.text.trim().length > 200);   // skip stubs and READMEs
   const SEAM = /\b(seam|observable|observability|from outside|externally visible)\b/i;
   const INVARIANT = /\b(invariant|always|never|for every|conserv|idempoten|monotonic|round[- ]trip)\b/i;
-  for (const d of designDocs) {
-    const missing = [!SEAM.test(d.text) && "observable seam", !INVARIANT.test(d.text) && "invariants"]
+  // Checked across the WHOLE folder, not file-by-file: a design legitimately split into topic files
+  // (claims table, components, critique) has files with no reason to say "seam" on their own — e.g.
+  // a critique.md about premises and premortems. Per-file checking flagged a real, complete design
+  // as broken the first time one was split across topic files (examples/jdt-mcp-server, found live);
+  // the symptom text already claims to test "the design", not any one file in it.
+  if (designDocs.length) {
+    const combined = designDocs.map((d) => d.text).join("\n");
+    const missing = [!SEAM.test(combined) && "observable seam", !INVARIANT.test(combined) && "invariants"]
       .filter(Boolean);
     if (missing.length) {
       add({
-        gate: "design", id: `design-untestable:${path.basename(d.rel)}`, layer: "project", severity: "warn",
-        symptom: `${d.rel} names no ${missing.join(" and no ")} — the design does not say how anyone would know the thing works`,
+        gate: "design", id: "design-untestable", layer: "project", severity: "warn",
+        symptom: `docs/design/*.md collectively name no ${missing.join(" and no ")} — the design does not say how anyone would know the thing works`,
         remedy: "for each component state the boundary a test attaches to and what it can see across it, plus what must hold for EVERY input (conservation, idempotency, ordering, round-trip). Those invariants are what the feature-planner derives each falsifier from (docs/reference/test-authoring.md)",
       });
     }
@@ -1615,6 +1671,7 @@ gateFeatures();
 gateLoop();
 gateCleanState();
 gateMemory();
+gateMemorySharedTier();
 gateDesign();
 gateDocs();
 gateRules();

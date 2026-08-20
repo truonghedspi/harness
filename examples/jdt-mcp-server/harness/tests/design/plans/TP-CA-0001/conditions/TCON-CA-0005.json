@@ -1,0 +1,10 @@
+{
+  "id": "TCON-CA-0005",
+  "plan_id": "TP-CA-0001",
+  "requirement_id": "INV-CA-2",
+  "behavior": "Across an interleaved sequence of several mint calls (more than one action minted in each of workspace A and workspace B, in an order that mixes both workspaces) followed by resolve calls issued in an order different from the mint order, every resolve returns the edit belonging to exactly the action its own actionId was minted for, and never the edit of any other handle -- from the same workspace or the other one.",
+  "behavior_shape": "integration",
+  "technique": "state_transition",
+  "priority": "P1",
+  "rationale": "INV-CA-2's wording ('a handle never resolves to an edit belonging to a different action') is a per-call invariant, not scoped to one mint-then-resolve pair -- checking it across a command sequence mirrors TP-SYNC-0001/TCON-SYNC-0003's precedent [INV-CA-2]. Falsifies a handle table that keys correctly per (workspace, actionId) for TCON-CA-0004's two-call case but reuses slots/indices or collides once more than one handle per workspace is live and resolved out of mint order."
+}

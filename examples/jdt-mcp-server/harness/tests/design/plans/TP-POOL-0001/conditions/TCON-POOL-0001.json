@@ -1,0 +1,11 @@
+{
+  "id": "TCON-POOL-0001",
+  "plan_id": "TP-POOL-0001",
+  "requirement_id": "INV-POOL-2",
+  "behavior": "For any sequence of calls requesting more distinct projects than the pool's configured cap (a small fixture cap, e.g. 2, per A-001/the feature's context note), the count of live JDT LS processes never exceeds the cap at any point after any call -- eviction of an idle workspace always happens before the over-cap spawn, never after it.",
+  "behavior_shape": "stateful",
+  "technique": "property",
+  "property_kind": "invariant",
+  "priority": "P0",
+  "rationale": "Whether the live-process count exceeds the cap depends on the accumulated set of already-live workspaces when each call arrives, not on any one call alone -- the matrix's own test for 'stateful' -- so this needs an invariant checked after every call in a generated sequence [INV-POOL-2]; falsifies an implementation that spawns the (cap+1)th process first and evicts afterward, a transient breach a single before/after snapshot would miss but a per-call check catches."
+}

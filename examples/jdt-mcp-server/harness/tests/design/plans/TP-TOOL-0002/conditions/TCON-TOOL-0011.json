@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0011",
+  "plan_id": "TP-TOOL-0002",
+  "requirement_id": "INV-TOOL-2",
+  "behavior": "A sweep of several distinct java_rename calls -- different symbols/locations within the fixture, spanning both single-file and multi-file proposed WorkspaceEdits -- each issued with no `apply` argument at all, leaves every file's mtime across the fixture's whole tree exactly as it was before the sweep, both after each individual call and after the sweep completes; not just the file(s) named in that call's own proposed edit.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable via a real java_rename call, real fixture, real mtimes -- integration/e2e_scenario per INV-TOOL-2's own seam, 'file mtimes across a full tool sweep', not one call [INV-TOOL-2]. Sweeping several renames, incl. a multi-file edit (evidence.md), across the whole fixture tree -- not just each call's own target -- matches this feature's context: an unrelated write behind an agent's back must not pass. Falsifies: any no-apply call writing any file anywhere in the sweep."
+}

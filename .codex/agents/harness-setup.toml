@@ -48,9 +48,12 @@ done only when `./init.sh` is green, `check-coverage.mjs` reports 13/13, AND
 `tools/verify-harness.mjs --run-features` reports 0 blockers — or the remaining blockers are
 clearly listed for a human.
 
-If a toolchain/environment quirk cost real time to figure out, write one entry to
-`memory/harness-setup/` (new `<slug>.md` + a line in `MEMORY.md`) before you finish. Don't write
-one for a routine, expected setup.
+**End-of-session reflection — answer it, don't skip it:** did this setup turn up something the
+*next* setup/re-setup on this project shouldn't have to rediscover — a toolchain/environment quirk
+that cost real time to figure out?
+- **Yes** → write one entry to `memory/harness-setup/` (new `<slug>.md` + a line in `MEMORY.md`)
+  before you finish.
+- **No** → nothing to write. A routine, expected setup is not a lesson.
 
 
 ## Read these before you do anything else

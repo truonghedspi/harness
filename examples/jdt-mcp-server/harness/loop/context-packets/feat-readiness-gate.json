@@ -1,0 +1,22 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-readiness-gate",
+  "mustRead": [
+    "docs/design/runtime-model.md",
+    "docs/design/evidence.md"
+  ],
+  "mustNotRead": [
+    "docs/design/tool-surface.md"
+  ],
+  "facts": [
+    "ProjectStatus:OK and ServiceReady fire 13ms apart from each other AND before the final workspace-refresh progress notes (spike A cold run: projectStatusOkMs 2293, serviceReadyMs 2306, then statusNotes still show '100% ... Refreshing ...'). Neither signal is proof the index can actually answer a query — both are lies about readiness taken alone.",
+    "The gate is therefore a SEMANTIC PROBE, not a status-notification listener: resolve a known symbol from the workspace's own sources and require a non-empty result before opening (INV-READY-2). ServiceReady/ProjectStatus may be used as a hint to START probing, never as the readiness signal itself.",
+    "Cold start ranges from 1.5s (warm -data) to a reported 25 minutes on a real monorepo (docs/design/evidence.md) — the gate must be honest rather than fast: a call during warm-up gets isError + progress, never a successful empty or partial result (INV-READY-1), and every waiting call must settle within its deadline even if the workspace never becomes ready (INV-READY-3) — X-001's default deadline value is still an open cross-cutting decision (docs/cross-cutting.md), so make the deadline a parameter, not a hard-coded constant.",
+    "java_workspace_status (a separate tool, built later, not part of this feature) exposes this gate's progress as a first-class question an agent can ask — this feature only needs to make that progress state observable/queryable, not build the MCP tool around it.",
+    "This gate's probe is also the seam feat-prove-sync uses to demonstrate INV-SYNC-1, before any capability tool exists — expect a dependent feature to call this component's probe function directly, not through MCP."
+  ],
+  "sourceInputs": [
+    { "path": "docs/design/runtime-model.md", "sha256": "d7dd205bc2920fc786cff92d953250fa3e27390ea8ffca3887d739310444c72c" },
+    { "path": "docs/design/evidence.md", "sha256": "a3f2d83271307113c35c1bab644789abbd3cef1463866d42fa1f0f38473b44a6" }
+  ]
+}

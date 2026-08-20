@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0008",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-5",
+  "behavior": "Calling java_hover, java_definition or java_references against a ready, routable workspace with a line/column beyond the file's current content (e.g. past the last line or last column) always produces a structured error naming the invalid-position case, distinguishable from any error JDT LS itself would raise; it is rejected before an LSP call is made, never passed through and never a successful result.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "'Rejected before any LSP call' is only observable via response shape: validating first always yields the tool layer's own invalid-position error, while letting the coordinate reach JDT LS yields whatever raw, non-taxonomy error that method returns -- never the tool layer's own case. Real workspace/fixture per integration/e2e_scenario and this feature's falsifier [INV-TOOL-5]. Falsifies an oversized coordinate reaching the real LSP call instead of being rejected first."
+}

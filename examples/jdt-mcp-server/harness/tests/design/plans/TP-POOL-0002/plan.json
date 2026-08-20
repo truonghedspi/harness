@@ -1,0 +1,22 @@
+{
+  "plan_id": "TP-POOL-0002",
+  "component": "workspace-pool",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-POOL-3",
+    "docs/cross-cutting.md#X-001",
+    "feature_list.json#feat-prove-pool-crash-handling",
+    "feature_list.json#feat-lsp-client",
+    "feature_list.json#feat-workspace-pool"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "INV-POOL-3's own text scopes the guarantee to 'a JDT LS process exits for any reason' (any exit cause), but the invariant's own observable-seam column and this prove-feature's context note both narrow the concrete test mechanism to 'kill the child mid-request' / 'kill the real child process' -- an abrupt, crash-like death. Not treated as an ambiguity requiring two readings: the design's own worked example for this invariant is the kill scenario, and a graceful/clean-exit variant (exit code 0 with no in-flight requests, or a deliberate shutdown) is not what feat-prove-pool-crash-handling's falsifier describes ('a request in flight when the child process dies hangs...'). This plan covers the kill-mid-request instance the observable seam names; it does not add a separate condition for a graceful-exit-while-busy variant, to avoid inventing scope beyond what this feature's falsifier and the invariant's own seam column commit to.",
+      "location": "docs/design/runtime-model.md#INV-POOL-3 (invariant text vs observable-seam column); feature_list.json#feat-prove-pool-crash-handling (falsifier, context)"
+    },
+    {
+      "description": "The 'deadline' INV-POOL-3's observable seam measures against is the per-call deadline from X-001, which cross-cutting.md marks 'open' (recommended default 30s, not yet finalized). Not treated as a blocking ambiguity: feat-prove-readiness's own context note already resolves the analogous case by instructing the test to parameterize the deadline rather than hard-code 30s, and this plan's conditions follow that same precedent so they do not depend on X-001 being settled.",
+      "location": "docs/cross-cutting.md#X-001; feature_list.json#feat-prove-readiness (context, for the parameterize-the-deadline precedent this plan follows)"
+    }
+  ]
+}

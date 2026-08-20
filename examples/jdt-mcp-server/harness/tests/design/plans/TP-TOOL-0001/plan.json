@@ -1,0 +1,38 @@
+{
+  "plan_id": "TP-TOOL-0001",
+  "component": "mcp-tool-layer",
+  "spec_refs": [
+    "docs/design/tool-surface.md#INV-TOOL-1",
+    "docs/design/tool-surface.md#INV-TOOL-3",
+    "docs/design/tool-surface.md#INV-TOOL-4",
+    "docs/design/tool-surface.md#INV-TOOL-5",
+    "docs/design/tool-surface.md#INV-TOOL-6",
+    "docs/design/tool-surface.md (Result shaping — Positions, Size)",
+    "docs/cross-cutting.md#X-003",
+    "docs/cross-cutting.md#X-007",
+    "docs/cross-cutting.md#X-008",
+    "docs/assumptions.md#A-020",
+    "docs/design/evidence.md (spike A/B: hover/definition/references answer shapes; two-instance isolation returns [] not an error)",
+    "memory/design-facilitator/echoed-input-cannot-falsify.md",
+    "feature_list.json#feat-prove-navigation-tools",
+    "feature_list.json#feat-tool-hover",
+    "feature_list.json#feat-tool-definition",
+    "feature_list.json#feat-tool-references",
+    "feature_list.json#feat-tool-layer-core"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "RESOLVED by design amendment INV-TOOL-6 (docs/design/tool-surface.md, approved loop/design-approval.json digest cc42ac15e4bfd912): java_hover's position field is settled to a daemon-computed `range`, always present on success, locating the resolved token's extent -- never an echo of the request position, never omitted. Originally: docs/design/tool-surface.md's tool table listed java_hover's return as only 'resolved signature + javadoc', naming no position field, leaving which field (if any) carried hover's position undocumented. This plan's earlier hover-position conditions (TCON-TOOL-0001/0002/0003, requirement_id INV-TOOL-1) were written at the invariant's own level of generality -- 'the position value(s) present in hover's result' -- so they stayed valid under either reading and remain valid now the field name is settled; they still do not cite INV-TOOL-6 by design, since INV-TOOL-1 is their own citation and INV-TOOL-6 is additive. TCON-TOOL-0009/0010 (requirement_id INV-TOOL-6) now cover the field-name-specific claims (range never omitted, matches the resolved token not the echoed request position; no-resolvable-element is an explicit no-result) that INV-TOOL-1's generic conditions could not commit to before the field name existed.",
+      "location": "docs/design/tool-surface.md#INV-TOOL-6; docs/design/tool-surface.md (tool table, java_hover row); docs/design/tool-surface.md#INV-TOOL-1; feature_list.json#feat-prove-navigation-tools (behavior, falsifier)"
+    },
+    {
+      "description": "X-003's closed failure taxonomy (unroutable, not-ready, resyncing, workspace-crashed, cap-exceeded, invalid-position) has six named cases, but feat-prove-navigation-tools's own falsifier commits only to three of them for this feature: unroutable, not-ready, and oversized-coordinate (the INV-TOOL-5 case, itself surfaced as invalid-position per feat-tool-layer-core's context). Not treated as an omission: resyncing is INV-SYNC/feat-prove-sync's own territory (spike-C staleness), workspace-crashed is INV-POOL-3/feat-prove-pool-crash-handling's own territory (already designed in TP-POOL-0002), and cap-exceeded-as-a-failure (distinct from INV-TOOL-3's truncated-list success path, which this plan does cover) is not cited by any INV-TOOL-4 falsifier text found across feat-tool-layer-core or feat-prove-navigation-tools. This plan designs only the three cases this feature's falsifier actually names, to avoid duplicating conditions that belong to a different feature's own plan.",
+      "location": "docs/cross-cutting.md#X-003; feature_list.json#feat-prove-navigation-tools (falsifier); feature_list.json#feat-prove-sync, feat-prove-pool-crash-handling (owning features for the other taxonomy cases)"
+    },
+    {
+      "description": "X-008 ('Result size caps for list-returning tools') is marked 'open' in cross-cutting.md -- only a recommended default of 200 is proposed, not confirmed -- and feat-tool-references's own context note instructs reading the configured cap from the tool layer rather than hard-coding a number. Not treated as a blocking ambiguity: this plan's cap conditions (TCON-TOOL-0004/0005) describe the observable outcome relative to whatever cap is configured for the test fixture, without asserting the literal value 200, following the same precedent TP-READY-0001 and TP-POOL-0002 use for X-001's open deadline.",
+      "location": "docs/cross-cutting.md#X-008; feature_list.json#feat-tool-references (context)"
+    }
+  ]
+}

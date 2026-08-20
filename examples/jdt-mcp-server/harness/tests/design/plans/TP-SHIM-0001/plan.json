@@ -1,0 +1,28 @@
+{
+  "plan_id": "TP-SHIM-0001",
+  "component": "mcp-shim + daemon-supervisor",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-SHIM-1",
+    "docs/design/runtime-model.md#INV-SHIM-2",
+    "docs/design/runtime-model.md#INV-SHIM-4",
+    "docs/design/runtime-model.md (Process topology (Option A shape); Daemon lifecycle and the shim)",
+    "docs/design/architecture.md (Option A — Node/TS daemon, stdio shim over a Unix socket; connects to $XDG_RUNTIME_DIR/jdt-mcp.sock, auto-spawning the daemon under a lock if absent)",
+    "docs/design/evidence.md (MCP spec 2026-07-28, stdio binding: messages are newline-delimited, MUST NOT contain embedded newlines, server MUST NOT write anything to its stdout that is not a valid MCP message)",
+    "docs/constraints.md (MUST NOT let anything but a single-line, valid MCP message reach the shim's stdout, enforced by feat-prove-daemon-lifecycle)",
+    "docs/assumptions.md#A-004",
+    "feature_list.json#feat-prove-daemon-lifecycle",
+    "feature_list.json#feat-daemon-supervisor",
+    "feature_list.json#feat-mcp-shim"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "feat-prove-daemon-lifecycle's own behavior sentence includes a third clause -- 'killing the daemon mid-session leaves the next call succeeding with no client-side re-initialization' -- which is INV-SHIM-3's exact text ('a daemon restart is invisible to the client ... subsequent calls succeed with no client-side re-initialisation'). Not designed here: this feature's falsifier cites only INV-SHIM-1, INV-SHIM-2 and INV-SHIM-4 -- never INV-SHIM-3 -- and INV-SHIM-3 is already cited by feat-mcp-shim's own falsifier ('a daemon restart mid-session requires the client to re-initialize instead of the shim reconnecting transparently [INV-SHIM-3]'), a different (build) feature. Treating the behavior sentence's third clause as this plan's scope would duplicate a condition that belongs to feat-mcp-shim's own test plan; this plan covers only the three invariants this feature's falsifier actually names.",
+      "location": "feature_list.json#feat-prove-daemon-lifecycle (behavior vs falsifier); feature_list.json#feat-mcp-shim (falsifier); docs/design/runtime-model.md#INV-SHIM-3"
+    },
+    {
+      "description": "Neither INV-SHIM-1/2/4's text nor feat-prove-daemon-lifecycle's context note states a numeric bound for how long convergence-to-one-daemon (INV-SHIM-2) or full shutdown-and-reap of every JDT LS child (INV-SHIM-4) is allowed to take before the assertion is made -- unlike the per-call deadline covered by docs/cross-cutting.md#X-001 (which is a different, open, cross-cutting concern about tool-call response time, not daemon start-up/shutdown time). Not treated as a blocking ambiguity: the conditions below describe the outcome to poll for (eventually exactly one daemon pid; eventually no live JDT LS child in the process table) and leave the concrete poll/settle timeout as the eventual test implementation's fixture choice, since no spec value exists to trace a specific number to.",
+      "location": "docs/design/runtime-model.md#INV-SHIM-2, #INV-SHIM-4 (no stated startup/shutdown timeout)"
+    }
+  ]
+}

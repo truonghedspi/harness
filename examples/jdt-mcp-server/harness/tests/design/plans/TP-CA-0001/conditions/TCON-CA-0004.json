@@ -1,0 +1,10 @@
+{
+  "id": "TCON-CA-0004",
+  "plan_id": "TP-CA-0001",
+  "requirement_id": "INV-CA-2",
+  "behavior": "Given two real, independently running workspaces A and B, with a code action minted in A and a separate code action minted in B interleaved with it, resolving A's handle always returns the edit belonging to A's own action and resolving B's handle always returns the edit belonging to B's own action -- neither handle ever resolves to the other workspace's edit.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable across two real JDT LS instances with independent -data dirs/generations (spike B) -- matrix's e2e_scenario for integration shape -- reproducing this feature's context verbatim ('mint in A, mint in B, resolve A's, resolve B's -- a handle table keyed only by actionId without a workspace tag would pass a single-workspace test and still fail this one') [INV-CA-2]. Falsifies a table keyed on actionId alone, no workspace tag, letting one workspace's resolve return the other's edit."
+}

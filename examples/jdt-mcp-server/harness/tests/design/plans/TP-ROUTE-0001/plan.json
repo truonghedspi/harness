@@ -1,0 +1,18 @@
+{
+  "plan_id": "TP-ROUTE-0001",
+  "component": "project-router",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-ROUTE-1",
+    "docs/design/runtime-model.md#INV-ROUTE-3",
+    "docs/design/evidence.md#spike-B",
+    "feature_list.json#feat-prove-routing",
+    "feature_list.json#feat-project-router"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "feat-prove-routing's behavior sentence also says 'the unmanaged path always errors', which is INV-ROUTE-2's territory, but its falsifier cites only INV-ROUTE-1 and INV-ROUTE-3. Not treated as an ambiguity: INV-ROUTE-2 (explicit error naming the path when no ancestor pom.xml exists) is already the falsifier's own scope at the build-feature level (feat-project-router, whose falsifier separately cites [INV-ROUTE-2]). This plan deliberately covers only what feat-prove-routing's falsifier actually cites -- routing-collapse-to-reactor-root and no-drift-across-calls -- and does not add a condition for the unmanaged-path error path here, to avoid inventing scope beyond the falsifier this plan traces to.",
+      "location": "feature_list.json#feat-prove-routing (falsifier); docs/design/runtime-model.md#INV-ROUTE-2"
+    }
+  ]
+}

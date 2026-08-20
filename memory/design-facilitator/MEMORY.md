@@ -9,4 +9,5 @@ turned out false, a library behaving unlike its docs, a boundary that looked cle
 critique technique (Phase 4/5 of `prompts/design-facilitator.md`) that surfaced a real flaw or missed
 one the human later caught. Don't write one for a routine session.
 
-<!-- - [Title](slug.md) — one-line hook -->
+- [KAC before spiking](kac-before-spiking.md) — spike the premises the Key Assumptions Check exposes, not the claims the research brief handed you; the first list confirms, the second falsifies
+- [Spike can overturn a locked choice](spike-can-overturn-a-locked-choice.md) — a Phase 4 finding against an option the human already picked is still new evidence; declare it and re-ask, don't soften it to fit their prior answer

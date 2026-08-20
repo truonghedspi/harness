@@ -1,0 +1,10 @@
+{
+  "id": "TCON-ROUTE-0001",
+  "plan_id": "TP-ROUTE-0001",
+  "requirement_id": "INV-ROUTE-3",
+  "behavior": "Given the fixture's multi-module Maven reactor (an outer pom.xml declaring <modules>, each module with its own pom.xml, and a source file nested inside each module), resolving any path within the reactor -- the reactor root itself, a module directory, or a source file nested inside a module -- always returns the outer reactor root as the workspace id, never an individual module's own pom.xml directory.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Deriving the workspace id from a path branches on nearest ancestor pom.xml, then whether that pom is a <modules> member of a further-out reactor pom -- a decision table's row-per-combination fits [INV-ROUTE-3]; rows at reactor root, each module dir, and a nested module file directly falsify an implementation that stops at the nearest ancestor pom.xml instead of continuing up to the reactor root -- the JDT LS multi-root weakness (issue 1303, evidence.md) this component exists to avoid."
+}

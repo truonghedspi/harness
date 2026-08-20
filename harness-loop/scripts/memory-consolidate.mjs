@@ -10,8 +10,18 @@
 // checker's semantic judgment: cheap structural signals here, deciding what to merge stays a call
 // for the agent (or a human) that reads this report.
 //
+// --bootstrap is the same division of labor applied to a project that never wrote memory in the
+// first place: the raw material for a lesson is usually already sitting in feature_list.json
+// (checkerNotes) and trace/trace.jsonl (blocked/verdict events) long before anyone turns it into
+// a memory entry. This mines those two sources for a REASON THAT RECURRED ACROSS >=2 FEATURES —
+// a single occurrence is not a pattern, and this script does not judge whether a repeat is
+// genuinely non-obvious, only that it repeated and isn't captured in memory/ yet. It never writes
+// memory/ itself; the point is the same as the rest of this file — surface candidates, let the
+// agent (or a human) decide what's actually worth a memory entry.
+//
 // Usage:
 //   node memory-consolidate.mjs --target DIR [--json]
+//   node memory-consolidate.mjs --target DIR --bootstrap [--json]
 //
 // Works against a target project's memory/ (maker, checker, feature-planner, ...) or the
 // harness-loop skill's own memory/ (harness-improver) — pass --target . at the skill root.
@@ -21,6 +31,7 @@ import path from "node:path";
 const args = process.argv.slice(2);
 const opt = (n, d = null) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const JSON_OUT = args.includes("--json");
+const BOOTSTRAP = args.includes("--bootstrap");
 
 const TARGET = opt("--target");
 if (!TARGET) { console.error("error: --target DIR is required"); process.exit(2); }
@@ -110,6 +121,100 @@ function checkAgent(agent) {
   }
 
   return { agent, entryCount: entryFiles.length, indexLines: lines.length, findings };
+}
+
+// Reads every existing memory entry body once, so a bootstrap candidate already captured
+// somewhere doesn't get suggested again — the whole point is finding what's NOT written down yet.
+function existingMemoryText() {
+  if (!isDir(memoryRoot)) return [];
+  const texts = [];
+  for (const agent of readdirSync(memoryRoot).filter((f) => isDir(path.join(memoryRoot, f)))) {
+    const dir = path.join(memoryRoot, agent);
+    for (const f of readdirSync(dir).filter((f) => f.endsWith(".md") && f !== "MEMORY.md")) {
+      texts.push(normalize(readFileSync(path.join(dir, f), "utf8")));
+    }
+  }
+  return texts;
+}
+
+function bootstrapCandidates() {
+  const existing = existingMemoryText();
+  const alreadyCaptured = (text) => {
+    const key = normalize(text).split(" ").slice(0, 8).join(" ");
+    return Boolean(key) && existing.some((t) => t.includes(key));
+  };
+  const candidates = [];
+
+  // Source 1: a checkerNotes reason that recurs across features. Routing markers (NEEDS DESIGN:,
+  // NEEDS RE-PLAN:, FOLLOW-UP:) are excluded — those are scope/design questions with their own
+  // owner (feature-planner / design-facilitator), not a lesson for an agent's own memory.
+  const flPath = path.join(targetRoot, "feature_list.json");
+  if (exists(flPath)) {
+    let fl = null;
+    try { fl = JSON.parse(readFileSync(flPath, "utf8")); } catch { /* unreadable — skip this source */ }
+    const groups = new Map();
+    for (const f of (fl?.features || [])) {
+      const note = String(f.checkerNotes || "").trim().split("\n")[0].trim();
+      if (!note || /^(NEEDS DESIGN:|NEEDS RE-PLAN:|FOLLOW-UP:)/.test(note)) continue;
+      const key = normalize(note).slice(0, 80);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, { sample: note, features: [] });
+      groups.get(key).features.push(f.id);
+    }
+    for (const { sample, features } of groups.values()) {
+      if (features.length < 2 || alreadyCaptured(sample)) continue;
+      candidates.push({
+        source: "feature_list.json:checkerNotes", agent: "checker or maker", features, sample,
+        suggestion: `the same checkerNotes reason recurred on ${features.length} features — not yet in memory/`,
+      });
+    }
+  }
+
+  // Source 2: a blocked reason or REJECT verdict that recurs, per actor, in trace/trace.jsonl.
+  const tracePath = path.join(targetRoot, "trace", "trace.jsonl");
+  if (exists(tracePath)) {
+    const groups = new Map();
+    for (const line of readFileSync(tracePath, "utf8").split("\n").filter(Boolean)) {
+      let e; try { e = JSON.parse(line); } catch { continue; }
+      if (e.event !== "blocked" && e.event !== "verdict") continue;
+      if (e.event === "verdict" && !/^REJECT/.test(String(e.detail || ""))) continue;
+      const detail = String(e.detail || "").trim();
+      if (!detail || !e.actor) continue;
+      const key = `${e.actor}\0${normalize(detail).slice(0, 80)}`;
+      if (!groups.has(key)) groups.set(key, { actor: e.actor, sample: detail, features: new Set() });
+      if (e.feature) groups.get(key).features.add(e.feature);
+    }
+    for (const { actor, sample, features } of groups.values()) {
+      if (features.size < 2 || alreadyCaptured(sample)) continue;
+      candidates.push({
+        source: "trace/trace.jsonl", agent: actor, features: [...features], sample,
+        suggestion: `${actor} hit the same reason on ${features.size} features — not yet in memory/${actor}/`,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+if (BOOTSTRAP) {
+  const candidates = bootstrapCandidates();
+  if (JSON_OUT) {
+    console.log(JSON.stringify({ target: targetRoot, bootstrapCandidates: candidates }, null, 2));
+  } else {
+    console.log(`Memory bootstrap candidates — ${targetRoot}\n`);
+    if (!candidates.length) {
+      console.log("  none — no reason recurred across >=2 features in feature_list.json or trace/trace.jsonl" +
+        " that isn't already captured in memory/.");
+    }
+    for (const c of candidates) {
+      console.log(`  [${c.source}] ${c.suggestion}`);
+      console.log(`      sample: ${c.sample}`);
+      console.log(`      seen on: ${c.features.join(", ")}`);
+    }
+    console.log(`\n${candidates.length} candidate(s). This does not write memory for you — read the` +
+      ` evidence, judge whether it is genuinely non-obvious, and write memory/<agent>/<slug>.md yourself if so.`);
+  }
+  process.exit(0);
 }
 
 if (!isDir(memoryRoot)) {

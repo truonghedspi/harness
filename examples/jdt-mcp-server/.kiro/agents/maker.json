@@ -1,0 +1,80 @@
+{
+  "name": "maker",
+  "description": "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done.",
+  "prompt": "file://../../harness/loop/maker-prompt.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4",
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": []
+    }
+  },
+  "resources": [
+    "file://../../harness/AGENTS.md",
+    "file://../../harness/docs/constraints.md",
+    "file://../../harness/docs/architecture.md",
+    "file://../../harness/docs/INDEX.md",
+    "file://../../harness/feature_list.digest.md",
+    "file://../../harness/progress.md",
+    "file://../../harness/docs/cross-cutting.md",
+    "file://../../harness/docs/assumptions.md",
+    "file://../../harness/docs/testing-standards.md",
+    "file://../../harness/DECISIONS.md",
+    "file://../../harness/loop/goal.md",
+    "file://../../harness/memory/maker/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node harness/tools/trace.mjs maker session-start"
+      },
+      {
+        "command": "./harness/init.sh"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "execute_bash",
+        "command": "node harness/tools/trace.mjs maker tool-use shell"
+      },
+      {
+        "matcher": "fs_write",
+        "command": "node harness/tools/trace.mjs maker tool-use write"
+      },
+      {
+        "matcher": "fs_read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "grep",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "glob",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node harness/tools/trace.mjs maker session-end"
+      }
+    ]
+  }
+}

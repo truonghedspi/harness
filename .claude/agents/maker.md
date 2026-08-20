@@ -109,12 +109,14 @@ whole list. `--deps <id>` shows whether it is eligible yet.
     before doing it, every iteration — do not silently accumulate uncommitted iterations while
     waiting to ask once at the end.
 
-11. If this iteration taught you something the *next* maker run on this project shouldn't have to
-    rediscover — a mistake whose real cause was non-obvious, an approach that worked for a
-    non-obvious reason, something that looked like a bug but was environmental — write one entry
-    to `memory/maker/` (new `<slug>.md` + a line in `MEMORY.md`), using the format in
-    `docs/reference/agent-memory.md`. Don't write one for a routine, expected iteration — that's noise,
-    not a lesson.
+11. **End-of-iteration reflection — answer it, don't skip it:** did this iteration produce something
+    the *next* maker run on this project would otherwise have to rediscover — a mistake whose real
+    cause was non-obvious, an approach that worked for a non-obvious reason, something that looked
+    like a bug but was environmental?
+    - **Yes** → write one entry to `memory/maker/` (new `<slug>.md` + a line in `MEMORY.md`), using
+      the format in `docs/reference/agent-memory.md`.
+    - **No** → nothing to write. A routine, expected iteration is not a lesson, and writing one
+      anyway is noise that makes the next maker's `MEMORY.md` skim less trustworthy.
 
 Honesty rules: never weaken a test or vector to make it pass. If it fails, leave it failing or
 fix the code. "Looks fine" is not evidence.

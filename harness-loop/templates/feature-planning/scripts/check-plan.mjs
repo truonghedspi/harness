@@ -73,16 +73,33 @@ const visit = (id, trail = []) => {
 };
 for (const id of graph.keys()) visit(id);
 
-// Traceability becomes strict once the design declares its first invariant ID.
+// Traceability becomes strict once the design declares its first invariant ID. Two of the three
+// checks below stay global on purpose: a falsifier that cites an id no design declares (orphan) or
+// an invariant no falsifier cites (uncovered) is a defect regardless of which feature touches which
+// file — a made-up id is wrong wherever it appears. Only "cites nothing at all" is scoped: HI-053
+// found that requiring EVERY feature in the plan to cite something the instant ANY docs/design/*.md
+// anywhere declares an invariant retroactively broke features from unrelated subsystems whose own
+// design predates invariant IDs entirely. A feature is "in scope" for that specific requirement
+// only if a design file's path is named in its own context.touches or context.note — the same
+// handoff a feature-planner already writes to point a maker at its design.
 const designFiles = [];
 const walk = (dir) => { try { for (const e of readdirSync(dir)) { const p = path.join(dir, e); statSync(p).isDirectory() ? walk(p) : designFiles.push(p); } } catch {} };
 walk(designDir);
-const invariantIds = new Set(designFiles.flatMap((p) => [...read(p).matchAll(/\bINV-[A-Z][A-Z0-9-]*-\d+\b/g)].map((m) => m[0])));
+const invariantsByFile = new Map(designFiles.map((p) => [p, new Set(
+  [...read(p).matchAll(/\bINV-[A-Z][A-Z0-9-]*-\d+\b/g)].map((m) => m[0]))]));
+const invariantIds = new Set([...invariantsByFile.values()].flatMap((s) => [...s]));
+const relevantDesignFiles = (f) => {
+  const haystack = JSON.stringify(f.context || {});
+  return designFiles.filter((p) => haystack.includes(path.relative(target, p)));
+};
 const cited = new Set();
 if (invariantIds.size) {
   for (const f of features.filter((x) => !baseline(x))) {
     const refs = [...String(f.falsifier || "").matchAll(/\[(INV-[A-Z][A-Z0-9-]*-\d+)\]/g)].map((m) => m[1]);
-    if (!refs.length) add("invariant-citation-missing", f.id, "design declares invariants but falsifier cites none");
+    if (!refs.length) {
+      const relevant = relevantDesignFiles(f).filter((p) => invariantsByFile.get(p).size);
+      if (relevant.length) add("invariant-citation-missing", f.id, "design declares invariants but falsifier cites none");
+    }
     for (const ref of refs) { cited.add(ref); if (!invariantIds.has(ref)) add("falsifier-orphan", f.id, `${ref} is not declared by the design`); }
   }
   for (const inv of invariantIds) if (!cited.has(inv)) add("invariant-uncovered", null, `${inv} is cited by no feature falsifier`);

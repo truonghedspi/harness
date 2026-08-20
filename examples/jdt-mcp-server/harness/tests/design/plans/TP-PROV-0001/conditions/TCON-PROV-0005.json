@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0005",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-3",
+  "behavior": "When JDTLS_HOME is set to a directory holding no resolvable JDT LS launcher jar, resolveInstall() fails with an error that explicitly names both the JDTLS_HOME path that was checked and what specifically was missing (a resolvable org.eclipse.jdt.ls.core_* launcher jar under it) -- it is never a generic message and never a raw filesystem/stack-trace error.",
+  "behavior_shape": "decision",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The design's stated observable seam for the invalid-override failure is message content naming the path and the missing artifact, not just pass/fail [INV-PROV-3]; a fixed-content example on a directory deliberately missing the launcher jar catches an implementation that correctly fails closed but reports a generic or opaque error -- a defect TCON-PROV-0004's pass/fail-and-request-count assertion alone cannot detect."
+}

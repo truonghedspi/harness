@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0005",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-3",
+  "behavior": "Against a fixture symbol whose real reference count is exactly equal to the tool layer's configured cap (the boundary, neither above nor below it), java_references returns the full, untruncated list of that many references with `truncated` absent or false -- it is never reported as truncated when nothing was actually cut, and never off-by-one short of the true count.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Boundary sibling to TCON-TOOL-0004: comparing count >= cap instead of count > cap (or vice versa) passes the over-cap case but mislabels the exact-cap case as truncated, or drops the last legitimate reference -- an off-by-one an over-cap-only fixture can't catch. Same real-fixture reasoning as TCON-TOOL-0004 [INV-TOOL-3]. Falsifies a count > cap vs count >= cap boundary error in either direction."
+}

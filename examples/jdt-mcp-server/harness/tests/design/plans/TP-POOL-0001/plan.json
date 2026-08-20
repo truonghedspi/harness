@@ -1,0 +1,18 @@
+{
+  "plan_id": "TP-POOL-0001",
+  "component": "workspace-pool",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-POOL-2",
+    "docs/design/runtime-model.md#INV-POOL-4",
+    "docs/assumptions.md#A-001",
+    "feature_list.json#feat-prove-pool-lifecycle",
+    "feature_list.json#feat-workspace-pool"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "feat-prove-pool-lifecycle's behavior sentence and INV-POOL-2's own text describe the over-cap trigger as 'a request beyond the cap' -- i.e. eviction fires synchronously when the (cap+1)th distinct project is requested, independent of A-001's separately-described 15-minute idle timer. Not treated as an ambiguity requiring a spec_gap: the feature's own context note explicitly instructs using a small cap fixture 'instead of waiting on the 15-minute idle window', confirming the two are distinct triggers and this plan's scope (INV-POOL-2, INV-POOL-4) covers only the cap-exceeded trigger, not a time-based idle-eviction invariant (no INV- id names that separate mechanism, and it is not cited by this feature's falsifier).",
+      "location": "docs/design/runtime-model.md#INV-POOL-2; docs/assumptions.md#A-001; feature_list.json#feat-prove-pool-lifecycle (context)"
+    }
+  ]
+}

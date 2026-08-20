@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0009",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-6",
+  "behavior": "On a successful java_hover call against the non-ASCII/astral-plane fixture, at a request position that falls inside a multi-character token rather than at the token's first character, the result always carries a `range` field (never omitted, never null) whose start and end match the resolved token's true byte offsets in the source -- not the caller's requested line/column, and not merely 'some range' with the wrong extent.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Requires a real hover call through the daemon's real conversion boundary against a real fixture -- integration/e2e_scenario, per INV-TOOL-6's own observable seam ('the returned range cross-checked against the intended token's real byte offsets'). The mid-token request position is deliberate, not incidental: per docs/design/tool-surface.md's 'Rejected: echoing the request position back' and memory/design-facilitator/echoed-input-cannot-falsify.md, a range built by echoing the caller's requested line/column (or by rounding it to the token's start) would pass trivially if the fixture happened to click exactly at a token's first character -- clicking mid-token forces an echoed or start-only range to visibly disagree with the token's real end offset. Bounded per A-020 (docs/assumptions.md): this catches disagreement caused by wrong coordinate conversion, not JDT LS resolving a wider construct than intended. Falsifies: a hover implementation that omits `range` on success (INV-TOOL-6's 'never optional' clause), or that fills `range` by echoing the request position/token-start instead of computing the resolved token's real extent."
+}

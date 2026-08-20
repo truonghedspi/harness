@@ -1,0 +1,28 @@
+{
+  "plan_id": "TP-READY-0001",
+  "component": "readiness-gate",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-READY-1",
+    "docs/design/runtime-model.md#INV-READY-3",
+    "docs/design/runtime-model.md (Readiness — the gate is a semantic probe)",
+    "docs/design/evidence.md (ProjectStatus: OK and ServiceReady fire 13ms apart and before the final workspace-refresh progress notes)",
+    "docs/cross-cutting.md#X-001",
+    "feature_list.json#feat-prove-readiness",
+    "feature_list.json#feat-readiness-gate"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "feat-prove-readiness's behavior sentence ('A call during warm-up always gets isError plus progress rather than an empty successful result') could be read broadly enough to also require proving INV-READY-1's other legal arm -- a call issued while still warming that later succeeds once ready, with the correct non-empty answer. Not treated as in-scope: this feature's falsifier only cites 'returns [] instead of isError+progress [INV-READY-1]' and the deadline claim '[INV-READY-3]' -- never the eventually-succeeds arm's content. That content (probe answering non-empty, never ServiceReady/ProjectStatus alone) is INV-READY-2's own territory, owned by feat-readiness-gate (a different, dependency build feature); A-011 is filed against INV-READY-2, not INV-READY-1/3. This plan uses only the fixture the context note names -- a probe blocked forever.",
+      "location": "feature_list.json#feat-prove-readiness (behavior, falsifier); docs/design/runtime-model.md#INV-READY-2; docs/assumptions.md#A-011"
+    },
+    {
+      "description": "INV-READY-1's and INV-READY-3's 'deadline' is the per-call deadline from docs/cross-cutting.md#X-001, which is explicitly marked 'open' -- only a recommended default (30s) is proposed, not confirmed. Not treated as a blocking ambiguity: feat-prove-readiness's own context note already resolves this by instructing the test to parameterize the deadline rather than hard-code 30s, and TP-POOL-0002 (INV-POOL-3, the sibling deadline-settlement invariant) follows the same precedent. This plan's conditions describe the observable outcome (settles within a deadline; never remains pending past it) without asserting a specific numeric deadline, since no settled value exists to trace to; a concrete wait bound is the test-implementer's fixture/parameter choice, not a spec fact, until X-001 resolves.",
+      "location": "docs/cross-cutting.md#X-001; docs/design/runtime-model.md#INV-READY-1, #INV-READY-3"
+    },
+    {
+      "description": "INV-READY-2 ('Readiness is decided by a semantic probe answering non-empty, never by ServiceReady or ProjectStatus alone') is in the same runtime-model.md readiness-gate table as INV-READY-1/INV-READY-3 and is the invariant docs/assumptions.md#A-011 ('a semantic probe is a reliable index-readiness test') is filed against. It is deliberately out of scope for this plan: feat-prove-readiness's falsifier cites only INV-READY-1 and INV-READY-3, and INV-READY-2 is instead feat-readiness-gate's own falsifier (a different, dependency, build feature: 'opens the gate as soon as ServiceReady or ProjectStatus:OK fires, without ever running the semantic probe [INV-READY-2]'). Not designed here to avoid duplicating a condition that belongs to feat-readiness-gate's own test plan.",
+      "location": "docs/design/runtime-model.md#INV-READY-2; feature_list.json#feat-readiness-gate (falsifier); docs/assumptions.md#A-011"
+    }
+  ]
+}

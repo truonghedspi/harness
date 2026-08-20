@@ -1,0 +1,11 @@
+{
+  "id": "TCON-PROV-0003",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-2",
+  "behavior": "For any on-disk cache state -- matching the build-recorded pin, tampered/corrupted, or stale (holding a prior valid pin) -- resolveInstall() never succeeds while reporting a version other than the current pin: on a cache matching the pin it succeeds with exactly that pinned version, and on any tampered or stale cache it never succeeds while returning that cache's altered/old version as if it were current.",
+  "behavior_shape": "stateful",
+  "technique": "property",
+  "property_kind": "invariant",
+  "priority": "P0",
+  "rationale": "Correctness is a relation holding across arbitrary cache states, not one fixed input, which is what an invariant property targets [INV-PROV-2]; the generator must include a valid-pin-matching case (so an always-fail resolveInstall cannot vacuously pass) alongside tampered/stale cases, falsifying the naive 'trust whatever is on disk' implementation the invariant exists to catch."
+}

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-POOL-0006",
+  "plan_id": "TP-POOL-0002",
+  "requirement_id": "INV-POOL-3",
+  "behavior": "When the JDT LS process dies after it has already written some, but not all, of the Content-Length-framed bytes of a response to an in-flight request, that request settles as an explicit error -- never as a successful result assembled from the truncated bytes already received, and never as a stale answer that reuses an earlier, unrelated response.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Invariant's second failure mode, distinct from hanging: INV-POOL-3 says death 'never resolves with a partial answer'; the falsifier names it too -- TCON-POOL-0004/0005 (no-hang only) leave this uncovered. Integration/e2e_scenario: needs the real Content-Length boundary against a truncated stream from a real killed process, not a mocked all-or-nothing response [INV-POOL-3]. Falsifies parsing an incomplete frame, or returning accumulated partial JSON, instead of discarding and rejecting."
+}

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0006",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-4",
+  "behavior": "Given an empty cache root and egress blackholed (connections never complete, never error), resolveInstall() always settles -- resolves or rejects -- inside its configured deadline; it never remains pending past that deadline.",
+  "behavior_shape": "decision",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "This is a single deterministic fault scenario (no cache, unreachable network) with a binary observable outcome -- settles by the deadline or hangs past it -- which a fixed example scenario asserting completion before the deadline directly falsifies against an implementation that awaits the network with no bound, mirroring how INV-POOL-3 and INV-READY-3 verify their own deadline settlement [INV-PROV-4]."
+}

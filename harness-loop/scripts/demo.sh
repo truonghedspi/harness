@@ -796,6 +796,28 @@ expect "and the reason names the missing input rather than the feature" $?
 mkdir -p "$TO/tests/design/plans/TP-D-0001/conditions"
 printf '{"id":"TCON-D-0001"}' > "$TO/tests/design/plans/TP-D-0001/conditions/TCON-D-0001.json"
 [ "$(route_node)" = "test-implementer" ]; expect "once the conditions exist, a specified-but-unwritten oracle routes to test-implementer" $?
+# conditionsExist() only asks "does ANY TCON-*.json exist anywhere" — true the moment ONE feature
+# has conditions. It stays true even after a design amendment adds a NEW invariant citation to a
+# DIFFERENT falsifier that no condition covers, so the router used to jump straight past
+# test-designer to test-implementer for that feature — which would implement tests for the old
+# conditions and silently ship the amendment with zero coverage. Found live on
+# examples/jdt-mcp-server, where feature-planner extended a falsifier to cite two new invariants
+# after design-facilitator amended the design, but the conditions written before the amendment
+# still only covered the original ones.
+node -e "
+const fs=require('fs'); const p='$TO/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(f=>f.id==='feat-p').falsifier='breaks the conservation invariant [INV-RECON-2]';
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+[ "$(route_node)" = "test-designer" ]; expect "a falsifier amended to cite a new invariant routes back to test-designer even though other conditions already exist" $?
+( cd "$TO" && node loop/route.mjs --json ) | grep -q "INV-RECON-2"
+expect "and the reason names the specific uncovered invariant, not just 'no conditions'" $?
+node -e "
+const fs=require('fs'); const p='$TO/tests/design/plans/TP-D-0001/conditions/TCON-D-0002.json';
+fs.writeFileSync(p, JSON.stringify({id:'TCON-D-0002', requirement_id:'INV-RECON-2'}));
+"
+[ "$(route_node)" = "test-implementer" ]; expect "a condition citing the new invariant clears it, back to test-implementer" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -853,14 +875,25 @@ printf '# Reconciler\n\nIt reads the log and fills the gap.\nIt writes to the si
 node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
 node -e "
 const r=require('$TO/trace/verify-report.json');
-process.exit(r.findings.some(f=>f.id==='design-untestable:recon.md') ? 0 : 1);
+process.exit(r.findings.some(f=>f.id==='design-untestable') ? 0 : 1);
 "; expect "a design doc naming no seam and no invariants is flagged — 'how would we know' is a design question" $?
 printf '\n## Observable seam\n\nThe GapEventSink, externally visible.\n\n## Invariants\n\nEvent count is conserved for every replay; reconcile is idempotent.\n' >> "$TO/docs/design/recon.md"
 node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
 node -e "
 const r=require('$TO/trace/verify-report.json');
-process.exit(r.findings.some(f=>f.id==='design-untestable:recon.md') ? 1 : 0);
+process.exit(r.findings.some(f=>f.id==='design-untestable') ? 1 : 0);
 "; expect "stating the seam and the invariants clears it" $?
+# Checked ACROSS the folder, not file-by-file: a design legitimately split into topic files has
+# some files with no reason to say "seam" on their own — found live when a design-facilitator
+# session split a design into architecture.md/critique.md/evidence.md and a pure-critique file
+# alone tripped this gate despite the design, as a whole, stating every seam and invariant.
+printf '# Critique\n\nWhich premise, if false, flips this conclusion? Walking each one back.\n%.0s' 1 2 3 4 5 6 7 8 > "$TO/docs/design/critique.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$TO" --skip-baseline --quiet
+node -e "
+const r=require('$TO/trace/verify-report.json');
+process.exit(r.findings.some(f=>f.id==='design-untestable') ? 1 : 0);
+"; expect "a topic file with no seam/invariant wording of its own does not trip the gate when another design file states them" $?
+rm -f "$TO/docs/design/critique.md"
 # The handoff design->planner was prose until this contract: design-untestable only checked that
 # the WORDS seam and invariant appeared. The planner was told to derive each falsifier from a
 # stated invariant and nothing verified it — it could invent every one and stay green.
@@ -2317,8 +2350,8 @@ printf '{"plan_id":"TP-X-0001"}' > "$RN/tests/design/plans/TP-X-0001/plan.json"
 [ "$(route_n)" = "test-designer" ]; expect "a plan with an empty conditions/ folder routes to test-designer, not the implementer" $?
 ( cd "$RN" && node loop/route.mjs --json ) | grep -q "no validated test condition"
 expect "and the reason names the missing artifact, not the directory that happens to exist" $?
-printf '{"id":"TCON-X-0001"}' > "$RN/tests/design/plans/TP-X-0001/conditions/TCON-X-0001.json"
-[ "$(route_n)" = "test-implementer" ]; expect "once a real TCON-*.json exists the implementer is dispatchable" $?
+printf '{"id":"TCON-X-0001","requirement_id":"INV-X-1"}' > "$RN/tests/design/plans/TP-X-0001/conditions/TCON-X-0001.json"
+[ "$(route_n)" = "test-implementer" ]; expect "once a real TCON-*.json citing the falsifier's invariant exists, the implementer is dispatchable" $?
 node -e "
 const t=require('fs').readFileSync('$SCRIPTS/codex-dispatch.mjs','utf8');
 // codex's workspace-write sandbox blocks socket LISTENING: the baseline goes red inside it and
@@ -2712,6 +2745,120 @@ expect "runtime hooks resolve the contained manifest and resources from project 
 node "$SCRIPTS/upgrade-harness.mjs" --target "$CT" --dry-run --json > "$CT/upgrade.json"
 node -e "const r=require('$CT/upgrade.json');process.exit(!r.changed.length&&!r.added.length&&!r.drifted.length&&!r.missing.length?0:1)"
 expect "a freshly contained scaffold reports no false upgrade drift" $?
+
+step 44 "memory bootstrap: a reason that recurs across features is surfaced, once it isn't already in memory/"
+MB="$WORK/demo-bootstrap"; rm -rf "$MB"; mkdir -p "$MB/memory/maker" "$MB/trace"
+printf '# maker — memory index\n' > "$MB/memory/maker/MEMORY.md"
+node -e "
+require('fs').writeFileSync('$MB/feature_list.json', JSON.stringify({ features: [
+  { id: 'feat-a', checkerNotes: 'off-by-one in date math caused a false green' },
+  { id: 'feat-b', checkerNotes: 'off-by-one in date math caused a false green' },
+  { id: 'feat-c', checkerNotes: 'NEEDS DESIGN: unrelated routing marker, excluded on purpose' },
+] }));
+"
+node -e "
+const fs=require('fs');
+const lines=[
+  {actor:'maker',event:'blocked',feature:'feat-d',detail:'flaky integration port already bound'},
+  {actor:'maker',event:'blocked',feature:'feat-e',detail:'flaky integration port already bound'},
+];
+fs.writeFileSync('$MB/trace/trace.jsonl', lines.map(l=>JSON.stringify(l)).join('\n')+'\n');
+"
+node "$SCRIPTS/memory-consolidate.mjs" --target "$MB" --bootstrap --json > "$MB/bootstrap.json"
+node -e "
+const r=require('$MB/bootstrap.json');
+const c=r.bootstrapCandidates;
+process.exit(
+  c.length===2 &&
+  c.some(x=>x.source.includes('checkerNotes') && x.features.length===2 && !/NEEDS DESIGN/.test(x.sample)) &&
+  c.some(x=>x.source.includes('trace') && x.agent==='maker' && x.features.length===2)
+  ? 0 : 1);
+"
+expect "a checkerNotes reason and a trace blocked-reason each recurring across 2 features are both surfaced, and the routing marker is excluded" $?
+printf -- '---\nname: date-math-off-by-one\ndescription: off-by-one in date math caused a false green\nmetadata:\n  type: lesson\n  date: 2026-08-20\n---\n\noff-by-one in date math caused a false green\n' > "$MB/memory/maker/date-math-off-by-one.md"
+printf '# maker — memory index\n- [off-by-one](date-math-off-by-one.md) — date math\n' > "$MB/memory/maker/MEMORY.md"
+node "$SCRIPTS/memory-consolidate.mjs" --target "$MB" --bootstrap --json > "$MB/bootstrap2.json"
+node -e "
+const r=require('$MB/bootstrap2.json');
+const c=r.bootstrapCandidates;
+process.exit(c.length===1 && c[0].source.includes('trace') ? 0 : 1);
+"
+expect "once a candidate is written into memory/, --bootstrap stops suggesting it again" $?
+
+step 45 "docs/design/shared-memory-tier.md v1: memory-promote mechanically writes memory/shared/"
+MP="$WORK/demo-promote"; rm -rf "$MP"; mkdir -p "$MP/trace"
+node -e "
+require('fs').writeFileSync('$MP/feature_list.json', JSON.stringify({ features: [
+  { id: 'feat-a', checkerNotes: 'off-by-one in date math caused a false green', evidence: [{date:'2026-08-20',run:'red',cmd:'npm test',result:'fail'}] },
+  { id: 'feat-b', checkerNotes: 'off-by-one in date math caused a false green', evidence: [] },
+  { id: 'feat-c', checkerNotes: 'no test evidence anywhere but recurs twice ok', evidence: [] },
+  { id: 'feat-d', checkerNotes: 'no test evidence anywhere but recurs twice ok', evidence: [] },
+] }));
+"
+node "$SCRIPTS/memory-promote.mjs" --target "$MP" --json > "$MP/promote.json"
+node -e "
+const r=require('$MP/promote.json');
+process.exit(r.promoted.length===1 && r.promoted[0].evidence==='test' && require('fs').existsSync('$MP/'+r.promoted[0].file) ? 0 : 1);
+"
+expect "memory-promote mechanically writes an evidence-typed entry for a recurring, test-backed reason" $?
+node -e "process.exit(require('fs').readdirSync('$MP/memory/shared').length===1?0:1)"
+expect "and never promotes a recurring reason with no real command evidence behind it (INV-SHARED-1)" $?
+node "$SCRIPTS/memory-promote.mjs" --target "$MP" --json > "$MP/promote2.json"
+node -e "const r=require('$MP/promote2.json');process.exit(r.promoted.length===0?0:1)"
+expect "re-running memory-promote.mjs is idempotent — an already-captured fact is not promoted again" $?
+
+step 46 "docs/design/shared-memory-tier.md v1: verify-harness memory-shared gate"
+MG="$WORK/demo-shared-gate"; rm -rf "$MG"; mkdir -p "$MG/memory/shared"
+printf -- '---\nname: bad\ndescription: hand added\nmetadata:\n  type: fact\n  evidence: inference\n  confidence: verified\n  date: 2026-08-20\n---\n\nhand added without real evidence\n' > "$MG/memory/shared/bad.md"
+node "$SCRIPTS/verify-harness.mjs" --target "$MG" --skip-baseline --json > "$MG/verify.json"
+grep -q '"id": "memory-shared-bad-evidence:bad.md"' "$MG/verify.json"
+expect "the memory-shared gate flags an evidence:inference entry (INV-SHARED-1)" $?
+node -e "
+const r=require('$MG/verify.json');
+const f=r.findings.find(x=>x.id==='memory-shared-bad-evidence:bad.md');
+process.exit(f && f.severity==='warn' && f.layer==='project' ? 0 : 1);
+"
+expect "memory-shared findings are severity=warn, layer=project — never a blocker" $?
+
+step 47 "docs/design/shared-memory-tier.md v1: every generated agent reads memory/shared resources"
+ER="$WORK/demo-shared-resources"; rm -rf "$ER"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$ER" --name "Resources Demo" --purpose "shared memory resources wiring" --runtime all >/dev/null
+mkdir -p "$ER/memory/shared"
+printf -- '---\nname: off-by-one\ndescription: off-by-one in date math\nmetadata:\n  type: fact\n  evidence: test\n  confidence: verified\n  date: 2026-08-20\n---\n\noff-by-one in date math caused a false green\n' > "$ER/memory/shared/off-by-one.md"
+node "$ER/tools/gen-agents.mjs" --target "$ER" --runtime all >/dev/null
+node -e "process.exit(require('$ER/.kiro/agents/maker.json').resources.some(r=>r.includes('memory/shared/off-by-one.md'))?0:1)"
+expect "kiro's generated maker config includes the newly promoted fact, computed at generation time (INV-RES-1)" $?
+grep -q "memory/shared/off-by-one.md" "$ER/.codex/agents/maker.toml"
+expect "codex's generated maker instructions include it too" $?
+( cd "$ER" && node tools/agent-context.mjs maker </dev/null > ctx.json )
+node -e "process.exit(require('$ER/ctx.json').hookSpecificOutput.additionalContext.includes('memory/shared/off-by-one.md')?0:1)"
+expect "Claude's spawn-time context includes it live, with no regeneration step needed" $?
+node -e "
+const m=require('$ER/agents.manifest.json');
+const bad=m.agents.some(a=>(a.writes||[]).some(w=>String(w).includes('memory/shared')));
+process.exit(bad?1:0);
+"
+expect "and memory/shared/ is never in any agent's writes list (INV-SHARED-2)" $?
+
+step 48 "docs/design/shared-memory-tier.md v1: memory/shared end-to-end"
+EE="$WORK/demo-shared-e2e"; rm -rf "$EE"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$EE" --name "E2E Shared Memory" --purpose "prove v1 end-to-end" --runtime all >/dev/null
+node -e "
+require('fs').writeFileSync('$EE/feature_list.json', JSON.stringify({ features: [
+  { id: 'feat-x', checkerNotes: 'shared fixture reason recurs across features', evidence: [{date:'2026-08-20',run:'red',cmd:'npm test',result:'fail'}] },
+  { id: 'feat-y', checkerNotes: 'shared fixture reason recurs across features', evidence: [] },
+] }));
+"
+node "$EE/tools/memory-promote.mjs" --target "$EE"
+test -f "$EE/memory/shared/shared-fixture-reason-recurs-across-features.md"
+expect "a recurring, test-backed fixture reason is mechanically promoted" $?
+node "$EE/tools/gen-agents.mjs" --target "$EE" --runtime all >/dev/null
+node -e "process.exit(require('$EE/.kiro/agents/checker.json').resources.some(r=>r.includes('memory/shared'))?0:1)"
+expect "every generated agent's resources include it without hand-editing the manifest" $?
+printf -- '---\nname: bad\ndescription: bad\nmetadata:\n  type: fact\n  evidence: inference\n  confidence: verified\n  date: 2026-08-20\n---\n\nbad\n' > "$EE/memory/shared/bad.md"
+node "$EE/tools/verify-harness.mjs" --target "$EE" --skip-baseline --json > "$EE/verify.json"
+grep -q "memory-shared-bad-evidence" "$EE/verify.json"
+expect "and a hand-planted inference-only entry next to it is still caught by the gate" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

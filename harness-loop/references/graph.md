@@ -10,9 +10,11 @@ Scope: the project loop (`node loop/run-loop.mjs`). The harness self-improvement
 
 ## Nodes
 
-All paths in this graph are relative to the contained `harness/` home unless they begin with a
-root runtime adapter such as `.kiro/`. `node harness/cli.mjs` is the stable project-root interface;
-the thin root `AGENTS.md` only points agents at `harness/AGENTS.md`.
+All paths in this graph are relative to the harness root — the project root itself on a flat
+layout (the default), or the `harness/` subdirectory on a contained one — unless they begin with a
+root runtime adapter such as `.kiro/`. `cli.mjs` is the stable project-root interface (`node
+harness/cli.mjs` when contained). A contained layout's thin root `AGENTS.md` only points agents at
+`harness/AGENTS.md`; a flat layout's `AGENTS.md` is the real one (HI-054).
 
 | Node | Kind | Responsibility | Reads | Writes |
 |---|---|---|---|---|

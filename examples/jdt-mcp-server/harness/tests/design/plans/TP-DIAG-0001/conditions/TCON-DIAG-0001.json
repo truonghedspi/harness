@@ -1,0 +1,10 @@
+{
+  "id": "TCON-DIAG-0001",
+  "plan_id": "TP-DIAG-0001",
+  "requirement_id": "INV-DIAG-1",
+  "behavior": "Querying java_diagnostics for a file's URI before any publishDiagnostics notification for that URI has arrived always returns an explicit 'not reported yet' marker that is observationally distinct from the result returned once a publish for that same URI has arrived reporting zero problems; the two states are never the same shape, and neither is ever reported as the other.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "The 'not yet published' state is a real race against a live JDT LS instance's own publish timing (spike B: publishes arrive unsolicited, even for never-didOpen'ed files) a mock cannot reproduce, so this needs a real pool + cache + tool wiring, matching e2e_scenario for integration [INV-DIAG-1]; falsifies pre-populating a cache entry as [] on open instead of leaving the URI absent until its first real publish, collapsing the two forbidden-equal states."
+}

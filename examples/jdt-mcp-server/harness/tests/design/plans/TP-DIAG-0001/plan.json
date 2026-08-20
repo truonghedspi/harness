@@ -1,0 +1,26 @@
+{
+  "plan_id": "TP-DIAG-0001",
+  "component": "diagnostics-cache",
+  "spec_refs": [
+    "docs/design/tool-surface.md#INV-DIAG-1",
+    "docs/design/tool-surface.md#INV-DIAG-2",
+    "docs/design/tool-surface.md#INV-DIAG-3",
+    "docs/design/tool-surface.md (Build order and where the risk is, item 4)",
+    "docs/design/runtime-model.md:124 (INV-DIAG-1 among the invariants that refuse a quiet fallback for an explicit failure)",
+    "docs/design/evidence.md (spike B: unsolicited publishDiagnostics including for a never-didOpen'ed file; two isolated instances, definitionFromB_aboutAsFile: \"[]\")",
+    "feature_list.json#feat-prove-diagnostics",
+    "feature_list.json#feat-diagnostics-cache",
+    "feature_list.json#feat-tool-diagnostics"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "INV-DIAG-1 requires an 'explicit \"not reported yet\" marker' distinct from an empty (clean) result, but neither the invariant's own text, the java_diagnostics tool-table row ('current problems for that file or every file in the project, from the cache'), nor evidence.md commits to the marker's concrete shape (a sentinel field, a null/undefined problems array, a distinct top-level status, etc.). Not treated as a blocking ambiguity: the two candidate readings differ only in wire-level representation, not in the invariant being tested, so this plan's conditions assert the two states are observationally distinguishable by whatever shape the implementation uses, without committing to a specific field name or sentinel value -- the concrete assertion (field name/sentinel) is the test-implementer's fixture choice once feat-tool-diagnostics' actual response shape exists to read.",
+      "location": "docs/design/tool-surface.md#INV-DIAG-1 (invariant text and tool table); docs/design/tool-surface.md (java_diagnostics row)"
+    },
+    {
+      "description": "INV-DIAG-2's 'a later publishDiagnostics for a URI always fully replaces the earlier one' is silent on what happens across a workspace/JDT LS process restart (e.g. after a crash-and-respawn, per feat-prove-pool-crash-handling) -- whether a previously-cached diagnostic for a URI is cleared before the respawned instance's first publish, or lingers until overwritten. Not treated as in-scope here: feat-prove-diagnostics' own falsifier and behavior sentence describe only a plain publish-then-empty-publish sequence within a live workspace, and process-restart interaction with the cache is feat-prove-pool-crash-handling's territory (a different feature, scoped to INV-POOL-3). This plan's INV-DIAG-2 condition therefore exercises only a same-instance, no-restart replace sequence.",
+      "location": "docs/design/tool-surface.md#INV-DIAG-2; feature_list.json#feat-prove-pool-crash-handling (falsifier, different feature)"
+    }
+  ]
+}

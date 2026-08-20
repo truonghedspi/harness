@@ -1,0 +1,10 @@
+{
+  "id": "TCON-CA-0001",
+  "plan_id": "TP-CA-0001",
+  "requirement_id": "INV-CA-1",
+  "behavior": "In a single real workspace, after java_code_actions mints an actionId handle for a code action on a file, and that same file is then edited on disk (with the edit observed by the workspace, advancing its sync generation) before java_apply_code_action resolves the handle, the resolve call always errors and never returns an edit.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable via a real JDT LS instance, a real disk edit and the real two-phase codeAction/resolve round-trip (spike D) -- matrix's e2e_scenario for integration shape -- reproducing this feature's own context verbatim ('mint a handle, edit the file, resolve -- must error') [INV-CA-1]. Falsifies a handle table keyed on actionId alone, or a generation captured only at mint time and never re-checked at resolve, returning the stale edit instead of erroring."
+}

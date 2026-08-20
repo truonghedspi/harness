@@ -1,0 +1,18 @@
+{
+  "skill_name": "business-journey",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Design harness artifacts for a Kubernetes flow where a FIX order crosses gateway, risk, matching, trade capture and position services; restart matching after acknowledgement and retry idempotently.",
+      "expected_output": "A valid business-environment/1 and journey-oracle/1 using public seams, per-run isolation, convergence deadline, diagnostics, fault action and recovery invariant.",
+      "assertions": [
+        "The deterministic business-journey checker exits zero",
+        "Every passing observation is a public event or query boundary",
+        "Isolation derives namespace and at least one data/consumer identity from run ID",
+        "Fault probe repeats the command and states an idempotent recovery invariant",
+        "Telemetry is redacted and includes deploy, readiness, scenario and event-wait duration"
+      ],
+      "files": []
+    }
+  ]
+}

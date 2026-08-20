@@ -1,0 +1,10 @@
+{
+  "id": "TCON-TOOL-0010",
+  "plan_id": "TP-TOOL-0001",
+  "requirement_id": "INV-TOOL-6",
+  "behavior": "Calling java_hover, against a ready, routable workspace, at a position that resolves to no element (e.g. whitespace, a blank line, or a comment with no adjacent symbol) always produces INV-TOOL-4's structured no-result explicitly naming that no element resolved -- never a successful hover result, and never a successful result whose `range` (or whole payload) is omitted or empty standing in for 'nothing here'.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable end-to-end against a real fixture and a real JDT LS response -- integration/e2e_scenario, matching INV-TOOL-6's own seam text ('a hover on a position holding no element, asserting the structured no-result rather than a success') and this feature's falsifier. This is the half INV-TOOL-6 exists to force into the open: without it, a hover on an empty position could return `{}` or a success with `range` missing and nothing would catch it, since JDT LS itself never sets `Hover.range` either way -- the exact vacuous-invariant hole this invariant closes per docs/design/tool-surface.md. Falsifies: a no-resolvable-element hover reported as a successful result (with `range` and/or the rest of the payload silently omitted or empty) instead of INV-TOOL-4's named no-result branch."
+}
