@@ -6,8 +6,8 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 
 - Goal: Implement TP-POOL-0002 conditions TCON-POOL-0004 through TCON-POOL-0006 as the red-first oracle for `feat-prove-pool-crash-handling`.
 - Current status: Stopped without test changes because a behavioral red run is impossible before both build dependencies exist.
-- Branch / commit: current branch / HEAD `a92e07c`
-- Revalidated: 2026-08-20 iteration 5; both dependencies remain `not-started`, no callable `src/` interface exists, and `./harness/init.sh` is green.
+- Branch / commit: current branch / HEAD `0d0b53b`
+- Revalidated: 2026-08-20 iteration 6; both dependencies remain `not-started`, no callable `src/` interface exists, and `./harness/init.sh` is green.
 
 ## Completed This Session
 
@@ -19,6 +19,7 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 - [x] Reproduced the same dependency blocker after the prior handoff commit; the router still selects this oracle despite both build dependencies being ineligible.
 - [x] Confirmed for a third consecutive dispatched iteration that no behavioral-red seam exists; further test-implementer retries cannot advance this feature.
 - [x] Confirmed for a fourth consecutive dispatched iteration that the dependency state is unchanged; stopped under the existing handoff instead of manufacturing non-behavioral red evidence.
+- [x] Confirmed for a fifth consecutive dispatched iteration that the dependency state is unchanged; the router continues to select an ineligible proof feature.
 
 ## Verification Evidence
 
@@ -30,6 +31,7 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 | Revalidation baseline | `./harness/init.sh` | PASS | Iteration 3 again ended with `=== Baseline green ===`. |
 | Third blocker revalidation | `./harness/init.sh` | PASS | Iteration 4 again ended with `=== Baseline green ===`; dependency readiness remains blocked. |
 | Fourth blocker revalidation | `./harness/init.sh` | PASS | Iteration 5 again ended with `=== Baseline green ===`; dependency readiness remains blocked. |
+| Fifth blocker revalidation | `./harness/init.sh` | PASS | Iteration 6 again ended with `=== Baseline green ===`; dependency readiness remains blocked. |
 
 ## Files Changed
 
@@ -45,7 +47,7 @@ The crash-handling oracle is blocked until the lsp-client and workspace-pool exp
 
 TP-POOL-0002 requires a real child process with one or more in-flight LSP requests, a parameterized per-call deadline, and the ability to kill that child after either no response or a partial Content-Length frame. Neither dependency currently supplies an interface through which the test can establish or observe those states.
 
-The router has dispatched this proof with the same dependency blocker for four consecutive iterations. Treat that ordering as a harness-routing defect; rerunning the same test-implementer iteration cannot create behavioral red evidence.
+The router has dispatched this proof with the same dependency blocker for five consecutive iterations. Treat that ordering as a harness-routing defect; rerunning the same test-implementer iteration cannot create behavioral red evidence.
 
 ## Recommended Next Step
 
