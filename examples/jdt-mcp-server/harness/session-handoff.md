@@ -1,43 +1,44 @@
 # Session Handoff — JDT MCP Server
 
-Written mid-feature or on escalation (Lesson 12), so the next session — or the loop's next
-iteration — can resume without an information cliff.
+The crash-handling oracle is blocked until the lsp-client and workspace-pool expose callable interfaces.
 
 ## Current Objective
 
-- Goal:
-- Current status:
-- Branch / commit:
+- Goal: Implement TP-POOL-0002 conditions TCON-POOL-0004 through TCON-POOL-0006 as the red-first oracle for `feat-prove-pool-crash-handling`.
+- Current status: Stopped without test changes because a behavioral red run is impossible before both build dependencies exist.
+- Branch / commit: current branch / HEAD `2cd44cc`
+- Revalidated: 2026-08-20; both dependencies remain `not-started`, no callable `src/` interface exists, and `./harness/init.sh` is green.
 
 ## Completed This Session
 
-- [ ]
+- [x] Confirmed the router selected `test-implementer` for `feat-prove-pool-crash-handling`.
+- [x] Ran `./harness/init.sh` green.
+- [x] Re-read TP-POOL-0002 and its three validated condition shards; their required seams remain unavailable.
+- [x] Read the required integration template and anti-pattern rules.
+- [x] Inspected only permitted interface/signature surfaces; did not read implementation bodies.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-|  |  |  |  |
+| Baseline | `./harness/init.sh` | PASS | `=== Baseline green ===` |
+| Router | `node harness/loop/route.mjs` | PASS | Selected `test-implementer` for `feat-prove-pool-crash-handling`. |
+| Dependency readiness | `node harness/tools/feature.mjs --deps feat-prove-pool-crash-handling` | BLOCKED | `feat-lsp-client` and `feat-workspace-pool` are both `not-started`; no callable production interfaces exist. |
 
 ## Files Changed
 
--
+- `harness/session-handoff.md`
 
-## Decisions Made (also log in harness/DECISIONS.md)
+## Decisions Made
 
--
+- Did not create a test whose first failure would be `ERR_MODULE_NOT_FOUND`, a compile error, or a missing fixture. The role contract requires a wrong behavioral assertion for valid red evidence.
+- Did not invent lsp-client request, workspace acquisition, child-process observation, or kill signatures. That would decide production interfaces rather than implement validated conditions against documented ones.
+- Did not mark the feature `blocked`: its `attempts` remain `0/3`, and the dependency DAG already records the concrete prerequisite state.
 
-## Blockers / Risks / Human Checkpoints Hit
+## Blocker
 
--
-
-## Next Session Startup
-
-1. Read `AGENTS.md`.
-2. Read `harness/feature_list.json` and `harness/progress.md`.
-3. Review this handoff.
-4. Run `./harness/init.sh` before editing.
+TP-POOL-0002 requires a real child process with one or more in-flight LSP requests, a parameterized per-call deadline, and the ability to kill that child after either no response or a partial Content-Length frame. Neither dependency currently supplies an interface through which the test can establish or observe those states.
 
 ## Recommended Next Step
 
--
+Implement the public/test interfaces for `feat-lsp-client` and `feat-workspace-pool`, then reroute this oracle. Add `test/integration/pool-crash-handling.integration.spec.ts`, run its feature verification, and record red only when imports and fixtures succeed but an INV-POOL-3 behavioral assertion fails.

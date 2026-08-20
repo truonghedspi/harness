@@ -9,3 +9,4 @@ generator produced useless inputs until it was fixed, or when a mutant survived 
 sufficient. Don't write one for a routine red-green cycle.
 
 <!-- - [Title](slug.md) — one-line hook -->
+- [Behavioral red requires a callable seam](behavioral-red-requires-callable-seam.md) — Do not scaffold an integration oracle before its dependency interfaces exist; missing-module red is not behavioral evidence.
