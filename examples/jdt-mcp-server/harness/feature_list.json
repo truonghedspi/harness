@@ -278,10 +278,10 @@
       "falsifier": "a probe issued immediately after a silent on-disk edit resolves the deleted symbol and reports zero errors instead of either the corrected answer or an explicit resyncing error — the spike-C `2_afterSilentDiskEdit` state is reachable [INV-SYNC-1]",
       "conditions": ["TCON-SYNC-0001", "TCON-SYNC-0002", "TCON-SYNC-0003"],
       "dependencies": ["feat-file-sync-watcher", "feat-readiness-gate"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: the INV-SYNC-1 oracle has no specified callable seam until feat-file-sync-watcher and feat-readiness-gate exist.\n\nTCON-SYNC-0001 through TCON-SYNC-0003 require a real watcher, its change-generation/quiescence contract, a real JDT LS subprocess, and readiness-gate semantic probes before and after notification. The design currently specifies only observable seams (`settledAt` and `awaitReady(workspaceId, deadline)`), not the watcher construction, generation handoff, probe result, or orchestration interfaces needed to write a behaviorally red test. Both owning dependencies are not-started. A test now could fail only on missing modules or invented interfaces, which is not valid red evidence. Reroute after feat-file-sync-watcher and feat-readiness-gate define and implement those seams.",
       "attempts": 0,
       "maxAttempts": 3
     },
