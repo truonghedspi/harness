@@ -534,10 +534,10 @@
       "falsifier": "a query before the first publish for a URI returns the same shape as a query after a clean publish [INV-DIAG-1]; or a publish-then-empty-publish sequence leaves stale problems cached [INV-DIAG-2]; or workspace B's cache serves a diagnostic published by workspace A for the same relative path [INV-DIAG-3]",
       "conditions": ["TCON-DIAG-0001", "TCON-DIAG-0002", "TCON-DIAG-0003"],
       "dependencies": ["feat-diagnostics-cache", "feat-tool-diagnostics"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: diagnostics oracle requires callable interfaces owned by two not-started dependencies.\n\nTCON-DIAG-0001 through TCON-DIAG-0003 require real publishDiagnostics delivery and java_diagnostics queries through distinct live workspace instances. docs/design/tool-surface.md specifies arguments and observable semantics, but it does not define an executable/CLI entry point, TypeScript signature, notification-injection contract, or concrete not-reported result shape. feat-diagnostics-cache and feat-tool-diagnostics are both not-started, so writing the integration test now would invent their production interfaces or fail only on missing modules rather than behavior. Implement and specify those dependencies first, then route this proof feature back to test-implementer.",
       "attempts": 0,
       "maxAttempts": 3
     },
