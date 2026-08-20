@@ -619,10 +619,10 @@
       "falsifier": "any file's mtime changes after a rename call with no apply argument [INV-TOOL-2]",
       "conditions": ["TCON-TOOL-0011", "TCON-TOOL-0012", "TCON-TOOL-0013", "TCON-TOOL-0014"],
       "dependencies": ["feat-tool-rename"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: The rename oracle cannot produce a behavioral red until dependency feat-tool-rename defines a callable production interface. The approved design specifies only the MCP surface (java_rename arguments/result), while feat-tool-rename is not-started; inventing its module/process contract would violate the Test-Implementer boundary. Resume after feat-tool-rename supplies the callable seam.",
       "attempts": 0,
       "maxAttempts": 3
     },
