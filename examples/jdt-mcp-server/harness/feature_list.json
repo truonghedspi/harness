@@ -685,10 +685,10 @@
       "falsifier": "resolving a handle after an intervening edit to the same file returns an edit instead of erroring [INV-CA-1]; or a handle minted in one workspace resolves to an edit belonging to the other workspace's action [INV-CA-2]",
       "conditions": ["TCON-CA-0001", "TCON-CA-0002", "TCON-CA-0003", "TCON-CA-0004", "TCON-CA-0005"],
       "dependencies": ["feat-tool-code-actions", "feat-tool-apply-code-action"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: code-action oracle requires callable interfaces owned by two not-started dependencies.\n\nTCON-CA-0001 through TCON-CA-0005 require real java_code_actions mint calls and java_apply_code_action resolve calls, including workspace sync-generation changes and interleaving across two live workspaces. docs/design/tool-surface.md specifies tool arguments and observable semantics, but it does not define an executable/CLI entry point, TypeScript signatures, concrete action/edit/error result shapes, or a fixture contract for producing multiple resolvable actions. feat-tool-code-actions and feat-tool-apply-code-action are both not-started, so writing the integration test now would invent their production interfaces or fail only on missing modules rather than behavior. Implement and specify those dependencies first, then route this proof feature back to test-implementer.",
       "attempts": 0,
       "maxAttempts": 4
     },
