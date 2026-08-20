@@ -300,10 +300,10 @@
       "falsifier": "a call during warm-up returns [] instead of isError+progress [INV-READY-1]; or a call against a workspace that never becomes ready waits past its deadline instead of settling with an error [INV-READY-3]",
       "conditions": ["TCON-READY-0001", "TCON-READY-0002", "TCON-READY-0003"],
       "dependencies": ["feat-readiness-gate"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: behavioral readiness oracle requires the not-started feat-readiness-gate callable interface.\n\nThe design only specifies awaitReady(workspaceId, deadline). It does not define how an integration test injects a permanently blocked semantic probe, observes per-call progress, or distinguishes the structured isError result from success. Writing the test now would invent feat-readiness-gate production signatures or produce only a missing-module/compile red, neither of which is valid red-first evidence. Implement and specify feat-readiness-gate first, then route this proof feature back to test-implementer.",
       "attempts": 0,
       "maxAttempts": 3
     },
