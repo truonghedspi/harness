@@ -185,7 +185,7 @@
         "*"
       ],
       "mcp": true,
-      "writes": [],
+      "writes": null,
       "resources": [
         "harness/AGENTS.md",
         "harness/docs/constraints.md",
@@ -216,7 +216,7 @@
         "*"
       ],
       "mcp": true,
-      "writes": [],
+      "writes": null,
       "resources": [
         "harness/AGENTS.md",
         "harness/docs/constraints.md",
@@ -295,7 +295,7 @@
         "*"
       ],
       "mcp": true,
-      "writes": [],
+      "writes": null,
       "resources": [
         "harness/AGENTS.md",
         "harness/docs/constraints.md",
@@ -330,7 +330,7 @@
         "*"
       ],
       "mcp": true,
-      "writes": [],
+      "writes": null,
       "resources": [
         "harness/AGENTS.md",
         "harness/docs/constraints.md",

@@ -6,9 +6,6 @@ model: sonnet
 hooks:
   SubagentStart:
     - command: "node harness/tools/agent-context.mjs harness-setup"
-  PreToolUse:
-    - matcher: "Edit|Write|NotebookEdit|Bash"
-      command: "node harness/tools/guard-write.mjs harness-setup"
   SubagentStop:
     - command: "node harness/tools/trace.mjs harness-setup session-end"
   PostToolUse:

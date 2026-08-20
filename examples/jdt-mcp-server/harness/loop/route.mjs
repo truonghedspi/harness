@@ -377,7 +377,7 @@ const RULES = [
       // and a plan with an empty conditions/ folder is not one.
       if (!conditionsExist()) return null;
       const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
-        !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)));
+        !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
       return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
     },
   },
@@ -404,7 +404,7 @@ const RULES = [
       // Information asymmetry is only real if it is an ORDERING: a build feature whose prove
       // feature has no test written yet is not eligible, because the maker would write that test.
       // A prompt saying "don't rewrite the test" cannot hold when there is no test to not rewrite.
-      const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim())
+      const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim() && status(p) !== "blocked")
         .flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) =>
         !/^NEEDS (DESIGN|RE-PLAN):/.test(notes(x)) && status(x) !== "blocked" &&

@@ -192,7 +192,7 @@
       "dependencies": ["feat-workspace-pool", "feat-project-router"],
       "status": "not-started",
       "readyForCheck": false,
-      "evidence": "",
+      "evidence": "RED 2026-08-20: `npm run test:integration -- test/integration/pool-lifecycle.integration.spec.ts` — 0 passed, 3 failed. TCON-POOL-0001/0002/0003 each failed with an ERR_ASSERTION from the executable oracle: workspace-pool behavior required by INV-POOL-2/4 is absent because src/workspace/workspace-pool.ts does not exist. This is the expected pre-implementation red; Node loaded and ran the test file without a compile or fixture error.",
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3
@@ -212,10 +212,10 @@
       "falsifier": "a request in flight when the child process dies hangs past its deadline instead of settling as an error, or resolves with a partial/stale answer [INV-POOL-3]",
       "conditions": ["TCON-POOL-0004", "TCON-POOL-0005", "TCON-POOL-0006"],
       "dependencies": ["feat-lsp-client", "feat-workspace-pool"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED (orchestrator, 2026-08-20): test-implementer dispatched ~19 times, same diagnosis every time — this oracle needs a real child process with an in-flight LSP request, a per-call deadline, and kill-signal handling, none of which exist yet (feat-lsp-client and feat-workspace-pool are both not-started). Unlike the 3 prove-features already oracled (provisioner/routing/pool-lifecycle), this behavior cannot be stubbed without fabricating the production interface. test-implementer has no attempts counter, so nothing else would have unstuck router rule 12 (oracle-before-implementation with no dependency-readiness check — reported as a harness defect, not worked around at the router level). Reroute here once feat-lsp-client and feat-workspace-pool are both done.",
       "attempts": 0,
       "maxAttempts": 3
     },

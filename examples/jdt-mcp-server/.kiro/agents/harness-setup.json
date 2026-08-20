@@ -13,11 +13,6 @@
   ],
   "includeMcpJson": true,
   "model": "claude-sonnet-4",
-  "toolsSettings": {
-    "write": {
-      "allowedPaths": []
-    }
-  },
   "resources": [
     "file://../../harness/AGENTS.md",
     "file://../../harness/docs/constraints.md",

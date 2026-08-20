@@ -142,6 +142,15 @@ interactively once, do that and set `HARNESS_CODEX_HOOK_TRUSTED=1`.
 > and says so in one line; `HARNESS_CODEX_SANDBOX=danger-full-access` is the lever, named after what
 > it actually does.
 
+> **The sandbox blocks the real `.git` when the project is nested in a larger repo.** `workspace-write`'s
+> writable roots are `[workdir, /tmp, $TMPDIR]`. When a project is a subdirectory of a bigger git
+> checkout — as `examples/jdt-mcp-server` is inside this monorepo — the actual `.git/index.lock` lives
+> two levels above `workdir`, outside every writable root. Every commit fails with `EPERM`, the same
+> way on every role, and it looks like a permissions bug in the agent rather than the sandbox: found
+> after 13 consecutive iterations here each produced correct work and then failed only at `git commit`.
+> `HARNESS_CODEX_SANDBOX=danger-full-access` is the same lever as the socket trap above — set it for
+> any project whose git root is an ancestor of `workdir` rather than `workdir` itself.
+
 > **The `$comment` trap, shipped and caught by running it.** `.codex/hooks.json` accepts exactly two
 > keys: `description` and `hooks`. A `$comment` key — harmless in every other config this harness
 > writes — makes Codex reject **the whole file**, print one warning line to stderr, and run with no

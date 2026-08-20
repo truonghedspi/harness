@@ -33,6 +33,21 @@ not quietly keep a test that could never have failed.
 
 There is no refactor phase. Get it right in the green step.
 
+## When the oracle needs an interface that doesn't exist yet
+
+A `prove` feature's falsifier sometimes needs real behavior from a dependency that is still
+`not-started` — a live child process, an in-flight request, a running watcher. If writing a
+behaviorally-red test would require you to invent that dependency's production interface (its
+function signatures, its process-management contract) rather than call one already specified in
+`harness/docs/design/`, you have hit a real ordering problem, not a task to push through.
+
+Do not fabricate the interface, and do not keep retrying the same feature hoping a different
+answer emerges. Set `"status": "blocked"` on the feature, write the concrete reason into
+`checkerNotes` (what interface is missing, which not-started dependency owns it), and stop — the
+router will pick the next open feature. This mirrors the maker's timebox rule, except the trigger
+is "no interface to implement from" rather than an exhausted attempt budget: you have no
+`attempts` counter, so nothing else moves the router past a feature you cannot oracle yet.
+
 ## Traceability is mandatory
 
 Every test file opens with a comment block naming the `condition_id` and `requirement_id` it
