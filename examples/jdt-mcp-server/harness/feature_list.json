@@ -364,10 +364,10 @@
       "falsifier": "two of N parallel launches each get their own daemon pid [INV-SHIM-2]; or stdout during a session with daemon errors contains a line that fails to parse as one MCP message [INV-SHIM-1]; or the process table after shutdown still holds a JDT LS child [INV-SHIM-4]",
       "conditions": ["TCON-SHIM-0001", "TCON-SHIM-0002", "TCON-SHIM-0003"],
       "dependencies": ["feat-daemon-supervisor", "feat-mcp-shim"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: daemon lifecycle oracle requires callable interfaces owned by the not-started feat-daemon-supervisor and feat-mcp-shim dependencies.\n\nThe design exposes only observable outcomes: jdt-mcp daemon status JSON, socket existence, shim stdin/stdout bytes, and process-table state. It does not specify the executable/CLI entry point, lifecycle commands, daemon-pid response, test fixture for spawning multiple live workspaces, or shutdown contract needed to exercise TCON-SHIM-0001 through TCON-SHIM-0003. Writing the integration test now would invent production interfaces or fail only because modules/commands are missing, which is not behavioral red evidence. Implement and specify feat-daemon-supervisor and feat-mcp-shim first, then route this proof feature back to test-implementer.",
       "attempts": 0,
       "maxAttempts": 3
     },
