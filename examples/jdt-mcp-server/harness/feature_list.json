@@ -576,10 +576,10 @@
       },
       "falsifier": "a completion result whose real count exceeds the cap comes back without truncated:true, or with fewer items and no total, or with every item uncapped [INV-TOOL-3]",
       "dependencies": ["feat-tool-completion"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: completion oracle requires the callable interface owned by the not-started feat-tool-completion dependency.\n\nThe feature requires a real java_completion round trip against a fixture whose true item count exceeds the configured cap. docs/design/tool-surface.md specifies path/line/column arguments and the truncated:true plus true-total invariant, but it does not define an executable/CLI entry point, TypeScript signature, concrete completion item/result shape, or a way for the test to discover the configured cap. feat-tool-completion is not-started, so writing the integration test now would invent its production interface or fail only on a missing module rather than the required behavior. Implement and specify feat-tool-completion first, then route this proof feature back to test-implementer.",
       "attempts": 0,
       "maxAttempts": 3
     },
