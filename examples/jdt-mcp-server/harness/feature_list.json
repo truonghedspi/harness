@@ -706,10 +706,10 @@
       },
       "falsifier": "the end-to-end pipeline answers a post-edit tool call from the pre-edit model, or answers a call against the wrong workspace's real JDT LS instance [INV-SYNC-1][INV-ROUTE-1]",
       "dependencies": ["feat-mcp-shim", "feat-tool-definition"],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "BLOCKED: cross-process oracle requires callable interfaces owned by two not-started dependencies.\n\nThe falsifier requires launching the real npx shim, sending a java_definition call through the daemon to JDT LS, editing fixtures in two Maven workspaces, and distinguishing a post-edit answer from an explicit resyncing error. No validated condition shard exists for this feature under harness/tests/design, and docs/design/runtime-model.md plus docs/design/tool-surface.md specify the observable invariants but not the executable shim invocation/transport lifecycle, concrete java_definition result and structured-error shapes, or fixture contract needed to assert them. feat-mcp-shim and feat-tool-definition are both not-started, so a test written now would invent production interfaces or fail only because commands/modules are missing rather than for the falsifier's behavior. Implement and specify those dependencies, then have test-designer create validated conditions before routing this proof feature back to test-implementer.",
       "attempts": 0,
       "maxAttempts": 4
     }
