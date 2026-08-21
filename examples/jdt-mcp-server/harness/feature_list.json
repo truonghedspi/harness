@@ -191,8 +191,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "done",
-      "readyForCheck": false,
+      "status": "in-progress",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -217,10 +217,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
           "result": "5/5 passed: reactor collapse, distinct workspace identities, fixed and generated interleaving, and named unmanaged-path error"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+          "result": "post-approval replay after design approval 3d68e0857fbfac45 (Option R): 5/5 passed unchanged (TCON-ROUTE-0001..0005), no source edit made; src/workspace/project-router.ts already picks the outermost <modules>-bearing ancestor pom.xml (reactor root) and falls back to the nearest ancestor pom.xml, matching the corrected INV-ROUTE-1 exactly"
         }
       ],
-      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): implemented fresh per-call realpath routing, outer reactor collapse, SHA-256 workspace identities, and explicit named errors; the independent five-condition integration oracle passes. Context packet was stale, so implementation used its cited runtime-model, assumptions, evidence, and current oracle sources; planner should refresh the packet before a future maker reuse.\n[mechanically promoted by verify-harness --promote on 2026-08-21: verification re-run, exited 0]",
-      "attempts": 1,
+      "checkerNotes": "RESOLVED: design approval 3d68e0857fbfac45 corrected `INV-ROUTE-1` to match this feature's already-implemented reactor-root behavior; no code change needed.\n\nDesign approval digest 3d68e0857fbfac45 (approved 2026-08-21) accepted Option R and corrected `INV-ROUTE-1` and A-006 (harness/docs/design/runtime-model.md#INV-ROUTE-1) to state the outer-reactor-root exception explicitly. This feature's behavior sentence already matched that reading, so the contradiction was in the invariant wording, not here. Per the approval's decision #3, the existing implementation and 5-condition oracle (TCON-ROUTE-0001..0005) already satisfy the corrected contract — no re-implementation needed. Maker replayed verification post-approval (2026-08-21): 5/5 green, no code change. Ready for checker replay/close.",
+      "attempts": 2,
       "maxAttempts": 3
     },
     {
@@ -247,7 +253,7 @@
         "feat-project-router"
       ],
       "status": "in-progress",
-      "readyForCheck": true,
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-20",
@@ -268,7 +274,7 @@
           "result": "Maker attempt 1 replay passed 5/5 before any edit, including reactor collapse, distinct stable per-call workspace ids, generated interleavings, and the TCON-ROUTE-0005 explicit error naming the unmanaged path; the independent oracle and implementation already exist, so neither was changed."
         }
       ],
-      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): verification passed before implementation on attempt 1, so the proof behavior already exists and no test or source change was made. The committed independent oracle exercises TCON-ROUTE-0001..0005; its test-authoring evidence records targeted reactor-climb and sticky-workspace mutants caught by assertions.",
+      "checkerNotes": "RESOLVED: design approval 3d68e0857fbfac45 corrected `INV-ROUTE-1` to match this feature's already-passing reactor-root oracle; no oracle change needed.\n\nDesign approval digest 3d68e0857fbfac45 (approved 2026-08-21) accepted Option R and corrected `INV-ROUTE-1` and A-006 (harness/docs/design/runtime-model.md#INV-ROUTE-1) to state the outer-reactor-root exception explicitly, aligning them with this feature's own behavior sentence and with TCON-ROUTE-0001's outer-reactor-root assertion. Per the approval's decision #3, the existing 5-condition suite (TCON-ROUTE-0001..0005) already proves the corrected contract — no oracle change needed. Ready for checker replay.",
       "attempts": 1,
       "maxAttempts": 3
     },
