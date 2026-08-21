@@ -287,3 +287,9 @@
 {"ts":"2026-08-21T04:18:48.633Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":31599}
 {"ts":"2026-08-21T04:19:07.536Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":32630}
 {"ts":"2026-08-21T04:19:17.244Z","actor":"maker","event":"feature-picked","feature":"feat-lsp-client","detail":"highest-priority eligible feature; baseline green and dependencies done","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":32969}
+{"ts":"2026-08-21T04:20:10.265Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":33799}
+{"ts":"2026-08-21T04:20:35.088Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":34590}
+{"ts":"2026-08-21T04:20:37.830Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":34855}
+{"ts":"2026-08-21T04:20:57.374Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":35848}
+{"ts":"2026-08-21T04:21:07.318Z","actor":"maker","event":"feature-picked","feature":"feat-lsp-client","detail":"highest-priority eligible feature; baseline green","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":36182}
+{"ts":"2026-08-21T04:21:22.126Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":36307}

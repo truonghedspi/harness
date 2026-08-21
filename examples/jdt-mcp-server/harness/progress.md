@@ -7,7 +7,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 - **Last updated:** 2026-08-21
 - **Active feature:** none — feat-lsp-client requires its independent oracle before a maker attempt
-- **Latest commit:** pending — stop maker before non-assertion red and route lsp-client to oracle authoring
+- **Latest commit:** pending — iteration 9 reconfirmed lsp-client still requires oracle authoring
 - **Baseline (`./harness/init.sh`):** green — fixture cached and all six maintained baseline integration cases passed
 
 ## Done
@@ -23,6 +23,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   - The repaired verification command now runs, but fails on the absent production import before assertions, while the independent oracle still explicitly excludes promised TCON-ROUTE-0005 / `INV-ROUTE-2`. Maker stopped without implementation or test edits.
 - [ ] feat-lsp-client — needs oracle dispatch before attempt 1/4
   - Its refreshed context packet is current, but its declared `test/lsp/lsp-client.spec.ts` oracle does not exist and `npm test` is not wired. The maker stopped without consuming an attempt so the required red can be assertion-based and independently authored.
+  - Iteration 9 re-ran the green baseline and reconfirmed the missing oracle; production, tests, feature state, and the attempt counter remain untouched.
 
 ## Next
 
