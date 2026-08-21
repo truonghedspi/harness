@@ -557,6 +557,16 @@ function promoteFeatures() {
     // narrowed to what's provable and a requirement gap remains) — mechanical promotion must
     // never override that judgment just because the narrowed command still exits 0.
     if (status === "done" || status === "blocked") continue;
+    // A checker REJECT deliberately leaves status "in-progress" (loop/checker-prompt.md: "set
+    // status: in-progress" so the router still treats it as open for a fresh maker attempt) — but
+    // that means promotion here cannot tell a genuine reject apart from an untouched in-progress
+    // feature by status alone. The verdict IS the checkerNotes marker (first line), the same
+    // contract route.mjs's own marker()/notes() helpers already read. Found live: feat-lsp-client
+    // was REJECTed for lacking a required cross-process oracle, then silently promoted to `done`
+    // on the next --promote because its (insufficient) unit test still exited 0 — the checker's
+    // judgment had zero mechanical effect.
+    const marker = String(f.checkerNotes || "").trim().split("\n")[0].trim();
+    if (/^REJECT\b/.test(marker)) continue;
     const note = `[mechanically promoted by verify-harness --promote on ${now}: verification re-run, exited 0]`;
     f.status = "done";
     f.readyForCheck = false;
