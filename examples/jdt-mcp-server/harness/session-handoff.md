@@ -8,3 +8,9 @@
 - The declared verification is `npm test -- test/lsp/lsp-client.spec.ts`, but that test file does not exist and `npm test` is not wired.
 - No verification was run because it could only fail before an assertion, which is explicitly non-qualifying red evidence.
 - No source, test, attempt, feature status, or readiness field was changed. Dispatch the test-designer/test-implementer to author the oracle, then route back to maker.
+
+## 2026-08-21T07:15:59.712Z — approval timed out
+No response within 30m on 11 item(s) owing judgement. Auto-reject; nothing was promoted. See loop/approval-request.md.
+
+## 2026-08-21T07:57:31.345Z — approval timed out
+No response within 30m on 13 item(s) owing judgement. Auto-reject; nothing was promoted. See loop/approval-request.md.

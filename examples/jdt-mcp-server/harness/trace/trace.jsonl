@@ -346,3 +346,5 @@
 {"ts":"2026-08-21T07:23:46.538Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":28761}
 {"ts":"2026-08-21T07:26:51.815Z","actor":"maker","event":"verify-ran","feature":"feat-prove-provisioner","detail":"npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts: 13/13 passed in 504.1 s before implementation; no code or test edit needed","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":31122}
 {"ts":"2026-08-21T07:26:51.882Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":31126}
+{"ts":"2026-08-21T08:13:16.475Z","actor":"verify","event":"verify-red","feature":"blockers=1 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":42213}
+{"ts":"2026-08-21T08:53:46.524Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":44947}
