@@ -13,7 +13,7 @@
       "id": "feat-001",
       "name": "Baseline green",
       "behavior": "Project installs Node dependencies, provisions a pinned JDT LS distribution fixture for the test suite, and runs the baseline gate to green from a clean checkout",
-      "verification": "node harness/init.mjs",
+      "verification": "npm run test:integration -- test/integration/baseline-fixture.integration.spec.ts",
       "context": {
         "touches": [
           "package.json",
@@ -23,18 +23,24 @@
       },
       "falsifier": "a gate that exits 0 without actually installing deps or fetching the JDT LS test fixture — or one that runs a failing step and swallows it, which the bash version did — the baseline must be able to go red on either failure",
       "dependencies": [],
-      "status": "not-started",
+      "status": "in-progress",
       "readyForCheck": true,
       "evidence": [
         {
-          "date": "2026-08-20",
+          "date": "2026-08-21",
+          "run": "red",
+          "cmd": "npm run test:integration -- test/integration/baseline-fixture.integration.spec.ts",
+          "result": "1 assertion failure: fixture provisioning exited 1 because tools/fetch-jdtls-fixture.mjs was absent"
+        },
+        {
+          "date": "2026-08-21",
           "run": "green",
-          "cmd": "node harness/init.mjs",
-          "result": "exited 0 before implementation although tools/fetch-jdtls-fixture.mjs is absent"
+          "cmd": "npm run test:integration -- test/integration/baseline-fixture.integration.spec.ts",
+          "result": "2 tests passed: pinned archive installs and an absent fixture source fails explicitly"
         }
       ],
-      "checkerNotes": "Verification passed before implementation while the scoped JDT LS fixture fetcher is absent; this is a false-green oracle, so no redundant implementation was added and no red evidence was manufactured.",
-      "attempts": 1,
+      "checkerNotes": "Maker evidence: maintained integration oracle went red before the fetcher existed, then green after the pinned, checksum-verified fixture step was wired into `harness/init.mjs`; `./harness/init.sh` also fetched the real archive and passed.",
+      "attempts": 2,
       "maxAttempts": 3
     },
     {

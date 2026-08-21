@@ -74,7 +74,15 @@ if (has("package.json")) {
     : "npm";
   run(`${PM} install`, { label: `Installing dependencies with ${PM}` });
   let scripts = {};
-  try { scripts = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).scripts || {}; } catch { /* none */ }
+  try { scripts = JSON.parse(readFileSync(path.join(PROJECT_ROOT, "package.json"), "utf8")).scripts || {}; } catch { /* none */ }
+  if (has("tools/fetch-jdtls-fixture.mjs")) {
+    run(`${process.execPath} tools/fetch-jdtls-fixture.mjs`, { label: "Pinned JDT LS fixture" });
+  } else {
+    die("init: tools/fetch-jdtls-fixture.mjs is required but missing.");
+  }
+  if (scripts["test:baseline"]) {
+    run(`${PM} run test:baseline`, { label: "baseline test" });
+  }
   for (const name of ["check", "typecheck", "lint", "build", "test"]) {
     if (!scripts[name]) continue;                       // absent: skip. Present: its exit code counts.
     const cmd = name === "test" && PM === "npm" ? "npm test"
