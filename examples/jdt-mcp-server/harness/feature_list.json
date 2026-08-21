@@ -156,10 +156,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
           "result": "Maker attempt 1 replay passed 13/13 before any edit in 563.5 s, including TCON-PROV-0008 clean-cache checksum/download/extract/install; behavior and independent oracle already exist, so neither was changed."
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "Maker attempt 2 replay passed 13/13 before any edit in 504.1 s, including TCON-PROV-0008 clean-cache checksum/download/extract/install; behavior and independent oracle already exist, so neither was changed."
         }
       ],
-      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): exact verification passed before implementation on attempt 1, so the proved behavior already exists and no redundant production or test change was made. The evidence list retains the original red oracle run and records this 13/13 replay.",
-      "attempts": 1,
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): exact verification passed before implementation on attempt 2, so the proved behavior already exists and no redundant production or test change was made. The evidence list retains the original red oracle run and records both 13/13 maker replays.",
+      "attempts": 2,
       "maxAttempts": 3
     },
     {
