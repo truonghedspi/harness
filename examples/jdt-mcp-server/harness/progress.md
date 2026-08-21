@@ -7,7 +7,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 - **Last updated:** 2026-08-21
 - **Active feature:** feat-prove-provisioner — ready for independent checker review
-- **Latest commit:** pending — maker replayed the complete provisioner proof on attempt 2; all 13 cases passed before any edit
+- **Latest commit:** pending — maker replayed the complete provisioner proof on attempt 3; all 13 cases passed before any edit
 - **Baseline (`./harness/init.sh`):** green at iteration start — six baseline integration cases and four lsp-client unit cases passed
 
 ## Done
@@ -17,8 +17,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- [ ] feat-prove-provisioner — ready for checker after attempt 2/3
-  - The maintained independent oracle passed all 13 cases before any edit again (504.1 s), including the real clean-cache checksum/download/extract/install path. The original red evidence remains recorded; no redundant implementation or test change was made.
+- [ ] feat-prove-provisioner — ready for checker after attempt 3/3
+  - The maintained independent oracle passed all 13 cases before any edit again (525.7 s), including the 515.9 s real clean-cache checksum/download/extract/install path. The original red evidence remains recorded; no redundant implementation or test change was made.
 - [ ] feat-jdtls-provisioner — ready for checker after attempt 2/3
   - The unchanged implementation passed all 13 independent integration cases before implementation again (479.5 s), including clean-cache checksum verification, download, extraction, and pinned installation; no redundant source change was made.
 - [ ] feat-project-router — needs re-planning after attempt 2/3
@@ -38,4 +38,4 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-The prove-provisioner feature is ready for checker after its second 13-case maker replay. The lsp-client still needs a cross-process oracle; project-router's oracle gap is closed and awaits implementation.
+The prove-provisioner feature is ready for checker after its third 13-case maker replay. The lsp-client still needs a cross-process oracle; project-router's oracle gap is closed and awaits implementation.
