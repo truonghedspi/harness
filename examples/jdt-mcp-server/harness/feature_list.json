@@ -150,9 +150,16 @@
       ],
       "status": "not-started",
       "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "",
-      "attempts": 0,
+      "evidence": [
+        {
+          "date": "2026-08-21",
+          "run": "red",
+          "cmd": "npm test -- test/workspace/project-router.spec.ts",
+          "result": "non-qualifying harness failure: npm has no test script, so verification did not reach an assertion; the named test file is also absent"
+        }
+      ],
+      "checkerNotes": "NEEDS RE-PLAN: refresh the stale context packet and provide a runnable build verification that asserts INV-ROUTE-2. The declared command fails because package.json has no npm test script and test/workspace/project-router.spec.ts does not exist; the independent integration oracle intentionally omits the unmanaged-path error case, so substituting it would leave this feature's own falsifier untested.",
+      "attempts": 1,
       "maxAttempts": 3
     },
     {
