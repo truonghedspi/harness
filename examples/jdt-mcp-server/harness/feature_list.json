@@ -157,10 +157,16 @@
           "run": "red",
           "cmd": "npm test -- test/workspace/project-router.spec.ts",
           "result": "non-qualifying harness failure: npm has no test script, so verification did not reach an assertion; the named test file is also absent"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "red",
+          "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+          "result": "non-qualifying harness failure: ERR_MODULE_NOT_FOUND for src/workspace/project-router.ts before any assertion; TCON-ROUTE-0005 is still absent from the independent oracle"
         }
       ],
-      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: the build now reuses the maintained project-router integration oracle, and feat-prove-routing is widened with TCON-ROUTE-0005 to cover the previously omitted unmanaged-path error branch [INV-ROUTE-2]. The prior non-qualifying red evidence and attempt count remain preserved; the oracle layer must author and implement TCON-ROUTE-0005 before this build can be judged. Decision recorded in harness/DECISIONS.md.",
-      "attempts": 1,
+      "checkerNotes": "NEEDS RE-PLAN: the resolved plan says TCON-ROUTE-0005 owns INV-ROUTE-2, but the maintained oracle still explicitly excludes that condition; route the oracle layer to author it before maker implementation. Attempt 2 reproduced only ERR_MODULE_NOT_FOUND before assertions, which is not qualifying red evidence. The maker did not rewrite the independent test or implement against an incomplete oracle.",
+      "attempts": 2,
       "maxAttempts": 3
     },
     {
