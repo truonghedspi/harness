@@ -6,8 +6,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-21
-- **Active feature:** feat-jdtls-provisioner — implementation is ready for independent check
-- **Latest commit:** pending — implement pinned JDT LS provisioner
+- **Active feature:** none — feat-jdtls-provisioner is blocked after exhausting 3/3 maker attempts
+- **Latest commit:** pending — block provisioner pending an independent success-path oracle
 - **Baseline (`./harness/init.sh`):** green — fixture cached and all six maintained baseline integration cases passed
 
 ## Done
@@ -17,13 +17,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- [ ] feat-jdtls-provisioner — ready for checker replay
-  - The 12-case integration oracle passes for JVM 21+, exact pin resolution, fail-closed `JDTLS_HOME`, and bounded download failure; maker did not set `done`.
+- [ ] feat-jdtls-provisioner — blocked at its 3/3 attempt budget
+  - The unchanged 12-case integration oracle passed before implementation work, while still omitting successful empty-cache download, checksum verification, extraction, and pinned installation. Maker-owned source already implements that path, and the maker must not rewrite the test-implementer's oracle.
 
 ## Next
 
-1. Checker independently replays and falsifies feat-jdtls-provisioner.
-2. Router selects the next eligible foundation feature after the verdict.
+1. Route TP-PROV-0001 / `feat-prove-provisioner` to the oracle layer for a successful first-run download-and-install condition and executable test.
+2. After that oracle is red against a broken success path, re-plan or reset the maker attempt budget through the owning role before returning `feat-jdtls-provisioner`.
 
 ## Known Issues / Risks
 

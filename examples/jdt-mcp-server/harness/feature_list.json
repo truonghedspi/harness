@@ -65,8 +65,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "in-progress",
-      "readyForCheck": true,
+      "status": "blocked",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -79,10 +79,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
           "result": "12 tests passed across JVM boundary, pin/cache handling, JDTLS_HOME fail-closed behavior, and bounded network failure"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "12 tests passed before implementation; no successful empty-cache download/install assertion exists to make red"
         }
       ],
-      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: the build now runs the existing behavioral integration oracle owned by feat-prove-provisioner; the nonexistent unit-test command was removed without resetting attempts, evidence, or dependency state. Decision recorded in harness/DECISIONS.md.",
-      "attempts": 2,
+      "checkerNotes": "BLOCKED: all 3 maker attempts are exhausted. The scoped implementation already contains the successful empty-cache fetch, SHA-256 verification, extraction, pinned-launcher validation, and install path, while the unchanged independent oracle passes all 12 cases before implementation and still has no successful-download assertion that can fail. The maker cannot rewrite the test-implementer's oracle; route TP-PROV-0001 / feat-prove-provisioner to the oracle layer to add the missing success-path condition before another implementation attempt.\nThe existing oracle still covers JVM boundaries, cache identity, JDTLS_HOME fail-closed behavior, and bounded download failure; its evidence is retained.\nRE-PLAN RESOLVED 2026-08-21: the build now runs the existing behavioral integration oracle owned by feat-prove-provisioner; the nonexistent unit-test command was removed without resetting attempts, evidence, or dependency state. Decision recorded in harness/DECISIONS.md.",
+      "attempts": 3,
       "maxAttempts": 3
     },
     {

@@ -8,4 +8,5 @@ or a class of feature keeps needing the same scrutiny. Don't write one for a rou
 — that's the job working as intended, not a lesson.
 
 <!-- - [Title](slug.md) — one-line hook -->
+- [Provisioner success path](provisioner-success-path.md) — Failure-path coverage can leave first-run installation untested.
 - [Baseline gate oracle seam](baseline-gate-oracle-seam.md) — Helper-only tests do not prove that the startup gate calls the helper or propagates its failures.
