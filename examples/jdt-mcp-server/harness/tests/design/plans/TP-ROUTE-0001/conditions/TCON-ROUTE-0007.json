@@ -1,0 +1,10 @@
+{
+  "id": "TCON-ROUTE-0007",
+  "plan_id": "TP-ROUTE-0001",
+  "requirement_id": "INV-ROUTE-1",
+  "behavior": "Given the fixture's outer reactor A (root pom.xml declaring <modules>) with one of A's module directories itself containing a second reactor B (own pom.xml, also declaring <modules>, with its own child module), resolving any path inside B's scope -- B's own pom.xml directory, B's child module directory, or a source file nested in B's child module -- always returns A's root directory as the workspace root, never B's -- discriminating the outermost enclosing reactor from the innermost one.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Whether the upward search for the enclosing reactor stops at the innermost <modules> ancestor or continues to the outermost one is exactly the branch INV-ROUTE-1's 'outermost' clause turns on; absent from TCON-ROUTE-0001..0006 since none nest a reactor inside another reactor, this row falsifies an implementation selecting the innermost enclosing reactor (or halting at the first reactor pom found), which TCON-ROUTE-0001's single-reactor ancestor chain cannot distinguish."
+}

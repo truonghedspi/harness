@@ -8,6 +8,23 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-21 — Nhánh "outermost" của reactor lồng reactor bổ sung vào `feat-prove-routing` sẵn có
+
+- **Quyết định:** thêm `TCON-ROUTE-0007` (traces to `INV-ROUTE-1`, kỹ thuật decision_table) vào `feat-prove-routing`; đưa trạng thái về `in-progress`, giữ nguyên evidence và attempts/maxAttempts hiện có; không tạo tính năng mới.
+- **Nguyên nhân:** verdict APPROVE của chính tính năng này nêu FOLLOW-UP.
+  - Mutant M3 (thay `findLast(isReactor)` bằng `find(isReactor)`, tức chọn reactor lồng bên trong thay vì reactor ngoài cùng) vẫn xanh cả 6 điều kiện.
+  - Nguyên nhân gốc: cây fixture chưa từng có reactor B (`<modules>`) lồng trong reactor A (cũng `<modules>`).
+  - `INV-ROUTE-1` (`docs/design/runtime-model.md:40`) và `A-006` (`docs/assumptions.md:29`) đều nói rõ "outermost", nên từ này chưa có điều kiện nào phân biệt.
+- **Phương án bị từ chối:** tạo một tính năng riêng cho gap này.
+  - Bị từ chối vì cùng lý do đã áp dụng hai lần trước (`TCON-ROUTE-0005`, `TCON-ROUTE-0006`).
+  - Gap dùng chung đúng một seam (`resolveWorkspace(path)`), một tệp oracle (`test/integration/project-router.integration.spec.ts`), cùng invariant `INV-ROUTE-1`; tách ra sẽ nhân đôi cùng một component và fixture.
+- **Ràng buộc được thoả mãn:** mọi claim quan trọng của `INV-ROUTE-1` (kể cả từ "outermost") nay có một điều kiện phân biệt độc lập, không chỉ suy luận gián tiếp.
+- **Ảnh hưởng:** `feat-prove-routing` — behavior, falsifier, conditions, context.note, checkerNotes, status `done` → `in-progress`.
+  - `feat-project-router` không bị đụng: vẫn `done`, vẫn giữ nguyên evidence.
+  - Việc còn lại: lớp oracle (test-designer/test-implementer) viết và triển khai `TCON-ROUTE-0007` — fixture reactor A (`<modules>`) chứa reactor B (`<modules>` riêng) lồng trong một thư mục module của A; đường dẫn dưới B phải phân giải về A.
+
+---
+
 ## 2026-08-21 — Trường hợp fallback không-reactor được bổ sung vào `feat-prove-routing` sẵn có
 
 - **Quyết định:** thêm điều kiện `TCON-ROUTE-0006` (traces to `INV-ROUTE-1`) vào `feat-prove-routing`

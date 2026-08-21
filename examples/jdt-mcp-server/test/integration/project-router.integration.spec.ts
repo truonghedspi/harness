@@ -20,6 +20,10 @@
 //                                    <modules>) resolves to the child's own directory, never the
 //                                    non-reactor ancestor's -- discriminating the nearest-ancestor
 //                                    fallback from always taking the outermost ancestor pom.xml
+//     TCON-ROUTE-0007  INV-ROUTE-1   a path inside a reactor B nested inside another reactor A
+//                                    (both declaring <modules>) always resolves to A's root, never
+//                                    B's -- discriminating the outermost enclosing reactor from the
+//                                    innermost one
 //
 // Spec refs: docs/design/runtime-model.md#INV-ROUTE-1, #INV-ROUTE-2, #INV-ROUTE-3; docs/design/evidence.md
 // (spike B, issue 1303); docs/design/architecture.md (component table: `resolveWorkspace(path)
@@ -419,4 +423,64 @@ test("TCON-ROUTE-0006: a path inside an independently rooted child project neste
     ancestorResult.workspaceId,
     `the child project and the non-reactor ancestor are two distinct project roots and must never share a workspace id`,
   );
+});
+
+// ---------------------------------------------------------------------------------------------
+// TCON-ROUTE-0007 -- INV-ROUTE-1: outermost enclosing reactor vs. a reactor nested inside it
+// ---------------------------------------------------------------------------------------------
+
+test("TCON-ROUTE-0007: a path inside a reactor nested inside another reactor always resolves to the outermost reactor's root, never the inner nested reactor's", (t) => {
+  const root = makeTempRoot("route-0007-");
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  // Reactor A: the outer reactor, declares <modules> at the fixture root.
+  const outerReactorRoot = path.join(root, "outer-reactor");
+  writePomXml(outerReactorRoot, { artifactId: "outer-reactor", modules: ["inner-reactor"] });
+
+  // Reactor B: nested inside one of A's own module directories, and independently declares its
+  // own <modules> -- it is a reactor in its own right, not just a plain module of A.
+  const innerReactorRoot = path.join(outerReactorRoot, "inner-reactor");
+  writePomXml(innerReactorRoot, { artifactId: "inner-reactor", modules: ["inner-module"], hasParent: true });
+
+  // B's own child module, declared by B (not by A).
+  const innerModuleRoot = path.join(innerReactorRoot, "inner-module");
+  writePomXml(innerModuleRoot, { artifactId: "inner-module", hasParent: true });
+  const innerModuleSourceFile = writeSourceFile(innerModuleRoot, "src/main/java/com/example/Inner.java");
+
+  const rows: ReadonlyArray<{ label: string; callPath: string }> = [
+    { label: "reactor B's own pom.xml directory", callPath: innerReactorRoot },
+    { label: "reactor B's child module directory", callPath: innerModuleRoot },
+    { label: "a source file nested inside reactor B's child module", callPath: innerModuleSourceFile },
+  ];
+
+  const outerResult = expectResolved(outerReactorRoot);
+  assert.equal(
+    outerResult.projectRoot,
+    outerReactorRoot,
+    `the outer reactor must resolve to its own directory when called directly`,
+  );
+
+  for (const { label, callPath } of rows) {
+    const result = expectResolved(callPath);
+    assert.equal(
+      result.projectRoot,
+      outerReactorRoot,
+      `${label}: projectRoot must be the outermost enclosing reactor's root (${outerReactorRoot}), ` +
+        `never the inner nested reactor's directory (${innerReactorRoot}) -- INV-ROUTE-1 requires ` +
+        `the outermost enclosing ancestor pom.xml that declares <modules>; got ${result.projectRoot}`,
+    );
+    assert.notEqual(
+      result.projectRoot,
+      innerReactorRoot,
+      `${label}: projectRoot must never be the inner nested reactor's own directory ` +
+        `(${innerReactorRoot}) -- that would mean the search for the enclosing reactor stopped at ` +
+        `the innermost <modules> ancestor instead of continuing to the outermost one`,
+    );
+    assert.equal(
+      result.workspaceId,
+      outerResult.workspaceId,
+      `${label}: workspace id (${result.workspaceId}) must equal the outer reactor's id ` +
+        `(${outerResult.workspaceId}) -- both are inside the same outermost reactor`,
+    );
+  }
 });
