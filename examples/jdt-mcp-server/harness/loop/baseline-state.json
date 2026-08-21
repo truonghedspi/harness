@@ -1,8 +1,8 @@
 {
   "schema": "baseline-state/1",
   "status": "green",
-  "evidenceDigest": "92d156ef6962541a",
+  "evidenceDigest": "ec1f60b4d1bcec34",
   "exitCode": 0,
-  "checkedAt": "2026-08-21T04:10:21.012Z",
-  "tail": "  duration_ms: 306.927292\n  ...\n# Subtest: feat-001: a failed test step makes the standard baseline gate red\nok 6 - feat-001: a failed test step makes the standard baseline gate red\n  ---\n  duration_ms: 447.832667\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1661.734833\n=== Baseline green ===\n\nNext: read harness/feature_list.json, pick ONE eligible feature, advance it, re-verify before 'done'.\n"
+  "checkedAt": "2026-08-21T04:18:51.884Z",
+  "tail": "  duration_ms: 331.360625\n  ...\n# Subtest: feat-001: a failed test step makes the standard baseline gate red\nok 6 - feat-001: a failed test step makes the standard baseline gate red\n  ---\n  duration_ms: 438.479292\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1654.841709\n=== Baseline green ===\n\nNext: read harness/feature_list.json, pick ONE eligible feature, advance it, re-verify before 'done'.\n"
 }
