@@ -223,10 +223,23 @@
         "feat-001"
       ],
       "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "ORCHESTRATOR NOTE 2026-08-21: feature-planner's re-plan asked to route this build feature's oracle to test-designer/test-implementer first, but the router has no rule that sends a `build`-kind feature to the oracle layer (that path only exists for `prove`-kind — the same gap found and reported on feat-prove-provisioner/feat-prove-routing, now surfacing for a build feature instead). 3 consecutive maker dispatches (iter 7-9) correctly refused to implement rather than manufacture non-behavioral red, but the instruction pointed nowhere reachable. Matching the successful precedent on feat-jdtls-provisioner and feat-project-router (maker authors both the unit oracle and the implementation for `build`-kind features, red-then-green, own attempt budget): maker is authorized to write test/lsp/lsp-client.spec.ts itself for this feature. Context packet (loop/context-packets/feat-lsp-client.json) remains current from the re-plan.",
-      "attempts": 0,
+      "readyForCheck": true,
+      "evidence": [
+        {
+          "date": "2026-08-21",
+          "run": "red",
+          "cmd": "npm test -- test/lsp/lsp-client.spec.ts",
+          "result": "2 behavioral failures from the unimplemented request path and 2 dependent protocol cases cancelled; 0 tests passed"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm test -- test/lsp/lsp-client.spec.ts",
+          "result": "4 tests passed: framing/correlation, split-frame parsing, server-initiated request handling, and exit-wide pending rejection"
+        }
+      ],
+      "checkerNotes": "READY FOR CHECK: maker-owned oracle was explicitly authorized by the 2026-08-21 orchestrator note. Implementation covers Content-Length framing, buffered split-frame parsing, out-of-order id correlation, server-initiated request replies, LSP error propagation, and immediate rejection of every pending request on process exit.",
+      "attempts": 1,
       "maxAttempts": 4
     },
     {
