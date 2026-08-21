@@ -6,9 +6,9 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-21
-- **Active feature:** feat-lsp-client — checker rejected its unit-only proof; a cross-process oracle is required
-- **Latest commit:** pending — iteration 10 implemented the lsp-client and recorded red/green evidence
-- **Baseline (`./harness/init.sh`):** green — baseline fixture and the four lsp-client unit cases passed
+- **Active feature:** feat-jdtls-provisioner — ready for independent checker review
+- **Latest commit:** pending — maker replayed the completed 13-case provisioner oracle; implementation already satisfied it
+- **Baseline (`./harness/init.sh`):** green — six baseline integration cases and four lsp-client unit cases passed after the iteration
 
 ## Done
 
@@ -17,8 +17,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- [ ] feat-jdtls-provisioner — blocked at its 3/3 attempt budget
-  - The unchanged 12-case integration oracle passed before implementation work, while still omitting successful empty-cache download, checksum verification, extraction, and pinned installation. Maker-owned source already implements that path, and the maker must not rewrite the test-implementer's oracle.
+- [ ] feat-jdtls-provisioner — ready for checker after attempt 1/3
+  - The unchanged implementation passed all 13 independent integration cases before implementation, including clean-cache checksum verification, download, extraction, and pinned installation; no redundant source change was made.
 - [ ] feat-project-router — needs re-planning after attempt 2/3
   - The repaired verification command now runs, but fails on the absent production import before assertions, while the independent oracle still explicitly excludes promised TCON-ROUTE-0005 / `INV-ROUTE-2`. Maker stopped without implementation or test edits.
 - [ ] feat-lsp-client — rejected after attempt 1/4
@@ -26,9 +26,9 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Next
 
-1. Add and run the required bounded cross-process oracle for `feat-lsp-client`, then return it to checker review.
-2. Route `feat-project-router` through planning/oracle dispatch so the test-implementer authors TCON-ROUTE-0005 before another maker attempt.
-3. Route TP-PROV-0001 / `feat-prove-provisioner` to the oracle layer for a successful first-run download-and-install condition and executable test.
+1. Checker independently replays `feat-jdtls-provisioner` and judges whether it may become done.
+2. Add and run the required bounded cross-process oracle for `feat-lsp-client`, then return it to checker review.
+3. Implement `feat-project-router` against the now-complete five-condition integration oracle.
 
 ## Known Issues / Risks
 
@@ -36,4 +36,4 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-The lsp-client unit suite is green but cannot prove behavior through child-process stdio or actual child termination; it is back in progress. The project-router and provisioner oracle gaps remain unresolved.
+The provisioner oracle gap is closed and the unchanged implementation passes all 13 cases. The lsp-client still needs a cross-process oracle; project-router's oracle gap is closed and awaits implementation.

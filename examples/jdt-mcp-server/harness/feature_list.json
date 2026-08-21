@@ -92,10 +92,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
           "result": "13/13 passed against the UNCHANGED existing implementation once TCON-PROV-0008 existed — the already-written resolveInstall() already performs the real download/checksum/extract/install correctly, the oracle was simply blind to it before. Orchestrator-verified independently, ~9 min (real network download)."
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "13/13 passed before implementation, including TCON-PROV-0008 clean-cache checksum/download/extract/install; no source change needed (676.6 s)"
         }
       ],
-      "checkerNotes": "READY FOR CHECK (orchestrator, 2026-08-21): the T2 oracle gap is closed (TCON-PROV-0008 added — see feat-prove-provisioner). The existing implementation, unchanged since the last maker attempt, now passes the full 13-case oracle. No new maker attempt was needed or made.",
-      "attempts": 0,
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): required verification passed before implementation, so the behavior already exists and no redundant source change was made. Full 13-case oracle includes TCON-PROV-0008 clean-cache checksum/download/extract/install.",
+      "attempts": 1,
       "maxAttempts": 3
     },
     {
@@ -241,7 +247,7 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "done",
+      "status": "in-progress",
       "readyForCheck": false,
       "evidence": [
         {
@@ -257,7 +263,7 @@
           "result": "4 tests passed: framing/correlation, split-frame parsing, server-initiated request handling, and exit-wide pending rejection"
         }
       ],
-      "checkerNotes": "REJECT: the recorded proof never crosses the Node-to-child stdio boundary this feature changes.\n\nChecker replayed `npm test -- test/lsp/lsp-client.spec.ts` on 2026-08-21: 4/4 passed. Its exit case manually emits `exit` on an EventEmitter backed by PassThrough streams; it cannot establish framing or pending-request rejection through a spawned child or after actual child termination. `harness/docs/testing-standards.md` requires Level 3 for a process-boundary change. Add an integration oracle that spawns a realistic scripted child, sends multiple requests, terminates it with requests in flight, and has a bounded per-test timeout; make the feature verification run that oracle. The existing unit test remains useful but is insufficient for INV-POOL-3's real process-exit claim.\n[mechanically promoted by verify-harness --promote on 2026-08-21: verification re-run, exited 0]",
+      "checkerNotes": "REJECT: the recorded proof never crosses the Node-to-child stdio boundary this feature changes.\n\nChecker replayed `npm test -- test/lsp/lsp-client.spec.ts` on 2026-08-21: 4/4 passed. Its exit case manually emits `exit` on an EventEmitter backed by PassThrough streams; it cannot establish framing or pending-request rejection through a spawned child or after actual child termination. `harness/docs/testing-standards.md` requires Level 3 for a process-boundary change. Add an integration oracle that spawns a realistic scripted child, sends multiple requests, terminates it with requests in flight, and has a bounded per-test timeout; make the feature verification run that oracle. The existing unit test remains useful but is insufficient for INV-POOL-3's real process-exit claim.\n[orchestrator, 2026-08-21: reverted an erroneous mechanical promotion to done — verify-harness --promote only checked status!=blocked, not the REJECT verdict in this note, so a genuinely rejected feature was silently marked done. Fixed in verify-harness.mjs's promoteFeatures() to also skip a leading REJECT marker. status restored to in-progress per this checker's own instruction.]",
       "attempts": 1,
       "maxAttempts": 4
     },
