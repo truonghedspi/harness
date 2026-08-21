@@ -8,6 +8,21 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-21 — Provisioner build reuses its authored behavioral oracle
+
+- **Decision:** `feat-jdtls-provisioner` now verifies with
+  `test/integration/jdtls-provisioner.integration.spec.ts`, the runnable oracle already owned by
+  `feat-prove-provisioner`; the build/prove feature boundary and all existing state remain intact.
+- **Reason:** the prior build verification named a nonexistent unit test and an undefined `npm test`
+  script, so the maker could not obtain a behavioral red or green run. The integration suite already
+  exercises all four `INV-PROV-*` invariants and has recorded red-first and mutant evidence.
+- **Rejected alternative:** adding a duplicate unit oracle solely to preserve a distinct command.
+  That would duplicate the same provisioner contract and add a paid test-authoring dispatch without
+  an independently demonstrable claim.
+- **Constraint it satisfies:** every feature has one runnable, discriminating verification while the
+  independent prove feature continues to own and preserve the oracle evidence.
+- **Affected:** `feat-jdtls-provisioner` verification and checker-marker resolution only.
+
 ## 2026-08-20 — Feature cut from the approved design (32 features, 10 components)
 
 - **Decision:** Cut `feature_list.json` from `loop/design-approval.json` digest `c0a83df4b8d6c5b2`.

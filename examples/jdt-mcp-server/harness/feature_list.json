@@ -53,7 +53,7 @@
       "name": "jdtls-provisioner: resolve/fetch/pin JDT LS + verify JVM",
       "kind": "build",
       "behavior": "resolveInstall() locates a cached JDT LS distribution or downloads and pins one on first run, and refuses to proceed when no Java 21+ runtime is resolvable",
-      "verification": "npm test -- test/provision/jdtls-provisioner.spec.ts",
+      "verification": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
       "context": {
         "touches": [
           "src/provision/jdtls-provisioner.ts",
@@ -68,7 +68,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "NEEDS RE-PLAN: the recorded verification cannot produce a behavioral red run: package.json has no `test` script and test/provision/jdtls-provisioner.spec.ts does not exist. The independent provisioner oracle is instead owned by feat-prove-provisioner at test/integration/jdtls-provisioner.integration.spec.ts. Maker did not implement against a missing/non-assertion oracle or change files outside this feature's declared scope.",
+      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: the build now runs the existing behavioral integration oracle owned by feat-prove-provisioner; the nonexistent unit-test command was removed without resetting attempts, evidence, or dependency state. Decision recorded in harness/DECISIONS.md.",
       "attempts": 1,
       "maxAttempts": 3
     },
