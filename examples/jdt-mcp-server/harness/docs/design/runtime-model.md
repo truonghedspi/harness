@@ -22,8 +22,9 @@ headers. `lsp-client` owns the second, `mcp-shim` the first, and nothing else to
 
 ## Workspace identity and routing
 
-A "project" is **the directory of the nearest ancestor `pom.xml`** of the path in the tool call.
-Not a caller-supplied session, and not "the last workspace used".
+A "project" is derived from the path in the tool call: use the outermost enclosing ancestor
+`pom.xml` that declares `<modules>` (the reactor root), or the nearest ancestor `pom.xml` when no
+reactor encloses the path. Not a caller-supplied session, and not "the last workspace used".
 
 That is not a style preference. Spike B asked instance B about a file belonging to instance A and
 got `[]` back — **an empty array, not an error**. A misroute is therefore indistinguishable from
@@ -36,7 +37,7 @@ Multi-module Maven builds get one workspace at the **reactor root** (the outermo
 
 | Id | Component | Invariant — must hold for EVERY input | Observable seam |
 |---|---|---|---|
-| `INV-ROUTE-1` | `project-router` | A call is always answered by the instance whose project root is the nearest ancestor `pom.xml` directory of the path in that call — never by a sticky, cached or default instance | `resolveWorkspace(path)` return value compared against the pid that served the call |
+| `INV-ROUTE-1` | `project-router` | A call always derives its project root from its own path: use the outermost enclosing ancestor `pom.xml` that declares `<modules>`; if none encloses the path, use the nearest ancestor `pom.xml`. It never uses a sticky, cached or default instance | `resolveWorkspace(path)` return value compared against the pid that served the call |
 | `INV-ROUTE-2` | `project-router` | A path with no ancestor `pom.xml` always yields an explicit error naming the path — never an empty successful result | tool result `isError` + message |
 | `INV-ROUTE-3` | `project-router` | Two paths under the same reactor root always resolve to the same workspace id, and paths under different roots never do | `resolveWorkspace` over a fixture tree |
 

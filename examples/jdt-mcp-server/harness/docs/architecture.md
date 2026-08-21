@@ -4,11 +4,9 @@ Structured around the **Fresh Session Test** (Lesson 3): a new agent session giv
 must be able to answer all five questions below. If it can't, the knowledge isn't in the repo yet
 — add it here.
 
-> **The design is approved.** `harness/loop/design-approval.json` (digest `c0a83df4b8d6c5b2`) records
-> the human sign-off on `harness/docs/design/architecture.md`'s Option A. `harness/feature_list.json`
-> is the cut from it — see its 32 features and `harness/DECISIONS.md`'s 2026-08-20 entries for the
-> non-obvious splits (build-order enforced as DAG edges, the deferred HTTP front door, and where a
-> falsifier borrows a citation from a neighboring component's invariant).
+> Earlier architecture decisions were human-approved; the current design revision requires a fresh
+> matching approval before downstream work can resume. `harness/feature_list.json` is the existing
+> 32-feature cut — see `harness/DECISIONS.md`'s 2026-08-20 entries for the non-obvious splits.
 
 ## What is this?
 
@@ -18,8 +16,9 @@ hover, completion, references, definition, rename, code actions) as MCP tools fo
 **Primary user:** a stranger installing an OSS tool, not just its author — so packaging, first-run
 behaviour and a clean public tool surface are v1 requirements, not polish.
 
-**Core domain concepts.** A **workspace** is one Maven reactor root (the directory of the nearest
-ancestor `pom.xml`); it owns exactly one JDT LS process and one `-data` index directory. The
+**Core domain concepts.** A **workspace** is one Maven reactor root (the directory of the outermost
+ancestor `pom.xml` declaring `<modules>`, otherwise the nearest ancestor `pom.xml`); it owns exactly
+one JDT LS process and one `-data` index directory. The
 **daemon** is one long-lived process per user holding several workspaces at once. A **shim** is the
 short-lived stdio process an MCP client launches, which does nothing but relay to the daemon. A
 **tool call** is always routed to a workspace by the file path in its arguments — never by a session.
@@ -82,3 +81,7 @@ but do not gate tool development, since `mcp-tool-layer` is a pure function of a
 `LspFacade`. The Streamable HTTP front door (`A-003`) is confirmed for v1 but not yet cut into a
 feature: its `Origin`/localhost/auth invariants (`docs/cross-cutting.md` X-010) are still open — see
 `DECISIONS.md`.
+
+The explicit nearest-POM exception is in `harness/docs/design/architecture.md`'s “Routing
+clarification” section: each call selects its root from its own path, collapsing module paths to
+their enclosing reactor when present.

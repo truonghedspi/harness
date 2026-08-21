@@ -1,11 +1,84 @@
 # Design — JDT MCP Server architecture
 
-Every factual claim below is cited in `harness/docs/design/evidence.md`; nothing here restates a
-fact that is not in that table. The self-critique that stress-tests this design is in
+Every factual claim below is cited in `harness/docs/design/evidence.md` or at its local repository
+source. The self-critique that stress-tests this design is in
 `harness/docs/design/critique.md`, the runtime/concurrency detail in
 `harness/docs/design/runtime-model.md`, the tool catalogue in `harness/docs/design/tool-surface.md`.
 
 **Status: not approved.** Only a human writes `harness/loop/design-approval.json`.
+
+## Routing clarification — reactor root versus nearest POM
+
+**Recommendation: retain one workspace per Maven reactor and make the reactor-root exception
+explicit in `INV-ROUTE-1`.** This corrects specification drift; it does not change the accepted
+one-JDT-LS-process-per-reactor architecture (`harness/DECISIONS.md:182-184`).
+
+| Claim | Evidence |
+|---|---|
+| The accepted process unit is one JDT LS subprocess per Maven reactor root. | `harness/DECISIONS.md:182-184` |
+| The routing oracle maps every module path in its `<modules>` fixture to the outer reactor root. | `test/integration/project-router.integration.spec.ts:143-175` |
+| Misrouting is unsafe because JDT LS can return an empty result rather than an error. | `harness/docs/design/runtime-model.md:28-31`; `harness/docs/assumptions.md:40` |
+| An idle JDT LS instance has a measured 434–952 MB resident floor. | `harness/docs/design/runtime-model.md:45-47` |
+
+**Problem.** The literal `INV-ROUTE-1` says nearest ancestor POM, while the accepted architecture
+and oracle select the outer reactor root for a module path. A green oracle therefore did not prove
+the invariant it cited (`harness/docs/design/runtime-model.md:25-41`; `test/integration/project-router.integration.spec.ts:143-175`).
+
+**Objectives and tradeoffs.** Preserve fresh path-derived routing, one workspace for a declared
+reactor, and agreement between invariant and oracle. Module-local indexing is the genuine
+alternative value; the recorded architecture already selected unified reactor workspaces.
+
+### Option N — nearest POM for every path
+
+Argument map: the current wording literally supports it (`harness/docs/design/runtime-model.md:39`)
+and it yields module-local isolation. Its objection branch is decisive against the current design:
+it gives sibling modules separate identities, contradicting the accepted reactor lifecycle and the
+five-path reactor-collapse oracle (`harness/DECISIONS.md:182-184`; `test/integration/project-router.integration.spec.ts:143-175`), while multiplying the measured process floor.
+
+### Option R — outer enclosing reactor root, otherwise nearest POM
+
+Argument map: it derives the choice afresh from the call path, collapses paths within one declared
+reactor, and keeps a standalone POM project isolated (`harness/docs/design/runtime-model.md:28-35`; `test/integration/project-router.integration.spec.ts:98-115,143-175`). Its objection branch is
+that it must recognize an enclosing reactor rather than stop at the first POM; the real fixture
+tree already exposes that seam (`test/integration/project-router.integration.spec.ts:37-40,143-175`).
+
+| Component | Boundary | Observable seam |
+|---|---|---|
+| `project-router` | Accepts one absolute call path; canonicalizes and walks only its ancestors; returns `{ workspaceId, projectRoot }` or a named error. It owns neither a pool nor prior-call state. | `resolveWorkspace(path)` over standalone, reactor-module and unmanaged paths (`test/integration/project-router.integration.spec.ts:30-40,143-175,338-355`). |
+
+**Key Assumptions Check.** The conclusion is Option R. It needs: (1) the accepted design to mean
+reactor root — survives (`harness/DECISIONS.md:182-184`); (2) the `<modules>` fixture to be the
+contract to preserve — survives only as current oracle evidence, not independent Maven-model proof
+(`test/integration/project-router.integration.spec.ts:62-79,98-115`); and (3) path-local routing to
+remain mandatory — survives because a misroute is indistinguishable from no result
+(`harness/docs/design/runtime-model.md:28-31`).
+
+**Premortem.** This could fail if an atypical Maven layout is classified as a reactor, sticky state
+returns while simple fixtures remain green, or the reference model begins mirroring implementation.
+Before expanding supported Maven layouts, a runnable spike must settle the first concern.
+
+**Devil's Advocacy for Option N.** Nearest-POM routing avoids interpreting aggregation structure
+and gives modules isolated indexes; choose it if module independence is the objective. No evidence
+in the accepted architecture supports that objective over the reactor-level process model.
+
+**Steelman gate.** Option R fairly says that a module source joins its enclosing reactor because the
+accepted lifecycle unit is the reactor, while standalone projects stay simple. Both options agree
+on fresh path-local derivation and explicit unmanaged-path errors. Option N usefully shows why the
+old wording was clear for simple projects. Only then: its per-module identity conflicts with the
+accepted multi-module unit.
+
+**Recommendation.** Option R. Its reactor-level premise survived scrutiny, the premortem leaves
+Maven-layout detection as a bounded future spike, and Devil's Advocacy found no supporting
+objective for module independence. The strongest argument against it is that `<modules>` detection
+may be too weak beyond the current fixture. Evidence of a supported layout needing module-level
+workspaces, or a spike falsifying the aggregation rule, would change the recommendation.
+
+| Feature | Impact | Design action |
+|---|---|---|
+| `feat-project-router` | change | The feature-planner refreshes its stale context packet and aligns its behavior text to Option R. |
+| `feat-prove-routing` | keep | Retain the existing reactor-collapse oracle; rerun after the planner clears the design marker. |
+
+No approval file is drafted: this headless session has no human decision or approval to record.
 
 ## PrOACT frame
 

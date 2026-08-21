@@ -8,6 +8,23 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-21 — Module paths resolve to their enclosing reactor root
+
+- **Decision:** clarify `INV-ROUTE-1`: derive the root fresh from each call path; choose the
+  outermost enclosing ancestor POM declaring `<modules>`, otherwise the nearest ancestor POM.
+- **Reason:** the earlier accepted architecture states one JDT LS subprocess per Maven reactor root,
+  and the existing five-path routing oracle already proves that behavior. The previous invariant's
+  unqualified nearest-POM wording contradicted both, leaving a green suite attached to a false
+  literal claim.
+- **Rejected alternative:** use the nearest POM for every path. It gives module-local isolation but
+  creates one workspace per module and contradicts the accepted reactor-level lifecycle.
+- **Constraint it satisfies:** fresh path-derived routing and one workspace identity per reactor;
+  `INV-ROUTE-1` and `INV-ROUTE-3` are now consistent with the oracle.
+- **Affected:** `project-router`, `feat-project-router`, `feat-prove-routing`, A-006, and
+  `test/integration/project-router.integration.spec.ts`.
+
+---
+
 ## 2026-08-21 — Routing's unmanaged-path claim joins the existing prove feature
 
 - **Decision:** reuse `test/integration/project-router.integration.spec.ts` as the build verification

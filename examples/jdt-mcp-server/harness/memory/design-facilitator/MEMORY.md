@@ -12,3 +12,4 @@ one the human later caught. Don't write one for a routine session.
 - [JDT LS is stale until told](jdtls-stale-until-told.md) — it ignores on-disk edits and answers confidently wrong; both of this system's silent failure modes look like an empty result
 - [An echoed input cannot falsify](echoed-input-cannot-falsify.md) — the coordinate converter's likeliest bug is self-inverse, so a result field echoing the request passes the astral fixture while hovering the wrong token
 - [A permissive clause is not coverage](permissive-clause-is-not-coverage.md) — a commitment named only on the permissive side of an invariant's `or` has no falsifier; it greps clean and covers nothing
+- [Wording drift can pass oracles](wording-drift-can-pass-oracles.md) — a passing oracle can still cite an invariant whose literal rule differs
