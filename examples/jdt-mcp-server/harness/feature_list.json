@@ -225,7 +225,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "NEEDS RE-PLAN: refresh the stale feat-lsp-client context packet from docs/design/runtime-model.md and docs/design/evidence.md, then route the independent oracle before implementation. The declared verification file test/lsp/lsp-client.spec.ts does not exist, so a maker-authored implementation now could only produce a missing-module/compile failure rather than the required assertion red. No attempt was consumed and production/test files remain untouched.",
+      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: refreshed loop/context-packets/feat-lsp-client.json from the current runtime-model, evidence, and critique sources. The cut remains one build feature because Content-Length framing, id correlation, server-initiated request handling, and pending-request rejection share one lsp-client seam and one unit oracle; the existing feat-prove-pool-crash-handling independently owns the real-process INV-POOL-3 proof. Route the unwritten test/lsp/lsp-client.spec.ts oracle before implementation. No attempt was consumed and production/test files remain untouched.",
       "attempts": 0,
       "maxAttempts": 4
     },

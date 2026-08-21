@@ -3,7 +3,8 @@
   "feature": "feat-lsp-client",
   "mustRead": [
     "docs/design/runtime-model.md",
-    "docs/design/evidence.md"
+    "docs/design/evidence.md",
+    "docs/design/critique.md"
   ],
   "mustNotRead": [
     "docs/design/tool-surface.md"
@@ -16,7 +17,8 @@
     "This is a genuine design gap worth knowing about rather than guessing past: no INV- id covers basic Content-Length round-trip correctness (a malformed header, a body length mismatch) on its own. Test it as part of this feature's own unit-level verification even though no invariant citation applies to that specific case — only the process-exit/pending-request behavior is invariant-backed."
   ],
   "sourceInputs": [
-    { "path": "docs/design/runtime-model.md", "sha256": "d7dd205bc2920fc786cff92d953250fa3e27390ea8ffca3887d739310444c72c" },
-    { "path": "docs/design/evidence.md", "sha256": "a3f2d83271307113c35c1bab644789abbd3cef1463866d42fa1f0f38473b44a6" }
+    { "path": "docs/design/runtime-model.md", "sha256": "6b2a59a2b393bd35a55a2be88ed8c30ef005e6864f7a9e926bf8749bd811378d" },
+    { "path": "docs/design/evidence.md", "sha256": "6110d78614547cce5130d0f93d692c33b0cb72405be9e508c3b19fe7390d1a31" },
+    { "path": "docs/design/critique.md", "sha256": "cbaa3d7fba65f825989551cfd882cb0a3eec28e98bcfaba350e6c45faad21335" }
   ]
 }
