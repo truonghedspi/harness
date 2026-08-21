@@ -376,6 +376,11 @@ const RULES = [
       // A falsifier alone is not enough to implement from — the validated conditions are the input,
       // and a plan with an empty conditions/ folder is not one.
       if (!conditionsExist()) return null;
+      // `open` deliberately keeps blocked features visible, but this rule DISPATCHES action — a
+      // blocked feature means a human needs to look, not that test-implementer should write its
+      // test anyway. Without this exclusion a feature blocked for a real reason (e.g. waiting on a
+      // not-started dependency) kept matching every iteration: found live on examples/jdt-mcp-server,
+      // where the same feature was re-dispatched 19 times before this fix.
       const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
       return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
@@ -404,6 +409,9 @@ const RULES = [
       // Information asymmetry is only real if it is an ORDERING: a build feature whose prove
       // feature has no test written yet is not eligible, because the maker would write that test.
       // A prompt saying "don't rewrite the test" cannot hold when there is no test to not rewrite.
+      // A BLOCKED prove feature must not count here: it is not "test not written yet", it is a
+      // human-owned decision, and counting it made an unrelated build feature wait on it forever
+      // (same incident as test-implementer's rule above, found live on examples/jdt-mcp-server).
       const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim() && status(p) !== "blocked")
         .flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) =>

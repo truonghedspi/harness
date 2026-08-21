@@ -1071,6 +1071,45 @@ function gateDocs() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gate — state-log style (docs/constraints.md: progress.md/DECISIONS.md must be short factual
+// bullets, not prose narrative). Whether a passage is genuinely "too verbose" is a semantic
+// judgment this repo already learned it cannot mechanize (docs/design/shared-memory-tier.md's own
+// spike, on a different problem, found the same limit). What IS cheap and structural: a run of
+// several consecutive lines with no list marker at all reads as a paragraph, not a bulleted state
+// update, regardless of what it says. Warn only — a crude proxy must never block a loop.
+// ---------------------------------------------------------------------------------------------
+const PROSE_RUN_MIN_LINES = 3;
+const PROSE_RUN_MIN_CHARS = 300;
+
+function gateStateLogStyle() {
+  const LIST_LINE = /^\s*(#{1,6}\s|[-*]\s|\d+\.\s|\|.*\|\s*$|```)/;
+  for (const rel of ["progress.md", "DECISIONS.md"]) {
+    if (!exists(P(rel))) continue;
+    const lines = read(P(rel)).split("\n");
+    let run = [];
+    let runStart = 0;
+    const flush = () => {
+      const chars = run.join(" ").length;
+      if (run.length >= PROSE_RUN_MIN_LINES && chars >= PROSE_RUN_MIN_CHARS) {
+        add({
+          gate: "docs", id: `state-log-prose:${rel}:${runStart}`, layer: "project", severity: "warn",
+          symptom: `${rel}:${runStart} has ${run.length} consecutive non-bulleted lines (${chars} chars) — reads as prose narrative, not a state log`,
+          remedy: "rewrite as short factual bullets — what changed, what state now (docs/constraints.md); reasoning belongs in a memory entry or design doc, not here",
+        });
+      }
+      run = [];
+    };
+    lines.forEach((line, i) => {
+      const trimmed = line.trim();
+      if (!trimmed || LIST_LINE.test(line)) { flush(); return; }
+      if (!run.length) runStart = i + 1;
+      run.push(trimmed);
+    });
+    flush();
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Gate 10 — instruction load (references/llm-failure-modes.md). Per-instruction compliance falls
 // as the number of simultaneous instructions rises: fifty rules do not produce fifty-rule
 // behaviour, they produce roughly the top-N by salience. And prohibitions are the weakest shape
@@ -1674,6 +1713,7 @@ gateMemory();
 gateMemorySharedTier();
 gateDesign();
 gateDocs();
+gateStateLogStyle();
 gateRules();
 
 gateGenerated();
