@@ -191,8 +191,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
+      "status": "in-progress",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -205,10 +205,22 @@
           "run": "red",
           "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
           "result": "non-qualifying harness failure: ERR_MODULE_NOT_FOUND for src/workspace/project-router.ts before any assertion; TCON-ROUTE-0005 is still absent from the independent oracle"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "red",
+          "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+          "result": "qualifying behavioral red after adding the compilable contract shell: 1 passed, 4 failed with ERR_ASSERTION because managed paths returned explicit unmanaged-path errors"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+          "result": "5/5 passed: reactor collapse, distinct workspace identities, fixed and generated interleaving, and named unmanaged-path error"
         }
       ],
-      "checkerNotes": "READY (orchestrator, 2026-08-21): TCON-ROUTE-0005 authored and implemented in feat-prove-routing's oracle (5/5 conditions now exist), closing the gap that blocked the prior 2 attempts. attempts reset to 0/3 for a fresh implementation attempt against the complete oracle.",
-      "attempts": 0,
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): implemented fresh per-call realpath routing, outer reactor collapse, SHA-256 workspace identities, and explicit named errors; the independent five-condition integration oracle passes. Context packet was stale, so implementation used its cited runtime-model, assumptions, evidence, and current oracle sources; planner should refresh the packet before a future maker reuse.",
+      "attempts": 1,
       "maxAttempts": 3
     },
     {
