@@ -98,10 +98,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
           "result": "13/13 passed before implementation, including TCON-PROV-0008 clean-cache checksum/download/extract/install; no source change needed (676.6 s)"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "13/13 passed before implementation on maker attempt 2, including the real clean-cache download/install case (479.5 s); behavior already exists, so no source change was made"
         }
       ],
-      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): required verification passed before implementation, so the behavior already exists and no redundant source change was made. Full 13-case oracle includes TCON-PROV-0008 clean-cache checksum/download/extract/install.",
-      "attempts": 1,
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): required verification passed before implementation on attempt 2, so the behavior already exists and no redundant source change was made. Full 13-case oracle includes TCON-PROV-0008 clean-cache checksum/download/extract/install.",
+      "attempts": 2,
       "maxAttempts": 3
     },
     {

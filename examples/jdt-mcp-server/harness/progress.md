@@ -7,7 +7,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 - **Last updated:** 2026-08-21
 - **Active feature:** feat-jdtls-provisioner — ready for independent checker review
-- **Latest commit:** pending — maker replayed the completed 13-case provisioner oracle; implementation already satisfied it
+- **Latest commit:** pending — maker replayed the completed 13-case provisioner oracle on attempt 2; implementation already satisfied it
 - **Baseline (`./harness/init.sh`):** green — six baseline integration cases and four lsp-client unit cases passed after the iteration
 
 ## Done
@@ -17,8 +17,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- [ ] feat-jdtls-provisioner — ready for checker after attempt 1/3
-  - The unchanged implementation passed all 13 independent integration cases before implementation, including clean-cache checksum verification, download, extraction, and pinned installation; no redundant source change was made.
+- [ ] feat-jdtls-provisioner — ready for checker after attempt 2/3
+  - The unchanged implementation passed all 13 independent integration cases before implementation again (479.5 s), including clean-cache checksum verification, download, extraction, and pinned installation; no redundant source change was made.
 - [ ] feat-project-router — needs re-planning after attempt 2/3
   - The repaired verification command now runs, but fails on the absent production import before assertions, while the independent oracle still explicitly excludes promised TCON-ROUTE-0005 / `INV-ROUTE-2`. Maker stopped without implementation or test edits.
 - [ ] feat-lsp-client — rejected after attempt 1/4
