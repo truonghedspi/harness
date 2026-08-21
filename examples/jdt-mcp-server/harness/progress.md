@@ -6,8 +6,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-21
-- **Active feature:** none — feat-jdtls-provisioner needs re-planning before implementation
-- **Latest commit:** pending — route the provisioner verification mismatch to re-planning
+- **Active feature:** feat-jdtls-provisioner — implementation is ready for independent check
+- **Latest commit:** pending — implement pinned JDT LS provisioner
 - **Baseline (`./harness/init.sh`):** green — fixture cached and all six maintained baseline integration cases passed
 
 ## Done
@@ -17,13 +17,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- [ ] feat-jdtls-provisioner — verification is not runnable as an assertion-bearing oracle
-  - `npm test -- test/provision/jdtls-provisioner.spec.ts` fails because both the script and file are absent; the existing independent oracle belongs to `feat-prove-provisioner`.
+- [ ] feat-jdtls-provisioner — ready for checker replay
+  - The 12-case integration oracle passes for JVM 21+, exact pin resolution, fail-closed `JDTLS_HOME`, and bounded download failure; maker did not set `done`.
 
 ## Next
 
-1. Feature-planner repairs the feat-jdtls-provisioner verification/decomposition mismatch.
-2. Router selects the next eligible foundation feature after re-planning.
+1. Checker independently replays and falsifies feat-jdtls-provisioner.
+2. Router selects the next eligible foundation feature after the verdict.
 
 ## Known Issues / Risks
 
@@ -31,4 +31,4 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-The maker stopped before implementation because the required pre-change verification failed in npm dispatch, not on a behavioral assertion. No red/green evidence was claimed.
+The maker first made the authored contract importable, then recorded a qualifying six-assertion red run before implementing. The final verification passed all 12 cases.

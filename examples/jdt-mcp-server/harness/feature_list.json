@@ -65,11 +65,24 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
+      "status": "in-progress",
+      "readyForCheck": true,
+      "evidence": [
+        {
+          "date": "2026-08-21",
+          "run": "red",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "6 assertion failures: JVM 20/17 were accepted, JDTLS_HOME was ignored, and invalid/unreachable installs did not reject"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "12 tests passed across JVM boundary, pin/cache handling, JDTLS_HOME fail-closed behavior, and bounded network failure"
+        }
+      ],
       "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: the build now runs the existing behavioral integration oracle owned by feat-prove-provisioner; the nonexistent unit-test command was removed without resetting attempts, evidence, or dependency state. Decision recorded in harness/DECISIONS.md.",
-      "attempts": 1,
+      "attempts": 2,
       "maxAttempts": 3
     },
     {
