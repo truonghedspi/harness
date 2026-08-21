@@ -23,8 +23,7 @@
       },
       "falsifier": "a gate that exits 0 without actually installing deps or fetching the JDT LS test fixture — or one that runs a failing step and swallows it, which the bash version did — the baseline must be able to go red on either failure",
       "dependencies": [],
-      "status": "in-progress",
-      "readyForCheck": true,
+      "status": "done",
       "evidence": [
         {
           "date": "2026-08-21",
@@ -45,7 +44,7 @@
           "result": "6 tests passed: harness/init.mjs executed install, fixture, and baseline-test steps; injected exit codes 23, 24, and 25 each made the gate red"
         }
       ],
-      "checkerNotes": "Maker evidence: the pre-change verification was already green, so baseline orchestration behavior existed and this iteration repaired the oracle gap. The maintained integration suite now runs `harness/init.mjs` in an isolated project, observes npm install, fixture provisioning, and the baseline test, and proves injected failures in each step exit non-zero without running later steps.",
+      "checkerNotes": "APPROVE: replayed the six-case integration suite and ./harness/init.sh successfully. The isolated startup-gate oracle observes install, fixture and baseline-test execution, and injected exits 23/24/25 independently prove failures propagate and stop later steps.",
       "attempts": 3,
       "maxAttempts": 3
     },
@@ -69,8 +68,8 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
-      "attempts": 0,
+      "checkerNotes": "NEEDS RE-PLAN: the recorded verification cannot produce a behavioral red run: package.json has no `test` script and test/provision/jdtls-provisioner.spec.ts does not exist. The independent provisioner oracle is instead owned by feat-prove-provisioner at test/integration/jdtls-provisioner.integration.spec.ts. Maker did not implement against a missing/non-assertion oracle or change files outside this feature's declared scope.",
+      "attempts": 1,
       "maxAttempts": 3
     },
     {

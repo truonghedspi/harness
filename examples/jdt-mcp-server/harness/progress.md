@@ -6,23 +6,24 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-21
-- **Active feature:** feat-001 — Baseline green (ready for checker review)
-- **Latest commit:** pending — exercise the standard baseline gate in its maintained oracle
+- **Active feature:** none — feat-jdtls-provisioner needs re-planning before implementation
+- **Latest commit:** pending — route the provisioner verification mismatch to re-planning
 - **Baseline (`./harness/init.sh`):** green — fixture cached and all six maintained baseline integration cases passed
 
 ## Done
 
-- [ ] [completed item]
+- [x] feat-001 — Baseline green
+  - Checker replayed the six-case integration oracle and `./harness/init.sh`; injected install, fixture, and test failures each made the gate red and stopped later steps.
 
 ## In Progress
 
-- [ ] feat-001 — Baseline green
-  - The maintained integration oracle invokes `harness/init.mjs`, observes all three required steps, and proves install, fixture, and test failures each make the gate red.
+- [ ] feat-jdtls-provisioner — verification is not runnable as an assertion-bearing oracle
+  - `npm test -- test/provision/jdtls-provisioner.spec.ts` fails because both the script and file are absent; the existing independent oracle belongs to `feat-prove-provisioner`.
 
 ## Next
 
-1. Checker replays the six-case focused oracle and the standard baseline gate.
-2. If approved, promote `feat-001`; the router can then select the next eligible foundation feature.
+1. Feature-planner repairs the feat-jdtls-provisioner verification/decomposition mismatch.
+2. Router selects the next eligible foundation feature after re-planning.
 
 ## Known Issues / Risks
 
@@ -30,4 +31,4 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-The checker-requested oracle gap is covered without changing production behavior. The pre-change focused command was already green; the new cases directly exercise baseline orchestration and its failure propagation.
+The maker stopped before implementation because the required pre-change verification failed in npm dispatch, not on a behavioral assertion. No red/green evidence was claimed.
