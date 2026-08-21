@@ -8,6 +8,22 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-21 — Routing's unmanaged-path claim joins the existing prove feature
+
+- **Decision:** reuse `test/integration/project-router.integration.spec.ts` as the build verification
+  and widen `feat-prove-routing` with TCON-ROUTE-0005 for the explicit named-path error required by
+  `INV-ROUTE-2`.
+- **Reason:** the prior build command named an undefined npm script and nonexistent unit file, while
+  the maintained integration oracle already owns every other branch of the same pure
+  `resolveWorkspace(path)` seam. The unmanaged branch is not independently dispatchable.
+- **Rejected alternative:** create a second unit oracle or a separate prove feature only for an
+  unmanaged path. Either would duplicate the same component, fixture, command, and implementation
+  context.
+- **Constraint it satisfies:** every build has runnable behavioral verification, and its explicit
+  error behavior is independently falsified rather than inferred from managed-path success.
+- **Affected:** `feat-project-router`, `feat-prove-routing`, TP-ROUTE-0001, and the router context
+  packet; prior evidence and attempt history remain intact.
+
 ## 2026-08-21 — Provisioner success path stays in the existing prove feature
 
 - **Decision:** widen `feat-prove-provisioner` to cover a clean-cache, checksum-verified download,

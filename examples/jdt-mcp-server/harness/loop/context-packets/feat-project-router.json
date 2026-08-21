@@ -3,7 +3,9 @@
   "feature": "feat-project-router",
   "mustRead": [
     "docs/design/runtime-model.md",
-    "docs/assumptions.md"
+    "docs/assumptions.md",
+    "docs/design/evidence.md",
+    "../test/integration/project-router.integration.spec.ts"
   ],
   "mustNotRead": [
     "docs/design/tool-surface.md",
@@ -14,10 +16,13 @@
     "A multi-module Maven build gets exactly ONE workspace, at the OUTERMOST pom.xml that declares <modules> (the reactor root) — not one workspace per module. JDT LS's own multi-root support is a known-weak path (upstream issue 1303: 'only one of them will work').",
     "A path with no ancestor pom.xml must return an explicit error naming the path, never an empty successful result (INV-ROUTE-2) — this matters because JDT LS itself answers a misrouted query with [], an empty array, not an error (spike B), so this component is the only place that can prevent that ambiguity from reaching the caller.",
     "X-005 (open cross-cutting decision, docs/cross-cutting.md): the recommended workspace-identity key is the absolute REALPATH of the reactor-root directory, hashed for the -data path, with symlinks resolved before hashing so two paths to one project are one workspace. This is a recommendation, not yet a closed decision — implement it, but do not treat the specific hash algorithm as settled beyond 'stable and collision-free for this feature's own tests'.",
-    "A-006 (docs/assumptions.md) — 'nearest ancestor pom.xml, one workspace per reactor root' — is status 'assumed', not 'verified' or 'needs-human'. It does not block implementation; it is listed so the blast radius is visible if a later spike contradicts it."
+    "A-006 (docs/assumptions.md) — 'nearest ancestor pom.xml, one workspace per reactor root' — is status 'assumed', not 'verified' or 'needs-human'. It does not block implementation; it is listed so the blast radius is visible if a later spike contradicts it.",
+    "The maintained routing integration oracle currently implements TCON-ROUTE-0001..0004 for INV-ROUTE-1 and INV-ROUTE-3. The approved re-cut adds TCON-ROUTE-0005 to that same oracle for INV-ROUTE-2; the oracle layer must author it before the implementation is judged."
   ],
   "sourceInputs": [
-    { "path": "docs/design/runtime-model.md", "sha256": "d7dd205bc2920fc786cff92d953250fa3e27390ea8ffca3887d739310444c72c" },
-    { "path": "docs/assumptions.md", "sha256": "5849f46396f5931c6520fb61c0bc2adae02ffecd9d4ee273b86276a9cdc1b72d" }
+    { "path": "docs/design/runtime-model.md", "sha256": "6b2a59a2b393bd35a55a2be88ed8c30ef005e6864f7a9e926bf8749bd811378d" },
+    { "path": "docs/assumptions.md", "sha256": "dc2ff79c92fb0a4e85967bf37738ea30dd0550e3b262cc092c312839fdde065d" },
+    { "path": "docs/design/evidence.md", "sha256": "6110d78614547cce5130d0f93d692c33b0cb72405be9e508c3b19fe7390d1a31" },
+    { "path": "../test/integration/project-router.integration.spec.ts", "sha256": "7fdf1549c85ef0f141f0a505cc5c7dac4f0eb36025f8ef60ec61efed5dd5951c" }
   ]
 }

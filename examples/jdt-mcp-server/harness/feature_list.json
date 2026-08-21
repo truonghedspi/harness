@@ -24,6 +24,7 @@
       "falsifier": "a gate that exits 0 without actually installing deps or fetching the JDT LS test fixture — or one that runs a failing step and swallows it, which the bash version did — the baseline must be able to go red on either failure",
       "dependencies": [],
       "status": "done",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -136,13 +137,13 @@
       "name": "project-router: path to workspace id",
       "kind": "build",
       "behavior": "resolveWorkspace(path) returns the nearest ancestor pom.xml directory (or the outermost reactor root for a multi-module build) as the workspace id, or an explicit error naming the path when none exists",
-      "verification": "npm test -- test/workspace/project-router.spec.ts",
+      "verification": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
       "context": {
         "touches": [
           "src/workspace/project-router.ts"
         ],
         "packet": "loop/context-packets/feat-project-router.json",
-        "note": "A misroute returns [] not an error from JDT LS itself (spike B) — this component exists so that never happens at the routing layer; resolveWorkspace must be derived fresh from the call's own path argument every time, never sticky/cached (A-006 is still `assumed`, not `needs-human` — a spike settled it, see docs/assumptions.md)."
+        "note": "A misroute returns [] rather than an error from JDT LS itself (spike B), so resolveWorkspace must derive identity fresh from each call path and explicitly reject unmanaged paths. Reuse the routing integration oracle shared with feat-prove-routing; TCON-ROUTE-0005 owns the unmanaged-path branch (A-006 remains assumed, not needs-human)."
       },
       "falsifier": "caches the last-resolved workspace and reuses it for a later call under a different reactor root instead of re-deriving from that call's path [INV-ROUTE-1]; or returns an empty successful result instead of a named error for a path with no ancestor pom.xml [INV-ROUTE-2]",
       "dependencies": [
@@ -158,7 +159,7 @@
           "result": "non-qualifying harness failure: npm has no test script, so verification did not reach an assertion; the named test file is also absent"
         }
       ],
-      "checkerNotes": "NEEDS RE-PLAN: refresh the stale context packet and provide a runnable build verification that asserts INV-ROUTE-2. The declared command fails because package.json has no npm test script and test/workspace/project-router.spec.ts does not exist; the independent integration oracle intentionally omits the unmanaged-path error case, so substituting it would leave this feature's own falsifier untested.",
+      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: the build now reuses the maintained project-router integration oracle, and feat-prove-routing is widened with TCON-ROUTE-0005 to cover the previously omitted unmanaged-path error branch [INV-ROUTE-2]. The prior non-qualifying red evidence and attempt count remain preserved; the oracle layer must author and implement TCON-ROUTE-0005 before this build can be judged. Decision recorded in harness/DECISIONS.md.",
       "attempts": 1,
       "maxAttempts": 3
     },
@@ -172,9 +173,9 @@
         "touches": [
           "test/integration/project-router.integration.spec.ts"
         ],
-        "note": "Build the fixture tree with a real multi-module pom.xml (<modules>) plus a plain single-module one — issue 1303 (docs/design/evidence.md) is exactly the multi-root case JDT LS itself gets wrong, which is why the reactor root, not the module dir, is the workspace id."
+        "note": "Build the fixture tree with a real multi-module pom.xml (<modules>), a plain single-module project, and an unmanaged path. Preserve TCON-ROUTE-0001..0004 and add TCON-ROUTE-0005 for the explicit named-path error required by INV-ROUTE-2."
       },
-      "falsifier": "a multi-module project resolves one workspace id per module instead of one at the reactor root [INV-ROUTE-3]; or two calls under the same reactor root resolve to different workspace ids [INV-ROUTE-1][INV-ROUTE-3]",
+      "falsifier": "a multi-module project resolves one workspace id per module instead of one at the reactor root [INV-ROUTE-3]; two calls under the same reactor root resolve to different workspace ids [INV-ROUTE-1][INV-ROUTE-3]; or an unmanaged path returns an empty success or an error that does not name the path [INV-ROUTE-2]",
       "conditions": [
         "TCON-ROUTE-0001",
         "TCON-ROUTE-0002",
