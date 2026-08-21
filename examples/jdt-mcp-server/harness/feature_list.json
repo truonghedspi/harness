@@ -191,8 +191,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "in-progress",
-      "readyForCheck": true,
+      "status": "done",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -219,7 +219,7 @@
           "result": "5/5 passed: reactor collapse, distinct workspace identities, fixed and generated interleaving, and named unmanaged-path error"
         }
       ],
-      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): implemented fresh per-call realpath routing, outer reactor collapse, SHA-256 workspace identities, and explicit named errors; the independent five-condition integration oracle passes. Context packet was stale, so implementation used its cited runtime-model, assumptions, evidence, and current oracle sources; planner should refresh the packet before a future maker reuse.",
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): implemented fresh per-call realpath routing, outer reactor collapse, SHA-256 workspace identities, and explicit named errors; the independent five-condition integration oracle passes. Context packet was stale, so implementation used its cited runtime-model, assumptions, evidence, and current oracle sources; planner should refresh the packet before a future maker reuse.\n[mechanically promoted by verify-harness --promote on 2026-08-21: verification re-run, exited 0]",
       "attempts": 1,
       "maxAttempts": 3
     },
@@ -246,8 +246,8 @@
       "dependencies": [
         "feat-project-router"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
+      "status": "in-progress",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-20",
@@ -260,10 +260,16 @@
           "run": "red",
           "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
           "result": "ERR_MODULE_NOT_FOUND: Cannot find module '.../src/workspace/project-router.ts'. TCON-ROUTE-0005 was added to the existing oracle, but the requested run could not execute any of the 5 test cases because the real project-router implementation is absent. This is recorded as an observed non-behavioral red, not qualifying red-first evidence for INV-ROUTE-2; the suite must be rerun once feat-project-router provides the documented interface."
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+          "result": "Maker attempt 1 replay passed 5/5 before any edit, including reactor collapse, distinct stable per-call workspace ids, generated interleavings, and the TCON-ROUTE-0005 explicit error naming the unmanaged path; the independent oracle and implementation already exist, so neither was changed."
         }
       ],
-      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: widened this existing prove feature to own TCON-ROUTE-0005, the unmanaged-path error condition required by INV-ROUTE-2. The oracle layer must add the validated condition and executable assertion to TP-ROUTE-0001 while preserving TCON-ROUTE-0001..0004. A separate prove feature was rejected because it would duplicate the same component, fixture, command, and implementation context. Decision recorded in harness/DECISIONS.md.",
-      "attempts": 0,
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): verification passed before implementation on attempt 1, so the proof behavior already exists and no test or source change was made. The committed independent oracle exercises TCON-ROUTE-0001..0005; its test-authoring evidence records targeted reactor-climb and sticky-workspace mutants caught by assertions.",
+      "attempts": 1,
       "maxAttempts": 3
     },
     {
