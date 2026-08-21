@@ -149,7 +149,7 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "not-started",
+      "status": "blocked",
       "readyForCheck": false,
       "evidence": [
         {
@@ -165,7 +165,7 @@
           "result": "non-qualifying harness failure: ERR_MODULE_NOT_FOUND for src/workspace/project-router.ts before any assertion; TCON-ROUTE-0005 is still absent from the independent oracle"
         }
       ],
-      "checkerNotes": "NEEDS RE-PLAN: the resolved plan says TCON-ROUTE-0005 owns INV-ROUTE-2, but the maintained oracle still explicitly excludes that condition; route the oracle layer to author it before maker implementation. Attempt 2 reproduced only ERR_MODULE_NOT_FOUND before assertions, which is not qualifying red evidence. The maker did not rewrite the independent test or implement against an incomplete oracle.",
+      "checkerNotes": "BLOCKED: re-plan resolved 2026-08-21 by assigning TCON-ROUTE-0005 / INV-ROUTE-2 to feat-prove-routing, but the oracle layer must author and validate that condition in TP-ROUTE-0001 before another maker attempt. Attempt 2 remains non-qualifying because ERR_MODULE_NOT_FOUND occurred before assertions; all prior evidence and attempt history are preserved. Decision recorded in harness/DECISIONS.md.",
       "attempts": 2,
       "maxAttempts": 3
     },
@@ -201,7 +201,7 @@
           "result": "ERR_MODULE_NOT_FOUND: Cannot find module '.../src/workspace/project-router.ts' — feat-project-router is not-started, so all 4 test() blocks (TCON-ROUTE-0001..0004) fail at import resolution, not on an assertion or syntax error (`node --experimental-strip-types --check` on the spec file alone is clean). Sanity-checked separately against a throwaway scratchpad stub implementing the documented contract (resolveWorkspace: nearest-ancestor pom.xml, climbing further while a further-out pom.xml lists it as a <module>): all 4 pass green there. Two targeted mutants confirmed the oracle is not vacuous: (1) removing the reactor-root climb (nearest-ancestor pom.xml only) was caught by all 4 tests; (2) a sticky last-resolved-workspace cache was caught by TCON-ROUTE-0002/0003/0004, the three conditions that actually interleave calls across roots (TCON-ROUTE-0001 doesn't, by design, and stayed green under mutant 2 because its first call happens to already be the correct reactor root). Stub and mutants were never committed; src/workspace/ was removed after the check."
         }
       ],
-      "checkerNotes": "",
+      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: widened this existing prove feature to own TCON-ROUTE-0005, the unmanaged-path error condition required by INV-ROUTE-2. The oracle layer must add the validated condition and executable assertion to TP-ROUTE-0001 while preserving TCON-ROUTE-0001..0004. A separate prove feature was rejected because it would duplicate the same component, fixture, command, and implementation context. Decision recorded in harness/DECISIONS.md.",
       "attempts": 0,
       "maxAttempts": 3
     },
