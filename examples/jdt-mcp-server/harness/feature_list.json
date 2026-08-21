@@ -87,15 +87,15 @@
           "result": "12 tests passed before implementation; no successful empty-cache download/install assertion exists to make red"
         }
       ],
-      "checkerNotes": "BLOCKED: all 3 maker attempts are exhausted. The scoped implementation already contains the successful empty-cache fetch, SHA-256 verification, extraction, pinned-launcher validation, and install path, while the unchanged independent oracle passes all 12 cases before implementation and still has no successful-download assertion that can fail. The maker cannot rewrite the test-implementer's oracle; route TP-PROV-0001 / feat-prove-provisioner to the oracle layer to add the missing success-path condition before another implementation attempt.\nThe existing oracle still covers JVM boundaries, cache identity, JDTLS_HOME fail-closed behavior, and bounded download failure; its evidence is retained.\nRE-PLAN RESOLVED 2026-08-21: the build now runs the existing behavioral integration oracle owned by feat-prove-provisioner; the nonexistent unit-test command was removed without resetting attempts, evidence, or dependency state. Decision recorded in harness/DECISIONS.md.",
-      "attempts": 3,
+      "checkerNotes": "BLOCKED: waiting for the oracle layer to author and implement TCON-PROV-0008 before a fresh maker attempt. RE-PLAN RESOLVED 2026-08-21: feat-prove-provisioner now explicitly owns the missing clean-cache successful-download/install claim. The prior 3/3-attempt block and all evidence remain recorded here; attempts were reset only because the checker explicitly authorized a fresh implementation attempt after that success-path condition exists. Decision recorded in harness/DECISIONS.md.\nPrior checker diagnosis: the implementation already contains the successful empty-cache fetch, SHA-256 verification, extraction, pinned-launcher validation, and install path, while the prior 12-case oracle lacked a successful-download assertion and therefore could not distinguish that path.",
+      "attempts": 0,
       "maxAttempts": 3
     },
     {
       "id": "feat-prove-provisioner",
-      "name": "Prove: provisioner refuses a bad JVM and never silently drifts off the pin",
+      "name": "Prove: provisioner installs the pin and refuses invalid runtime or distribution state",
       "kind": "prove",
-      "behavior": "Running with JAVA_HOME pointed at a Java 17 JDK produces a named-version error, and a tampered/stale cache never silently substitutes for the pinned JDT LS version",
+      "behavior": "From an empty cache the provisioner downloads, verifies, extracts, and resolves the pinned JDT LS install, while a bad JVM, tampered cache, invalid override, or unreachable distribution fails explicitly without drifting off the pin",
       "verification": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
       "context": {
         "touches": [
@@ -103,7 +103,7 @@
         ],
         "note": "Run against a real (or stubbed-Java-version) JVM, not a mock — INV-PROV-1's whole point is the *named* error message, which a unit-level mock of resolveInstall() cannot falsify."
       },
-      "falsifier": "runs with JAVA_HOME on Java 17 and either starts anyway or fails with a generic JDT LS stack trace that never names the required version [INV-PROV-1]; or resolveInstall() returns a tampered cache's version instead of the pin [INV-PROV-2]; or, with JDTLS_HOME set and the network unreachable, still issues an outbound request or silently falls back to the cache/download instead of using the override directory and failing closed on an invalid one [INV-PROV-3]; or, with an empty cache and the network unreachable, hangs indefinitely or times out with an opaque error instead of settling inside the deadline with a message naming the pin, the host, and JDTLS_HOME [INV-PROV-4]",
+      "falsifier": "an empty-cache run reports success without downloading the pinned archive, verifying its checksum, extracting it, and resolving the pinned launcher from the installed directory [INV-PROV-2]; or Java 17 starts or fails without naming Java 21 [INV-PROV-1]; or an invalid JDTLS_HOME falls back to network/cache [INV-PROV-3]; or unreachable network hangs or fails opaquely [INV-PROV-4]",
       "conditions": [
         "TCON-PROV-0001",
         "TCON-PROV-0002",
@@ -111,7 +111,8 @@
         "TCON-PROV-0004",
         "TCON-PROV-0005",
         "TCON-PROV-0006",
-        "TCON-PROV-0007"
+        "TCON-PROV-0007",
+        "TCON-PROV-0008"
       ],
       "dependencies": [
         "feat-jdtls-provisioner"
@@ -126,7 +127,7 @@
           "result": "ERR_MODULE_NOT_FOUND: Cannot find module '.../src/provision/jdtls-provisioner.ts' — feat-jdtls-provisioner is not-started, so all 12 test() blocks across TCON-PROV-0001..0007 fail at import resolution, not on an assertion or syntax error. Sanity-checked separately against a throwaway scratchpad stub implementing the documented contract (resolveInstall/PINNED_JDTLS_VERSION/PROVISION_DEADLINE_MS): all 12 pass green there, and two targeted mutants (JVM-version gate removed; invalid JDTLS_HOME silently falling back to cache) were each caught by the expected test(s), confirming the oracle is not vacuous. test-implementer also created package.json/tsconfig.json (node:test + node --experimental-strip-types, zero new runtime deps) since none existed yet; see docs/testing-standards.md."
         }
       ],
-      "checkerNotes": "NEEDS RE-PLAN: (orchestrator, 2026-08-21) feat-jdtls-provisioner exhausted 3/3 maker attempts and is now blocked — checker's own diagnosis: this oracle's 12 cases all pass even against a real, complete implementation AND (per the original red run) even before one existed, because no condition asserts the empty-cache/successful-download/checksum/extract/install happy path actually completing — a T2 tautology risk on that one path, the other 11 cases are genuine (JVM boundary, cache-tamper detection, JDTLS_HOME fail-closed, network-timeout error all independently verified). Add one condition (e.g. TCON-PROV-0008) that fails without a real successful install — e.g. assert the pinned launcher/core jars exist under the resolved install dir with correct content after a clean empty-cache run — then feat-jdtls-provisioner can be re-attempted with attempts reset.",
+      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: widened this existing prove feature to own the inseparable clean-cache successful-download/install claim; the oracle layer must add a condition that verifies checksum-backed extraction and resolvable pinned launcher content before the build is judged. The prior 12-case evidence and TCON-PROV-0001..0007 history are preserved. A separate prove feature was rejected because it would use the same component, integration seam, command, and implementation context. Decision recorded in harness/DECISIONS.md.",
       "attempts": 0,
       "maxAttempts": 3
     },

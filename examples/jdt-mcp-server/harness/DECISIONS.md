@@ -8,6 +8,21 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-21 — Provisioner success path stays in the existing prove feature
+
+- **Decision:** widen `feat-prove-provisioner` to cover a clean-cache, checksum-verified download,
+  extraction, and resolvable pinned install; reopen `feat-jdtls-provisioner` with its attempts reset
+  only after preserving the exhausted-attempt diagnosis and evidence.
+- **Reason:** the checker found one missing acceptance path in an otherwise valid 12-case oracle.
+  The path exercises the same provisioner, integration file, command, and invariant family, so it
+  is not an independently dispatchable feature.
+- **Rejected alternative:** add a second prove feature solely for successful installation. That
+  would split one inseparable behavior across two paid dispatches and duplicate the same seam.
+- **Constraint it satisfies:** the prove claim now distinguishes an implementation that only
+  handles cache/error paths from one that actually installs the pinned distribution (`INV-PROV-2`).
+- **Affected:** `feat-prove-provisioner` behavior/falsifier/marker and
+  `feat-jdtls-provisioner` retry state; all prior evidence and condition history are preserved.
+
 ## 2026-08-21 — Provisioner build reuses its authored behavioral oracle
 
 - **Decision:** `feat-jdtls-provisioner` now verifies with
