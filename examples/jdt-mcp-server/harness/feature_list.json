@@ -225,7 +225,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: refreshed loop/context-packets/feat-lsp-client.json from the current runtime-model, evidence, and critique sources. The cut remains one build feature because Content-Length framing, id correlation, server-initiated request handling, and pending-request rejection share one lsp-client seam and one unit oracle; the existing feat-prove-pool-crash-handling independently owns the real-process INV-POOL-3 proof. Route the unwritten test/lsp/lsp-client.spec.ts oracle before implementation. No attempt was consumed and production/test files remain untouched.",
+      "checkerNotes": "ORCHESTRATOR NOTE 2026-08-21: feature-planner's re-plan asked to route this build feature's oracle to test-designer/test-implementer first, but the router has no rule that sends a `build`-kind feature to the oracle layer (that path only exists for `prove`-kind — the same gap found and reported on feat-prove-provisioner/feat-prove-routing, now surfacing for a build feature instead). 3 consecutive maker dispatches (iter 7-9) correctly refused to implement rather than manufacture non-behavioral red, but the instruction pointed nowhere reachable. Matching the successful precedent on feat-jdtls-provisioner and feat-project-router (maker authors both the unit oracle and the implementation for `build`-kind features, red-then-green, own attempt budget): maker is authorized to write test/lsp/lsp-client.spec.ts itself for this feature. Context packet (loop/context-packets/feat-lsp-client.json) remains current from the re-plan.",
       "attempts": 0,
       "maxAttempts": 4
     },
