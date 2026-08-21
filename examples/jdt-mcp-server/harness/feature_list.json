@@ -136,8 +136,8 @@
       "dependencies": [
         "feat-jdtls-provisioner"
       ],
-      "status": "in-progress",
-      "readyForCheck": true,
+      "status": "blocked",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-20",
@@ -170,7 +170,7 @@
           "result": "Maker attempt 3 replay passed 13/13 before any edit in 525.7 s, including the 515.9 s TCON-PROV-0008 clean-cache checksum/download/extract/install case; behavior and independent oracle already exist, so neither was changed."
         }
       ],
-      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): exact verification passed before implementation on attempt 3, so the proved behavior already exists and no redundant production or test change was made. The evidence list retains the original red oracle run and records all three 13/13 maker replays.",
+      "checkerNotes": "BLOCKED: attempt budget exhausted at 3/3 after three maker replays and a checker replay all passed 13/13, but the oracle still does not corrupt downloaded bytes or assert explicit checksum-mismatch rejection with no installed directory. Removing checksum validation would remain green. A test-design/test-implementation pass must add that independent condition before this feature can be retried.",
       "attempts": 3,
       "maxAttempts": 3
     },
