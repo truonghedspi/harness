@@ -66,8 +66,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "in-progress",
-      "readyForCheck": true,
+      "status": "done",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -106,7 +106,7 @@
           "result": "13/13 passed before implementation on maker attempt 2, including the real clean-cache download/install case (479.5 s); behavior already exists, so no source change was made"
         }
       ],
-      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): required verification passed before implementation on attempt 2, so the behavior already exists and no redundant source change was made. Full 13-case oracle includes TCON-PROV-0008 clean-cache checksum/download/extract/install.",
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): required verification passed before implementation on attempt 2, so the behavior already exists and no redundant source change was made. Full 13-case oracle includes TCON-PROV-0008 clean-cache checksum/download/extract/install.\n[mechanically promoted by verify-harness --promote on 2026-08-21: verification re-run, exited 0]",
       "attempts": 2,
       "maxAttempts": 3
     },
@@ -136,8 +136,8 @@
       "dependencies": [
         "feat-jdtls-provisioner"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
+      "status": "in-progress",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-20",
@@ -150,10 +150,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
           "result": "13/13 tests passed (TCON-PROV-0001..0008). New TCON-PROV-0008 downloads the real pinned archive via a controlled fetch boundary, checksum-verifies it, extracts it independently, and byte-compares the installed launcher/core jars against the independently-extracted copy — closing the T2 gap where the prior 12 cases passed without ever exercising the successful-download path. Added by a one-off manual test-designer + test-implementer dispatch outside the normal loop (router has no rule that reroutes an already-evidenced prove feature back to the oracle layer). Verified independently by the orchestrator: re-ran the suite directly, 13/13 pass, ~9 min (real network download)."
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "Maker attempt 1 replay passed 13/13 before any edit in 563.5 s, including TCON-PROV-0008 clean-cache checksum/download/extract/install; behavior and independent oracle already exist, so neither was changed."
         }
       ],
-      "checkerNotes": "READY: TCON-PROV-0008 authored and implemented (orchestrator-dispatched, 2026-08-21) — closes the T2 gap that blocked feat-jdtls-provisioner. All 8 conditions now have real, independently-verified coverage. feat-jdtls-provisioner may be retried.",
-      "attempts": 0,
+      "checkerNotes": "READY FOR CHECK (maker, 2026-08-21): exact verification passed before implementation on attempt 1, so the proved behavior already exists and no redundant production or test change was made. The evidence list retains the original red oracle run and records this 13/13 replay.",
+      "attempts": 1,
       "maxAttempts": 3
     },
     {
