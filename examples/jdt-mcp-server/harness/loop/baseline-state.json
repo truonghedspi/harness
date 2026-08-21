@@ -1,8 +1,8 @@
 {
   "schema": "baseline-state/1",
   "status": "green",
-  "evidenceDigest": "996d2a5317da056f",
+  "evidenceDigest": "be16b921fa22c029",
   "exitCode": 0,
-  "checkedAt": "2026-08-21T08:54:15.368Z",
-  "tail": "  duration_ms: 0.794\n  ...\n# Subtest: rejects every pending request immediately when the process exits\nok 4 - rejects every pending request immediately when the process exits\n  ---\n  duration_ms: 0.349875\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 77.494625\n=== Baseline green ===\n\nNext: read harness/feature_list.json, pick ONE eligible feature, advance it, re-verify before 'done'.\n"
+  "checkedAt": "2026-08-21T10:34:06.094Z",
+  "tail": "  duration_ms: 0.803208\n  ...\n# Subtest: rejects every pending request immediately when the process exits\nok 4 - rejects every pending request immediately when the process exits\n  ---\n  duration_ms: 0.3465\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 76.830375\n=== Baseline green ===\n\nNext: read harness/feature_list.json, pick ONE eligible feature, advance it, re-verify before 'done'.\n"
 }

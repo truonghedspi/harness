@@ -1,0 +1,10 @@
+{
+  "id": "TCON-ROUTE-0006",
+  "plan_id": "TP-ROUTE-0001",
+  "requirement_id": "INV-ROUTE-1",
+  "behavior": "Given the fixture tree's non-reactor ancestor project (pom.xml with <packaging>pom</packaging>, no <modules>) with an independently rooted child project (its own separate pom.xml) nested beneath it, resolving any path inside the child project always returns the child project's own directory as the workspace root, never the non-reactor ancestor's directory -- discriminating the nearest-ancestor fallback from always taking the outermost ancestor pom.xml regardless of <modules>.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Whether an ancestor pom.xml is a <modules> reactor root is exactly the branch INV-ROUTE-1's fallback clause turns on; this row -- absent from TCON-ROUTE-0001..0005 -- falsifies an implementation that deletes the <modules> check and always selects the outermost ancestor pom.xml regardless of reactor status, while TCON-ROUTE-0001's outer-reactor-root row already falsifies the opposite mutant of always using the nearest ancestor pom.xml regardless of reactor status."
+}

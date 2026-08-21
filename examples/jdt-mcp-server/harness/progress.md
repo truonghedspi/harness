@@ -6,14 +6,16 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-21
-- **Active feature:** feat-project-router — maker replayed verification post-approval (attempt 2/3), readyForCheck true, awaiting checker
-- **Latest commit:** pending — maker replay recorded for feat-project-router; feat-prove-routing untouched (separate feature)
+- **Active feature:** feat-prove-routing — TCON-ROUTE-0006 authored/implemented by test-designer/test-implementer; maker independently replayed the full 6-condition suite green and set readyForCheck=true (attempts 2/3). feat-project-router stays done, untouched
+- **Latest commit:** pending — maker replay confirmation for feat-prove-routing; no source or test change made
 - **Baseline (`./harness/init.sh`):** green — six baseline integration cases and four lsp-client unit cases passed
 
 ## Done
 
 - [x] feat-001 — Baseline green
   - Checker replayed the six-case integration oracle and `./harness/init.sh`; injected install, fixture, and test failures each made the gate red and stopped later steps.
+- [x] feat-project-router — path to workspace id
+  - Checker approved (attempt 2/3): 5/5 (TCON-ROUTE-0001..0005) pass, mutant probe killed every cited defect. Checker's own mutant probe on the just-approved code then found the `<modules>` reactor check is deletable without any of the 5 conditions failing — recorded as a FOLLOW-UP, not reopened here (see feat-prove-routing).
 
 ## Blocked
 
@@ -21,20 +23,18 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   - Checker replayed all 13 cases green in 562.2 s, including the real clean-cache download/install path. But TCON-PROV-0008 only compares the installed files to the same archive it handed to the implementation; it never requires checksum-mismatch rejection for corrupted downloaded bytes. A removed checksum guard would stay green, so the prove claim cannot close until the oracle adds that condition.
 
 ## In Progress
-- [ ] feat-project-router — readyForCheck true, attempt 2/3, awaiting checker
-  - Design approval 3d68e0857fbfac45 (2026-08-21) accepted Option R and corrected `INV-ROUTE-1`/A-006 to state the outer-reactor-root exception explicitly. Maker confirmed `src/workspace/project-router.ts` already implements Option R (outermost `<modules>`-bearing ancestor pom.xml, falling back to nearest ancestor pom.xml) and replayed `npm run test:integration -- test/integration/project-router.integration.spec.ts`: 5/5 passed (TCON-ROUTE-0001..0005). No source change was made.
 - [ ] feat-jdtls-provisioner — ready for checker after attempt 2/3
   - The unchanged implementation passed all 13 independent integration cases before implementation again (479.5 s), including clean-cache checksum verification, download, extraction, and pinned installation; no redundant source change was made.
 - [ ] feat-lsp-client — rejected after attempt 1/4
   - Checker replayed the four green unit cases, but they manually emit `exit` over PassThrough streams. This process-boundary feature needs a bounded cross-process integration oracle that kills a spawned scripted child with requests in flight.
-- [ ] feat-prove-routing — NEEDS DESIGN marker cleared, ready for checker replay
-  - Same design approval 3d68e0857fbfac45 aligns `INV-ROUTE-1`/A-006 with this feature's behavior sentence and its TCON-ROUTE-0001..0005 oracle; no oracle change was made.
+- [ ] feat-prove-routing — ready for checker after attempt 2/3
+  - `TCON-ROUTE-0006` (traces to `INV-ROUTE-1`) is now authored and implemented: a non-reactor parent pom.xml (packaging=pom, no `<modules>`) with an independent child project's own pom.xml nested beneath it — the child path resolves to the child, not the parent. Maker independently replayed the full widened suite (did not just trust test-implementer's report): 6/6 pass (TCON-ROUTE-0001..0006) against the unchanged `src/workspace/project-router.ts`. No source or test change was needed. `readyForCheck=true`.
 
 ## Next
 
 1. Add and run a committed corrupt-download/checksum-rejection integration condition for `feat-prove-provisioner`, then return it to checker review.
 2. Add and run the required bounded cross-process oracle for `feat-lsp-client`, then return it to checker review.
-3. Checker replays `feat-project-router` (evidence recorded, readyForCheck true) and `feat-prove-routing` now that the design contradiction is resolved and both markers are cleared.
+3. Checker to review `feat-prove-routing`: 6/6 conditions (TCON-ROUTE-0001..0006) independently confirmed green by maker, attempt 2/3.
 
 ## Known Issues / Risks
 
@@ -42,4 +42,4 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-The prove-provisioner feature is rejected: its 13-case green replay lacks corrupt-download/checksum-rejection coverage. The lsp-client still needs a cross-process oracle. The routing design contradiction (nearest-module-pom vs. outer-reactor root) is resolved by human-approved design digest `3d68e0857fbfac45`: `INV-ROUTE-1` and A-006 now name the outer-reactor-root exception explicitly, the feature-planner cleared both `NEEDS DESIGN` markers, and no re-implementation or re-cut was needed — the checker should replay `feat-project-router` and `feat-prove-routing` next.
+The prove-provisioner feature is rejected: its 13-case green replay lacks corrupt-download/checksum-rejection coverage. The lsp-client still needs a cross-process oracle. `feat-project-router` is done and must stay untouched; its checker-approval FOLLOW-UP (the `<modules>` reactor check being deletable without failing any of the 5 existing conditions) was turned into explicit scope on `feat-prove-routing` (new `TCON-ROUTE-0006`, traces to `INV-ROUTE-1`) rather than reopening the done build feature — see `harness/DECISIONS.md`'s newest entry. `TCON-ROUTE-0006` is now authored/implemented and the maker independently replayed the full 6-condition suite green (no source or test change needed); `feat-prove-routing` is `readyForCheck` at attempt 2/3 and awaits checker review.

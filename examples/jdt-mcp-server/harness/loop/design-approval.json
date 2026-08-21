@@ -1,12 +1,15 @@
 {
   "schema": "design-approval/1",
-  "designDigest": "cc42ac15e4bfd912",
+  "designDigest": "3d68e0857fbfac45",
   "status": "approved",
   "approvedBy": "truong.hn.1994@gmail.com",
-  "approvedAt": "2026-08-20",
+  "approvedAt": "2026-08-21",
   "decisions": [
-    "INV-TOOL-6 accepted: java_hover always returns a daemon-computed range on success, never echoed from JDT LS's own Hover response (which omits range) and never a passthrough of the request position — the echo alternative was rejected because it is self-inverse and cannot falsify",
-    "A-020 (assumed) accepted as-is: INV-TOOL-6's fixture catches coordinate-conversion disagreement but not JDT LS resolving a wider construct than the daemon's token scan — recorded, not silently dropped"
+    "Option R accepted: project-router derives the workspace root from the call path alone — the outermost enclosing ancestor pom.xml that declares <modules> (the reactor root), or the nearest ancestor pom.xml when no reactor encloses the path. INV-ROUTE-1's wording is corrected to state this exception explicitly, closing the drift the checker found between the literal 'nearest ancestor pom.xml' text and the already-accepted one-JDT-LS-process-per-reactor architecture (DECISIONS.md:182-184) that the implementation and 5-case oracle already implement and test.",
+    "Option N (nearest POM for every path, including inside a declared reactor) rejected: it would give sibling modules separate workspace identities, contradicting the accepted reactor-level process architecture and multiplying the measured 434-952 MB idle-instance memory floor per extra workspace — no cited objective in the accepted design supports module-level independence over the reactor-level model.",
+    "feat-project-router and feat-prove-routing: no re-implementation needed — the existing behavior and 5-condition oracle (TCON-ROUTE-0001..0005) already match Option R exactly; this was a specification-wording fix, not a behavior change. feature-planner may now clear the NEEDS DESIGN markers and let both features proceed to done."
   ],
-  "acceptedRisks": []
+  "acceptedRisks": [
+    "<modules> tag detection is validated only against the current fixture tree, not an independent Maven-model parser — an atypical multi-module layout (e.g. non-standard aggregator patterns) could be misclassified. Flagged in the design's own premortem as a bounded future spike, not blocking this cut."
+  ]
 }

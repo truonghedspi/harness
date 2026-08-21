@@ -15,6 +15,11 @@
 //                                    (model-based property, seeded/reproducible)
 //     TCON-ROUTE-0005  INV-ROUTE-2   a path with no ancestor pom.xml returns an explicit error
 //                                    naming the supplied path, never an empty success
+//     TCON-ROUTE-0006  INV-ROUTE-1   a path inside an independently rooted child project nested
+//                                    beneath a non-reactor ancestor pom.xml (packaging=pom, no
+//                                    <modules>) resolves to the child's own directory, never the
+//                                    non-reactor ancestor's -- discriminating the nearest-ancestor
+//                                    fallback from always taking the outermost ancestor pom.xml
 //
 // Spec refs: docs/design/runtime-model.md#INV-ROUTE-1, #INV-ROUTE-2, #INV-ROUTE-3; docs/design/evidence.md
 // (spike B, issue 1303); docs/design/architecture.md (component table: `resolveWorkspace(path)
@@ -59,11 +64,14 @@ function makeTempRoot(prefix: string): string {
   return realpathSync(dir);
 }
 
-function writePomXml(dir: string, opts: { artifactId: string; modules?: string[]; hasParent?: boolean }): void {
+function writePomXml(
+  dir: string,
+  opts: { artifactId: string; modules?: string[]; hasParent?: boolean; packaging?: "pom" | "jar" },
+): void {
   mkdirSync(dir, { recursive: true });
   const packagingAndModules = opts.modules
     ? `\n  <packaging>pom</packaging>\n  <modules>\n${opts.modules.map((m) => `    <module>${m}</module>`).join("\n")}\n  </modules>`
-    : "\n  <packaging>jar</packaging>";
+    : `\n  <packaging>${opts.packaging ?? "jar"}</packaging>`;
   const parent = opts.hasParent
     ? "\n  <parent>\n    <groupId>com.example</groupId>\n    <artifactId>reactor</artifactId>\n    <version>1.0.0</version>\n  </parent>"
     : "";
@@ -352,5 +360,63 @@ test("TCON-ROUTE-0005: a path with no ancestor pom.xml returns an explicit error
   assert.ok(
     result.error.includes(unmanagedPath),
     `the routing error must name the supplied path (${unmanagedPath}); got: ${result.error}`,
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
+// TCON-ROUTE-0006 -- INV-ROUTE-1: nearest-ancestor fallback vs. a non-reactor outer ancestor
+// ---------------------------------------------------------------------------------------------
+
+test("TCON-ROUTE-0006: a path inside an independently rooted child project nested beneath a non-reactor ancestor pom.xml resolves to the child's own directory, never the non-reactor ancestor's", (t) => {
+  const root = makeTempRoot("route-0006-");
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  // The ancestor is explicitly NOT a reactor: packaging=pom but no <modules> element at all.
+  const nonReactorAncestorRoot = path.join(root, "non-reactor-ancestor");
+  writePomXml(nonReactorAncestorRoot, { artifactId: "non-reactor-ancestor", packaging: "pom" });
+
+  // The child is independently rooted: its own separate pom.xml, not declared as a <module> of
+  // the ancestor above (the ancestor has no <modules> at all).
+  const childRoot = path.join(nonReactorAncestorRoot, "nested-child");
+  writePomXml(childRoot, { artifactId: "nested-child" });
+  const childSourceFile = writeSourceFile(childRoot, "src/main/java/com/example/Child.java");
+
+  const rows: ReadonlyArray<{ label: string; callPath: string }> = [
+    { label: "the child project's own pom.xml directory", callPath: childRoot },
+    { label: "a source file nested inside the child project", callPath: childSourceFile },
+  ];
+
+  for (const { label, callPath } of rows) {
+    const result = expectResolved(callPath);
+    assert.equal(
+      result.projectRoot,
+      childRoot,
+      `${label}: projectRoot must be the child project's own directory (${childRoot}) -- the ` +
+        `nearest ancestor pom.xml -- never the non-reactor ancestor's directory ` +
+        `(${nonReactorAncestorRoot}), which declares no <modules> and is therefore not a reactor ` +
+        `root; got ${result.projectRoot}`,
+    );
+    assert.notEqual(
+      result.projectRoot,
+      nonReactorAncestorRoot,
+      `${label}: projectRoot must never be the non-reactor ancestor's directory ` +
+        `(${nonReactorAncestorRoot}) -- that would mean the implementation always takes the ` +
+        `outermost ancestor pom.xml regardless of whether it declares <modules>`,
+    );
+  }
+
+  // Sanity precondition: the ancestor itself must still resolve to its own directory when called
+  // directly -- it IS a valid (non-reactor) project root, just not an enclosing one for the child.
+  const ancestorResult = expectResolved(nonReactorAncestorRoot);
+  assert.equal(
+    ancestorResult.projectRoot,
+    nonReactorAncestorRoot,
+    `the non-reactor ancestor must resolve to its own directory when called directly`,
+  );
+  const childResult = expectResolved(childRoot);
+  assert.notEqual(
+    childResult.workspaceId,
+    ancestorResult.workspaceId,
+    `the child project and the non-reactor ancestor are two distinct project roots and must never share a workspace id`,
   );
 });

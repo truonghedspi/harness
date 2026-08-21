@@ -10,3 +10,6 @@ or a class of feature keeps needing the same scrutiny. Don't write one for a rou
 <!-- - [Title](slug.md) — one-line hook -->
 - [Provisioner success path](provisioner-success-path.md) — Failure-path coverage can leave first-run installation untested.
 - [Baseline gate oracle seam](baseline-gate-oracle-seam.md) — Helper-only tests do not prove that the startup gate calls the helper or propagates its failures.
+- [Checksum rejection oracle](checksum-rejection-oracle.md) — Comparing copied archive contents does not prove checksum mismatch rejection.
+- [Routing contract contradiction](routing-contract-contradiction.md) — A green routing oracle can encode one side of a multi-module contract contradiction.
+- [Accepted risk validated by nothing](accepted-risk-validated-by-nothing.md) — "Validated only against the current fixture tree" can mean validated by no condition at all.

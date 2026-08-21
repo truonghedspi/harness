@@ -191,8 +191,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "in-progress",
-      "readyForCheck": true,
+      "status": "done",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -225,7 +225,7 @@
           "result": "post-approval replay after design approval 3d68e0857fbfac45 (Option R): 5/5 passed unchanged (TCON-ROUTE-0001..0005), no source edit made; src/workspace/project-router.ts already picks the outermost <modules>-bearing ancestor pom.xml (reactor root) and falls back to the nearest ancestor pom.xml, matching the corrected INV-ROUTE-1 exactly"
         }
       ],
-      "checkerNotes": "RESOLVED: design approval 3d68e0857fbfac45 corrected `INV-ROUTE-1` to match this feature's already-implemented reactor-root behavior; no code change needed.\n\nDesign approval digest 3d68e0857fbfac45 (approved 2026-08-21) accepted Option R and corrected `INV-ROUTE-1` and A-006 (harness/docs/design/runtime-model.md#INV-ROUTE-1) to state the outer-reactor-root exception explicitly. This feature's behavior sentence already matched that reading, so the contradiction was in the invariant wording, not here. Per the approval's decision #3, the existing implementation and 5-condition oracle (TCON-ROUTE-0001..0005) already satisfy the corrected contract — no re-implementation needed. Maker replayed verification post-approval (2026-08-21): 5/5 green, no code change. Ready for checker replay/close.",
+      "checkerNotes": "FOLLOW-UP: the `<modules>` reactor test in `src/workspace/project-router.ts` is load-bearing in the code but is falsified by no condition in TP-ROUTE-0001. Checker mutant probe (scratch, deleted): replacing `mavenRoots.findLast(({ isReactor }) => isReactor)?.directory ?? mavenRoots[0]?.directory` with `mavenRoots[mavenRoots.length - 1]?.directory` — i.e. deleting the reactor check entirely and always taking the outermost ancestor pom.xml — keeps all 5 conditions green (5 pass / 0 fail). Cause: no fixture nests a pom.xml under a NON-reactor ancestor pom.xml, so the corrected INV-ROUTE-1 fallback clause ('if none encloses the path, use the nearest ancestor pom.xml') is never discriminated from 'outermost ancestor pom.xml'. TCON-ROUTE-0001 declares technique `decision_table` (row per combination) but has no row for the ancestor-pom-without-<modules> combination. The oracle layer should add that row (parent-only root pom with <packaging>pom</packaging> and no <modules>, an independent child project with its own pom beneath it: the child path must resolve to the CHILD, not the root). This sharpens the risk the human already accepted in design-approval 3d68e0857fbfac45 — that approval says <modules> detection 'is validated only against the current fixture tree', but the probe shows the current fixture tree validates it not at all. Non-blocking for this claim: the feature's own recorded falsifiers are both genuinely falsified.\n\nCHECKER VERDICT 2026-08-21 (attempt 2/3) — APPROVE. Independent replay of `npm run test:integration -- test/integration/project-router.integration.spec.ts`: 5/5 pass (TCON-ROUTE-0001..0005), 171 ms, no hang risk. Mutant probe in harness/trace/scratch (deleted after use) killed every cited defect: always-nearest-ancestor 1p/4f; sticky last-resolved cache 2p/3f [falsifier 1]; empty success for unmanaged path 4p/1f and error not naming the path 4p/1f [falsifier 2]; reactor-only with no nearest-ancestor fallback 2p/3f. TCON-ROUTE-0004's reference model is a hardcoded fixture path->root map, not a re-derivation of the implementation's walk, so no R-T3 tautology.\n\nPrior NEEDS DESIGN (contract contradiction, checker memory `routing-contract-contradiction.md`) is genuinely closed, verified against the sources rather than the maker's summary: harness/docs/design/runtime-model.md:40 now reads 'use the outermost enclosing ancestor `pom.xml` that declares `<modules>`; if none encloses the path, use the nearest ancestor `pom.xml`', A-006 (harness/docs/assumptions.md:29) states the same exception, and harness/docs/design/architecture.md:10-40 records Option R with Option N's rejection. That wording matches src/workspace/project-router.ts:37-43 line for line and matches TCON-ROUTE-0001's outer-reactor-root assertion — invariant, behavior sentence and oracle now agree, which is exactly what the prior rejection required. Note for the record: design-approval.json's digest 3d68e0857fbfac45 cannot be recomputed by any tool in harness/tools, and harness/loop/approval-gate.mjs crashes resolving 'tools/review-digest.mjs' (missing the harness/ prefix), so the approval's binding to a doc revision rests on prose; the alignment above was therefore checked by reading, not by checksum.",
       "attempts": 2,
       "maxAttempts": 3
     },
@@ -233,27 +233,28 @@
       "id": "feat-prove-routing",
       "name": "Prove: routing never drifts and never silently misroutes",
       "kind": "prove",
-      "behavior": "Over a fixture tree containing a single-module project, a multi-module reactor and an unmanaged directory, every path resolves to its own reactor root, distinct roots never collide, and the unmanaged path always errors",
+      "behavior": "Over a fixture tree containing a single-module project, a multi-module reactor, a non-reactor parent pom.xml with an independently rooted nested child project, and an unmanaged directory, every path resolves to its correct root (reactor root, nearest ancestor pom.xml, or an explicit unmanaged-path error), and distinct roots never collide",
       "verification": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
       "context": {
         "touches": [
           "test/integration/project-router.integration.spec.ts"
         ],
-        "note": "Build the fixture tree with a real multi-module pom.xml (<modules>), a plain single-module project, and an unmanaged path. Preserve TCON-ROUTE-0001..0004 and add TCON-ROUTE-0005 for the explicit named-path error required by INV-ROUTE-2."
+        "note": "Build the fixture tree with a real multi-module pom.xml (<modules>), a plain single-module project, and an unmanaged path. Preserve TCON-ROUTE-0001..0004 and TCON-ROUTE-0005 for the explicit named-path error required by INV-ROUTE-2. Add TCON-ROUTE-0006: a parent pom.xml with <packaging>pom</packaging> and no <modules>, with an independent child project's own pom.xml nested beneath it; the child path must resolve to the child directory, not the parent, discriminating the corrected INV-ROUTE-1 fallback clause ('if none encloses the path, use the nearest ancestor pom.xml') from an implementation that always takes the outermost ancestor pom.xml regardless of <modules>."
       },
-      "falsifier": "a multi-module project resolves one workspace id per module instead of one at the reactor root [INV-ROUTE-3]; two calls under the same reactor root resolve to different workspace ids [INV-ROUTE-1][INV-ROUTE-3]; or an unmanaged path returns an empty success or an error that does not name the path [INV-ROUTE-2]",
+      "falsifier": "a multi-module project resolves one workspace id per module instead of one at the reactor root [INV-ROUTE-3]; two calls under the same reactor root resolve to different workspace ids [INV-ROUTE-1][INV-ROUTE-3]; an unmanaged path returns an empty success or an error that does not name the path [INV-ROUTE-2]; or a path beneath a non-reactor ancestor pom.xml (no <modules>) resolves to that ancestor instead of falling back to the path's own nearest ancestor pom.xml [INV-ROUTE-1]",
       "conditions": [
         "TCON-ROUTE-0001",
         "TCON-ROUTE-0002",
         "TCON-ROUTE-0003",
         "TCON-ROUTE-0004",
-        "TCON-ROUTE-0005"
+        "TCON-ROUTE-0005",
+        "TCON-ROUTE-0006"
       ],
       "dependencies": [
         "feat-project-router"
       ],
       "status": "in-progress",
-      "readyForCheck": false,
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-20",
@@ -272,10 +273,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
           "result": "Maker attempt 1 replay passed 5/5 before any edit, including reactor collapse, distinct stable per-call workspace ids, generated interleavings, and the TCON-ROUTE-0005 explicit error naming the unmanaged path; the independent oracle and implementation already exist, so neither was changed."
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+          "result": "Maker attempt 2 independent replay of the widened 6-condition suite: 6/6 passed (TCON-ROUTE-0001..0006), including the new TCON-ROUTE-0006 assertion that a path under an independently rooted child project nested beneath a non-reactor ancestor pom.xml resolves to the child's own directory, not the ancestor. No change made to src/workspace/project-router.ts or to the test file; this confirms test-implementer's report rather than trusting it."
         }
       ],
-      "checkerNotes": "RESOLVED: design approval 3d68e0857fbfac45 corrected `INV-ROUTE-1` to match this feature's already-passing reactor-root oracle; no oracle change needed.\n\nDesign approval digest 3d68e0857fbfac45 (approved 2026-08-21) accepted Option R and corrected `INV-ROUTE-1` and A-006 (harness/docs/design/runtime-model.md#INV-ROUTE-1) to state the outer-reactor-root exception explicitly, aligning them with this feature's own behavior sentence and with TCON-ROUTE-0001's outer-reactor-root assertion. Per the approval's decision #3, the existing 5-condition suite (TCON-ROUTE-0001..0005) already proves the corrected contract — no oracle change needed. Ready for checker replay.",
-      "attempts": 1,
+      "checkerNotes": "RESOLVED: design approval 3d68e0857fbfac45 corrected `INV-ROUTE-1` to match this feature's already-passing reactor-root oracle; no oracle change needed.\n\nDesign approval digest 3d68e0857fbfac45 (approved 2026-08-21) accepted Option R and corrected `INV-ROUTE-1` and A-006 (harness/docs/design/runtime-model.md#INV-ROUTE-1) to state the outer-reactor-root exception explicitly, aligning them with this feature's own behavior sentence and with TCON-ROUTE-0001's outer-reactor-root assertion. Per the approval's decision #3, the existing 5-condition suite (TCON-ROUTE-0001..0005) already proves the corrected contract — no oracle change needed. Ready for checker replay.\n\nWIDENED (feature-planner, 2026-08-21): routed here as a FOLLOW-UP off `feat-project-router`'s own checker approval (feat-project-router itself stays done/untouched). Checker mutant probe found that replacing the outer-reactor-root selection with 'always take the outermost ancestor pom.xml, delete the <modules> check' still passes all 5 conditions, because no fixture nests a pom.xml under a non-reactor ancestor pom.xml — the corrected INV-ROUTE-1 fallback clause is never discriminated from 'always outermost ancestor'. Added TCON-ROUTE-0006 (traces to INV-ROUTE-1, decision_table technique, consistent with TCON-ROUTE-0001/0002 tracing to INV-ROUTE-3 and TCON-ROUTE-0005 to INV-ROUTE-2) and widened this feature's behavior/falsifier accordingly, following the same in-place-widening pattern already used for TCON-ROUTE-0005 (see harness/DECISIONS.md). The oracle layer (test-designer/test-implementer) must author and implement TCON-ROUTE-0006 — a non-reactor parent pom.xml (packaging=pom, no <modules>) with an independent child project's own pom.xml nested beneath it, asserting the child path resolves to the child directory — before this feature can be judged against the widened falsifier. Prior evidence and attempt count are preserved unchanged; they cover the pre-widening 5-condition scope only.\n\nMAKER (2026-08-21, attempt 2): independently replayed the widened suite rather than trusting test-implementer's report. All 6 conditions (TCON-ROUTE-0001..0006) pass against the unchanged src/workspace/project-router.ts. No source or test change made. readyForCheck=true; status left as-is for the checker to decide.",
+      "attempts": 2,
       "maxAttempts": 3
     },
     {

@@ -8,6 +8,33 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-21 — Trường hợp fallback không-reactor được bổ sung vào `feat-prove-routing` sẵn có
+
+- **Quyết định:** thêm điều kiện `TCON-ROUTE-0006` (traces to `INV-ROUTE-1`) vào `feat-prove-routing`
+  thay vì tạo một tính năng mới; mở rộng behavior/falsifier của tính năng này để bao gồm trường hợp
+  đó ngay tại chỗ.
+- **Nguyên nhân:** kiểm tra viên (checker) chạy một đột biến (mutant) trên `feat-project-router` sau
+  khi tính năng đã ở trạng thái done — thay `mavenRoots.findLast(...) ?? mavenRoots[0]?.directory`
+  bằng `mavenRoots[mavenRoots.length - 1]?.directory` (luôn lấy pom.xml tổ tiên ngoài cùng, xoá hẳn
+  điều kiện kiểm tra `<modules>`) vẫn giữ cả 5 điều kiện xanh. Nguyên nhân gốc: chưa có fixture nào
+  lồng một pom.xml bên dưới một pom.xml tổ tiên KHÔNG phải reactor, nên nhánh fallback đã được sửa
+  của `INV-ROUTE-1` ("nếu không có pom.xml tổ tiên nào khai báo `<modules>` bao quanh đường dẫn, dùng
+  pom.xml tổ tiên gần nhất") chưa từng được phân biệt với "luôn lấy pom.xml tổ tiên ngoài cùng".
+- **Phương án bị từ chối:** tạo một tính năng test-coverage-gap riêng biệt cho trường hợp này. Bị từ
+  chối vì nó dùng chung đúng một seam (`resolveWorkspace(path)`), một tệp oracle
+  (`test/integration/project-router.integration.spec.ts`), và cùng invariant family với
+  `feat-prove-routing` đã sở hữu — tách ra sẽ nhân đôi cùng một component và fixture, đúng như tiền
+  lệ đã áp dụng khi thêm `TCON-ROUTE-0005`.
+- **Ràng buộc được thoả mãn:** mỗi claim quan trọng của `INV-ROUTE-1` (bao gồm cả nhánh fallback) có
+  một điều kiện phân biệt (discriminating) độc lập, không chỉ được suy luận gián tiếp từ các điều
+  kiện khác.
+- **Ảnh hưởng:** `feat-prove-routing` (behavior, falsifier, conditions, checkerNotes); không đụng đến
+  `feat-project-router` (giữ nguyên trạng thái done và evidence). Lớp oracle (test-designer/
+  test-implementer) còn phải viết và triển khai `TCON-ROUTE-0006` trước khi tính năng này có thể
+  được đánh giá lại.
+
+---
+
 ## 2026-08-21 — Module paths resolve to their enclosing reactor root
 
 - **Decision:** clarify `INV-ROUTE-1`: derive the root fresh from each call path; choose the
