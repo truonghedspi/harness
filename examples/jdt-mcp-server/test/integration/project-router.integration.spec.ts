@@ -13,17 +13,14 @@
 //     TCON-ROUTE-0004  INV-ROUTE-1   over long generated call sequences, every id matches an
 //                                    independent reference model of that call's own path alone
 //                                    (model-based property, seeded/reproducible)
+//     TCON-ROUTE-0005  INV-ROUTE-2   a path with no ancestor pom.xml returns an explicit error
+//                                    naming the supplied path, never an empty success
 //
-// Spec refs: docs/design/runtime-model.md#INV-ROUTE-1, #INV-ROUTE-3; docs/design/evidence.md
+// Spec refs: docs/design/runtime-model.md#INV-ROUTE-1, #INV-ROUTE-2, #INV-ROUTE-3; docs/design/evidence.md
 // (spike B, issue 1303); docs/design/architecture.md (component table: `resolveWorkspace(path)
 // -> {workspaceId, projectRoot} | error`); docs/cross-cutting.md#X-005 (workspace-id key,
 // realpath-based, open -- this file asserts equality/inequality of ids, never a specific
 // hash/algorithm).
-//
-// Per TP-ROUTE-0001/plan.json's own spec_gaps note, this plan (and this file) deliberately does
-// NOT cover the unmanaged-path error case (INV-ROUTE-2) -- feat-prove-routing's falsifier cites
-// only INV-ROUTE-1 and INV-ROUTE-3; INV-ROUTE-2 belongs to feat-project-router's own build-time
-// tests.
 //
 // Per the test-implementer boundary, this file does not read src/workspace/project-router.ts --
 // it exists to establish the oracle. That file does not exist yet (feat-project-router is
@@ -332,4 +329,28 @@ test("TCON-ROUTE-0004: over any generated sequence of interleaved calls, every r
       }
     }
   }
+});
+
+// ---------------------------------------------------------------------------------------------
+// TCON-ROUTE-0005 -- INV-ROUTE-2: unmanaged paths fail explicitly and name the supplied path
+// ---------------------------------------------------------------------------------------------
+
+test("TCON-ROUTE-0005: a path with no ancestor pom.xml returns an explicit error naming the supplied path, never an empty success", (t) => {
+  const root = makeTempRoot("route-0005-");
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const unmanagedPath = writeSourceFile(root, "unmanaged/src/main/java/com/example/Unmanaged.java");
+
+  const result = resolveWorkspace(unmanagedPath) as
+    | { workspaceId: string; projectRoot: string }
+    | { error: string };
+
+  assert.ok(
+    result && typeof result === "object" && "error" in result,
+    `resolveWorkspace(${unmanagedPath}) must return an explicit error, never an empty success; got: ${JSON.stringify(result)}`,
+  );
+  assert.equal(typeof result.error, "string", "the explicit routing error must carry a message");
+  assert.ok(
+    result.error.includes(unmanagedPath),
+    `the routing error must name the supplied path (${unmanagedPath}); got: ${result.error}`,
+  );
 });

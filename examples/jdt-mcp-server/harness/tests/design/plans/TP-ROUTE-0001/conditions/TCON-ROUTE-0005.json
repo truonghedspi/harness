@@ -1,0 +1,10 @@
+{
+  "id": "TCON-ROUTE-0005",
+  "plan_id": "TP-ROUTE-0001",
+  "requirement_id": "INV-ROUTE-2",
+  "behavior": "Given a path with no ancestor pom.xml, resolving that path always returns an explicit error whose message names the supplied path, never an empty successful result.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Managed versus unmanaged ancestry selects distinct routing outcomes, so a decision-table row for the no-ancestor-pom.xml branch directly exercises INV-ROUTE-2 and falsifies an implementation that returns an empty success or an error that omits the supplied path."
+}
