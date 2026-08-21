@@ -35,6 +35,20 @@ function allSettled() {
   });
 }
 
+// A feature can be left readyForCheck:true with no checker verdict yet if the process that set
+// it (maker's own dispatch) gets interrupted before the unconditional post-maker checker step
+// below runs — a network drop, a manual stop for an unrelated fix, anything short of a clean
+// iteration. Without this check, the next iteration's route() sees the SAME feature as still
+// maker-eligible (rule 14 doesn't look at readyForCheck) and dispatches maker again, which
+// re-runs the feature's full verification — expensive when that includes a real integration
+// download (measured: ~500s, repeated 3x on examples/jdt-mcp-server from three interruptions,
+// zero code changes between runs). Skip straight to the checker instead; nothing was lost.
+function readyForCheckFeature() {
+  let list;
+  try { list = JSON.parse(readFileSync("feature_list.json", "utf8")); } catch { return null; }
+  return (list.features || []).find((f) => f.readyForCheck === true) || null;
+}
+
 function recordBaseline() {
   const entry = existsSync("init.mjs") ? [process.execPath, ["init.mjs"]] : ["bash", ["init.sh"]];
   const result = run(entry[0], entry[1], { timeout: 300_000 });
@@ -118,6 +132,21 @@ async function main() {
   for (let iteration = 1; iteration <= iterations; iteration++) {
     if (allSettled()) return 0;
     recordBaseline();
+    const pending = readyForCheckFeature();
+    if (pending) {
+      console.log(`=== iteration ${iteration}/${iterations} — ${pending.id} is already readyForCheck (interrupted before its checker step) — skipping straight to checker instead of re-running maker ===`);
+      const promote = await approvalAllowsPromote(iteration);
+      if (promote && existsSync("tools/verify-harness.mjs")) {
+        show(process.execPath, ["tools/verify-harness.mjs", "--target", ".", "--skip-baseline", "--run-features", "--promote", "--quiet"]);
+      }
+      console.log(`=== iteration ${iteration}/${iterations} — checker ===`);
+      const checkerCode = await dispatch("checker", "Check every feature with readyForCheck=true per your instructions. Verdicts and reasons only.", { runtime });
+      if (checkerCode !== 0) return checkerCode;
+      recordBaseline();
+      baselineChecked = true;
+      if (attended && !await checkpoint(iteration, "checker")) return 0;
+      continue;
+    }
     const next = route();
     logRoute(next);
     console.log(`=== iteration ${iteration}/${iterations} — route → ${next.node} [layer: ${next.layer}] ===`);
