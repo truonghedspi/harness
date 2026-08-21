@@ -557,16 +557,15 @@ function promoteFeatures() {
     // narrowed to what's provable and a requirement gap remains) — mechanical promotion must
     // never override that judgment just because the narrowed command still exits 0.
     if (status === "done" || status === "blocked") continue;
-    // A checker REJECT deliberately leaves status "in-progress" (loop/checker-prompt.md: "set
-    // status: in-progress" so the router still treats it as open for a fresh maker attempt) — but
-    // that means promotion here cannot tell a genuine reject apart from an untouched in-progress
-    // feature by status alone. The verdict IS the checkerNotes marker (first line), the same
-    // contract route.mjs's own marker()/notes() helpers already read. Found live: feat-lsp-client
-    // was REJECTed for lacking a required cross-process oracle, then silently promoted to `done`
-    // on the next --promote because its (insufficient) unit test still exited 0 — the checker's
-    // judgment had zero mechanical effect.
-    const marker = String(f.checkerNotes || "").trim().split("\n")[0].trim();
-    if (/^REJECT\b/.test(marker)) continue;
+    // A checker REJECT sets status back to in-progress (checker-prompt.md) so the router still
+    // treats the feature as open for the maker to retry — but that leaves "in-progress because
+    // nobody has looked yet" indistinguishable from "in-progress because the checker just looked
+    // and said no" to this loop, which only checks status. Found live: a checker rejected
+    // feat-lsp-client for lacking a real process-boundary oracle; the maker's OLD unit test still
+    // exited 0, and the next --promote run silently overrode the reject. The checker's own verdict
+    // (checkerNotes' first line, same marker convention route.mjs already uses) is the ground
+    // truth here, not the status field a checker mistake could leave stale.
+    if (/^REJECT\b/.test(String(f.checkerNotes || "").trim())) continue;
     const note = `[mechanically promoted by verify-harness --promote on ${now}: verification re-run, exited 0]`;
     f.status = "done";
     f.readyForCheck = false;
