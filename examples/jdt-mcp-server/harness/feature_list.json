@@ -225,7 +225,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "NEEDS RE-PLAN: refresh the stale feat-lsp-client context packet from docs/design/runtime-model.md and docs/design/evidence.md, then route the independent oracle before implementation. The declared verification file test/lsp/lsp-client.spec.ts does not exist, so a maker-authored implementation now could only produce a missing-module/compile failure rather than the required assertion red. No attempt was consumed and production/test files remain untouched.",
       "attempts": 0,
       "maxAttempts": 4
     },

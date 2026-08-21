@@ -268,3 +268,8 @@
 {"ts":"2026-08-21T04:06:45.643Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":12792}
 {"ts":"2026-08-21T04:07:32.300Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":16598}
 {"ts":"2026-08-21T04:07:35.407Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":17195}
+{"ts":"2026-08-21T04:10:18.185Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":20849}
+{"ts":"2026-08-21T04:10:33.613Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":21834}
+{"ts":"2026-08-21T04:11:24.250Z","actor":"maker","event":"feature-picked","feature":"feat-lsp-client","detail":"router selected the only eligible feature; dependencies done and attempts 0/4","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":22443}
+{"ts":"2026-08-21T04:11:24.282Z","actor":"maker","event":"blocked","feature":"feat-lsp-client","detail":"stale context packet and missing independent assertion oracle; planner refresh required before implementation","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":22444}
+{"ts":"2026-08-21T04:11:24.353Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":22449}
