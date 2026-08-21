@@ -302,3 +302,8 @@
 {"ts":"2026-08-21T04:26:17.540Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":42045}
 {"ts":"2026-08-21T04:27:06.756Z","actor":"maker","event":"verify-ran","feature":"feat-lsp-client","detail":"npm test -- test/lsp/lsp-client.spec.ts: red with 2 failures/2 cancellations, then green with 4/4 passing; ./harness/init.sh green","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":42656}
 {"ts":"2026-08-21T04:27:06.823Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":42661}
+{"ts":"2026-08-21T04:28:09.162Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":43629}
+{"ts":"2026-08-21T04:28:22.027Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":44406}
+{"ts":"2026-08-21T04:29:19.757Z","actor":"--help","event":"unknown","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":45394}
+{"ts":"2026-08-21T06:03:02.883Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":71052}
+{"ts":"2026-08-21T06:05:10.151Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":72077}

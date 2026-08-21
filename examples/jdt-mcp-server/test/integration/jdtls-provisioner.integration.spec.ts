@@ -10,6 +10,7 @@
 //     TCON-PROV-0005  INV-PROV-3   invalid JDTLS_HOME names the checked path and the missing launcher jar
 //     TCON-PROV-0006  INV-PROV-4   empty cache + blackholed egress: always settles inside the deadline
 //     TCON-PROV-0007  INV-PROV-4   same scenario: error names the pin, the host, and JDTLS_HOME
+//     TCON-PROV-0008  INV-PROV-2   empty cache downloads, verifies, extracts, and installs the pin
 //
 // Spec refs: docs/design/runtime-model.md#INV-PROV-1..4, docs/assumptions.md#A-005, #A-015.
 //
@@ -39,7 +40,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -402,5 +404,64 @@ test(
         return true;
       },
     );
+  },
+);
+
+// ---------------------------------------------------------------------------------------------
+// TCON-PROV-0008 — INV-PROV-2: empty-cache download, checksum, extraction, and installation
+// ---------------------------------------------------------------------------------------------
+
+test(
+  "TCON-PROV-0008: an available pinned distribution is downloaded, checksum-verified, extracted, and installed from an empty cache",
+  { timeout: 900_000 },
+  async (t) => {
+    const root = makeTempRoot("jdtls-prov-0008-");
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const javaHome = makeFakeJdk(root, 21);
+    const cacheDir = makeEmptyDir(root, "cache");
+    const requestedUrls: string[] = [];
+    let downloadedArchive: Buffer | undefined;
+    const fetchImpl = (async (input: string | URL | Request) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      requestedUrls.push(url);
+      const downloadPath = path.join(root, "controlled-source.tar.gz");
+      let completed = false;
+      for (let attempt = 0; attempt < 5 && !completed; attempt++) {
+        const transfer = spawnSync(
+          "curl",
+          ["--fail", "--location", "--silent", "--show-error", "--continue-at", "-", "--max-time", "180", "--output", downloadPath, url],
+          { encoding: "utf8" },
+        );
+        completed = transfer.status === 0;
+        if (!completed && attempt === 4) {
+          throw new Error(`controlled pinned-archive source did not complete: ${transfer.stderr}`);
+        }
+      }
+      const body = readFileSync(downloadPath);
+      downloadedArchive = body;
+      return new Response(body, { status: 200 });
+    }) as typeof fetch;
+    withEnv(t, { JAVA_HOME: javaHome, JDTLS_HOME: undefined });
+
+    const result = await resolveInstall({ cacheDir, fetchImpl, deadlineMs: TEST_DEADLINE_MS });
+
+    assert.equal(result.version, PINNED_JDTLS_VERSION);
+    assert.equal(result.installDir, cacheDir);
+    assert.ok(requestedUrls.length > 0, "an empty cache must fetch the pinned distribution");
+    assert.ok(downloadedArchive, "the controlled fetch boundary must capture the pinned archive bytes");
+
+    const expectedDir = path.join(root, "independently-extracted");
+    const archivePath = path.join(root, "downloaded-jdtls.tar.gz");
+    mkdirSync(expectedDir);
+    writeFileSync(archivePath, downloadedArchive);
+    execFileSync("tar", ["-xzf", archivePath, "-C", expectedDir]);
+    const expectedPlugins = path.join(expectedDir, "plugins");
+    const installedPlugins = path.join(result.installDir, "plugins");
+    const launcherName = readdirSync(expectedPlugins).find((name) => name.startsWith("org.eclipse.equinox.launcher_") && name.endsWith(".jar"));
+    const coreName = readdirSync(expectedPlugins).find((name) => name.startsWith("org.eclipse.jdt.ls.core_") && name.endsWith(".jar"));
+    assert.ok(launcherName, "the pinned archive must contain an Eclipse launcher jar");
+    assert.ok(coreName, "the pinned archive must contain a JDT LS core jar");
+    assert.deepEqual(readFileSync(path.join(installedPlugins, launcherName)), readFileSync(path.join(expectedPlugins, launcherName)));
+    assert.deepEqual(readFileSync(path.join(installedPlugins, coreName)), readFileSync(path.join(expectedPlugins, coreName)));
   },
 );

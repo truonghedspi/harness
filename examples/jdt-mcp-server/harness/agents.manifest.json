@@ -256,7 +256,7 @@
       ],
       "mcp": true,
       "writes": [
-        "tests/design/**",
+        "harness/tests/design/**",
         "harness/feature_list.json",
         "harness/docs/assumptions.md",
         "harness/progress.md",

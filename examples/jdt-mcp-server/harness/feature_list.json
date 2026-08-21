@@ -66,8 +66,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "blocked",
-      "readyForCheck": false,
+      "status": "in-progress",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -86,9 +86,15 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
           "result": "12 tests passed before implementation; no successful empty-cache download/install assertion exists to make red"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "13/13 passed against the UNCHANGED existing implementation once TCON-PROV-0008 existed — the already-written resolveInstall() already performs the real download/checksum/extract/install correctly, the oracle was simply blind to it before. Orchestrator-verified independently, ~9 min (real network download)."
         }
       ],
-      "checkerNotes": "BLOCKED: waiting for the oracle layer to author and implement TCON-PROV-0008 before a fresh maker attempt. RE-PLAN RESOLVED 2026-08-21: feat-prove-provisioner now explicitly owns the missing clean-cache successful-download/install claim. The prior 3/3-attempt block and all evidence remain recorded here; attempts were reset only because the checker explicitly authorized a fresh implementation attempt after that success-path condition exists. Decision recorded in harness/DECISIONS.md.\nPrior checker diagnosis: the implementation already contains the successful empty-cache fetch, SHA-256 verification, extraction, pinned-launcher validation, and install path, while the prior 12-case oracle lacked a successful-download assertion and therefore could not distinguish that path.",
+      "checkerNotes": "READY FOR CHECK (orchestrator, 2026-08-21): the T2 oracle gap is closed (TCON-PROV-0008 added — see feat-prove-provisioner). The existing implementation, unchanged since the last maker attempt, now passes the full 13-case oracle. No new maker attempt was needed or made.",
       "attempts": 0,
       "maxAttempts": 3
     },
@@ -126,9 +132,15 @@
           "run": "red",
           "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
           "result": "ERR_MODULE_NOT_FOUND: Cannot find module '.../src/provision/jdtls-provisioner.ts' — feat-jdtls-provisioner is not-started, so all 12 test() blocks across TCON-PROV-0001..0007 fail at import resolution, not on an assertion or syntax error. Sanity-checked separately against a throwaway scratchpad stub implementing the documented contract (resolveInstall/PINNED_JDTLS_VERSION/PROVISION_DEADLINE_MS): all 12 pass green there, and two targeted mutants (JVM-version gate removed; invalid JDTLS_HOME silently falling back to cache) were each caught by the expected test(s), confirming the oracle is not vacuous. test-implementer also created package.json/tsconfig.json (node:test + node --experimental-strip-types, zero new runtime deps) since none existed yet; see docs/testing-standards.md."
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts",
+          "result": "13/13 tests passed (TCON-PROV-0001..0008). New TCON-PROV-0008 downloads the real pinned archive via a controlled fetch boundary, checksum-verifies it, extracts it independently, and byte-compares the installed launcher/core jars against the independently-extracted copy — closing the T2 gap where the prior 12 cases passed without ever exercising the successful-download path. Added by a one-off manual test-designer + test-implementer dispatch outside the normal loop (router has no rule that reroutes an already-evidenced prove feature back to the oracle layer). Verified independently by the orchestrator: re-ran the suite directly, 13/13 pass, ~9 min (real network download)."
         }
       ],
-      "checkerNotes": "RE-PLAN RESOLVED 2026-08-21: widened this existing prove feature to own the inseparable clean-cache successful-download/install claim; the oracle layer must add a condition that verifies checksum-backed extraction and resolvable pinned launcher content before the build is judged. The prior 12-case evidence and TCON-PROV-0001..0007 history are preserved. A separate prove feature was rejected because it would use the same component, integration seam, command, and implementation context. Decision recorded in harness/DECISIONS.md.",
+      "checkerNotes": "READY: TCON-PROV-0008 authored and implemented (orchestrator-dispatched, 2026-08-21) — closes the T2 gap that blocked feat-jdtls-provisioner. All 8 conditions now have real, independently-verified coverage. feat-jdtls-provisioner may be retried.",
       "attempts": 0,
       "maxAttempts": 3
     },
@@ -222,8 +234,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "not-started",
-      "readyForCheck": true,
+      "status": "done",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-21",
@@ -238,7 +250,7 @@
           "result": "4 tests passed: framing/correlation, split-frame parsing, server-initiated request handling, and exit-wide pending rejection"
         }
       ],
-      "checkerNotes": "READY FOR CHECK: maker-owned oracle was explicitly authorized by the 2026-08-21 orchestrator note. Implementation covers Content-Length framing, buffered split-frame parsing, out-of-order id correlation, server-initiated request replies, LSP error propagation, and immediate rejection of every pending request on process exit.",
+      "checkerNotes": "REJECT: the recorded proof never crosses the Node-to-child stdio boundary this feature changes.\n\nChecker replayed `npm test -- test/lsp/lsp-client.spec.ts` on 2026-08-21: 4/4 passed. Its exit case manually emits `exit` on an EventEmitter backed by PassThrough streams; it cannot establish framing or pending-request rejection through a spawned child or after actual child termination. `harness/docs/testing-standards.md` requires Level 3 for a process-boundary change. Add an integration oracle that spawns a realistic scripted child, sends multiple requests, terminates it with requests in flight, and has a bounded per-test timeout; make the feature verification run that oracle. The existing unit test remains useful but is insufficient for INV-POOL-3's real process-exit claim.\n[mechanically promoted by verify-harness --promote on 2026-08-21: verification re-run, exited 0]",
       "attempts": 1,
       "maxAttempts": 4
     },

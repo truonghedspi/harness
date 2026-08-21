@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0008",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-2",
+  "behavior": "Given an empty cache and an available pinned distribution, resolveInstall() downloads the pinned archive, verifies its checksum before accepting it, extracts it into the cache, and succeeds only by resolving the pinned JDT LS launcher from that installed directory.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "The happy path is correct only when the downloader, checksum verifier, extractor, cache installation, and launcher resolver honor their contracts in sequence [INV-PROV-2]; an end-to-end scenario from a genuinely empty cache catches an always-fail implementation and any success shortcut that skips a stage while the existing cache-state and failure cases still pass."
+}
