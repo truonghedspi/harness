@@ -19,6 +19,13 @@
 //   node harness/loop/approval-gate.mjs --check            # 0 = no approval needed, 10 = request written
 //   node harness/loop/approval-gate.mjs --wait [--timeout-min N] [--on-timeout reject|escalate]
 //   node harness/loop/approval-gate.mjs --verdict approved|rejected --reason "..."   # for scripted runs
+//
+// A headless run has nobody watching its terminal — the request sits in a file nobody opens until
+// the timeout auto-rejects it, silently spending the judgement this gate exists to get. notify()
+// below is a best-effort OS notification fired the moment a request is freshly written, so whoever
+// is at the machine — not whoever happens to have this terminal in focus — sees it. It must never
+// be able to block or fail the gate itself: a missing/broken notifier degrades to "the same as
+// before this existed", never to a hung or crashed loop.
 import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
@@ -31,6 +38,39 @@ const TIMEOUT_MIN = Number(opt("--timeout-min", 0));
 const ON_TIMEOUT = opt("--on-timeout", "reject");
 const now = () => new Date().toISOString();
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
+
+// HARNESS_NOTIFY=0 opts out entirely (headless server with nobody ever at it, or a test run).
+// HARNESS_NOTIFY_CMD overrides the OS default with any `cmd title message` — a custom sink (a
+// webhook script, ntfy.sh, a test double that just appends to a file) or a runtime this doesn't
+// know how to reach natively.
+function notify(title, message) {
+  try {
+    if (process.env.HARNESS_NOTIFY === "0") return;
+    if (process.env.HARNESS_NOTIFY_CMD) {
+      execFileSync(process.env.HARNESS_NOTIFY_CMD, [title, message], { stdio: "ignore" });
+    } else if (process.platform === "darwin") {
+      execFileSync("osascript",
+        ["-e", `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`],
+        { stdio: "ignore" });
+    } else if (process.platform === "win32") {
+      // No extra module (BurntToast) assumed installed — build the toast from the WinRT APIs that
+      // ship with Windows 10+ PowerShell instead.
+      const esc = (s) => String(s).replace(/'/g, "''");
+      const ps = [
+        "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
+        "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null",
+        "$t = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)",
+        "$n = $t.GetElementsByTagName('text')",
+        `$n.Item(0).AppendChild($t.CreateTextNode('${esc(title)}')) > $null`,
+        `$n.Item(1).AppendChild($t.CreateTextNode('${esc(message)}')) > $null`,
+        "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Harness').Show([Windows.UI.Notifications.ToastNotification]::new($t))",
+      ].join("; ");
+      execFileSync("powershell", ["-NoProfile", "-Command", ps], { stdio: "ignore" });
+    } else {
+      execFileSync("notify-send", [title, message], { stdio: "ignore" });
+    }
+  } catch { /* best-effort only — never blocks or fails the gate */ }
+}
 
 // --- what is owed -------------------------------------------------------------------------------
 function owed() {
@@ -84,6 +124,8 @@ function writeRequest(items) {
   ].join("\n");
   writeFileSync(REQUEST, body + "\n");
   if (!existsSync(VERDICT)) writeFileSync(VERDICT, "pending\n\n(replace the first line with approved or rejected, then your reason)\n");
+  notify("Harness: approval needed",
+    `${items.length} item(s) owed judgement — ${pending.join(", ") || "see " + REQUEST}`);
 }
 
 function record(entry) { appendFileSync(LOG, JSON.stringify({ at: now(), ...entry }) + "\n"); }

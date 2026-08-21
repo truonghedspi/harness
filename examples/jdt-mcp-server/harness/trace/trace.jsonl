@@ -228,3 +228,22 @@
 {"ts":"2026-08-21T03:11:01.926Z","actor":"maker","event":"verify-ran","feature":"feat-jdtls-provisioner","detail":"npm run test:integration -- test/integration/jdtls-provisioner.integration.spec.ts: exit 0, 12 passed before implementation; missing success-path assertion","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":39150}
 {"ts":"2026-08-21T03:11:01.956Z","actor":"maker","event":"blocked","feature":"feat-jdtls-provisioner","detail":"attempt budget 3/3 exhausted; independent oracle lacks successful empty-cache download/install case and maker may not rewrite it","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":39151}
 {"ts":"2026-08-21T03:11:02.025Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":39156}
+{"ts":"2026-08-21T03:42:00.073Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":61818}
+{"ts":"2026-08-21T03:42:03.827Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":62132}
+{"ts":"2026-08-21T03:44:31.498Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":69213}
+{"ts":"2026-08-21T03:44:34.033Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":69471}
+{"ts":"2026-08-21T03:44:57.933Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":71911}
+{"ts":"2026-08-21T03:45:45.900Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":76166}
+{"ts":"2026-08-21T03:46:49.524Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":77558}
+{"ts":"2026-08-21T03:47:31.973Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":78779}
+{"ts":"2026-08-21T03:47:51.632Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":79174}
+{"ts":"2026-08-21T03:48:36.001Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":80294}
+{"ts":"2026-08-21T03:49:22.875Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":81499}
+{"ts":"2026-08-21T03:49:37.589Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":81838}
+{"ts":"2026-08-21T03:50:27.801Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":83057}
+{"ts":"2026-08-21T03:51:04.267Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":84233}
+{"ts":"2026-08-21T03:51:39.841Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":85313}
+{"ts":"2026-08-21T03:52:05.914Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":85772}
+{"ts":"2026-08-21T03:52:30.987Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":86876}
+{"ts":"2026-08-21T03:53:03.747Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":87420}
+{"ts":"2026-08-21T03:54:01.205Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":88729}

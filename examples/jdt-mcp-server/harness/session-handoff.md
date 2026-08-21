@@ -78,3 +78,6 @@ The router has dispatched this proof with the same dependency blocker for eighte
 ## Recommended Next Step
 
 Implement the public/test interfaces for `feat-lsp-client` and `feat-workspace-pool`, then reroute this oracle. Add `test/integration/pool-crash-handling.integration.spec.ts`, run its feature verification, and record red only when imports and fixtures succeed but an INV-POOL-3 behavioral assertion fails.
+
+## 2026-08-21T03:41:23.895Z — approval timed out
+No response within 30m on 13 item(s) owing judgement. Auto-reject; nothing was promoted. See loop/approval-request.md.
