@@ -37,10 +37,16 @@
           "run": "green",
           "cmd": "npm run test:integration -- test/integration/baseline-fixture.integration.spec.ts",
           "result": "2 tests passed: pinned archive installs and an absent fixture source fails explicitly"
+        },
+        {
+          "date": "2026-08-21",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/baseline-fixture.integration.spec.ts",
+          "result": "6 tests passed: harness/init.mjs executed install, fixture, and baseline-test steps; injected exit codes 23, 24, and 25 each made the gate red"
         }
       ],
-      "checkerNotes": "Maker evidence: maintained integration oracle went red before the fetcher existed, then green after the pinned, checksum-verified fixture step was wired into `harness/init.mjs`; `./harness/init.sh` also fetched the real archive and passed.",
-      "attempts": 2,
+      "checkerNotes": "Maker evidence: the pre-change verification was already green, so baseline orchestration behavior existed and this iteration repaired the oracle gap. The maintained integration suite now runs `harness/init.mjs` in an isolated project, observes npm install, fixture provisioning, and the baseline test, and proves injected failures in each step exit non-zero without running later steps.",
+      "attempts": 3,
       "maxAttempts": 3
     },
     {
@@ -57,7 +63,9 @@
         "note": "A-005: download+pin on first run, never bundle; JDTLS_HOME env override must skip the network fetch entirely for offline use. Distribution is 51MB compressed/64MB extracted (docs/design/evidence.md) — the fixture download belongs to feat-001, this feature only resolves/verifies it."
       },
       "falsifier": "spawns JDT LS without checking the JVM version first, so a Java 17 machine gets an opaque JDT LS crash instead of a named-version error [INV-PROV-1]; or resolves whatever happens to already be in the cache instead of the pinned version [INV-PROV-2]; or, with JDTLS_HOME set, issues a network request or falls back to the cache/download instead of using that directory exclusively and failing closed with an error naming the path when it holds no resolvable launcher jar [INV-PROV-3]; or, with no valid cached install and the network unreachable, hangs past the deadline or surfaces an opaque stack trace instead of settling with an explicit error naming the pinned version, the unreachable host, and the JDTLS_HOME escape hatch [INV-PROV-4]",
-      "dependencies": ["feat-001"],
+      "dependencies": [
+        "feat-001"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -78,8 +86,18 @@
         "note": "Run against a real (or stubbed-Java-version) JVM, not a mock — INV-PROV-1's whole point is the *named* error message, which a unit-level mock of resolveInstall() cannot falsify."
       },
       "falsifier": "runs with JAVA_HOME on Java 17 and either starts anyway or fails with a generic JDT LS stack trace that never names the required version [INV-PROV-1]; or resolveInstall() returns a tampered cache's version instead of the pin [INV-PROV-2]; or, with JDTLS_HOME set and the network unreachable, still issues an outbound request or silently falls back to the cache/download instead of using the override directory and failing closed on an invalid one [INV-PROV-3]; or, with an empty cache and the network unreachable, hangs indefinitely or times out with an opaque error instead of settling inside the deadline with a message naming the pin, the host, and JDTLS_HOME [INV-PROV-4]",
-      "conditions": ["TCON-PROV-0001", "TCON-PROV-0002", "TCON-PROV-0003", "TCON-PROV-0004", "TCON-PROV-0005", "TCON-PROV-0006", "TCON-PROV-0007"],
-      "dependencies": ["feat-jdtls-provisioner"],
+      "conditions": [
+        "TCON-PROV-0001",
+        "TCON-PROV-0002",
+        "TCON-PROV-0003",
+        "TCON-PROV-0004",
+        "TCON-PROV-0005",
+        "TCON-PROV-0006",
+        "TCON-PROV-0007"
+      ],
+      "dependencies": [
+        "feat-jdtls-provisioner"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": [
@@ -108,7 +126,9 @@
         "note": "A misroute returns [] not an error from JDT LS itself (spike B) — this component exists so that never happens at the routing layer; resolveWorkspace must be derived fresh from the call's own path argument every time, never sticky/cached (A-006 is still `assumed`, not `needs-human` — a spike settled it, see docs/assumptions.md)."
       },
       "falsifier": "caches the last-resolved workspace and reuses it for a later call under a different reactor root instead of re-deriving from that call's path [INV-ROUTE-1]; or returns an empty successful result instead of a named error for a path with no ancestor pom.xml [INV-ROUTE-2]",
-      "dependencies": ["feat-001"],
+      "dependencies": [
+        "feat-001"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -129,8 +149,15 @@
         "note": "Build the fixture tree with a real multi-module pom.xml (<modules>) plus a plain single-module one — issue 1303 (docs/design/evidence.md) is exactly the multi-root case JDT LS itself gets wrong, which is why the reactor root, not the module dir, is the workspace id."
       },
       "falsifier": "a multi-module project resolves one workspace id per module instead of one at the reactor root [INV-ROUTE-3]; or two calls under the same reactor root resolve to different workspace ids [INV-ROUTE-1][INV-ROUTE-3]",
-      "conditions": ["TCON-ROUTE-0001", "TCON-ROUTE-0002", "TCON-ROUTE-0003", "TCON-ROUTE-0004"],
-      "dependencies": ["feat-project-router"],
+      "conditions": [
+        "TCON-ROUTE-0001",
+        "TCON-ROUTE-0002",
+        "TCON-ROUTE-0003",
+        "TCON-ROUTE-0004"
+      ],
+      "dependencies": [
+        "feat-project-router"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": [
@@ -159,7 +186,9 @@
         "note": "Two different framings meet at this seam and confusing them is the design's own named most-likely-early-bug: LSP here is Content-Length-headers, MCP (owned by mcp-shim, not this component) is newline-delimited. Nothing else in the system should parse either framing directly."
       },
       "falsifier": "an id-correlation table that does not reject its pending entries when the underlying process exits, so a request in flight when JDT LS dies hangs forever instead of settling as an error [INV-POOL-3]",
-      "dependencies": ["feat-001"],
+      "dependencies": [
+        "feat-001"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -180,7 +209,11 @@
         "note": "-data is where the index lives; sharing one across workspaces corrupts both (docs/design/evidence.md). Derive the -data path from a hash of the realpath'd project root (X-005) so two paths to one project — including via a symlink — are one workspace, not two."
       },
       "falsifier": "two concurrent first calls for the same project each spawn their own JDT LS process instead of converging on one [INV-POOL-5]; or two live workspaces are given the same -data directory [INV-POOL-1]",
-      "dependencies": ["feat-jdtls-provisioner", "feat-project-router", "feat-lsp-client"],
+      "dependencies": [
+        "feat-jdtls-provisioner",
+        "feat-project-router",
+        "feat-lsp-client"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -201,8 +234,15 @@
         "note": "A-001 confirmed default cap is 3, evict LRU-idle after 15 min — use a small cap fixture value (e.g. 2) so the burst-over-cap scenario is fast and deterministic instead of waiting on the 15-minute idle window."
       },
       "falsifier": "a burst of calls beyond the cap spawns a process over the configured limit instead of evicting an idle workspace first [INV-POOL-2]; or an evicted workspace's -data directory is deleted instead of kept for warm restart [INV-POOL-4]",
-      "conditions": ["TCON-POOL-0001", "TCON-POOL-0002", "TCON-POOL-0003"],
-      "dependencies": ["feat-workspace-pool", "feat-project-router"],
+      "conditions": [
+        "TCON-POOL-0001",
+        "TCON-POOL-0002",
+        "TCON-POOL-0003"
+      ],
+      "dependencies": [
+        "feat-workspace-pool",
+        "feat-project-router"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "RED 2026-08-20: `npm run test:integration -- test/integration/pool-lifecycle.integration.spec.ts` — 0 passed, 3 failed. TCON-POOL-0001/0002/0003 each failed with an ERR_ASSERTION from the executable oracle: workspace-pool behavior required by INV-POOL-2/4 is absent because src/workspace/workspace-pool.ts does not exist. This is the expected pre-implementation red; Node loaded and ran the test file without a compile or fixture error.",
@@ -223,8 +263,15 @@
         "note": "This is the joint seam between lsp-client (owns the pending-request table) and workspace-pool (owns the kill/spawn decision) — kill the real child process, don't just close the stream, so the test exercises the actual exit-detection path."
       },
       "falsifier": "a request in flight when the child process dies hangs past its deadline instead of settling as an error, or resolves with a partial/stale answer [INV-POOL-3]",
-      "conditions": ["TCON-POOL-0004", "TCON-POOL-0005", "TCON-POOL-0006"],
-      "dependencies": ["feat-lsp-client", "feat-workspace-pool"],
+      "conditions": [
+        "TCON-POOL-0004",
+        "TCON-POOL-0005",
+        "TCON-POOL-0006"
+      ],
+      "dependencies": [
+        "feat-lsp-client",
+        "feat-workspace-pool"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -246,7 +293,9 @@
         "note": "JDT LS does not watch the filesystem itself (spike C, docs/design/evidence.md) — an on-disk edit with no notification leaves JDT LS answering from a stale, well-formed-looking model with zero errors. This is why the design calls the watcher v1-blocking, not polish, and orders it before every capability tool."
       },
       "falsifier": "a rename or delete under a watched source root produces no notification, or produces the wrong change-type notification [INV-SYNC-2]; or a pom.xml edit only emits a source-file notification instead of triggering a project-configuration refresh [INV-SYNC-3]",
-      "dependencies": ["feat-workspace-pool"],
+      "dependencies": [
+        "feat-workspace-pool"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -268,7 +317,9 @@
         "note": "ProjectStatus:OK and ServiceReady fire 13ms apart and BEFORE the final workspace-refresh progress notes (docs/design/evidence.md) — both are lies about readiness on their own; the probe result is the only thing this gate may trust."
       },
       "falsifier": "opens the gate as soon as ServiceReady or ProjectStatus:OK fires, without ever running the semantic probe [INV-READY-2]",
-      "dependencies": ["feat-workspace-pool"],
+      "dependencies": [
+        "feat-workspace-pool"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -289,8 +340,15 @@
         "note": "Reproduce spike C exactly (docs/design/evidence.md `2_afterSilentDiskEdit`): delete a method's call site on disk, probe before the watcher's notification lands, and again after — the pre-notification probe state is the one INV-SYNC-1 forbids becoming a successful answer."
       },
       "falsifier": "a probe issued immediately after a silent on-disk edit resolves the deleted symbol and reports zero errors instead of either the corrected answer or an explicit resyncing error — the spike-C `2_afterSilentDiskEdit` state is reachable [INV-SYNC-1]",
-      "conditions": ["TCON-SYNC-0001", "TCON-SYNC-0002", "TCON-SYNC-0003"],
-      "dependencies": ["feat-file-sync-watcher", "feat-readiness-gate"],
+      "conditions": [
+        "TCON-SYNC-0001",
+        "TCON-SYNC-0002",
+        "TCON-SYNC-0003"
+      ],
+      "dependencies": [
+        "feat-file-sync-watcher",
+        "feat-readiness-gate"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -311,8 +369,14 @@
         "note": "Simulate a workspace that never finishes warming (block the semantic probe forever) to prove the deadline path, not just the happy path — X-001's default deadline is still an open cross-cutting decision, so parameterize the test's deadline rather than hard-coding 30s."
       },
       "falsifier": "a call during warm-up returns [] instead of isError+progress [INV-READY-1]; or a call against a workspace that never becomes ready waits past its deadline instead of settling with an error [INV-READY-3]",
-      "conditions": ["TCON-READY-0001", "TCON-READY-0002", "TCON-READY-0003"],
-      "dependencies": ["feat-readiness-gate"],
+      "conditions": [
+        "TCON-READY-0001",
+        "TCON-READY-0002",
+        "TCON-READY-0003"
+      ],
+      "dependencies": [
+        "feat-readiness-gate"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -333,7 +397,9 @@
         "note": "Scope this feature to the Unix-socket path only (A-004: macOS/Linux for v1, Windows named-pipe deferred). The flagged Streamable HTTP front door (A-003) is out of scope for this cut — see DECISIONS.md, its Origin/localhost/auth invariants (X-010) are still undecided."
       },
       "falsifier": "N parallel jdt-mcp launches each start their own daemon instead of converging on one [INV-SHIM-2]; or daemon shutdown leaves a JDT LS child process running [INV-SHIM-4]",
-      "dependencies": ["feat-workspace-pool"],
+      "dependencies": [
+        "feat-workspace-pool"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -354,7 +420,9 @@
         "note": "MCP stdio MUST NOT see embedded newlines and MUST see nothing on stdout but valid MCP messages (docs/design/evidence.md, spec quote) — every daemon log line, including errors during auto-spawn, goes to stderr or a file, never stdout."
       },
       "falsifier": "a daemon-side error or log line reaches stdout during a session, breaking the one-MCP-message-per-line contract [INV-SHIM-1]; or a daemon restart mid-session requires the client to re-initialize instead of the shim reconnecting transparently [INV-SHIM-3]",
-      "dependencies": ["feat-daemon-supervisor"],
+      "dependencies": [
+        "feat-daemon-supervisor"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -375,8 +443,15 @@
         "note": "Assert on the process table after shutdown (no orphaned JDT LS JVM) as well as on stdout content and pid count — INV-SHIM-4 is a process-table assertion, not a return-value one."
       },
       "falsifier": "two of N parallel launches each get their own daemon pid [INV-SHIM-2]; or stdout during a session with daemon errors contains a line that fails to parse as one MCP message [INV-SHIM-1]; or the process table after shutdown still holds a JDT LS child [INV-SHIM-4]",
-      "conditions": ["TCON-SHIM-0001", "TCON-SHIM-0002", "TCON-SHIM-0003"],
-      "dependencies": ["feat-daemon-supervisor", "feat-mcp-shim"],
+      "conditions": [
+        "TCON-SHIM-0001",
+        "TCON-SHIM-0002",
+        "TCON-SHIM-0003"
+      ],
+      "dependencies": [
+        "feat-daemon-supervisor",
+        "feat-mcp-shim"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -397,7 +472,11 @@
         "note": "Pure function of an injected LspFacade per the design (docs/design/architecture.md component table) — test against a fake facade here, the real pool/router/readiness/sync wiring is proved end-to-end by feat-prove-cross-process-integration. X-007 confirms 1-based; X-003's closed taxonomy is unroutable/not-ready/resyncing/workspace-crashed/cap-exceeded/invalid-position."
       },
       "falsifier": "a hover result and a completion result in the same response use different position bases [INV-TOOL-1]; or an oversized line/column reaches the fake LSP facade instead of being rejected before the call [INV-TOOL-5]; or a not-ready workspace is reported as an empty successful result instead of a named error [INV-TOOL-4]",
-      "dependencies": ["feat-mcp-shim", "feat-readiness-gate", "feat-file-sync-watcher"],
+      "dependencies": [
+        "feat-mcp-shim",
+        "feat-readiness-gate",
+        "feat-file-sync-watcher"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -418,7 +497,9 @@
         "note": "Thin wrapper: argument shape from docs/design/tool-surface.md's tool table, result shaping (position conversion, error taxonomy, range field) delegates entirely to feat-tool-layer-core — do not re-implement conversion here."
       },
       "falsifier": "returns a hover result whose position was never converted through the tool layer's single conversion boundary, so it is silently 0-based while every other tool result is 1-based [INV-TOOL-1]; or a successful hover result omits its range field [INV-TOOL-6]",
-      "dependencies": ["feat-tool-layer-core"],
+      "dependencies": [
+        "feat-tool-layer-core"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -439,7 +520,9 @@
         "note": "Same shared shape as hover/references (docs/design/tool-surface.md#Build-order item 3) — reuse feat-tool-layer-core's validation and conversion, do not duplicate it."
       },
       "falsifier": "returns a declaration location whose line/column was never converted through the tool layer's single conversion boundary [INV-TOOL-1]",
-      "dependencies": ["feat-tool-layer-core"],
+      "dependencies": [
+        "feat-tool-layer-core"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -460,7 +543,9 @@
         "note": "X-008's default cap (200) is still an open cross-cutting decision — read the configured cap from the tool layer, don't hard-code a number here."
       },
       "falsifier": "a references result beyond the cap is returned uncapped instead of truncated:true plus the true total [INV-TOOL-3]",
-      "dependencies": ["feat-tool-layer-core"],
+      "dependencies": [
+        "feat-tool-layer-core"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -481,11 +566,27 @@
         "note": "This is the readiness probe's first real exercise (docs/design/tool-surface.md#Build-order item 3: 'they also give the readiness probe something real to assert') — run it against the real per-workspace pool, not a fake facade."
       },
       "falsifier": "a position in any of the three tools' results does not match the file's real byte offset on the non-ASCII/astral-plane fixture [INV-TOOL-1]; or a references result beyond the cap is silently truncated with no truncated:true flag [INV-TOOL-3]; or an oversized coordinate reaches the LSP call instead of being rejected first [INV-TOOL-5]; or any failure case in the sweep comes back as an empty successful result [INV-TOOL-4]; or a successful java_hover result omits its range field, or a position holding no resolvable element is reported as a successful hover result instead of INV-TOOL-4's structured no-result [INV-TOOL-6]",
-      "dependencies": ["feat-tool-hover", "feat-tool-definition", "feat-tool-references", "feat-tool-layer-core"],
+      "dependencies": [
+        "feat-tool-hover",
+        "feat-tool-definition",
+        "feat-tool-references",
+        "feat-tool-layer-core"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
-      "conditions": ["TCON-TOOL-0001", "TCON-TOOL-0002", "TCON-TOOL-0003", "TCON-TOOL-0004", "TCON-TOOL-0005", "TCON-TOOL-0006", "TCON-TOOL-0007", "TCON-TOOL-0008", "TCON-TOOL-0009", "TCON-TOOL-0010"],
+      "conditions": [
+        "TCON-TOOL-0001",
+        "TCON-TOOL-0002",
+        "TCON-TOOL-0003",
+        "TCON-TOOL-0004",
+        "TCON-TOOL-0005",
+        "TCON-TOOL-0006",
+        "TCON-TOOL-0007",
+        "TCON-TOOL-0008",
+        "TCON-TOOL-0009",
+        "TCON-TOOL-0010"
+      ],
       "checkerNotes": "BLOCKED: navigation oracle requires callable interfaces owned by four not-started tool dependencies.\n\nTCON-TOOL-0001 through TCON-TOOL-0010 require real java_hover, java_definition and java_references calls through the real mcp-tool-layer and per-workspace pool. docs/design/tool-surface.md specifies public arguments and observable result semantics, but no executable/CLI entry point or TypeScript/process invocation contract exists for the integration test. feat-tool-layer-core, feat-tool-hover, feat-tool-definition and feat-tool-references are all not-started. Writing the test now would invent those production interfaces or fail only on missing modules, neither of which is valid behavioral-red evidence. Implement and specify the four dependencies first, then route this proof feature back to test-implementer. The prior INV-TOOL-6 design resolution remains recorded in TP-TOOL-0001 and the approved design artifacts.",
       "attempts": 0,
       "maxAttempts": 3
@@ -503,7 +604,10 @@
         "note": "Diagnostics arrive unsolicited, including for files never didOpen'ed (spike B, docs/design/evidence.md) — the cache must key by URI per workspace independent of any open/close lifecycle."
       },
       "falsifier": "publishing an empty diagnostics list for a URI leaves the previously-cached problems in place instead of fully replacing them [INV-DIAG-2]",
-      "dependencies": ["feat-workspace-pool", "feat-lsp-client"],
+      "dependencies": [
+        "feat-workspace-pool",
+        "feat-lsp-client"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -524,7 +628,10 @@
         "note": "This is item 4 in the build order specifically because its shape differs from the navigation tools — it reads a push cache, it never makes its own LSP request (docs/design/tool-surface.md#Build-order)."
       },
       "falsifier": "a URI with no publish yet returns the same empty list as a URI JDT LS reported zero problems for, instead of a distinct 'not reported yet' marker [INV-DIAG-1]",
-      "dependencies": ["feat-diagnostics-cache", "feat-tool-layer-core"],
+      "dependencies": [
+        "feat-diagnostics-cache",
+        "feat-tool-layer-core"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -545,8 +652,15 @@
         "note": "Reuse the spike-B two-workspace-same-relative-path fixture shape (docs/design/evidence.md) for the cross-workspace assertion — that is the exact scenario INV-DIAG-3 exists to forbid."
       },
       "falsifier": "a query before the first publish for a URI returns the same shape as a query after a clean publish [INV-DIAG-1]; or a publish-then-empty-publish sequence leaves stale problems cached [INV-DIAG-2]; or workspace B's cache serves a diagnostic published by workspace A for the same relative path [INV-DIAG-3]",
-      "conditions": ["TCON-DIAG-0001", "TCON-DIAG-0002", "TCON-DIAG-0003"],
-      "dependencies": ["feat-diagnostics-cache", "feat-tool-diagnostics"],
+      "conditions": [
+        "TCON-DIAG-0001",
+        "TCON-DIAG-0002",
+        "TCON-DIAG-0003"
+      ],
+      "dependencies": [
+        "feat-diagnostics-cache",
+        "feat-tool-diagnostics"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -567,7 +681,10 @@
         "note": "Build-order item 5, chosen specifically because it is the high-volume result shape that stresses the cap (docs/design/tool-surface.md#Build-order) — depends on feat-prove-diagnostics finishing first per the design's explicit sequencing, not on any data dependency."
       },
       "falsifier": "a completion result in a large scope is returned uncapped instead of truncated:true plus the true total [INV-TOOL-3]",
-      "dependencies": ["feat-tool-layer-core", "feat-prove-diagnostics"],
+      "dependencies": [
+        "feat-tool-layer-core",
+        "feat-prove-diagnostics"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -588,7 +705,9 @@
         "note": "Use a fixture class with more members than the configured cap so the scenario is exercised for real, not simulated with a mocked LSP response."
       },
       "falsifier": "a completion result whose real count exceeds the cap comes back without truncated:true, or with fewer items and no total, or with every item uncapped [INV-TOOL-3]",
-      "dependencies": ["feat-tool-completion"],
+      "dependencies": [
+        "feat-tool-completion"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -609,7 +728,10 @@
         "note": "A-002/first mutating tool (docs/design/tool-surface.md#Build-order item 6) — a rename on the two-file fixture already produces a WorkspaceEdit touching two files (docs/design/evidence.md); apply must be opt-in per call, never a server-side default."
       },
       "falsifier": "a rename call with no apply argument writes the proposed edit to disk anyway, instead of returning it as data [INV-TOOL-2]",
-      "dependencies": ["feat-tool-layer-core", "feat-prove-completion"],
+      "dependencies": [
+        "feat-tool-layer-core",
+        "feat-prove-completion"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -630,8 +752,15 @@
         "note": "Assert on real file mtimes across the fixture's whole tree, not just the target file — a daemon that writes an unrelated file behind an agent's back would still pass a target-file-only check."
       },
       "falsifier": "any file's mtime changes after a rename call with no apply argument [INV-TOOL-2]",
-      "conditions": ["TCON-TOOL-0011", "TCON-TOOL-0012", "TCON-TOOL-0013", "TCON-TOOL-0014"],
-      "dependencies": ["feat-tool-rename"],
+      "conditions": [
+        "TCON-TOOL-0011",
+        "TCON-TOOL-0012",
+        "TCON-TOOL-0013",
+        "TCON-TOOL-0014"
+      ],
+      "dependencies": [
+        "feat-tool-rename"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -653,7 +782,11 @@
         "note": "The riskiest v1 item and deliberately last in the build order (docs/design/tool-surface.md#Build-order item 7) — JDT LS returns actions unresolved (edit/command undefined, opaque data blob; spike D), so the daemon must hold that blob server-side, not the caller."
       },
       "falsifier": "hands back JDT LS's raw opaque data blob as (or inside) the actionId instead of holding it server-side and minting an opaque handle [INV-CA-2]",
-      "dependencies": ["feat-tool-layer-core", "feat-file-sync-watcher", "feat-prove-rename"],
+      "dependencies": [
+        "feat-tool-layer-core",
+        "feat-file-sync-watcher",
+        "feat-prove-rename"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -675,7 +808,10 @@
         "note": "Shares the code-actions context packet — the staleness hazard (an edit resolved against source that changed since the handle was minted) is the same seam feat-tool-code-actions mints handles against."
       },
       "falsifier": "resolves an actionId against source that has changed since the handle was minted instead of erroring [INV-CA-1]",
-      "dependencies": ["feat-tool-code-actions", "feat-file-sync-watcher"],
+      "dependencies": [
+        "feat-tool-code-actions",
+        "feat-file-sync-watcher"
+      ],
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
@@ -696,8 +832,17 @@
         "note": "Interleave calls across two real workspaces deliberately (mint in A, mint in B, resolve A's, resolve B's) — a handle table keyed only by actionId without a workspace tag would pass a single-workspace test and still fail this one."
       },
       "falsifier": "resolving a handle after an intervening edit to the same file returns an edit instead of erroring [INV-CA-1]; or a handle minted in one workspace resolves to an edit belonging to the other workspace's action [INV-CA-2]",
-      "conditions": ["TCON-CA-0001", "TCON-CA-0002", "TCON-CA-0003", "TCON-CA-0004", "TCON-CA-0005"],
-      "dependencies": ["feat-tool-code-actions", "feat-tool-apply-code-action"],
+      "conditions": [
+        "TCON-CA-0001",
+        "TCON-CA-0002",
+        "TCON-CA-0003",
+        "TCON-CA-0004",
+        "TCON-CA-0005"
+      ],
+      "dependencies": [
+        "feat-tool-code-actions",
+        "feat-tool-apply-code-action"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",
@@ -718,7 +863,10 @@
         "note": "Replaces the scaffold's feat-002/feat-003 placeholders: this system has no microservice boundary, but it has the cross-process one (shim <-> daemon <-> JDT LS, docs/design/architecture.md#Feature-impact) that deserves the same integration-level treatment testing-standards.md's Level 3 asks for. Drive it through the real npx-launched shim, not an in-process call."
       },
       "falsifier": "the end-to-end pipeline answers a post-edit tool call from the pre-edit model, or answers a call against the wrong workspace's real JDT LS instance [INV-SYNC-1][INV-ROUTE-1]",
-      "dependencies": ["feat-mcp-shim", "feat-tool-definition"],
+      "dependencies": [
+        "feat-mcp-shim",
+        "feat-tool-definition"
+      ],
       "status": "blocked",
       "readyForCheck": false,
       "evidence": "",

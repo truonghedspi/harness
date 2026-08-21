@@ -7,8 +7,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 - **Last updated:** 2026-08-21
 - **Active feature:** feat-001 — Baseline green (ready for checker review)
-- **Latest commit:** pending — implement pinned JDT LS baseline fixture
-- **Baseline (`./harness/init.sh`):** green — real pinned archive fetched, checksum verified, maintained baseline tests passed
+- **Latest commit:** pending — exercise the standard baseline gate in its maintained oracle
+- **Baseline (`./harness/init.sh`):** green — fixture cached and all six maintained baseline integration cases passed
 
 ## Done
 
@@ -17,12 +17,11 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## In Progress
 
 - [ ] feat-001 — Baseline green
-  - Red: maintained integration oracle failed its success assertion while `tools/fetch-jdtls-fixture.mjs` was absent.
-  - Green: two focused tests passed; the full baseline fetched and verified the real pinned Eclipse archive before passing.
+  - The maintained integration oracle invokes `harness/init.mjs`, observes all three required steps, and proves install, fixture, and test failures each make the gate red.
 
 ## Next
 
-1. Checker replays the focused oracle and the standard baseline gate.
+1. Checker replays the six-case focused oracle and the standard baseline gate.
 2. If approved, promote `feat-001`; the router can then select the next eligible foundation feature.
 
 ## Known Issues / Risks
@@ -31,4 +30,4 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-The previous false-green verification was replaced by a maintained `node:test` oracle. The maker did not set `status: done`; `readyForCheck` is true for independent replay.
+The checker-requested oracle gap is covered without changing production behavior. The pre-change focused command was already green; the new cases directly exercise baseline orchestration and its failure propagation.
