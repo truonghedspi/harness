@@ -1,16 +1,9 @@
-# Session handoff — feat-lsp-client needs an independent oracle
+# Session handoff — design approval required after routing clarification
 
-`feat-lsp-client` cannot begin a valid maker attempt until its missing independent test is authored.
+Downstream work is correctly stopped until a human approves the current design revision.
 
-- Router selected `feat-lsp-client`; dependencies are done and attempts remain 0/4.
-- `./harness/init.sh` passed on 2026-08-21.
-- The refreshed context packet is current and its three `mustRead` sources were consumed.
-- The declared verification is `npm test -- test/lsp/lsp-client.spec.ts`, but that test file does not exist and `npm test` is not wired.
-- No verification was run because it could only fail before an assertion, which is explicitly non-qualifying red evidence.
-- No source, test, attempt, feature status, or readiness field was changed. Dispatch the test-designer/test-implementer to author the oracle, then route back to maker.
-
-## 2026-08-21T07:15:59.712Z — approval timed out
-No response within 30m on 11 item(s) owing judgement. Auto-reject; nothing was promoted. See loop/approval-request.md.
-
-## 2026-08-21T07:57:31.345Z — approval timed out
-No response within 30m on 13 item(s) owing judgement. Auto-reject; nothing was promoted. See loop/approval-request.md.
+- `node harness/loop/route.mjs --json` selects `human` at the `design` layer: digest `3d68e0857fbfac45` has no matching approval.
+- The current approval records old digest `cc42ac15e4bfd912`, so it cannot authorize the revised design.
+- The design revision resolves both `NEEDS DESIGN:` markers: `harness/docs/design/architecture.md` recommends one workspace per enclosing Maven reactor, otherwise the nearest POM; `INV-ROUTE-1`, A-006, the feature behavior, and the five-case integration oracle now agree.
+- `feat-project-router` and `feat-prove-routing` retain their markers until the feature-planner clears them after a human lock. The design-facilitator must not clear them or edit `feature_list.json`.
+- Do not manufacture `status: approved`. A human must write `harness/loop/design-approval.json` with digest `3d68e0857fbfac45`, their name/date, decisions, and any accepted risks. Then route the feature-planner.
