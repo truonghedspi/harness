@@ -1,89 +1,46 @@
-# Session handoff — checker APPROVE closes feat-prove-routing at 3/3, one proven gap routed onward
+# Bàn giao phiên — checker phê duyệt feat-lsp-client ở lần thử 2/4
 
-## Verdict
+## Kết luận
 
-`feat-prove-routing` is **done**. This was its third and final allowed attempt (3/3), so the verdict
-was decisive: approve, or the feature goes to `blocked`. It survived a full independent check.
+`feat-lsp-client` là **done**. Lý do từ chối lần trước đã được đóng: bằng chứng cũ chưa từng đi qua ranh giới tiến trình thật, nay đã có oracle Level 3 spawn tiến trình con riêng biệt.
 
-- Recorded verification re-run by the checker, unmodified:
-  `npm run test:integration -- test/integration/project-router.integration.spec.ts` →
-  7/7 pass (TCON-ROUTE-0001..0007), 179.6 ms, 0 fail / 0 cancelled / 0 skipped. The maker's green
-  evidence reproduces exactly.
-- `status` set to `done`, `readyForCheck` removed, evidence block kept. `feature_list.digest.md`
-  regenerated (32 features; `feat-prove-routing` now shows **done** (3/3)).
-- Verdict traced via `harness/tools/trace.mjs checker verdict feat-prove-routing`.
+- Checker chạy lại đúng lệnh `verification` đã ghi, cả hai vế:
+  `npm test -- test/lsp/lsp-client.spec.ts` → 4/4 đạt;
+  `npm run test:integration -- test/integration/lsp-client-process.integration.spec.ts` → 1/1 đạt;
+  lệnh ghép bằng `&&` thoát mã 0. Bằng chứng của maker tái lập chính xác.
+- `status` chuyển sang `done`, xoá `readyForCheck`, giữ nguyên khối `evidence`.
+  `feature_list.digest.md` đã tạo lại (32 tính năng; `feat-lsp-client` hiển thị **done** (2/4)).
+- Phán quyết ghi vết qua `harness/tools/trace.mjs checker verdict feat-lsp-client`.
 
-## Why the approval is not just "a green suite"
+## Vì sao đây không chỉ là "một bộ test xanh"
 
-`TCON-ROUTE-0007` passed green on its very first run against unchanged source, so by itself it
-proved nothing — a condition that has never been red is not evidence that it can go red. The checker
-therefore reproduced, in a scratch copy of source + spec under `harness/trace/scratch/probe-route-0007/`,
-the exact mutant that motivated the condition:
+Checker không tin báo cáo mutant của maker mà tự dựng lại. Ba bản sao mutant đặt trong `harness/trace/scratch/` (không đụng vào `src/`, xoá sau khi dùng):
 
-- **CONTROL** (unmutated copy): 7/7 green — the scratch copy is faithful.
-- **M3** — `mavenRoots.find(({ isReactor }) => isReactor)` instead of `findLast(...)`, i.e. select
-  the innermost enclosing reactor instead of the outermost. This is the mutant that survived the
-  previous 6-condition suite. It is now killed, and `TCON-ROUTE-0007` is the **only** condition that
-  kills it. The `outermost` clause of `INV-ROUTE-1` is genuinely proven.
-- Condition-to-mutant assignment stays clean: **M1** (always outermost ancestor pom, `<modules>`
-  check deleted) is killed by `TCON-ROUTE-0006` alone; **M2** (always nearest ancestor) by five
-  conditions; **M13** (workspace id hashed from the argument rather than the project root) by five;
-  **M14** (error message not naming the path) by `TCON-ROUTE-0005`; **M17** (stop the upward walk at
-  the first pom-less directory) by six; **M19** (no nearest-ancestor fallback) by four.
+- **Mutant A** — bỏ hẳn vòng lặp reject `#pending` trong handler `exit`. Oracle đỏ, thoát mã 1, khoảng 0,1 giây, thông báo `Promise resolution is still pending but the event loop has already resolved`. Đây đúng là bản đỏ mà maker đã ghi.
+- **Mutant B** — chỉ reject entry pending đầu tiên. Oracle vẫn đỏ, thoát mã 1. Vậy thiết kế hai request cùng bay chứng minh được mệnh đề "every pending request", không chỉ một request.
+- **Mutant C** — `#write` phát `Content-Length` sai thành `byteLength + 1`. Oracle đỏ qua chính timeout của nó tại mốc 10,004 giây.
 
-No `R-T3` tautology (`outerReactorRoot` comes from the fixture and from the spec sentence, not from
-re-deriving the code's directory walk) and no `R-T9` (the condition was derived from a mutant plus a
-spec clause, not from the implementation's branches). The scratch probe was deleted; `git diff --stat src/`
-is empty and `src/workspace/project-router.ts` is unchanged since commit 2503299. The oracle diff is
-purely additive (+64 lines, zero deletions), so no earlier assertion was weakened.
+Mutant C đồng thời trả lời câu hỏi về ngân sách baseline: mốc 10 giây là thật và bài test tự kết thúc, không treo vô hạn. Bốn trường hợp unit đều có timeout 1 giây.
 
-## The one remaining gap — route as NEW scope, never as a fourth widening
+## Ranh giới tiến trình là thật, không phải mock nguỵ trang
 
-A broader mutant sweep (run deliberately in this turn, so survivors surface all at once instead of
-trickling one per review round) left one genuinely new survivor:
+Oracle gọi `spawn(process.execPath, [scriptPath])` của `node:child_process` với stdio dạng pipe; kho mã này không có cơ chế chặn module nào. Checker chạy thêm một probe trong scratch với cùng dạng `spawn`: tiến trình con có pid riêng, `ps` nhìn thấy, và bị thu hồi sau `SIGKILL`. Tiến trình con tự phân tích khung `Content-Length` từ byte đi qua pipe thật, nên phần framing thực sự vượt qua ranh giới.
 
-- **M12** — *if any ancestor is a reactor, take the outermost ancestor `pom.xml`, even when that pom
-  itself declares no `<modules>`; otherwise take the nearest ancestor.* Survives all 7 conditions.
-- It is **not** an equivalent mutant. Proven directly: for the tree `parent-pom-only/pom.xml`
-  (`packaging=pom`, no `<modules>`) containing `reactor/pom.xml` (declares `<modules>`) containing
-  `mod-a/`, the real implementation resolves `mod-a` to `parent-pom-only/reactor` while M12 resolves
-  it to `parent-pom-only`.
-- Root cause: `INV-ROUTE-1` says "the outermost enclosing ancestor `pom.xml` **that declares
-  `<modules>`**". The qualifier clause is a separate axis from the superlative, and no fixture in
-  `TCON-ROUTE-0001..0007` places a non-reactor `pom.xml` *above* a reactor root. Distinct from the
-  gap `TCON-ROUTE-0006` closed (non-reactor above non-reactor) and from `TCON-ROUTE-0007` (reactor
-  above reactor).
+## Chất lượng oracle
 
-**Routing constraint for the feature-planner:** do **not** widen `feat-prove-routing` in place a
-fourth time. It is closed at `attempts` 3/3 and the maker has no attempts left, so an in-place
-widening would produce a feature that can never be judged again. Choose either a small new oracle
-feature carrying `TCON-ROUTE-0008`, or an explicit accepted-risk row under `A-006` in
-`harness/docs/assumptions.md`.
+- Không tautology (R-T3): giá trị kỳ vọng là hằng trên wire (`ok:quick`, `/JDT LS process exited/`). Trường hợp correlation trong bộ unit khẳng định `["one","two"]` với thứ tự trả về là id 2 rồi id 1, độc lập với cách mã nguồn đánh chỉ mục `#pending`.
+- Không viết theo mã (R-T9): triển khai sai mà `falsifier` nêu — bảng correlation để pending treo khi tiến trình chết — chính là mutant A và B, và oracle bắt được cả hai.
+- Ổn định: chạy lặp 15/15 lần đều xanh. `SIGKILL` không thể chen vào trước các khẳng định vì `request()` ghi entry pending đồng bộ trước khi ghi xuống stdin.
 
-**Recommended shape, so this stops after one more round.** Three successive widenings each closed
-exactly the axis they were ordered for and then exposed the next one. One condition closes the whole
-selection predicate at once: a five-level ancestor chain — non-reactor top, reactor A (`<modules>`),
-non-reactor middle, reactor B (`<modules>`), leaf module — where a path under the leaf module must
-resolve to **reactor A**. That single row kills M3, M12, and every "just take the farthest ancestor"
-variant together. After it lands, the checker's judgement is that the `INV-ROUTE-1/2/3` family is
-solid and further FOLLOW-UP churn on routing should stop.
+## Vệ sinh trạng thái
 
-## Survivors that are already documented, not new gaps
+- `src/lsp/lsp-client.ts` lần sửa cuối là commit a9306fb (bản triển khai gốc) và không nằm trong commit 507fa37. Khẳng định "không cần sửa mã nguồn" đứng vững, không có scope bleed.
+- Commit 507fa37 chỉ thêm file oracle mới cùng trạng thái harness.
+- Phụ thuộc `feat-001` đã `done`.
+- `harness/tools/verify-harness.mjs` báo 0 blocker.
 
-- **Loosened `<modules>` regex** (`/modules/i`): the accepted risk recorded in design approval
-  `3d68e0857fbfac45` — no real Maven model parser. Needs a `modules` substring inside a comment or a
-  property to bite.
-- **Dropped `realpathSync`**: out of scope while `X-005` is an open recommendation. The spec file's
-  own header states it asserts nothing about symlink resolution. Worth an oracle only once X-005
-  closes.
-- **Dropped `statSync(...).isDirectory()` branch**: an equivalent mutant.
-  `path.join(<file path>, "pom.xml")` never exists and the loop moves to the parent directory on the
-  very next iteration, so behaviour is identical.
+## Các luồng còn mở, không đổi trong lượt này
 
-## Other open threads, unchanged by this turn
-
-- `feat-prove-provisioner` — blocked/timeboxed at 3/3: the 13-case green replay still lacks a
-  corrupt-download / checksum-rejection condition.
-- `feat-lsp-client` — rejected at 1/4: still needs a bounded cross-process oracle that kills a
-  spawned scripted child with requests in flight.
-- `feat-project-router` — `done` and untouched throughout this sequence.
+- `feat-workspace-pool` — nay đã đủ điều kiện, vì cả ba phụ thuộc `feat-jdtls-provisioner`, `feat-project-router`, `feat-lsp-client` đều `done`. Đây là mục kế tiếp cho maker.
+- `feat-prove-provisioner` — blocked/timebox ở 3/3: bản replay 13 trường hợp vẫn thiếu điều kiện từ chối khi tải về hỏng checksum.
+- FOLLOW-UP mutant M12 của `feat-prove-routing` vẫn chờ feature-planner định tuyến thành scope mới, không được nới rộng tại chỗ lần thứ tư.

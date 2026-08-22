@@ -420,3 +420,9 @@
 {"ts":"2026-08-22T00:24:07.568Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":56274}
 {"ts":"2026-08-22T00:24:10.306Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":56635}
 {"ts":"2026-08-22T00:25:41.940Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":57185}
+{"ts":"2026-08-22T00:29:18.394Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":58917}
+{"ts":"2026-08-22T00:38:49.382Z","actor":"checker","event":"verdict","feature":"feat-lsp-client","detail":"APPROVE: real spawned-child Level 3 oracle reproduces; my own mutants (no exit rejection / only-first rejected / wrong Content-Length) all kill it; src untouched, 15/15 stable, 10s bound proven real","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server","pid":62023}
+{"ts":"2026-08-22T00:39:16.360Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":62229}
+{"ts":"2026-08-22T00:39:19.375Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":62545}
+{"ts":"2026-08-22T00:39:41.153Z","actor":"init","event":"session-start","feature":"init.mjs","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":62669}
+{"ts":"2026-08-22T00:39:43.954Z","actor":"verify","event":"verify-green","feature":"blockers=0 harness=0","cwd":"/Users/loren/workspace/projects/harness/examples/jdt-mcp-server/harness","pid":63031}
