@@ -35,6 +35,13 @@ function allSettled() {
   });
 }
 
+function readyForCheck() {
+  try {
+    const list = JSON.parse(readFileSync("feature_list.json", "utf8"));
+    return (list.features || []).filter((feature) => feature.readyForCheck === true);
+  } catch { return []; }
+}
+
 function recordBaseline() {
   const entry = existsSync("init.mjs") ? [process.execPath, ["init.mjs"]] : ["bash", ["init.sh"]];
   const result = run(entry[0], entry[1], { timeout: 300_000 });
@@ -146,6 +153,12 @@ async function main() {
     }
     if (attended && !await checkpoint(iteration, next.node)) return 0;
     if (!["maker", "k8s-integration-tester"].includes(next.node)) continue;
+    const reviewBatch = readyForCheck();
+    if (!reviewBatch.length) {
+      console.log("checker skipped: maker recorded a checkpoint, but no complete feature-level claim is ready");
+      continue;
+    }
+    console.log(`review batch: ${reviewBatch.map((feature) => feature.id).join(", ")}`);
     const promote = await approvalAllowsPromote(iteration);
     if (promote && existsSync("tools/verify-harness.mjs")) {
       const fullReplay = iteration % FULL_REPLAY_EVERY === 0;
@@ -169,7 +182,7 @@ async function main() {
     if (existsSync(path.join("tools", tool))) show(process.execPath, [path.join("tools", tool), "--target", "."]);
   }
   if (!baselineChecked) {
-    console.log(`loop finished: ${iterations} iteration(s). Baseline NOT re-checked this run — no maker iteration ran.`);
+    console.log(`loop finished: ${iterations} iteration(s). No complete review batch ran.`);
     return 0;
   }
   const baseline = JSON.parse(readFileSync("loop/baseline-state.json", "utf8"));

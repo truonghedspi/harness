@@ -88,8 +88,10 @@ reason, or a vague one ("couldn't figure it out"), is not acceptable — send it
 Verdict per feature:
 
 - **APPROVE** → set `"status": "done"`, remove `readyForCheck`, keep the evidence block.
-- **REJECT** → write concrete reasons into `checkerNotes`, set `"status": "in-progress"`, and
-  set `readyForCheck` back to `false`.
+- **REJECT** → increment `attempts` by one (it counts failed review cycles, not maker checkpoints),
+  write concrete reasons into `checkerNotes`, and set `readyForCheck` back to `false`. If the new
+  count reaches `maxAttempts`, set `status: blocked` with the concrete exhausted-review reason;
+  otherwise set `status: in-progress` so the maker can address the verdict.
 - **REJECT because the claim rests on an unexamined design assumption** (the behavior may be
   implemented correctly, but only under a premise nobody wrote down) → start `checkerNotes` with
   `NEEDS DESIGN:` and name the assumption. The `design-facilitator` picks it up; the maker is forbidden from

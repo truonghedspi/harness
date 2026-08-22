@@ -101,10 +101,10 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | Field | Writer | Readers | Merge rule |
 |---|---|---|---|
 | `feature_list.json[].status` | `checker`, `--promote` | all | single writer per feature; `blocked` beats mechanical promotion |
-| `feature_list.json[].readyForCheck` | `maker` | `--promote`, `checker` | maker sets, checker clears |
+| `feature_list.json[].readyForCheck` | `maker` | `run-loop.mjs`, `--promote`, `checker` | maker sets only for a complete green feature-level claim; partial checkpoints leave false; checker clears |
 | `feature_list.json[].evidence` | `maker` | `checker`, `--promote` | overwrite per attempt |
 | `feature_list.json[].checkerNotes` | `checker`, `maker`, `test-designer` | `maker`, `design-facilitator`, `feature-planner` | append; **first line is the routing marker** |
-| `feature_list.json[].attempts` | `maker` | gate `over-budget` | +1 per iteration, never reset |
+| `feature_list.json[].attempts` | `checker` | maker, gate `over-budget` | +1 per rejected review cycle, never per maker checkpoint, never reset |
 | `feature_list.json[].falsifier` | `feature-planner`, `test-designer` | `checker` | overwrite |
 | `docs/assumptions.md` | `design-facilitator`, `test-designer`; human answer captured in place with `human-interview` | all | row-level; status only moves toward `verified` |
 | `docs/cross-cutting.md` | `design-facilitator`; human choice captured in place with `human-interview` | all | a row closes only with mechanism + owner + enforcing rule |
@@ -142,9 +142,10 @@ if a prove feature has a falsifier
 if a build feature's prove feature
    has no test yet                        → NOT eligible (the maker would write it)
 if feature.verification touches k8s       → k8s-integration-tester  [integration]
-if feature.attempts >= maxAttempts        → blocked (stop retrying)
+if feature.attempts >= maxAttempts        → blocked (stop rejected review cycles)
 if a live assumption row has status
    needs-human (HTML examples excluded)   → human checkpoint; current agent uses human-interview [STOPS the loop]
+if maker checkpoint and !readyForCheck    → maker again; checker not dispatched
 if feature.readyForCheck                  → verify-harness --promote → checker
 if done feature starts FOLLOW-UP:         → feature-planner          (turn review debt into scope)
 if checker APPROVE                        → done
@@ -170,13 +171,15 @@ flowchart TD
   FP --> R
   TD --> TI
   TI --> R
-  M -->|readyForCheck| A[["loop/approval-gate.mjs<br/>human, only when judgement is owed"]]
-  K --> A
+  M -->|"partial checkpoint<br/>readyForCheck=false"| R
+  M -->|"complete green claim<br/>readyForCheck=true"| A[["loop/approval-gate.mjs<br/>human, only when judgement is owed"]]
+  K -->|"partial checkpoint<br/>readyForCheck=false"| R
+  K -->|"complete green claim<br/>readyForCheck=true"| A
   A -->|approved| P[["verify-harness --promote"]]
   A -->|rejected / timeout| C
   P --> C{checker}
   C -->|APPROVE| DONE([done])
-  C -->|"REJECT (implementation)"| R
+  C -->|"REJECT: attempts +1<br/>(implementation)"| R
   C -->|"NEEDS DESIGN (design)"| R
   C -->|"NEEDS RE-PLAN (decomposition)"| R
   classDef code fill:#eef,stroke:#446

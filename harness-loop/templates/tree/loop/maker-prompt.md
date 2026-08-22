@@ -43,16 +43,18 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    knowledge you don't. Note the handoff in `progress.md`, leave the feature untouched, and pick
    the next eligible non-k8s feature instead (if none, write `session-handoff.md` saying the
    remaining work is k8s-specialized, and stop).
-4. **Timebox check, before doing any work on the picked feature:** if
+4. **Review-cycle timebox check, before doing any work on the picked feature:** if
    `feature.attempts >= feature.maxAttempts`, you MUST NOT try again yourself — set
    `"status": "blocked"`, write the concrete reason (what was tried, why it didn't work) into
    `checkerNotes`, and pick the next eligible feature instead. A feature that keeps failing the
    same way after several real attempts needs a human decision, not a fourth attempt that looks
    like the first three. (See docs/constraints.md's enforcement table — `verify-harness.mjs`
-   checks this budget mechanically.)
-5. Advance it by exactly ONE step: implement the behavior, then run its `verification` command.
-   Do not touch files outside this feature's scope (WIP = 1, Lesson 7). Increment
-   `feature.attempts` by 1 for this iteration, regardless of whether it succeeds.
+   checks this budget mechanically.) `attempts` counts checker rejections, not maker checkpoints:
+   do not increment it merely because you safely stopped and committed partial work.
+5. Advance it by exactly ONE bounded step toward the feature-level behavior, then run the most
+   relevant available verification. Do not touch files outside this feature's scope (WIP = 1,
+   Lesson 7). A checkpoint may be incomplete; keep the same feature active on the next iteration
+   instead of manufacturing a review claim from partial progress.
 
    **Run the verification BEFORE you implement, and record that it fails.** You and the test are
    the same author, so a test you only ever saw green may be asserting nothing — the red run is the
@@ -63,16 +65,21 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    **If a `test-designer`/`test-implementer` already authored this feature's test, do not rewrite
    it.** Make the code satisfy it. Changing the test to fit your implementation destroys the one
    thing that made it an independent oracle (`docs/reference/test-authoring.md`).
-6. Record honest evidence in the feature's `evidence` field: **the red run and the green run** — as a LIST, not a paragraph:
+6. Record honest evidence in the feature's `evidence` field. A feature-level review claim needs
+   **the red run and the final green run** — as a LIST, not a paragraph:
    `[{"date":"2026-08-12","run":"red","cmd":"./mvnw -q test -Dtest=X","result":"1 failure: expected 3 got 0"},
      {"date":"2026-08-12","run":"green","cmd":"./mvnw -q test -Dtest=X","result":"1 test passed"}]`
    One short line per run. A prose blob hides which command was run and makes the red-run check a
    regex over your sentences; the list makes it exact. —
    command, how it failed, then how it passed — and the date. If verification did not run, the
-   feature did not advance. (`verify-harness.mjs` reports `evidence-no-red` for green features whose
+   feature did not advance. An incomplete checkpoint may record its still-red result, but must not
+   relabel it green. (`verify-harness.mjs` reports `evidence-no-red` for green features whose
    evidence never shows a failure.)
-7. Set `"readyForCheck": true`. You must NOT set `"status": "done"` — that is the checker's
-   decision alone.
+7. Set `"readyForCheck": true` **only when the whole feature-level `behavior` is implemented, its
+   recorded `verification` is green, and the evidence is complete**. Otherwise keep
+   `readyForCheck: false`, keep the feature `active`/`in-progress`, record the checkpoint in
+   `progress.md`, and let the router return it to the maker. You must NOT set `status: done` — that
+   is the checker's decision alone.
 8. Any requirement/architecture question `docs/` doesn't answer is a DESIGN question, not a
    blocker for you to absorb: write `NEEDS DESIGN: <the question>` as the first line of
    `checkerNotes`, leave `status` as it was, and pick the next eligible feature. The
@@ -84,7 +91,7 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    - `node tools/trace.mjs maker verify-ran <feat-id> "<command + result>"`
    - `node tools/trace.mjs maker blocked <feat-id> "<reason>"`
 10. End of iteration (Lesson 12): update `progress.md`, ensure `./init.sh` is green, commit
-    (include `trace/trace.jsonl`). **Do this after every single feature, not once at the end of a
+    (include `trace/trace.jsonl`). **Do this after every bounded checkpoint, not once at the end of a
     long session** — a long run that only commits at the very end risks losing everything worked
     on if it never reaches that point. Running headless via `run-loop.mjs`: commit directly, that
     is the automation's job. Running interactively with a human: ask for permission to commit

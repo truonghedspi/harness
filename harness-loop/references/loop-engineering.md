@@ -66,11 +66,14 @@ code, it scores itself high — not from dishonesty but because it already convi
 path was right. **Never let the same entity (same model, same prompt) both do the work and grade
 it.** The scaffold enforces this:
 
-- `maker` advances work and records honest evidence, but **cannot** set `status: done` — it sets
-  `readyForCheck: true`.
+- `maker` advances work and records honest evidence, but **cannot** set `status: done`. Partial
+  checkpoints keep `readyForCheck: false`; it sets the flag only for a complete green feature claim.
 - `checker` re-runs the evidence, tries to *falsify* the maker's claims, and is the only agent
   allowed to flip a feature to `done`. It is write-restricted to state files in
   `.kiro/agents/checker.json` so it can't quietly "fix and pass" its own review.
+
+`run-loop.mjs` treats that flag as the review seam: no complete claim means no checker dispatch.
+Each rejection increments the feature's `attempts`; maker checkpoints do not consume that budget.
 
 One sentence to remember: **someone in your crew must not believe you.**
 

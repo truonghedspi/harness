@@ -1,7 +1,7 @@
 # Feature decomposition — turning a requirement into a `feature_list.json` an agent can finish
 
 The single hardest judgment call in this whole skill isn't scaffolding files — it's cutting a
-user's requirement into pieces small enough that one maker iteration can finish and verify one
+user's requirement into pieces small enough that bounded maker checkpoints can finish and verify one
 piece without losing track of the system, but large enough that the pieces still add up to the
 actual requirement instead of a pile of trivia. Get this wrong and you get one of two failure
 modes, both real and both observed while building this skill's aeron-demo trial run:
@@ -93,8 +93,8 @@ destroys the fast feedback that small features bought. In this harness, in order
 - `verify-harness --promote` replaces the LLM checker with a mechanical evidence replay for
   features whose verification reproduces. `run-loop.sh` already runs it, which turns the common
   case from two dispatches into one.
-- The checker is already batched: one checker dispatch judges every `readyForCheck` feature, so
-  several maker iterations can accumulate before it runs.
+- The checker is gated and batched: partial maker checkpoints keep `readyForCheck: false`; one
+  checker dispatch runs only when complete feature-level claims exist and judges the whole batch.
 - Per-dispatch context is a per-feature tax. `tools/context-budget.mjs` prices it.
 
 **Then fix the shape, not the size.** The story-slicing test applies directly: *if slice one needs
@@ -142,8 +142,8 @@ produce a valid DAG, not a flat list a human has to manually sequence later.
       check X" — if it can't be a command yet, the feature isn't ready to write, go back a step.
 - [ ] `dependencies` — only feature ids that already exist earlier in this same planning pass.
 - [ ] `status: "not-started"`, `readyForCheck: false`, `evidence: ""`, `checkerNotes: ""`,
-      `attempts: 0`, `maxAttempts` set (3 is a reasonable default; raise it for a feature you
-      already know is exploratory/uncertain, never leave it unset).
+      `attempts: 0`, `maxAttempts` set (3 rejected review cycles is a reasonable default; raise it
+      for a feature you already know is exploratory/uncertain, never leave it unset).
 
 ## Worked example (aeron-demo, real, checked into `feature_list.json`)
 

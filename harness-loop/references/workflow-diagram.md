@@ -98,18 +98,23 @@ sequenceDiagram
     RL->>RL: all features done/blocked-with-reason?<br/>→ exit early, no LLM session spawned
     RL->>M: kiro-cli chat --agent maker
     M->>FS: pick first not-started feature<br/>whose dependencies are all done<br/>(skip NEEDS RE-PLAN and k8s-specialized ones)
-    M->>M: implement one step, run its<br/>verification command for real
-    M->>FS: write evidence, readyForCheck=true<br/>(cannot write status=done)
-    RL->>FS: tools/verify-harness.mjs --promote —<br/>mechanical replay; flip clean reproductions<br/>to done (never touches blocked)
-    RL->>C: kiro-cli chat --agent checker
-    C->>FS: read remaining readyForCheck features<br/>+ spot-check the promoted ones
-    C->>C: semantic review — behavior actually met,<br/>no scope bleed; falsify, don't confirm
-    alt claim survives
-        C->>FS: status=done
-    else evidence fails or scope drifted
-        C->>FS: status=in-progress + checkerNotes<br/>(or blocked, if attempts exhausted)
-    else feature itself is mis-cut
-        C->>FS: checkerNotes = "NEEDS RE-PLAN: ..."<br/>→ routes to feature-planner, not the maker
+    M->>M: implement one bounded step, run the<br/>most relevant verification for real
+    alt feature-level behavior is incomplete
+        M->>FS: checkpoint evidence/progress,<br/>readyForCheck=false
+        RL->>RL: skip checker; next iteration<br/>routes the active feature to maker
+    else complete behavior + green verification + complete evidence
+        M->>FS: readyForCheck=true<br/>(cannot write status=done)
+        RL->>FS: tools/verify-harness.mjs --promote —<br/>mechanical replay; flip clean reproductions<br/>to done (never touches blocked)
+        RL->>C: kiro-cli chat --agent checker
+        C->>FS: read remaining readyForCheck features<br/>+ spot-check the promoted ones
+        C->>C: semantic review — behavior actually met,<br/>no scope bleed; falsify, don't confirm
+        alt claim survives
+            C->>FS: status=done
+        else evidence fails or scope drifted
+            C->>FS: attempts += 1; status=in-progress<br/>+ checkerNotes (or blocked at maxAttempts)
+        else feature itself is mis-cut
+            C->>FS: checkerNotes = "NEEDS RE-PLAN: ..."<br/>→ routes to feature-planner, not the maker
+        end
     end
     RL->>FS: record baseline-state.json<br/>with outcome + evidence digest
     alt baseline red and new
@@ -140,7 +145,7 @@ flowchart TD
     S5 --> S2
     S4 -- yes --> S6["Step 6: wire the confirmed command into\ntesting-standards.md's Level 3"]
     S6 --> S7["Step 7: stop the local cluster again\n(if local) — don't starve the JVM/other suites"]
-    S7 --> S8["record evidence, readyForCheck=true\n(checker still decides done)"]
+    S7 --> S8["complete journey: record evidence, readyForCheck=true\npartial checkpoint: leave false; checker is not dispatched"]
 ```
 
 ## 4. The self-improvement loop (`harness-loop.sh`) — fixes the skill, not just the target

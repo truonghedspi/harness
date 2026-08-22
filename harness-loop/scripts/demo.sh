@@ -1492,6 +1492,23 @@ fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
 ( cd "$WIN" && node loop/run-loop.mjs --headless > "$WIN/settled.log" 2>&1 )
 grep -q "nothing to do" "$WIN/settled.log"
 expect "the Node loop executes without Bash and preserves its mechanical early-stop contract" $?
+# A maker checkpoint used to summon checker unconditionally, even when the feature-level behavior
+# was incomplete. Exercise the driver with a fake runtime: maker leaves readyForCheck=false, so a
+# checker process is proof of the bug rather than an implementation detail.
+BATCH="$WORK/review-batch"; mkdir -p "$BATCH/loop" "$BATCH/bin"
+cp "$SCRIPTS/../templates/tree/loop/run-loop.mjs" "$BATCH/loop/run-loop.mjs"
+cp "$SCRIPTS/../templates/tree/loop/dispatch.mjs" "$BATCH/loop/dispatch.mjs"
+printf '%s\n' '#!/usr/bin/env node' 'process.stdout.write(JSON.stringify({node:"maker",kind:"agent",layer:"implementation",why:"incomplete feature"}));' > "$BATCH/loop/route.mjs"
+printf '%s\n' '#!/usr/bin/env node' 'process.exit(0);' > "$BATCH/init.mjs"
+printf '%s\n' '{"features":[{"id":"feat-partial","status":"active","readyForCheck":false,"checkerNotes":"","attempts":0,"maxAttempts":3}]}' > "$BATCH/feature_list.json"
+printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\n" "$*" >> "$HARNESS_FAKE_RUNTIME_LOG"' > "$BATCH/bin/kiro-cli"
+chmod +x "$BATCH/bin/kiro-cli"
+( cd "$BATCH" && PATH="$BATCH/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BATCH/runtime.log" node loop/run-loop.mjs 1 --headless > "$BATCH/run.log" 2>&1 )
+test "$(grep -c -- '--agent maker' "$BATCH/runtime.log")" = "1" -a "$(grep -c -- '--agent checker' "$BATCH/runtime.log" || true)" = "0" \
+  && grep -q 'checker skipped: maker recorded a checkpoint' "$BATCH/run.log" \
+  && grep -q 'only when the whole feature-level.*behavior' "$SCRIPTS/../templates/tree/loop/maker-prompt.md" \
+  && grep -q 'counts failed review cycles, not maker checkpoints' "$SCRIPTS/../templates/tree/loop/checker-prompt.md"
+expect "partial maker checkpoints do not dispatch checker; only complete feature-level claims do" $?
 # The bug this port found. The old bash gate wrote: has lint && { run lint; } || true
 # The || true was meant to skip a script that does not exist. It cannot tell that apart from one
 # that ran and failed, so a project with failing lint AND failing tests printed "Baseline green".

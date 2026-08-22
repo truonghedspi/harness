@@ -281,6 +281,26 @@
       "paths": ["tools/verify-harness.mjs"],
       "mergeActions": ["Copy the updated verify-harness.mjs as-is.", "Audit feature_list.json for any feature with status done/passing and checkerNotes starting with REJECT — that is exactly the corruption this fix prevents going forward, but an existing target may already carry one; revert its status to in-progress by hand."],
       "verification": ["bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-22-semantic-review-batch",
+      "summary": "Maker checkpoints no longer dispatch checker; readyForCheck now means a complete feature-level behavior with green verification and complete evidence, and attempts counts rejected review cycles.",
+      "why": "HI-058: run-loop.mjs unconditionally dispatched checker after every maker iteration and maker-prompt.md unconditionally set readyForCheck, so small partial advances paid for an independent review before there was a complete claim to falsify.",
+      "targetImpact": "A maker may commit several bounded checkpoints on one active feature with readyForCheck=false. run-loop.mjs skips checker until a complete claim is ready. Checker increments attempts on REJECT and blocks at maxAttempts; partial maker checkpoints no longer consume that budget.",
+      "paths": ["loop/run-loop.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/goal.md", "docs/constraints.md", "feature_list.json", "prompts/k8s-integration-tester.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md", "docs/reference/feature-decomposition.md", "docs/reference/loop-engineering.md"],
+      "mergeActions": ["Refresh the listed skill-owned files.", "For existing feature rows, reinterpret attempts as prior rejected review cycles where history permits; do not mechanically retain counts known to represent maker checkpoints.", "Do not set readyForCheck on partial work; leave the active feature false until its complete behavior and verification are green."],
+      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "humanDecision": {
+        "questionId": "semantic-review-batch-policy",
+        "question": "Should checker run only for a semantically complete feature-level claim, with attempts counting failed reviews rather than maker checkpoints?",
+        "answer": "phê duyệt",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-22",
+        "scope": ["default scaffold maker-checker workflow"],
+        "basis": [{"kind": "observation", "pointer": "examples/jdt-mcp-server/harness/trace/tool-events.jsonl: 104 sessions, including repeated premature/redundant dispatch"}, {"kind": "human", "pointer": "chat approval on 2026-08-22"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
     }
   ]
 }

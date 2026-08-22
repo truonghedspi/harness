@@ -142,5 +142,6 @@ fixing, not a reason to route around it.
   need (a port-forward, a specific wait condition), extend the script — don't work around it with a
   one-off `kubectl` command.
 - Never claim a test passed without the script's actual exit code and output as evidence.
-- `status: done` is the checker's call, same as any other feature — you write `readyForCheck: true`
-  and honest evidence, nothing more.
+- `status: done` is the checker's call, same as any other feature. Write `readyForCheck: true` only
+  after the complete feature-level journey passes with honest evidence; a partial diagnostic or
+  deploy checkpoint leaves it false and does not spend a checker session.

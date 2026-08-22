@@ -8,9 +8,9 @@ possible — mechanically enforceable (a lint rule or a check in `init.sh` beats
 - MUST run `./init.sh` to green before claiming any feature done.
 - MUST keep one feature `active` at a time (WIP = 1).
 - MUST record verification evidence in `feature_list.json` before a feature becomes `passing`.
-- MUST stop and set `status: blocked` (with a reason in `checkerNotes`) once a feature's
-  `attempts` reaches its `maxAttempts` — a timebox, not a suggestion. A hard problem retried
-  forever with no budget is how a loop silently burns unbounded time/compute on one feature.
+- MUST treat `attempts` as failed checker review cycles, never as maker checkpoints. On a rejection,
+  the checker increments it and sets `status: blocked` with a reason when it reaches `maxAttempts`.
+  This timeboxes repeated failed claims without punishing safe partial commits before a claim exists.
 - MUST give every long-running or integration-level test a bounded, stack-appropriate per-test
   timeout mechanism (e.g. JUnit `@Timeout`/`@InterruptAfter`, pytest-timeout, `go test -timeout`,
   a `[Timeout]` attribute in .NET) — a single hung test must not be able to consume the whole

@@ -255,6 +255,8 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    bug; follow the Lifecycle section above before blaming the target.
 11. **Start the loop only after both checks pass and the baseline is green.** Local first:
    `kiro-cli chat --agent maker` then `--agent checker`; or headless `node loop/run-loop.mjs N`.
+   Headless runs skip checker dispatch after partial maker checkpoints and review only complete,
+   green feature-level claims (`readyForCheck: true`).
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
 
@@ -265,6 +267,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - **The maker never grades itself.** `status: done` is the checker's decision alone (Lesson 9/13,
   generator/evaluator separation). Keep the maker write-broad and the checker write-restricted to
   state files, exactly as the `.kiro/agents/*.json` templates do.
+- **A checkpoint is not a review claim.** Maker may need several bounded, committed iterations on
+  one feature. It sets `readyForCheck` only when the whole behavior is green; `attempts` counts
+  checker rejections, so safe partial commits neither summon checker nor exhaust the review budget.
 - **Stopping conditions are machine-checkable**, never "looks right" (Lesson 10; Four Silent
   Costs → verification debt). Every feature's `verification` must be a real command.
 - **Keep the router short.** `AGENTS.md` routes and states invariants; project facts go in

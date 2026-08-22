@@ -19,15 +19,19 @@ Advance `feature_list.json` until every feature is `done` with green evidence.
 
 ## Iteration contract (maker)
 
-One iteration = advance exactly ONE feature by one step (implement + verify + record evidence),
-or repair a red baseline. Nothing else. The maker may set `readyForCheck: true` but never
+One iteration = advance exactly ONE feature by one bounded step (implement + verify + record
+evidence), or repair a red baseline. Nothing else. Partial progress is a checkpoint:
+`readyForCheck` stays false and the router returns the same active feature to the maker. The maker
+sets `readyForCheck: true` only when the complete feature behavior is green, but never sets
 `status: done`.
 
 ## Gates (checker)
 
-`done` requires checker approval. The checker's job is to falsify, not confirm: re-run the
-recorded evidence, exercise the highest test level the change touches, and reject anything that
-doesn't reproduce.
+`done` requires checker approval. `run-loop.mjs` dispatches the checker only when at least one
+complete feature-level claim has `readyForCheck: true`; maker checkpoints do not spend a checker
+session. The checker falsifies rather than confirms: re-run the recorded evidence, exercise the
+highest test level the change touches, and reject anything that doesn't reproduce. Each rejection,
+not each maker checkpoint, consumes one `attempts` review-cycle budget.
 
 ## Stop conditions (end the loop, write session-handoff.md, escalate)
 
