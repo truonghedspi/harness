@@ -14,8 +14,9 @@
 // A trap worth knowing, and the reason this is a hook rather than a settings rule: Claude Code
 // consults `Edit(path)` rules only. A `Write(docs/**)` rule is accepted and never applied.
 //
-// CODEX CLI uses the same hook contract — verified by running codex 0.147.0 — with two differences
-// that both fail SILENTLY if unhandled:
+// CODEX CLI shares the same path-classification intent, but not the same serialized allow output.
+// Deny was verified on 0.147.0; 0.149.0 rejects permissionDecision:"allow", so the adapter below
+// emits no decision for Codex allow. Its other differences also fail SILENTLY if unhandled:
 //
 //   1. Its edit tool is `apply_patch`, and the payload carries NO file_path. `tool_input` is a patch
 //      envelope: {"command": "*** Begin Patch\n*** Add File: hello.txt\n+hi\n*** End Patch"}. The
@@ -32,16 +33,25 @@
 import { existsSync, readFileSync, writeSync } from "node:fs";
 import path from "node:path";
 
-const arg = process.argv[2];
+const cliArgs = process.argv.slice(2);
+const runtimeAt = cliArgs.indexOf("--runtime");
+const runtime = runtimeAt >= 0 ? cliArgs[runtimeAt + 1] : "claude";
+const runtimeValueAt = runtimeAt >= 0 ? runtimeAt + 1 : -1;
+const arg = cliArgs.find((value, index) => value !== "--runtime" && index !== runtimeValueAt);
 const agentName = arg === "--from-env" ? (process.env.HARNESS_AGENT || null) : arg;
 const root = process.cwd();
 const home = existsSync(path.join(root, "harness", "agents.manifest.json")) ? path.join(root, "harness") : root;
 
 const decide = (decision, reason) => {
   // writeSync, not process.stdout.write: exit() does not flush a pending async write to a pipe.
-  writeSync(1, JSON.stringify({
+  // Codex 0.149 rejects every affirmative enum (`allow`, `approve`, `ask`). Its allow response is
+  // the absence of a decision; only deny is explicit. Claude uses the affirmative `allow` value.
+  // Keep that runtime difference here, at the adapter seam, instead of leaking it into every
+  // path-classification branch below.
+  const output = runtime === "codex" && decision === "allow" ? {} : {
     hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: decision, permissionDecisionReason: reason },
-  }));
+  };
+  writeSync(1, JSON.stringify(output));
   process.exit(0);
 };
 

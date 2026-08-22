@@ -301,6 +301,26 @@
         "supersedes": null,
         "openFollowUps": []
       }
+    },
+    {
+      "id": "HUC-2026-08-22-codex-hook-adapter-calibration",
+      "summary": "PreToolUse write confinement now serializes allow/deny per runtime: Claude keeps explicit allow/deny, Codex emits neutral allow and reasoned deny; Codex dispatch calibrates both branches first.",
+      "why": "HI-059: Codex CLI 0.149.0 reports `PreToolUse hook returned unsupported permissionDecision:allow`. The shared Claude/Codex serializer made every permitted tool call a failed hook even though path classification was correct.",
+      "targetImpact": "Generated Codex hooks pass `--runtime codex`; tools/hook-calibrate.mjs records the installed version and proves neutral allow plus reasoned deny before every Codex dispatch. loop/dispatch.mjs rejects hook-schema warnings even when the runtime exits zero. Existing Codex targets must refresh the generated hook and the four runtime tools together.",
+      "paths": ["tools/guard-write.mjs", "tools/hook-calibrate.mjs", "tools/codex-dispatch.mjs", "tools/gen-agents.mjs", "tools/verify-harness.mjs", "loop/dispatch.mjs", ".codex/hooks.json", "docs/reference/runtimes.md", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh guard-write.mjs, hook-calibrate.mjs, codex-dispatch.mjs, verify-harness.mjs and loop/dispatch.mjs as one compatibility set.", "Regenerate .codex/hooks.json so its guard command includes `--runtime codex`.", "Run `node tools/hook-calibrate.mjs --target . --runtime codex`; do not dispatch Codex if adapter is not pass."],
+      "verification": ["bash harness-loop/scripts/demo.sh", "node tools/hook-calibrate.mjs --target . --runtime codex"],
+      "humanDecision": {
+        "questionId": "runtime-hook-adapter-calibration",
+        "question": "Implement runtime-specific hook adapters and live allow/deny calibration as the next harness improvement?",
+        "answer": "đồng ý thực hiện như đề xuất",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-22",
+        "scope": ["default scaffold runtime hooks", "Codex dispatch acceptance"],
+        "basis": [{"kind": "observation", "pointer": "Codex CLI 0.149.0 error: unsupported permissionDecision:allow"}, {"kind": "source", "pointer": "harness-loop/scripts/guard-write.mjs shared serializer"}, {"kind": "human", "pointer": "chat approval on 2026-08-22"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
     }
   ]
 }

@@ -596,6 +596,11 @@ function gateLoop() {
       symptom: "runtime hooks cannot emit calibrated, redacted read/search telemetry",
       remedy: "refresh skill-owned telemetry.mjs and telemetry-calibrate.mjs" });
   }
+  if (!exists(P("tools/guard-write.mjs")) || !exists(P("tools/hook-calibrate.mjs"))) {
+    add({ gate: "runtime-hooks", id: "hook-calibration-missing", layer: "harness",
+      symptom: "runtime write-confinement hooks have no allow/deny adapter calibration",
+      remedy: "refresh skill-owned guard-write.mjs and hook-calibrate.mjs" });
+  }
   const serviceManifest = readJSON(P("services.manifest.json"));
   if (serviceManifest && !exists(P("skills/business-journey/SKILL.md"))) {
     add({ gate: "business-journey", id: "capability-pack-missing", layer: "harness",

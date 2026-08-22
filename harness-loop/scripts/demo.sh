@@ -1122,34 +1122,47 @@ const fs=require('fs');
 const j=JSON.parse(fs.readFileSync('$TR/.codex/hooks.json','utf8'));
 const keys=Object.keys(j);
 process.exit(keys.every(k=>['description','hooks'].includes(k)) &&
-             /guard-write\.mjs --from-env/.test(JSON.stringify(j.hooks)) ? 0 : 1);
+             /guard-write\.mjs --runtime codex --from-env/.test(JSON.stringify(j.hooks)) ? 0 : 1);
 "; expect "Codex hooks.json uses only the two keys Codex accepts, and wires the write guard" $?
 node -e "
 // Codex's edit tool is apply_patch and its payload has NO file_path — just a patch envelope. The
 // guard parsed only file_path at first, found none, and returned ALLOW: confinement absent while
 // every log line said the hook ran. All four of these are the Codex shape.
 const {execFileSync}=require('child_process');
-const run=(env,cmd)=>JSON.parse(execFileSync('node',['tools/guard-write.mjs','--from-env'],
+const run=(env,cmd)=>JSON.parse(execFileSync('node',['tools/guard-write.mjs','--runtime','codex','--from-env'],
   {cwd:'$TR',input:JSON.stringify({tool_name:'apply_patch',tool_input:{command:cmd}}),encoding:'utf8',
    env:{...process.env,...(env?{HARNESS_AGENT:env}:{HARNESS_AGENT:''})}}))
-  .hookSpecificOutput;
+  .hookSpecificOutput || {};
 const patch=(...lines)=>'*** Begin Patch\n'+lines.join('\n')+'\n*** End Patch';
 const a=run('checker',patch('*** Update File: feature_list.json'));
 const b=run('checker',patch('*** Add File: src/Sneak.java'));
 const c=run('checker',patch('*** Update File: progress.md','*** Add File: src/Sneak.java'));
 const d=run('',patch('*** Add File: src/Sneak.java'));
-process.exit(a.permissionDecision==='allow' && b.permissionDecision==='deny' &&
+process.exit(a.permissionDecision===undefined && b.permissionDecision==='deny' &&
              c.permissionDecision==='deny' &&
-             d.permissionDecision==='allow' && /NO ROLE IDENTIFIED/.test(d.permissionDecisionReason) ? 0 : 1);
+             d.permissionDecision===undefined ? 0 : 1);
 "; expect "the guard reads Codex apply_patch envelopes, sinks a whole patch for one bad path, and says so when it cannot identify the role" $?
 node -e "
 // A payload that arrives and will not parse used to become {} and then a cheerful 'nothing to check'
 // allow. If the guard cannot read the request it cannot police it.
 const {execFileSync}=require('child_process');
-const out=JSON.parse(execFileSync('node',['tools/guard-write.mjs','--from-env'],
+const out=JSON.parse(execFileSync('node',['tools/guard-write.mjs','--runtime','codex','--from-env'],
   {cwd:'$TR',input:'not json',encoding:'utf8',env:{...process.env,HARNESS_AGENT:'checker'}}));
 process.exit(out.hookSpecificOutput.permissionDecision==='deny' ? 0 : 1);
 "; expect "an unparseable hook payload is denied, not silently allowed" $?
+node "$TR/tools/hook-calibrate.mjs" --target "$TR" --runtime codex > "$TR/hook-calibration.json"
+node -e "
+const r=require('$TR/hook-calibration.json');
+const c=r.results.find(x=>x.runtime==='codex');
+process.exit(c && c.adapter==='pass' && c.allow==='neutral' && c.deny==='deny' &&
+  c.reasonPresent && typeof c.runtimeVersion==='string' ? 0 : 1);
+"; expect "Codex hook calibration proves neutral allow plus reasoned deny against the installed runtime version" $?
+node -e "
+const {execFileSync}=require('child_process');
+const out=JSON.parse(execFileSync('node',['tools/guard-write.mjs','--runtime','codex','maker'],
+  {cwd:'$TR',input:'{}',encoding:'utf8'}));
+process.exit(out.permissionDecision===undefined && out.hookSpecificOutput===undefined ? 0 : 1);
+"; expect "Codex allow emits no unsupported permissionDecision enum" $?
 node -e "
 const fs=require('fs');
 // three configs, one server set — an agent that can reach a connector under one runtime and not
@@ -1924,6 +1937,10 @@ printf '#!/usr/bin/env bash\necho "Monthly request limit reached; resets later"\
 ( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/q.log" 2>&1
 QC=$?; [ "$QC" = "75" ] && grep -q "runtime refused" "$DP/q.log"
 expect "a quota refusal that exits zero is classified as no agent work" $?
+printf '#!/usr/bin/env bash\necho "PreToolUse hook returned unsupported permissionDecision:allow"\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/hook.log" 2>&1
+HC=$?; [ "$HC" = "75" ] && grep -q "runtime refused" "$DP/hook.log"
+expect "a hook-contract failure that exits zero is refused instead of accepting unconfined agent work" $?
 printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
 ( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs ghost "x" ) > "$DP/g.log" 2>&1
 GC=$?; grep -q "no agent" "$DP/g.log" && [ "$GC" = "2" ]

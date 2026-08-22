@@ -13,7 +13,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT_ROOT = path.basename(ROOT) === "harness" && existsSync(path.join(path.dirname(ROOT), "AGENTS.md"))
   ? path.dirname(ROOT) : ROOT;
 const IS_WIN = process.platform === "win32";
-const QUOTA = /monthly request limit reached|rate limit exceeded|quota exceeded|usage limit reached|temporarily unavailable/i;
+const RUNTIME_REFUSAL = /monthly request limit reached|rate limit exceeded|quota exceeded|usage limit reached|temporarily unavailable|PreToolUse hook returned unsupported|hook returned invalid pre-tool-use JSON output/i;
 
 function commandRuns(command, args = ["--version"]) {
   const result = spawnSync(command, args, { cwd: PROJECT_ROOT, stdio: "ignore", shell: IS_WIN });
@@ -66,7 +66,7 @@ export async function dispatch(agent, message, { runtime = selectRuntime() } = {
     }
     child.on("error", reject);
     child.on("close", (code, signal) => {
-      if (QUOTA.test(output)) {
+      if (RUNTIME_REFUSAL.test(output)) {
         console.error("runtime refused the dispatch despite its process status; no agent work is accepted");
         return resolve(75);
       }

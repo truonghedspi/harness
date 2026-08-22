@@ -218,6 +218,7 @@ const EXTRA_COPIES = [
   ["scripts/telemetry.mjs", "tools/telemetry.mjs"],
   ["scripts/telemetry-calibrate.mjs", "tools/telemetry-calibrate.mjs"],
   ["scripts/guard-write.mjs", "tools/guard-write.mjs"],
+  ["scripts/hook-calibrate.mjs", "tools/hook-calibrate.mjs"],
   ["scripts/codex-dispatch.mjs", "tools/codex-dispatch.mjs"],
   ["scripts/replay-parallel.mjs", "tools/replay-parallel.mjs"],
   ["scripts/collect-services.mjs", "tools/collect-services.mjs"],

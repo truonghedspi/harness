@@ -93,11 +93,13 @@ deny, so `tools/guard-write.mjs` matches the target path against the manifest's 
 
 ## Codex: three differences, and why each one bites
 
-Everything below was established by running `codex 0.147.0`, not by reading its documentation. The
-good news first: Codex's hook contract is shaped like Claude Code's — `PreToolUse`,
-`hookSpecificOutput.permissionDecision: "deny"`, snake_case payload — and a deny genuinely blocks the
-write. Confirmed by dispatching a real `checker` and watching it be refused. The differences are
-about *getting* to that point.
+The deny path below was established by running `codex 0.147.0`; the allow-path drift was observed
+on `0.149.0`. Codex still accepts `PreToolUse` with
+`hookSpecificOutput.permissionDecision: "deny"` plus a non-empty reason, but 0.149 rejects the
+affirmative values `allow`, `approve`, and `ask`. Therefore a permitted operation is a **neutral
+response with no permissionDecision**, while Claude still receives explicit `allow`. Sharing path
+classification is safe; sharing serialized hook output is not. `tools/hook-calibrate.mjs` exercises
+both adapter branches and records the installed version before Codex dispatch.
 
 **1. `codex exec` has no `--agent` flag, so a role cannot be selected — it has to be assembled.**
 That is `tools/codex-dispatch.mjs`: it reads the manifest, puts the role's prompt on stdin (`codex
@@ -222,3 +224,6 @@ misconfigured agent starts anyway, as something other than what you configured.
   not substitute for it · env vars set on the codex process **do** reach hook subprocesses ·
   `-c developer_instructions="…"` genuinely overrides behaviour · every generated agent TOML parses
   (`tomllib`) · `$comment` in `hooks.json` silently disabled every hook
+- **Codex 0.149.0**: `permissionDecision: "allow"` is rejected as unsupported; a neutral allow
+  response and a reasoned `deny` pass generated adapter calibration. `loop/dispatch.mjs` also treats
+  any hook-schema warning as a refused dispatch even when the runtime exits zero.

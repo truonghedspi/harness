@@ -219,7 +219,7 @@ function codexHooks(list) {
     hooks: {
       PreToolUse: [{
         matcher: ".*",
-        hooks: [{ type: "command", command: `node ${TOOL_ROOT}/guard-write.mjs --from-env` }],
+        hooks: [{ type: "command", command: `node ${TOOL_ROOT}/guard-write.mjs --runtime codex --from-env` }],
       }],
       PostToolUse: [{
         matcher: ".*",

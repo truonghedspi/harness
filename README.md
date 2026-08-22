@@ -10,7 +10,8 @@ This repository holds the agent-harness assets for the team:
   are covered — and a second, self-improving loop that keeps the skill itself honest. Three
   phases: **create** (`setup-harness-loop.mjs`), **verify** (`check-coverage.mjs` for structure,
   `verify-harness.mjs` for whether it actually works — no placeholders, `init.sh` really green,
-  feature evidence really reproduces, a feature past its rejected-review `attempts`/`maxAttempts` timebox that
+  feature evidence really reproduces, runtime-specific hook calibration rejects malformed Codex
+  allow/deny output, a feature past its rejected-review `attempts`/`maxAttempts` timebox that
   hasn't been marked `blocked`, a `blocked` with no reason recorded anywhere; `--promote`
   mechanically flips a feature to `done` once its evidence reproduces clean and the whole report
   is otherwise blocker-free), **improve** (`harness-issue.mjs` + `improve-harness.mjs`
