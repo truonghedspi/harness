@@ -1741,8 +1741,16 @@ node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" --json > "$LS/st.json"
 node -e "
 const s=require('$LS/st.json');
 // the question a human has mid-run: where is it, and where is it going next
-process.exit(s.next && typeof s.features.total==='number' && Array.isArray(s.dispatched) ? 0 : 1);
+process.exit(s.next && typeof s.features.total==='number' &&
+  s.progress && s.progress.done===0 && s.progress.total===3 &&
+  s.progress.remaining===3 && s.progress.percent===0 && Array.isArray(s.dispatched) ? 0 : 1);
 "; expect "it answers where the loop is and what the router would do next" $?
+node -e "
+const fs=require('fs'), p='$LS/feature_list.json', d=JSON.parse(fs.readFileSync(p));
+d.features[0].status='done'; fs.writeFileSync(p,JSON.stringify(d,null,2));
+"
+node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -q "progress  1/3 done (33%)   2 remaining"
+expect "the live view shows canonical done/total/percent/remaining progress after state changes" $?
 mkdir -p "$LS/loop"
 for i in 1 2 3 4; do echo '{"node":"design-facilitator","feature":"feat-x","hash":"abc"}' >> "$LS/loop/route-log.jsonl"; done
 node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -q "livelock"
@@ -1826,7 +1834,9 @@ node -e "
 const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
 // presenting: answer-first, and the three questions a human actually has mid-run
 process.exit(/answer-first/i.test(t) && /is it moving/i.test(t) && /delta/i.test(t) &&
-             /do you need me/i.test(t) && /Suppress the routine/i.test(t) ? 0 : 1);
+             /do you need me/i.test(t) && /Suppress the routine/i.test(t) &&
+             /After every sub-agent return/i.test(t) &&
+             /Progress: <done>\/<total> done \(<percent>%\), <remaining> remaining/.test(t) ? 0 : 1);
 "; expect "presenting is answer-first with the delta, the next node, and 'do you need me'" $?
 node -e "
 const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');

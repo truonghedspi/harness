@@ -51,6 +51,13 @@ function collect() {
   const features = (fl && fl.features) || [];
   out.features = { total: features.length, byStatus: {} };
   for (const f of features) out.features.byStatus[f.status || "?"] = (out.features.byStatus[f.status || "?"] || 0) + 1;
+  const done = out.features.byStatus.done || 0;
+  out.progress = {
+    done,
+    total: features.length,
+    remaining: Math.max(0, features.length - done),
+    percent: features.length ? Math.floor((done / features.length) * 100) : 0,
+  };
   // The ones a human would want to look at: in flight, waiting on judgement, or out of budget.
   out.inFlight = features
     .filter((f) => ["active", "in-progress"].includes(f.status) || f.readyForCheck ||
@@ -124,6 +131,8 @@ function render(s) {
   L.push("");
   const st = Object.entries(s.features.byStatus).map(([k, v]) => `${k} ${v}`).join("  ");
   L.push(`  features  ${s.features.total} total   ${st}`);
+  L.push(`  progress  ${s.progress.done}/${s.progress.total} done (${s.progress.percent}%)` +
+    `   ${s.progress.remaining} remaining`);
   if (s.inFlight.length) {
     L.push("  in flight");
     for (const f of s.inFlight.slice(0, 6))

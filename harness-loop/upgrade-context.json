@@ -321,6 +321,26 @@
         "supersedes": null,
         "openFollowUps": []
       }
+    },
+    {
+      "id": "HUC-2026-08-22-orchestrator-progress-snapshot",
+      "summary": "Orchestrator now shows canonical done/total/percent/remaining progress after every observed workflow change.",
+      "why": "HI-060: the front door reported a diff and the next node after a worker turn, but did not require the updated absolute progress, leaving humans unable to see immediately how far the workflow had advanced.",
+      "targetImpact": "tools/loop-status.mjs exposes one structured progress object and renders one progress line. The orchestrator re-runs that view after every sub-agent return or other state change and includes the snapshot even when a partial checkpoint leaves completion unchanged.",
+      "paths": ["tools/loop-status.mjs", "prompts/orchestrator.md", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh loop-status.mjs and orchestrator.md together.", "Preserve target-specific presentation wording, but retain the mandatory post-change progress line and fresh route lookup."],
+      "verification": ["bash harness-loop/scripts/demo.sh"],
+      "humanDecision": {
+        "questionId": "orchestrator-progress-after-change",
+        "question": "Should orchestrator show current progress every time workflow state changes?",
+        "answer": "orchestrator cần show được progress hiện tại mỗi lần có thay đổi xem đã đi được đến đâu",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-22",
+        "scope": ["default scaffold orchestrator reporting"],
+        "basis": [{"kind": "human", "pointer": "chat request on 2026-08-22"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
     }
   ]
 }

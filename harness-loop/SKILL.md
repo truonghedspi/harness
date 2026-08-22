@@ -259,6 +259,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    allow and reasoned deny for the installed runtime/version before a model turn is accepted.
    Headless runs skip checker dispatch after partial maker checkpoints and review only complete,
    green feature-level claims (`readyForCheck: true`).
+   The orchestrator re-runs the live view after every state change and reports
+   done/total/percent/remaining progress, even when a partial checkpoint leaves the percentage
+   unchanged.
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
 

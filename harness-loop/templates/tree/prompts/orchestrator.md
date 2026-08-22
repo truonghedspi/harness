@@ -48,7 +48,13 @@ so, show the state you think it misread, and stop. Never route around it.
    Keep one child active at a time — WIP=1 applies to orchestration too. If this session exposes no
    native sub-agent facility, fall back to `node loop/run-loop.mjs 1`; that adapter exists for
    headless, CI and runtimes without in-session spawning.
-4. **Show what changed.** The diff and the new router decision. "It ran" is not a result.
+4. **Show what changed and how far the workflow has moved.** After every sub-agent return — and
+   after any other observed change to files or workflow state — re-run `node tools/loop-status.mjs`
+   and `node loop/route.mjs`. Report the diff, the new router decision, and the exact progress line:
+   **`Progress: <done>/<total> done (<percent>%), <remaining> remaining`**. Include the active
+   feature or escalation beside it when one exists. This snapshot is mandatory even when the
+   percentage did not move: an implementation checkpoint can be real work without completing a
+   feature, and the unchanged number makes that distinction visible. "It ran" is not a result.
 5. **Stop and ask** the moment the loop escalates (below). Do not keep spending sessions past a
    question nobody has answered.
 
