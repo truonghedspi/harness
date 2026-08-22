@@ -6,9 +6,9 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Cập nhật lần cuối:** 2026-08-22
-- **Tính năng đang mở:** không có. Checker đã phê duyệt `feat-lsp-client` ở lần thử 2/4; không còn mục nào ở trạng thái `readyForCheck`.
-- **Latest commit:** phê duyệt feat-lsp-client (xem git log)
-- **Baseline (`./harness/init.sh`):** xanh — sáu trường hợp baseline integration và bốn trường hợp unit của lsp-client đều đạt
+- **Tính năng đang mở:** không có. `feat-workspace-pool` đã được checker phê duyệt ở lần thử 1/3; tính năng đủ điều kiện kế tiếp là `feat-prove-pool-lifecycle`.
+- **Latest commit:** phê duyệt feat-workspace-pool (xem git log)
+- **Baseline (`./harness/init.sh`):** xanh — sáu trường hợp baseline integration, bốn trường hợp unit của lsp-client và sáu trường hợp unit mới của workspace-pool đều đạt
 
 ## Done
 
@@ -21,6 +21,11 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 - [x] feat-prove-routing — routing never drifts and never silently misroutes
   - Checker approved on the final attempt (3/3): independent replay 7/7 green (TCON-ROUTE-0001..0007) in 179.6 ms, source unchanged since commit 2503299, oracle diff purely additive (+64 lines, no deletions). A scratch mutant probe (deleted after use, `src/` untouched) showed the control copy green 7/7, mutant M3 (`find` instead of `findLast` — innermost instead of outermost reactor) killed by TCON-ROUTE-0007 alone, M1 killed by TCON-ROUTE-0006 alone, and M2/M13/M14/M17/M19 killed by several conditions each. FOLLOW-UP recorded for the still-surviving mutant M12.
 
+- [x] feat-workspace-pool — vòng đời JDT LS theo từng workspace
+  - Checker phê duyệt ở lần thử 1/3. Cả hai lệnh verification tái lập được (10 unit + 2 integration), `src/workspace/workspace-pool.ts` giữ nguyên byte sau khi thử mutant (sha256 `a72b2ed5…`). Bốn mutant do chính checker dựng đều bị bắt: M1 (ghi entry vào map chỉ sau khi spawn xong) làm đỏ 2 unit + 2 integration với sáu pid thật khác nhau; M2 (bỏ phần xoá entry trong nhánh catch khi spawn hỏng) làm đỏ điều kiện "a failed first spawn is never cached"; M3b (`terminate()` rỗng hoàn toàn) làm đỏ cả hai integration sau ~10,8 s; M4 (băm `path.resolve` thay vì `realpathSync`) làm đỏ điều kiện symlink ở cả hai tầng.
+  - INV-POOL-5 được chứng minh thật: cả hai oracle bắn 8 và 6 lời gọi `acquire()` song song qua `Promise.all`, oracle integration chờ thêm 400 ms trước khi đếm nên "đúng một tiến trình" không phải kết quả của một cuộc đua may rủi. Oracle integration chạy spawner mặc định, không tiêm seam: `child_process.spawn` thật, tiến trình con thật ghi `$$` và argv của chính nó, pid do pool báo được đối chiếu với pid hệ điều hành và `process.kill(pid, 0)`.
+  - Hai FOLLOW-UP ghi trong `checkerNotes`, không cản trở: (1) TCON-POOL-0003 của oracle `pool-lifecycle` đang đỏ vì lỗi của chính oracle, thuộc phạm vi `feat-prove-pool-lifecycle`; (2) chưa có điều kiện nào cố định việc `project-router` và `workspace-pool` sinh cùng một `workspaceId`.
+
 ## Blocked
 
 - [ ] feat-prove-provisioner — timebox-blocked after attempt 3/3
@@ -28,13 +33,14 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- Không còn mục nào chờ checker.
+- Không có tính năng nào đang mở.
 
 ## Next
 
-1. Add and run a committed corrupt-download/checksum-rejection integration condition for `feat-prove-provisioner`, then return it to checker review.
-2. `feat-workspace-pool` đã đủ điều kiện (`feat-jdtls-provisioner`, `feat-project-router`, `feat-lsp-client` đều `done`) — đây là mục kế tiếp cho maker.
+1. `feat-prove-pool-lifecycle` (đủ điều kiện, `not-started`). Oracle `test/integration/pool-lifecycle.integration.spec.ts` đã tồn tại và đạt 2/3 với triển khai hiện tại. TCON-POOL-0003 đỏ vì lỗi của chính oracle: vòng lặp khẳng định mọi dự án từng nằm trong `recorder.stopOrder` phải vắng mặt trong `pool.status()`, nhưng chuỗi fixture `[p0,p1,p0,p2,p0]` acquire lại `p0` sau khi evict, nên `p0` sống lại hợp lệ. Cần thu hẹp assertion về đúng các workspace đã evict và chưa được acquire lại. Phần còn lại của oracle đã được checker kiểm chứng là đúng: với mutant thêm hậu tố tick vào `dataDir`, TCON-POOL-0003 đỏ ở đúng assertion "a re-requested workspace must reuse its warm -data directory", tức INV-POOL-4 được phủ thật.
+2. Add and run a committed corrupt-download/checksum-rejection integration condition for `feat-prove-provisioner`, then return it to checker review.
 3. Feature-planner to route the `feat-prove-routing` FOLLOW-UP (surviving mutant M12) as a *new* small oracle feature or as an accepted-risk row under A-006 — never as a fourth in-place widening, because that feature is closed at 3/3 and the maker has no attempts left. The recommended single condition (TCON-ROUTE-0008) closes the whole selection predicate at once: a five-level mixed ancestor chain (non-reactor top, reactor A, non-reactor middle, reactor B, leaf module), where a path under the leaf module must resolve to reactor A.
+4. Feature-planner cân nhắc một điều kiện nhỏ cho đường nối `project-router` ↔ `workspace-pool`: hiện không có test nào khẳng định `pool.acquire(resolution.projectRoot).workspaceId === resolution.workspaceId`. Hai module cùng tính sha256 của thư mục gốc đã realpath nên hôm nay khớp nhau, nhưng nếu một bên đổi công thức băm thì một dự án sẽ tách làm hai thư mục `-data` mà không test nào đỏ.
 
 ## Known Issues / Risks
 

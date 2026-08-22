@@ -8,7 +8,7 @@
     "node": ">=22.6.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test test/lsp/*.spec.ts",
+    "test": "node --experimental-strip-types --test test/lsp/*.spec.ts test/workspace/*.spec.ts",
     "test:baseline": "node --experimental-strip-types --test test/integration/baseline-fixture.integration.spec.ts",
     "test:integration": "node --experimental-strip-types --test"
   },

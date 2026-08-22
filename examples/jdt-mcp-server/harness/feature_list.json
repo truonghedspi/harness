@@ -351,10 +351,13 @@
       "name": "workspace-pool: per-workspace JDT LS lifecycle",
       "kind": "build",
       "behavior": "The pool spawns exactly one JDT LS process per workspace identity with its own absolute -data directory, never spawning a second for a concurrent duplicate first call",
-      "verification": "npm test -- test/workspace/workspace-pool.spec.ts",
+      "verification": "npm test -- test/workspace/workspace-pool.spec.ts && npm run test:integration -- test/integration/workspace-pool-spawn.integration.spec.ts",
       "context": {
         "touches": [
-          "src/workspace/workspace-pool.ts"
+          "src/workspace/workspace-pool.ts",
+          "test/workspace/workspace-pool.spec.ts",
+          "test/integration/workspace-pool-spawn.integration.spec.ts",
+          "package.json"
         ],
         "note": "-data is where the index lives; sharing one across workspaces corrupts both (docs/design/evidence.md). Derive the -data path from a hash of the realpath'd project root (X-005) so two paths to one project — including via a symlink — are one workspace, not two."
       },
@@ -364,11 +367,53 @@
         "feat-project-router",
         "feat-lsp-client"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "",
-      "attempts": 0,
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-22",
+          "run": "red",
+          "cmd": "npm test -- test/workspace/workspace-pool.spec.ts",
+          "result": "1 failure: the 6 pool tests never ran - ERR_MODULE_NOT_FOUND for src/workspace/workspace-pool.ts (implementation absent)"
+        },
+        {
+          "date": "2026-08-22",
+          "run": "green",
+          "cmd": "npm test -- test/workspace/workspace-pool.spec.ts",
+          "result": "10 tests passed (6 new pool tests + 4 pre-existing lsp-client)"
+        },
+        {
+          "date": "2026-08-22",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/workspace-pool-spawn.integration.spec.ts",
+          "result": "2 tests passed: 6 concurrent first calls produced 1 real OS pid; 2 projects + 1 symlink alias produced 2 pids with 2 distinct absolute -data paths in the real argv"
+        },
+        {
+          "date": "2026-08-22",
+          "run": "red",
+          "cmd": "mutant A (entry published only after the spawn resolves) + both commands",
+          "result": "unit 2 failures (8 concurrent calls spawned 8); integration 2 failures - the real children logged 6 distinct pids [69113..69118]"
+        },
+        {
+          "date": "2026-08-22",
+          "run": "red",
+          "cmd": "mutant B (-data path constant instead of identity-derived) + both commands",
+          "result": "unit 1 failure and integration 1 failure: 3 resp. 2 live workspaces all pointed at .../workspaces/shared"
+        },
+        {
+          "date": "2026-08-22",
+          "run": "red",
+          "cmd": "mutant C (identity hashed from the alias path, not the realpath) + both commands",
+          "result": "unit 1 failure (symlink alias spawned a second process); integration 1 failure (2 projects + alias started 3 processes)"
+        },
+        {
+          "date": "2026-08-22",
+          "run": "green",
+          "cmd": "npm test -- test/workspace/workspace-pool.spec.ts && npm run test:integration -- test/integration/workspace-pool-spawn.integration.spec.ts",
+          "result": "source restored byte-identical after the mutants; 10 + 2 tests pass; ./harness/init.sh green"
+        }
+      ],
+      "checkerNotes": "FOLLOW-UP: approved, but the pre-authored oracle test/integration/pool-lifecycle.integration.spec.ts is red (TCON-POOL-0003) and no run in this feature touches it.\n\nVerification replayed green by the checker (10 unit + 2 integration) and src/workspace/workspace-pool.ts is byte-identical to the pre-probe copy afterwards (sha256 a72b2ed5afff75691465ad044b5d49c07056fb40548fd3e1e7fdf4a2430d12a8).\n\nIndependent mutants beyond the maker's three: M1 (publish the pool entry only after the spawn resolves) -> unit 2 red + integration 2 red, the real children logged 6 distinct pids; M2 (drop the entry deletion in the failed-start catch) -> unit red on \"a failed first spawn is never cached\"; M3b (terminate() a complete no-op) -> integration 2 red; M4 (hash path.resolve() instead of realpathSync) -> unit red on the symlink alias + integration red. INV-POOL-5 dedup is real: the entry is published to #entries synchronously before the first await, both oracles fire 8 resp. 6 acquire() calls through Promise.all, and the integration test settles 400 ms before counting so \"exactly one\" is not a race the pool wins on timing. The integration oracle drives the default spawner with no injected seam: real child_process.spawn, real /bin/sh -> exec sleep 300, each child records its own 75645 and argv to its own file, and the pool-reported pid is cross-checked against the OS pid and process.kill(pid, 0).\n\nFOLLOW-UP 1 (for feat-prove-pool-lifecycle, next eligible): the pre-authored oracle test/integration/pool-lifecycle.integration.spec.ts now runs against this implementation and TCON-POOL-0003 is RED. The red is an oracle defect, not an implementation defect: the loop asserts that every project ever in recorder.stopOrder stays absent from pool.status(), but its own fixture sequence [p0,p1,p0,p2,p0] re-acquires p0 after evicting it, so p0 legitimately reappears as live. The assertion needs to be scoped to workspaces evicted-and-not-since-reacquired. Verified that the rest of that oracle is sound: under a mutant that suffixes dataDir with a per-call tick, TCON-POOL-0003 fails instead on \"a re-requested workspace must reuse its warm -data directory\" - so INV-POOL-4 warm restart is genuinely covered there, and correctly outside this feature's INV-POOL-1/5 falsifier.\n\nFOLLOW-UP 2: nothing pins that project-router and workspace-pool derive the same workspaceId. Both currently compute sha256(realpath'd root) and today agree, but no test asserts pool.acquire(resolution.projectRoot).workspaceId === resolution.workspaceId, so a future change to either hashing scheme silently splits one project into two -data directories with no red test.\n\nNoted, not blocking: a mutant that removes only child.kill(\"SIGTERM\") from terminate() stays green, because the 5 s SIGKILL escalation still reaps the child inside the test's 10 s waitUntilDead budget. Graceful-stop-before-kill is therefore unpinned; that belongs to feat-prove-pool-crash-handling, not here. package.json hygiene is clean: the only change is widening the test script glob to include test/workspace/*.spec.ts.",
+      "attempts": 1,
       "maxAttempts": 3
     },
     {
