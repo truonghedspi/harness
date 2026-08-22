@@ -245,6 +245,42 @@
       "paths": ["docs/reference/graph.md"],
       "mergeActions": ["Copy the updated intro paragraph; the rest of the file is unaffected."],
       "verification": ["grep -q 'flat layout' docs/reference/graph.md"]
+    },
+    {
+      "id": "HUC-2026-08-21-approval-gate-notify",
+      "summary": "approval-gate.mjs fires a best-effort OS notification the moment it writes a fresh approval request, so a headless run does not silently sit until timeout with nobody having seen it.",
+      "why": "Observed live: a headless run-loop.mjs sat at an approval gate with nobody watching that terminal. A safe timeout (APPROVAL_TIMEOUT_MIN) prevents an infinite hang, but auto-rejecting on a timeout nobody saw still spends the judgement this gate exists to get.",
+      "targetImpact": "macOS uses osascript, Windows uses the built-in WinRT toast APIs (no extra module), Linux uses notify-send. HARNESS_NOTIFY=0 opts out; HARNESS_NOTIFY_CMD overrides with any `cmd title message`. A missing/broken notifier never blocks or fails the gate — it degrades to prior behavior.",
+      "paths": ["loop/approval-gate.mjs"],
+      "mergeActions": ["Copy the updated approval-gate.mjs as-is; no schema or CLI flag changed, only an additive notify() call."],
+      "verification": ["bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-21-state-log-prose-gate",
+      "summary": "New verify-harness.mjs gate state-log-prose: flags (warn) >=3 consecutive non-bulleted lines in progress.md/DECISIONS.md.",
+      "why": "docs/constraints.md already requires terse bullets there; nothing mechanical checked it. A crude structural proxy (no list marker) catches the common case without claiming real verbosity judgment.",
+      "targetImpact": "New warn-only finding id state-log-prose:<file>:<line>. No blocker, no schema change.",
+      "paths": ["tools/verify-harness.mjs"],
+      "mergeActions": ["Copy the updated verify-harness.mjs as-is."],
+      "verification": ["bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-21-route-blocked-exclusion",
+      "summary": "loop/route.mjs: the test-implementer rule and maker's unwritten-set filter now exclude status=blocked prove-features.",
+      "why": "HI-056, found live on examples/jdt-mcp-server: `open` deliberately includes blocked features for visibility, but a rule that DISPATCHES action must not act on one — a blocked feature re-matched every iteration (observed 19 times) instead of staying stopped for a human.",
+      "targetImpact": "A prove feature with status=blocked no longer triggers test-implementer, and no longer blocks an unrelated build feature via the unwritten-test check.",
+      "paths": ["loop/route.mjs"],
+      "mergeActions": ["If a target hand-patched this locally (as examples/jdt-mcp-server had), the canonical version now matches — copy over the local patch without re-diffing it."],
+      "verification": ["bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-21-promote-respects-reject",
+      "summary": "verify-harness.mjs's --promote no longer promotes a feature whose checkerNotes starts with REJECT, even if its old verification command still exits 0.",
+      "why": "HI-057, found live on examples/jdt-mcp-server: checker-prompt.md sets status back to in-progress on REJECT (so the router keeps offering it to the maker), which --promote could not distinguish from 'in-progress, never checked'. feat-lsp-client was rejected for lacking a real process-boundary oracle and was silently promoted to done on the next --promote pass anyway — a core-invariant violation ('only the checker sets done').",
+      "targetImpact": "promoteFeatures() adds one guard: skip if /^REJECT\\b/ matches checkerNotes' first line (same marker convention route.mjs already uses for NEEDS DESIGN:/NEEDS RE-PLAN:).",
+      "paths": ["tools/verify-harness.mjs"],
+      "mergeActions": ["Copy the updated verify-harness.mjs as-is.", "Audit feature_list.json for any feature with status done/passing and checkerNotes starting with REJECT — that is exactly the corruption this fix prevents going forward, but an existing target may already carry one; revert its status to in-progress by hand."],
+      "verification": ["bash harness-loop/scripts/demo.sh"]
     }
   ]
 }

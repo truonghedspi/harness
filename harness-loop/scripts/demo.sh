@@ -2860,6 +2860,78 @@ node "$EE/tools/verify-harness.mjs" --target "$EE" --skip-baseline --json > "$EE
 grep -q "memory-shared-bad-evidence" "$EE/verify.json"
 expect "and a hand-planted inference-only entry next to it is still caught by the gate" $?
 
+step 49 "approval-gate.mjs: a headless approval request fires a best-effort OS notification"
+AN="$WORK/demo-approval-notify"; rm -rf "$AN"; mkdir -p "$AN/loop"
+printf '{"features":[{"id":"feat-notify-demo","readyForCheck":true,"attempts":2,"status":"in-progress"}]}\n' > "$AN/feature_list.json"
+cat > "$AN/fake-notify.sh" <<'SH'
+#!/bin/sh
+echo "NOTIFY title=$1 message=$2" >> "$NOTIFY_MARKER"
+SH
+chmod +x "$AN/fake-notify.sh"
+( cd "$AN" && NOTIFY_MARKER="$AN/marker.txt" HARNESS_NOTIFY_CMD="$AN/fake-notify.sh" \
+  node "$SCRIPTS/../templates/tree/loop/approval-gate.mjs" --check >/dev/null )
+grep -q "NOTIFY title=Harness: approval needed message=.*feat-notify-demo" "$AN/marker.txt" 2>/dev/null
+expect "a fresh approval request fires the configured notifier with the right title and pending feature" $?
+rm -rf "$AN/loop/approval-request.md" "$AN/loop/approval.md" "$AN/marker.txt"
+( cd "$AN" && HARNESS_NOTIFY=0 NOTIFY_MARKER="$AN/marker.txt" HARNESS_NOTIFY_CMD="$AN/fake-notify.sh" \
+  node "$SCRIPTS/../templates/tree/loop/approval-gate.mjs" --check >/dev/null )
+[ ! -f "$AN/marker.txt" ]
+expect "HARNESS_NOTIFY=0 opts out of the notification entirely" $?
+rm -rf "$AN/loop/approval-request.md" "$AN/loop/approval.md"
+( cd "$AN" && HARNESS_NOTIFY_CMD="/nonexistent/not-a-real-command" \
+  node "$SCRIPTS/../templates/tree/loop/approval-gate.mjs" --check >/dev/null ); AGRC=$?
+[ "$AGRC" = "10" ] && [ -f "$AN/loop/approval-request.md" ]
+expect "a broken/missing notifier never blocks or fails the gate — the request is still written" $?
+
+step 50 "verify-harness gate state-log-prose: progress.md/DECISIONS.md must stay bulleted, not prose"
+SP="$WORK/demo-state-log-prose"; rm -rf "$SP"; mkdir -p "$SP"
+node -e "
+require('fs').writeFileSync('$SP/progress.md', [
+  '# Progress Log', '',
+  '## Notes', '',
+  'This session we worked on a lot of things and it took a while to figure out exactly what was',
+  'going wrong with the underlying subsystem, because the initial hypothesis about the root cause',
+  'turned out to be wrong after we dug into the logs and traced through the actual execution path,',
+  'which eventually led us to discover that the real issue was somewhere else entirely.',
+].join('\n'));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$SP" --skip-baseline --json > "$SP/verify.json"
+grep -q '"id": "state-log-prose:progress.md:5"' "$SP/verify.json"
+expect "a run of >=3 consecutive non-bulleted lines in progress.md is flagged" $?
+node -e "
+const r=require('$SP/verify.json');
+const f=r.findings.find(x=>x.id==='state-log-prose:progress.md:5');
+process.exit(f && f.severity==='warn' && f.layer==='project' ? 0 : 1);
+"
+expect "state-log-prose findings are severity=warn, layer=project — never a blocker" $?
+node -e "
+require('fs').writeFileSync('$SP/progress.md', [
+  '# Progress Log', '', '## Notes', '',
+  '- fixed the thing', '- verified the fix', '- next: do the other thing',
+].join('\n'));
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$SP" --skip-baseline --json > "$SP/verify2.json"
+grep -q '"id": "state-log-prose' "$SP/verify2.json"; SPRC=$?
+[ "$SPRC" != "0" ]
+expect "bulleted notes of the same length do not trip the gate" $?
+
+echo ""
+step 51 "--promote never overrides a checker REJECT, even when the old evidence still exits 0"
+PR="$WORK/demo-promote-reject"; rm -rf "$PR"; mkdir -p "$PR"
+cat > "$PR/feature_list.json" <<'FLJ'
+{"features":[
+  {"id":"feat-rejected","name":"x","behavior":"x","verification":"true","falsifier":"x","kind":"build",
+   "dependencies":[],"context":{"touches":["x"]},"status":"in-progress","readyForCheck":false,
+   "evidence":[],"checkerNotes":"REJECT: missing integration oracle across the real process boundary","attempts":1,"maxAttempts":3}
+]}
+FLJ
+node "$SCRIPTS/verify-harness.mjs" --target "$PR" --skip-baseline --run-features --promote --json >/dev/null
+node -e "
+const f = require('$PR/feature_list.json').features[0];
+process.exit(f.status === 'in-progress' ? 0 : 1);
+"
+expect "a feature whose checkerNotes starts with REJECT stays in-progress, never silently becomes done (found live on examples/jdt-mcp-server: feat-lsp-client)" $?
+
 echo ""
 if [ "$FAIL" = "0" ]; then
   echo "ALL DEMO STEPS PASSED — harness-loop lifecycle proven end-to-end at $T"

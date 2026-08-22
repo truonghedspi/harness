@@ -22,7 +22,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PROJECT_ROOT = path.basename(ROOT) === "harness" ? path.dirname(ROOT) : ROOT;
+// A directory literally named "harness" is not proof of a contained layout (the harness-loop
+// skill's own repo is named "harness" and is flat) — only the thin root AGENTS.md a contained
+// scaffold writes is (HI-055). Require both.
+const PROJECT_ROOT = path.basename(ROOT) === "harness" && existsSync(path.join(path.dirname(ROOT), "AGENTS.md"))
+  ? path.dirname(ROOT) : ROOT;
 process.chdir(ROOT);
 
 // stdout on a pipe is async: process.exit() drops whatever has not flushed, so a payload
@@ -372,8 +376,13 @@ const RULES = [
       // A falsifier alone is not enough to implement from — the validated conditions are the input,
       // and a plan with an empty conditions/ folder is not one.
       if (!conditionsExist()) return null;
+      // `open` deliberately keeps blocked features visible, but this rule DISPATCHES action — a
+      // blocked feature means a human needs to look, not that test-implementer should write its
+      // test anyway. Without this exclusion a feature blocked for a real reason (e.g. waiting on a
+      // not-started dependency) kept matching every iteration: found live on examples/jdt-mcp-server,
+      // where the same feature was re-dispatched 19 times before this fix.
       const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
-        !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)));
+        !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
       return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
     },
   },
@@ -400,7 +409,10 @@ const RULES = [
       // Information asymmetry is only real if it is an ORDERING: a build feature whose prove
       // feature has no test written yet is not eligible, because the maker would write that test.
       // A prompt saying "don't rewrite the test" cannot hold when there is no test to not rewrite.
-      const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim())
+      // A BLOCKED prove feature must not count here: it is not "test not written yet", it is a
+      // human-owned decision, and counting it made an unrelated build feature wait on it forever
+      // (same incident as test-implementer's rule above, found live on examples/jdt-mcp-server).
+      const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim() && status(p) !== "blocked")
         .flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) =>
         !/^NEEDS (DESIGN|RE-PLAN):/.test(notes(x)) && status(x) !== "blocked" &&

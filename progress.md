@@ -5,20 +5,21 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-20
+- **Last updated:** 2026-08-21
 - **Active feature:** none
-- **Baseline (`./init.sh`):** green — `demo.sh` 48/48 steps
+- **Baseline (`./init.sh`):** green — `demo.sh` 49/49 steps
 
 ## Done
 
+- [x] `approval-gate.mjs` — best-effort OS notification (macOS/Linux/Windows) when a fresh approval request is written; `HARNESS_NOTIFY=0`/`HARNESS_NOTIFY_CMD` overrides
 - [x] feat-shared-memory-promote/gate/resources/v1 — `memory/shared/` v1, checked and approved
 - [x] feat-windows-native-loop — Node-native loop/dispatch control plane; HI-045 resolved
-- [x] HI-046, HI-052, HI-053, HI-054, HI-055 — resolved this session (see harness-issues.jsonl)
+- [x] HI-046, HI-052, HI-053, HI-054, HI-055 — resolved (see harness-issues.jsonl)
 - [x] `docs/constraints.md` — 2 new MUST rules: terse progress.md/DECISIONS.md, prefer existing tools over ad-hoc scripts
 - [x] Every writing-agent prompt: uniform end-of-run Yes/No reflection gate
 - [x] `memory-consolidate.mjs --bootstrap`, `memory-promote.mjs` — recurring-fact detection and promotion
 - [x] Design locked: `docs/design/shared-memory-tier.md` v1 (`loop/design-approval.json`)
-- [x] Upgraded root and `examples/jdt-mcp-server` to today's canonical scripts
+- [x] Upgraded root and `examples/jdt-mcp-server` to today's canonical scripts (twice — see note below)
 
 ## Next
 
@@ -31,7 +32,10 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-Checker caught a real defect this session: the 4 `feat-shared-memory-*` verification commands
-grepped a demo.sh STEP HEADER, which prints regardless of pass/fail — mutation-tested, fixed to
-check demo.sh's own exit code instead. Worth remembering when writing any future
-`grep -q "..."`-on-demo.sh verification: grep the assertion result, not the step title.
+- Bad `demo.sh` verification pattern: `grep -q "<step title>"` matches the step header regardless
+  of pass/fail. Grep the assertion result or check exit code instead. (Caught by checker,
+  mutation-tested, fixed on `feat-shared-memory-*`.)
+- Never `cp` a `templates/tree/loop|prompts/*` file straight into `examples/jdt-mcp-server` — it
+  clobbers contained-layout wording. Always `upgrade-harness.mjs --target examples/jdt-mcp-server`.
+- New `verify-harness.mjs` gate `state-log-prose`: flags ≥3 consecutive non-bulleted lines in
+  `progress.md`/`DECISIONS.md` (warn only). This section previously tripped it — now fixed.

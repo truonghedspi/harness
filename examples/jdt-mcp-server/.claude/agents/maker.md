@@ -2,7 +2,7 @@
 name: maker
 description: "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
-model: sonnet
+model: claude-opus-5
 hooks:
   SubagentStart:
     - command: "node harness/tools/agent-context.mjs maker"

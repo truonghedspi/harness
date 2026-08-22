@@ -107,6 +107,14 @@ async function approvalAllowsPromote(iteration) {
   return wait.status === 0;
 }
 
+// Re-running EVERY already-done feature's verification command on every single maker iteration is
+// real regression coverage (docs/testing-standards.md: environment/contract drift can break
+// unchanged code) but not a cost worth paying every iteration forever, especially once a project
+// has Level 3 integration-verified features. Full replay (including already-claimed features) runs
+// only every Nth iteration and once more at the end of the run; every other iteration replays only
+// readyForCheck features — the ones --promote actually needs to act on this iteration.
+const FULL_REPLAY_EVERY = Number(process.env.HARNESS_FULL_REPLAY_EVERY || 5);
+
 async function main() {
   if (allSettled()) {
     console.log("all features done (or blocked with a recorded reason) — nothing to do, exiting early.");
@@ -140,13 +148,22 @@ async function main() {
     if (!["maker", "k8s-integration-tester"].includes(next.node)) continue;
     const promote = await approvalAllowsPromote(iteration);
     if (promote && existsSync("tools/verify-harness.mjs")) {
-      show(process.execPath, ["tools/verify-harness.mjs", "--target", ".", "--skip-baseline", "--run-features", "--promote", "--quiet"]);
+      const fullReplay = iteration % FULL_REPLAY_EVERY === 0;
+      const replayArgs = ["tools/verify-harness.mjs", "--target", ".", "--skip-baseline", "--run-features", "--promote", "--quiet"];
+      if (!fullReplay) replayArgs.push("--skip-claimed");
+      show(process.execPath, replayArgs);
     }
     console.log(`=== iteration ${iteration}/${iterations} — checker ===`);
     const checkerCode = await dispatch("checker", "Check every feature with readyForCheck=true per your instructions. Verdicts and reasons only.", { runtime });
     if (checkerCode !== 0) return checkerCode;
     recordBaseline();
     baselineChecked = true;
+  }
+  // A run that ended mid-cycle of FULL_REPLAY_EVERY may never have re-checked already-done
+  // features' evidence this session — do it once here so drift doesn't sit unnoticed until the
+  // next run happens to land on a full-replay iteration.
+  if (baselineChecked && existsSync("tools/verify-harness.mjs")) {
+    show(process.execPath, ["tools/verify-harness.mjs", "--target", ".", "--skip-baseline", "--run-features", "--promote", "--quiet"]);
   }
   for (const tool of ["memory-consolidate.mjs", "cross-cutting-audit.mjs"]) {
     if (existsSync(path.join("tools", tool))) show(process.execPath, [path.join("tools", tool), "--target", "."]);

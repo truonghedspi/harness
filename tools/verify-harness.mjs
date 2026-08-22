@@ -557,6 +557,15 @@ function promoteFeatures() {
     // narrowed to what's provable and a requirement gap remains) — mechanical promotion must
     // never override that judgment just because the narrowed command still exits 0.
     if (status === "done" || status === "blocked") continue;
+    // A checker REJECT sets status back to in-progress (checker-prompt.md) so the router still
+    // treats the feature as open for the maker to retry — but that leaves "in-progress because
+    // nobody has looked yet" indistinguishable from "in-progress because the checker just looked
+    // and said no" to this loop, which only checks status. Found live: a checker rejected
+    // feat-lsp-client for lacking a real process-boundary oracle; the maker's OLD unit test still
+    // exited 0, and the next --promote run silently overrode the reject. The checker's own verdict
+    // (checkerNotes' first line, same marker convention route.mjs already uses) is the ground
+    // truth here, not the status field a checker mistake could leave stale.
+    if (/^REJECT\b/.test(String(f.checkerNotes || "").trim())) continue;
     const note = `[mechanically promoted by verify-harness --promote on ${now}: verification re-run, exited 0]`;
     f.status = "done";
     f.readyForCheck = false;
@@ -1067,6 +1076,45 @@ function gateDocs() {
       symptom: "documents exceed the size budget but docs/INDEX.md does not exist — split files with no map are harder to use than one long file",
       remedy: "add docs/INDEX.md with one line per document and a 'read it when' column",
     });
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Gate — state-log style (docs/constraints.md: progress.md/DECISIONS.md must be short factual
+// bullets, not prose narrative). Whether a passage is genuinely "too verbose" is a semantic
+// judgment this repo already learned it cannot mechanize (docs/design/shared-memory-tier.md's own
+// spike, on a different problem, found the same limit). What IS cheap and structural: a run of
+// several consecutive lines with no list marker at all reads as a paragraph, not a bulleted state
+// update, regardless of what it says. Warn only — a crude proxy must never block a loop.
+// ---------------------------------------------------------------------------------------------
+const PROSE_RUN_MIN_LINES = 3;
+const PROSE_RUN_MIN_CHARS = 300;
+
+function gateStateLogStyle() {
+  const LIST_LINE = /^\s*(#{1,6}\s|[-*]\s|\d+\.\s|\|.*\|\s*$|```)/;
+  for (const rel of ["progress.md", "DECISIONS.md"]) {
+    if (!exists(P(rel))) continue;
+    const lines = read(P(rel)).split("\n");
+    let run = [];
+    let runStart = 0;
+    const flush = () => {
+      const chars = run.join(" ").length;
+      if (run.length >= PROSE_RUN_MIN_LINES && chars >= PROSE_RUN_MIN_CHARS) {
+        add({
+          gate: "docs", id: `state-log-prose:${rel}:${runStart}`, layer: "project", severity: "warn",
+          symptom: `${rel}:${runStart} has ${run.length} consecutive non-bulleted lines (${chars} chars) — reads as prose narrative, not a state log`,
+          remedy: "rewrite as short factual bullets — what changed, what state now (docs/constraints.md); reasoning belongs in a memory entry or design doc, not here",
+        });
+      }
+      run = [];
+    };
+    lines.forEach((line, i) => {
+      const trimmed = line.trim();
+      if (!trimmed || LIST_LINE.test(line)) { flush(); return; }
+      if (!run.length) runStart = i + 1;
+      run.push(trimmed);
+    });
+    flush();
   }
 }
 
@@ -1674,6 +1722,7 @@ gateMemory();
 gateMemorySharedTier();
 gateDesign();
 gateDocs();
+gateStateLogStyle();
 gateRules();
 
 gateGenerated();

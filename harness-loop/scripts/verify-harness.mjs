@@ -13,7 +13,7 @@
 //
 // Usage:
 //   node verify-harness.mjs [--target DIR] [--json] [--report PATH]
-//                           [--skip-baseline] [--run-features] [--promote]
+//                           [--skip-baseline] [--run-features] [--skip-claimed] [--promote]
 //                           [--timeout-ms N] [--quiet]
 // --promote (requires --run-features): mechanically flips readyForCheck/in-progress features to
 // done when their verification command re-runs and exits 0 — the same mechanical half of the
@@ -21,6 +21,14 @@
 // NOT replace the checker's semantic review (does the behavior actually match, is there scope
 // bleed) — it only saves the checker from re-doing the purely mechanical "does this reproduce"
 // step by hand. Never promotes a feature with any blocker finding against it.
+//
+// --skip-claimed replays only readyForCheck features (what --promote actually needs to act on),
+// skipping the re-run of every already-done/passing feature's verification command. Regression
+// detection on already-shipped features is real value (docs/testing-standards.md: environment and
+// contract drift can break unchanged code) but does not need to happen on every single maker
+// iteration — a project with several Level 3 (docs/testing-standards.md) done features pays that
+// cost every iteration for the rest of the project's life otherwise. Callers that want the full
+// regression sweep (periodically, or at the end of a run) omit this flag.
 // Exit: 0 iff no blocker findings.
 import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -35,6 +43,7 @@ const TARGET = path.resolve(opt("--target", "."));
 const AS_JSON = flag("--json");
 const SKIP_BASELINE = flag("--skip-baseline");
 const RUN_FEATURES = flag("--run-features");
+const SKIP_CLAIMED = flag("--skip-claimed");
 const PROMOTE = flag("--promote");
 const QUIET = flag("--quiet");
 if (PROMOTE && !RUN_FEATURES) {
@@ -522,9 +531,10 @@ function gateFeatures() {
   if (!RUN_FEATURES) return;
   // Mechanized falsification: re-run the evidence of everything claimed green, or offered for
   // check (readyForCheck) — --promote acts on this same replay, so it must cover readyForCheck
-  // features too, not just already-claimed passing/done ones.
+  // features too, not just already-claimed passing/done ones. --skip-claimed narrows this to
+  // offered-only for a cheap per-iteration pass; see the flag's own usage comment above.
   for (const f of features) {
-    const claimed = ["passing", "done"].includes(String(f.status || f.state));
+    const claimed = !SKIP_CLAIMED && ["passing", "done"].includes(String(f.status || f.state));
     const offered = f.readyForCheck === true;
     const verif = String(f.verification || f.verify || "").trim();
     if ((!claimed && !offered) || !verif || PLACEHOLDER_VERIF.test(verif)) continue;
@@ -557,6 +567,15 @@ function promoteFeatures() {
     // narrowed to what's provable and a requirement gap remains) — mechanical promotion must
     // never override that judgment just because the narrowed command still exits 0.
     if (status === "done" || status === "blocked") continue;
+    // A checker REJECT sets status back to in-progress (checker-prompt.md) so the router still
+    // treats the feature as open for the maker to retry — but that leaves "in-progress because
+    // nobody has looked yet" indistinguishable from "in-progress because the checker just looked
+    // and said no" to this loop, which only checks status. Found live: a checker rejected
+    // feat-lsp-client for lacking a real process-boundary oracle; the maker's OLD unit test still
+    // exited 0, and the next --promote run silently overrode the reject. The checker's own verdict
+    // (checkerNotes' first line, same marker convention route.mjs already uses) is the ground
+    // truth here, not the status field a checker mistake could leave stale.
+    if (/^REJECT\b/.test(String(f.checkerNotes || "").trim())) continue;
     const note = `[mechanically promoted by verify-harness --promote on ${now}: verification re-run, exited 0]`;
     f.status = "done";
     f.readyForCheck = false;
@@ -1067,6 +1086,45 @@ function gateDocs() {
       symptom: "documents exceed the size budget but docs/INDEX.md does not exist — split files with no map are harder to use than one long file",
       remedy: "add docs/INDEX.md with one line per document and a 'read it when' column",
     });
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Gate — state-log style (docs/constraints.md: progress.md/DECISIONS.md must be short factual
+// bullets, not prose narrative). Whether a passage is genuinely "too verbose" is a semantic
+// judgment this repo already learned it cannot mechanize (docs/design/shared-memory-tier.md's own
+// spike, on a different problem, found the same limit). What IS cheap and structural: a run of
+// several consecutive lines with no list marker at all reads as a paragraph, not a bulleted state
+// update, regardless of what it says. Warn only — a crude proxy must never block a loop.
+// ---------------------------------------------------------------------------------------------
+const PROSE_RUN_MIN_LINES = 3;
+const PROSE_RUN_MIN_CHARS = 300;
+
+function gateStateLogStyle() {
+  const LIST_LINE = /^\s*(#{1,6}\s|[-*]\s|\d+\.\s|\|.*\|\s*$|```)/;
+  for (const rel of ["progress.md", "DECISIONS.md"]) {
+    if (!exists(P(rel))) continue;
+    const lines = read(P(rel)).split("\n");
+    let run = [];
+    let runStart = 0;
+    const flush = () => {
+      const chars = run.join(" ").length;
+      if (run.length >= PROSE_RUN_MIN_LINES && chars >= PROSE_RUN_MIN_CHARS) {
+        add({
+          gate: "docs", id: `state-log-prose:${rel}:${runStart}`, layer: "project", severity: "warn",
+          symptom: `${rel}:${runStart} has ${run.length} consecutive non-bulleted lines (${chars} chars) — reads as prose narrative, not a state log`,
+          remedy: "rewrite as short factual bullets — what changed, what state now (docs/constraints.md); reasoning belongs in a memory entry or design doc, not here",
+        });
+      }
+      run = [];
+    };
+    lines.forEach((line, i) => {
+      const trimmed = line.trim();
+      if (!trimmed || LIST_LINE.test(line)) { flush(); return; }
+      if (!run.length) runStart = i + 1;
+      run.push(trimmed);
+    });
+    flush();
   }
 }
 
@@ -1674,6 +1732,7 @@ gateMemory();
 gateMemorySharedTier();
 gateDesign();
 gateDocs();
+gateStateLogStyle();
 gateRules();
 
 gateGenerated();
