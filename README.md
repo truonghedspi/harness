@@ -16,8 +16,10 @@ This repository holds the agent-harness assets for the team:
   mechanically flips a feature to `done` once its evidence reproduces clean and the whole report
   is otherwise blocker-free), **improve** (`harness-issue.mjs` + `improve-harness.mjs`
   turn a `layer: harness` finding into a ranked, tracked fix to the template, closed only when
-  `--reverify` proves it stopped reproducing). Run
-  `node harness-loop/scripts/setup-harness-loop.mjs --target <proj>`, then
+  `--reverify` proves it stopped reproducing). Maker submissions cross a typed admission seam
+  before semantic review: incomplete `reviewPacket`s return to maker without spending a checker
+  attempt, while the independent checker keeps private probes and exclusive authority over `done`.
+  Run `node harness-loop/scripts/setup-harness-loop.mjs --target <proj>`, then
   `node check-coverage.mjs` (must report 13/13) and
   `node harness-loop/scripts/verify-harness.mjs --target <proj> --run-features` (must report 0
   blockers). Scaffolded targets run the baseline, router, named dispatch and autonomous loop

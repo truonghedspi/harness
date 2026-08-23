@@ -158,6 +158,13 @@ async function main() {
       console.log("checker skipped: maker recorded a checkpoint, but no complete feature-level claim is ready");
       continue;
     }
+    if (existsSync("tools/review-contract.mjs")) {
+      const admission = run(process.execPath, ["tools/review-contract.mjs", "--ready"], { stdio: "inherit" });
+      if (admission.status !== 0) {
+        console.log("checker skipped: SUBMISSION_INCOMPLETE is maker feedback, not a semantic REJECT; attempts unchanged");
+        continue;
+      }
+    }
     console.log(`review batch: ${reviewBatch.map((feature) => feature.id).join(", ")}`);
     const promote = await approvalAllowsPromote(iteration);
     if (promote && existsSync("tools/verify-harness.mjs")) {

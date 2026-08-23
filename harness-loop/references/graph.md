@@ -32,7 +32,8 @@ harness/cli.mjs` when contained). A contained layout's thin root `AGENTS.md` onl
 | `feature-planner` | agent | cut the design into a build/prove DAG and materialize bounded, digest-bound context packets where discovery found a non-obvious implementation seam | requirement, human-approved design (`loop/design-approval.json` matching digest) | `feature_list.json`, `loop/context-packets/**`, `goal.md`, `constraints.md`, checker report |
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
-| `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
+| `maker` | agent | advance exactly one feature by one step; publish a digest-bound `reviewPacket` only for a complete claim | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
+| `tools/review-contract.mjs` | code | validate the public maker→checker handoff before semantic review; classify missing data as `SUBMISSION_INCOMPLETE`, never REJECT | stable feature contract + `reviewPacket` | exit code + JSON admission report |
 | `tools/agent-context.mjs` | code | injects role resources, scoped service rules, and only fresh feature packets plus their `mustRead` originals | `agents.manifest.json`, listed files, `context-plan/1` | context, `harnessContextInputs`, typed `harnessContextReceipt` |
 | `tools/telemetry.mjs` | code | normalize runtime hooks into redacted direct-read/search vs shell-inference events; never retain hook responses | Claude/Kiro PostToolUse, Codex shell hooks | `trace/tool-events.jsonl` (`tool-event/1`) |
 | `tools/telemetry-calibrate.mjs` | code | fixture-check each adapter and publish its honest runtime coverage ceiling | generated telemetry tools | `trace/telemetry-capabilities.json` |
@@ -104,6 +105,8 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `feature_list.json[].status` | `checker`, `--promote` | all | single writer per feature; `blocked` beats mechanical promotion |
 | `feature_list.json[].readyForCheck` | `maker` | `run-loop.mjs`, `--promote`, `checker` | maker sets only for a complete green feature-level claim; partial checkpoints leave false; checker clears |
 | `feature_list.json[].evidence` | `maker` | `checker`, `--promote` | overwrite per attempt |
+| `feature_list.json[].reviewPacket` | `maker` | `review-contract.mjs`, `checker` | overwrite per submission; `contractDigest` binds behavior, verification, falsifier, dependencies and context |
+| `feature_list.json[].checkerVerdict` | `checker` | maker, verifier, router/human reports | overwrite per semantic review; REJECT carries a reproducible counterexample + exit criterion |
 | `feature_list.json[].checkerNotes` | `checker`, `maker`, `test-designer` | `maker`, `design-facilitator`, `feature-planner` | append; **first line is the routing marker** |
 | `feature_list.json[].attempts` | `checker` | maker, gate `over-budget` | +1 per rejected review cycle, never per maker checkpoint, never reset |
 | `feature_list.json[].falsifier` | `feature-planner`, `test-designer` | `checker` | overwrite |
@@ -147,7 +150,10 @@ if feature.attempts >= maxAttempts        → blocked (stop rejected review cycl
 if a live assumption row has status
    needs-human (HTML examples excluded)   → human checkpoint; current agent uses human-interview [STOPS the loop]
 if maker checkpoint and !readyForCheck    → maker again; checker not dispatched
-if feature.readyForCheck                  → verify-harness --promote → checker
+if feature.readyForCheck and reviewPacket
+   is incomplete                         → maker (SUBMISSION_INCOMPLETE; attempts unchanged)
+if feature.readyForCheck and reviewPacket
+   is admitted                           → verify-harness --promote → checker
 if done feature starts FOLLOW-UP:         → feature-planner          (turn review debt into scope)
 if checker APPROVE                        → done
 if checker REJECT                         → maker            (rollback: implementation layer)
@@ -173,7 +179,9 @@ flowchart TD
   TD --> TI
   TI --> R
   M -->|"partial checkpoint<br/>readyForCheck=false"| R
-  M -->|"complete green claim<br/>readyForCheck=true"| A[["loop/approval-gate.mjs<br/>human, only when judgement is owed"]]
+  M -->|"complete green claim<br/>readyForCheck=true + reviewPacket"| RC[["review-contract.mjs<br/>typed admission"]]
+  RC -->|"SUBMISSION_INCOMPLETE<br/>attempts unchanged"| R
+  RC -->|admitted| A[["loop/approval-gate.mjs<br/>human, only when judgement is owed"]]
   K -->|"partial checkpoint<br/>readyForCheck=false"| R
   K -->|"complete green claim<br/>readyForCheck=true"| A
   A -->|approved| P[["verify-harness --promote"]]

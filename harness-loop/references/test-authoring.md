@@ -69,6 +69,19 @@ Neither can catch a well-disguised tautology; that is what the reviewer's `R-T3`
 for. Machines catch the lazy version, judgement catches the clever one — the same division as
 everywhere else in this harness.
 
+## Public rubric, private probes
+
+Before semantic review, `tools/review-contract.mjs` admits only a digest-current `reviewPacket`
+that maps claim references, changed paths, the exact green command and five adversarial dimensions:
+scope, cleanup, error path, concurrency and the real external seam. A missing field is
+`SUBMISSION_INCOMPLETE`: maker feedback with no checker attempt spent.
+
+The checker does not publish its exact mutations in advance. Maker receives the stable interface
+and review axes; checker retains the freedom to combine redundant mechanisms or invent a new
+counterexample. Its typed `checkerVerdict.basis` distinguishes a known `declared-contract` miss
+from a `novel-counterexample`, so the harness can reduce avoidable rejects without rewarding a
+checker for becoming predictable or weak.
+
 ## Honest limits, from the sources themselves
 
 - **Agents write the implementation first anyway, sometimes.** `tdd`'s own docs record a model

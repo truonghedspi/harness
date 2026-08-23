@@ -421,6 +421,66 @@ function gateFeatures() {
     }
   }
 
+  // Admission belongs before semantic review. A malformed maker handoff is mechanically
+  // classifiable, so it must not consume a checker turn or an attempts budget.
+  const offered = features.filter((f) => f.readyForCheck === true);
+  if (offered.length) {
+    const contractTool = P("tools", "review-contract.mjs");
+    if (!exists(contractTool)) {
+      add({
+        gate: "review-contract", id: "admission-tool-missing", layer: "harness",
+        symptom: "readyForCheck features exist but the scaffold has no tools/review-contract.mjs admission gate",
+        remedy: "refresh the skill-owned review-contract tool before dispatching checker",
+      });
+    } else {
+      const result = spawnSync(process.execPath, [contractTool, "--ready", "--json"],
+        { cwd: TARGET, encoding: "utf8", timeout: TIMEOUT_MS });
+      let report = null;
+      try { report = JSON.parse(result.stdout || "null"); } catch {}
+      if (!Array.isArray(report)) {
+        add({
+          gate: "review-contract", id: "admission-report-invalid", layer: "harness",
+          symptom: "tools/review-contract.mjs did not return its documented JSON admission report",
+          remedy: "refresh the skill-owned tool; the checker must not infer admission from prose",
+          evidence: String(result.stderr || result.stdout || "").slice(-500),
+        });
+      } else {
+        const incomplete = report.filter((row) => Array.isArray(row.errors) && row.errors.length);
+        if (incomplete.length) add({
+          gate: "review-contract", id: "submission-incomplete", layer: "project",
+          symptom: `${incomplete.length} readyForCheck feature(s) have an incomplete reviewPacket — this is maker admission feedback, not a checker REJECT`,
+          remedy: "run `node tools/review-contract.mjs <feature-id> --json`, complete the named fields, and leave attempts unchanged",
+          evidence: incomplete.slice(0, 5).flatMap((row) => row.errors).join("; ").slice(0, 1000),
+        });
+      }
+    }
+  }
+
+  // Once a feature adopts typed admission, its semantic verdict cannot fall back to prose only.
+  const badVerdicts = [];
+  for (const f of features.filter((feature) => feature.reviewPacket)) {
+    const marker = String(f.checkerNotes || "").trim();
+    const reviewed = ["done", "passing"].includes(String(f.status || f.state)) ||
+      /^(REJECT|NEEDS DESIGN:|NEEDS RE-PLAN:)/.test(marker);
+    if (!reviewed) continue;
+    const verdict = f.checkerVerdict;
+    if (!verdict || typeof verdict !== "object" || !String(verdict.status || "").trim()) {
+      badVerdicts.push(`${f.id}: checkerVerdict missing`);
+      continue;
+    }
+    if (verdict.status === "reject") {
+      for (const key of ["basis", "violatedRef", "counterexample", "reproduction", "observed", "exitCriterion"]) {
+        if (!String(verdict[key] || "").trim()) badVerdicts.push(`${f.id}: checkerVerdict.${key} missing`);
+      }
+    }
+  }
+  if (badVerdicts.length) add({
+    gate: "review-contract", id: "verdict-incomplete", layer: "project",
+    symptom: `${badVerdicts.length} semantic verdict field(s) are missing after typed admission`,
+    remedy: "checker must record a structured verdict; a REJECT needs basis, violatedRef, counterexample, reproduction, observed, and exitCriterion",
+    evidence: badVerdicts.slice(0, 10).join("; "),
+  });
+
   // An escalation with no trace of exploration is the cheapest kind of waste to catch: the agent
   // spent a human's attention without spending two minutes of its own first
   // (references/human-attention.md). Warn only — under-asking is worse than over-asking, so this

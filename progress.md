@@ -5,12 +5,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-21
+- **Last updated:** 2026-08-23
 - **Active feature:** none
-- **Baseline (`./init.sh`):** green — `demo.sh` 49/49 steps
+- **Baseline (`./init.sh`):** green — `demo.sh` 51/51 steps
 
 ## Done
 
+- [x] HI-061 — digest-bound maker `reviewPacket`, pre-checker admission, actionable typed `checkerVerdict`; incomplete submissions spend no checker attempt
 - [x] `approval-gate.mjs` — best-effort OS notification (macOS/Linux/Windows) when a fresh approval request is written; `HARNESS_NOTIFY=0`/`HARNESS_NOTIFY_CMD` overrides
 - [x] feat-shared-memory-promote/gate/resources/v1 — `memory/shared/` v1, checked and approved
 - [x] feat-windows-native-loop — Node-native loop/dispatch control plane; HI-045 resolved

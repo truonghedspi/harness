@@ -213,9 +213,17 @@ node -e "
 const fs = require('fs');
 const p = '$T2/feature_list.json';
 const fl = JSON.parse(fs.readFileSync(p, 'utf8'));
+fl.features[0].readyForCheck = false; // clear step 11's separate false-claim fixture
 fl.features[1].status = 'in-progress'; fl.features[1].readyForCheck = true; fl.features[1].checkerNotes = '';
 fl.features[1].attempts = 1; // clear the over-budget state from step 12 — a different check
 fs.writeFileSync(p, JSON.stringify(fl, null, 2));
+"
+node -e "
+const fs=require('fs'),cp=require('child_process'),p='$T2/feature_list.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8')),f=j.features[1];
+const report=JSON.parse(cp.spawnSync(process.execPath,['tools/review-contract.mjs',f.id,'--json'],{cwd:'$T2',encoding:'utf8'}).stdout);
+f.reviewPacket={contractDigest:report[0].contractDigest,claimRefs:[f.id],changedPaths:['feature_list.json'],runs:[{cmd:f.verification,exit:0,result:'passed'}],adversarialChecks:{scope:'covered',cleanup:'not-applicable: demo command',errorPath:'covered',concurrency:'not-applicable: demo command',realBoundary:'not-applicable: demo command'},residualUnknowns:[]};
+fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
 "
 node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --run-features --promote --quiet
 node -e "
@@ -223,6 +231,7 @@ const fl = require('$T2/feature_list.json');
 const f2 = fl.features.find(f => f.id === 'feat-002');
 process.exit(f2.status === 'done' && f2.checkerNotes.includes('mechanically promoted') ? 0 : 1);
 "; expect "feature with reproducing evidence is promoted to done with an audit trail" $?
+node -e "const fs=require('fs'),p='$T2/feature_list.json',j=JSON.parse(fs.readFileSync(p,'utf8')); j.features[1].checkerVerdict={status:'approve',basis:'claim-survived'}; fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
 
 step 15 "--promote never promotes a feature whose verification just failed the replay"
 node -e "
@@ -1522,6 +1531,42 @@ test "$(grep -c -- '--agent maker' "$BATCH/runtime.log")" = "1" -a "$(grep -c --
   && grep -q 'only when the whole feature-level.*behavior' "$SCRIPTS/../templates/tree/loop/maker-prompt.md" \
   && grep -q 'counts failed review cycles, not maker checkpoints' "$SCRIPTS/../templates/tree/loop/checker-prompt.md"
 expect "partial maker checkpoints do not dispatch checker; only complete feature-level claims do" $?
+# A maker can still set readyForCheck too early. Admission classifies that as mechanically
+# incomplete, skips checker, and does not spend the semantic attempts budget.
+cp "$SCRIPTS/../templates/tree/tools/review-contract.mjs" "$BATCH/tools-review-contract.mjs"
+mkdir -p "$BATCH/tools"; cp "$BATCH/tools-review-contract.mjs" "$BATCH/tools/review-contract.mjs"
+printf '%s\n' '{"features":[{"id":"feat-review","behavior":"returns one result","verification":"node -e \"process.exit(0)\"","falsifier":"returns no result","dependencies":[],"context":{"touches":["src/x.ts"],"note":"public seam"},"status":"active","readyForCheck":true,"checkerNotes":"","attempts":0,"maxAttempts":3}]}' > "$BATCH/feature_list.json"
+: > "$BATCH/runtime.log"
+( cd "$BATCH" && PATH="$BATCH/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BATCH/runtime.log" node loop/run-loop.mjs 1 --headless > "$BATCH/admission-red.log" 2>&1 )
+test "$(grep -c -- '--agent checker' "$BATCH/runtime.log" || true)" = "0" \
+  && grep -q 'SUBMISSION_INCOMPLETE' "$BATCH/admission-red.log" \
+  && grep -q '"attempts":0' "$BATCH/feature_list.json"
+expect "an incomplete reviewPacket skips checker without spending an attempt" $?
+node -e "
+const fs=require('fs'),cp=require('child_process'),p='$BATCH/feature_list.json';
+const j=JSON.parse(fs.readFileSync(p,'utf8'));
+const report=JSON.parse(cp.spawnSync(process.execPath,['tools/review-contract.mjs','feat-review','--json'],{cwd:'$BATCH',encoding:'utf8'}).stdout);
+j.features[0].reviewPacket={contractDigest:report[0].contractDigest,claimRefs:['feat-review'],changedPaths:['src/x.ts'],runs:[{cmd:j.features[0].verification,exit:0,result:'passed'}],adversarialChecks:{scope:'covered',cleanup:'not-applicable: pure function',errorPath:'covered',concurrency:'not-applicable: synchronous',realBoundary:'not-applicable: pure function'},residualUnknowns:[]};
+fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
+"
+( cd "$BATCH" && node tools/review-contract.mjs feat-review >/dev/null )
+expect "a digest-current reviewPacket with the public rubric is admitted" $?
+node -e "
+const fs=require('fs'),p='$BATCH/feature_list.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+Object.assign(j.features[0],{status:'in-progress',readyForCheck:false,checkerNotes:'REJECT: cleanup claim survived'});
+fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$BATCH" --skip-baseline --report "$BATCH/review-report.json" --quiet >/dev/null 2>&1 || true
+node -e "const r=require('$BATCH/review-report.json'); process.exit(r.findings.some(f=>f.gate==='review-contract'&&f.id==='verdict-incomplete')?0:1)"
+expect "a prose-only semantic REJECT is refused after typed admission" $?
+node -e "
+const fs=require('fs'),p='$BATCH/feature_list.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.features[0].checkerVerdict={status:'reject',basis:'novel-counterexample',violatedRef:'feat-review',counterexample:'cleanup is a no-op',reproduction:'apply cleanup mutant; run verification',observed:'verification remains green',exitCriterion:'verification fails when cleanup is disabled'};
+fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
+"
+node "$SCRIPTS/verify-harness.mjs" --target "$BATCH" --skip-baseline --report "$BATCH/review-report.json" --quiet >/dev/null 2>&1 || true
+node -e "const r=require('$BATCH/review-report.json'); process.exit(r.findings.some(f=>f.gate==='review-contract'&&f.id==='verdict-incomplete')?1:0)"
+expect "an actionable structured REJECT clears the verdict-contract gate" $?
 # The bug this port found. The old bash gate wrote: has lint && { run lint; } || true
 # The || true was meant to skip a script that does not exist. It cannot tell that apart from one
 # that ran and failed, so a project with failing lint AND failing tests printed "Baseline green".

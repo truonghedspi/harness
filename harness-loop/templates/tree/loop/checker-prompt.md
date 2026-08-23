@@ -51,6 +51,10 @@ rules keep it from leaving debris:
 
 For every feature with `"readyForCheck": true`:
 
+0. Require `node tools/review-contract.mjs <feat-id>` to pass. A malformed handoff is
+   `SUBMISSION_INCOMPLETE`, not REJECT: clear `readyForCheck`, leave `attempts` unchanged, and name
+   the missing field. Do not spend semantic-review budget on evidence the admission gate could
+   classify mechanically.
 1. Re-run the recorded `evidence` command yourself. Evidence that does not reproduce is treated
    as absent — reject.
 2. Exercise the highest verification level the change touches (`docs/testing-standards.md`). If a
@@ -87,9 +91,16 @@ reason, or a vague one ("couldn't figure it out"), is not acceptable — send it
 
 Verdict per feature:
 
-- **APPROVE** → set `"status": "done"`, remove `readyForCheck`, keep the evidence block.
+- Write a structured `checkerVerdict` for every semantic verdict:
+  `{status, basis, violatedRef, counterexample, reproduction, observed, exitCriterion}`. `basis` is
+  `declared-contract` when the public rubric was violated or `novel-counterexample` when your
+  private probe found something the maker could not have known. Prose in `checkerNotes` remains a
+  readable rendering and routing marker, never the only source of the verdict.
+- **APPROVE** → set `"status": "done"`, remove `readyForCheck`, keep the evidence block, and set
+  `checkerVerdict.status="approve"`.
 - **REJECT** → increment `attempts` by one (it counts failed review cycles, not maker checkpoints),
-  write concrete reasons into `checkerNotes`, and set `readyForCheck` back to `false`. If the new
+  write concrete reasons into `checkerNotes`, set `checkerVerdict.status="reject"` with every
+  field above, and set `readyForCheck` back to `false`. If the new
   count reaches `maxAttempts`, set `status: blocked` with the concrete exhausted-review reason;
   otherwise set `status: in-progress` so the maker can address the verdict.
 - **REJECT because the claim rests on an unexamined design assumption** (the behavior may be

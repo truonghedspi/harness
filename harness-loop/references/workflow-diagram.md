@@ -103,7 +103,11 @@ sequenceDiagram
         M->>FS: checkpoint evidence/progress,<br/>readyForCheck=false
         RL->>RL: skip checker; next iteration<br/>routes the active feature to maker
     else complete behavior + green verification + complete evidence
-        M->>FS: readyForCheck=true<br/>(cannot write status=done)
+        M->>FS: reviewPacket + readyForCheck=true<br/>(cannot write status=done)
+        RL->>FS: review-contract.mjs --ready
+        alt reviewPacket incomplete
+            RL->>M: SUBMISSION_INCOMPLETE<br/>attempts unchanged; checker skipped
+        else typed handoff admitted
         RL->>FS: tools/verify-harness.mjs --promote —<br/>mechanical replay; flip clean reproductions<br/>to done (never touches blocked)
         RL->>C: kiro-cli chat --agent checker
         C->>FS: read remaining readyForCheck features<br/>+ spot-check the promoted ones
@@ -114,6 +118,7 @@ sequenceDiagram
             C->>FS: attempts += 1; status=in-progress<br/>+ checkerNotes (or blocked at maxAttempts)
         else feature itself is mis-cut
             C->>FS: checkerNotes = "NEEDS RE-PLAN: ..."<br/>→ routes to feature-planner, not the maker
+        end
         end
     end
     RL->>FS: record baseline-state.json<br/>with outcome + evidence digest

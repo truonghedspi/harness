@@ -67,13 +67,17 @@ path was right. **Never let the same entity (same model, same prompt) both do th
 it.** The scaffold enforces this:
 
 - `maker` advances work and records honest evidence, but **cannot** set `status: done`. Partial
-  checkpoints keep `readyForCheck: false`; it sets the flag only for a complete green feature claim.
+  checkpoints keep `readyForCheck: false`; it sets the flag only for a complete green feature claim
+  with a digest-current `reviewPacket` admitted by `tools/review-contract.mjs`.
 - `checker` re-runs the evidence, tries to *falsify* the maker's claims, and is the only agent
   allowed to flip a feature to `done`. It is write-restricted to state files in
   `.kiro/agents/checker.json` so it can't quietly "fix and pass" its own review.
 
 `run-loop.mjs` treats that flag as the review seam: no complete claim means no checker dispatch.
 Each rejection increments the feature's `attempts`; maker checkpoints do not consume that budget.
+Neither does `SUBMISSION_INCOMPLETE`: missing claim references, changed paths, exact command runs or
+adversarial checks are mechanically returned to maker before checker dispatch. Checker attempts
+measure semantic failures only, and its private probes remain unpublished so maker cannot overfit.
 
 One sentence to remember: **someone in your crew must not believe you.**
 

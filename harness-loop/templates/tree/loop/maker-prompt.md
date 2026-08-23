@@ -75,22 +75,30 @@ whole list. `--deps <id>` shows whether it is eligible yet.
    feature did not advance. An incomplete checkpoint may record its still-red result, but must not
    relabel it green. (`verify-harness.mjs` reports `evidence-no-red` for green features whose
    evidence never shows a failure.)
-7. Set `"readyForCheck": true` **only when the whole feature-level `behavior` is implemented, its
-   recorded `verification` is green, and the evidence is complete**. Otherwise keep
+7. Build the feature's `reviewPacket` before offering it. Run
+   `node tools/review-contract.mjs <feat-id> --json` for the digest and admission errors. Record:
+   `contractDigest`, non-empty `claimRefs` and `changedPaths`, `runs` containing the exact
+   verification with `{cmd, exit: 0, result}`, five `adversarialChecks` (`scope`, `cleanup`,
+   `errorPath`, `concurrency`, `realBoundary`) as either `covered` or
+   `not-applicable: <concrete reason>`, and a `residualUnknowns` list. This is the public rubric;
+   do not guess the checker's private mutants.
+8. Set `"readyForCheck": true` **only when the whole feature-level `behavior` is implemented, its
+   recorded `verification` is green, the evidence is complete, and
+   `node tools/review-contract.mjs <feat-id>` exits 0**. Otherwise keep
    `readyForCheck: false`, keep the feature `active`/`in-progress`, record the checkpoint in
    `progress.md`, and let the router return it to the maker. You must NOT set `status: done` — that
    is the checker's decision alone.
-8. Any requirement/architecture question `docs/` doesn't answer is a DESIGN question, not a
+9. Any requirement/architecture question `docs/` doesn't answer is a DESIGN question, not a
    blocker for you to absorb: write `NEEDS DESIGN: <the question>` as the first line of
    `checkerNotes`, leave `status` as it was, and pick the next eligible feature. The
    `design-facilitator` agent answers it (`docs/reference/design-engineering.md`); do not invent an answer inline —
    an undeclared design assumption is the most expensive defect in this loop. If no feature is
    eligible, write `session-handoff.md` and stop.
-9. Trace decision points as they happen:
+10. Trace decision points as they happen:
    - `node tools/trace.mjs maker feature-picked <feat-id> "<why>"`
    - `node tools/trace.mjs maker verify-ran <feat-id> "<command + result>"`
    - `node tools/trace.mjs maker blocked <feat-id> "<reason>"`
-10. End of iteration (Lesson 12): update `progress.md`, ensure `./init.sh` is green, commit
+11. End of iteration (Lesson 12): update `progress.md`, ensure `./init.sh` is green, commit
     (include `trace/trace.jsonl`). **Do this after every bounded checkpoint, not once at the end of a
     long session** — a long run that only commits at the very end risks losing everything worked
     on if it never reaches that point. Running headless via `run-loop.mjs`: commit directly, that
@@ -98,7 +106,7 @@ whole list. `--deps <id>` shows whether it is eligible yet.
     before doing it, every iteration — do not silently accumulate uncommitted iterations while
     waiting to ask once at the end.
 
-11. **End-of-iteration reflection — answer it, don't skip it:** did this iteration produce something
+12. **End-of-iteration reflection — answer it, don't skip it:** did this iteration produce something
     the *next* maker run on this project would otherwise have to rediscover — a mistake whose real
     cause was non-obvious, an approach that worked for a non-obvious reason, something that looked
     like a bug but was environmental?

@@ -258,7 +258,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    Codex dispatch first runs `tools/hook-calibrate.mjs`: write confinement must prove a neutral
    allow and reasoned deny for the installed runtime/version before a model turn is accepted.
    Headless runs skip checker dispatch after partial maker checkpoints and review only complete,
-   green feature-level claims (`readyForCheck: true`).
+   green feature-level claims whose typed `reviewPacket` passes `tools/review-contract.mjs`.
+   Missing handoff fields are maker admission feedback, not a checker rejection; the full public
+   rubric/private-probe contract lives in [references/test-authoring.md](references/test-authoring.md).
    The orchestrator re-runs the live view after every state change and reports
    done/total/percent/remaining progress, even when a partial checkpoint leaves the percentage
    unchanged.

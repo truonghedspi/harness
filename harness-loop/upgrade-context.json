@@ -341,6 +341,26 @@
         "supersedes": null,
         "openFollowUps": []
       }
+    },
+    {
+      "id": "HUC-2026-08-23-maker-checker-review-contract",
+      "summary": "A typed, digest-bound reviewPacket is admitted before checker dispatch; structured checkerVerdict separates declared-contract misses from novel counterexamples.",
+      "why": "HI-061, observed on examples/jdt-mcp-server: 7 of 17 recent semantic verdicts were REJECT, with avoidable repeated gaps in returned cleanup, process teardown, live collection iteration, compound redundancy and real stdout. readyForCheck carried only prose evidence, so the checker had to rediscover whether the public rubric was complete.",
+      "targetImpact": "Every new readyForCheck submission must pass tools/review-contract.mjs. Missing fields produce SUBMISSION_INCOMPLETE, skip checker and leave attempts unchanged. Once a feature adopts reviewPacket, semantic reviews also record checkerVerdict; REJECT carries a violated reference, counterexample, reproduction, observation and exit criterion.",
+      "paths": ["tools/review-contract.mjs", "tools/verify-harness.mjs", "loop/run-loop.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "feature_list.json", "docs/reference/test-authoring.md", "docs/reference/loop-engineering.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Refresh the listed skill-owned files as one protocol change.", "Do not synthesize reviewPacket for historical done features. For the next maker submission, compute contractDigest with `node tools/review-contract.mjs <id> --json` and fill the public rubric.", "Preserve checker independence: migrate actionable prose REJECT details into checkerVerdict, but do not publish private mutant implementations before review."],
+      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "humanDecision": {
+        "questionId": "typed-maker-checker-review-contract",
+        "question": "Should the default harness reduce avoidable rejects with typed maker admission while preserving independent private checker probes?",
+        "answer": "ok hãy sửa harness của project gốc ~/workspace/projects/harness theo hướng cải tiến như trên",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-23",
+        "scope": ["default scaffold maker-checker workflow"],
+        "basis": [{"kind": "observation", "pointer": "examples/jdt-mcp-server/harness/trace/trace.jsonl: 17 recent verdicts, 7 REJECT"}, {"kind": "research", "pointer": "examples/research/maker-checker-contracts-online.md"}, {"kind": "human", "pointer": "chat approval on 2026-08-23"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
     }
   ]
 }
