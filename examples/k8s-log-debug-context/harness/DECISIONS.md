@@ -8,6 +8,55 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-27 — Hermetic collector source is a post-enrichment JSONL event
+
+- **Decision:** The project owner approved one UTF-8 JSON object per line with timestamp, stream,
+  message, four Kubernetes identity fields, opt-in/environment labels, and optional test.run_id.
+- **Reason:** It lets the real Collector Contrib filter, map and export source events without a
+  cluster while keeping Kubernetes API enrichment in the Level-3 journey where it can be observed.
+- **Rejected alternative:** Starting Kubernetes for this contract duplicates the journey and makes
+  a mapping/wire oracle large and environment-dependent; inventing a test-only Java adapter would
+  stop exercising the collector configuration.
+- **Constraint it satisfies:** `TCON-COLLECTOR-0001` through `0004` now have a typed source whose
+  fields can be varied independently and whose eligibility intersection is explicit.
+- **Provenance:** project owner answered “duyệt JSONL fixture” in the project conversation on
+  2026-08-27 after seeing the complete example and the Level-3 boundary.
+- **Approval receipt:** bound to design digest `c206b89185ec03cd` in
+  `loop/design-approval.json`; changing the fixture contract invalidates it.
+- **Open follow-up:** none.
+- **Affected:** `feat-008`, `feat-009`, `TP-COLLECTOR-0009`, `pod-logs.json`, and
+  `collector/otel-collector.yaml`.
+
+---
+
+## 2026-08-27 — Docker/OCI selected for the collector contract
+
+- **Decision:** The project owner selected Docker/OCI for the non-cluster
+  `CollectorContractBootstrap`; do not introduce a local-binary fallback as an equivalent behavior
+  result. The owner subsequently approved
+  `otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc`.
+- **Reason:** This executes the real Collector Contrib distribution and the production collector
+  configuration at the public lifecycle seam while keeping fixtures isolated from host logs.
+- **Lifecycle policy included in the question:** mount `/fixtures` read-only, wait for the health
+  endpoint within the configured readiness deadline, and force-stop after the shutdown deadline
+  while reporting cleanup failure.
+- **Rejected alternative:** A pinned local binary. The owner answered “dùng docker/oci” in the
+  project conversation on 2026-08-27.
+- **Constraint it satisfies:** An unavailable Docker runtime or pinned image remains an explicit
+  environment checkpoint; it may not be replaced by a fake collector.
+- **Provenance:** human decision, project conversation on 2026-08-27; scope `feat-009`, collector
+  contract runtime and lifecycle.
+- **Digest provenance:** official OpenTelemetry release `v0.159.0`; Docker Hub tag metadata read on
+  2026-08-27 returned the approved multi-platform manifest-list digest. The owner answered “duyệt
+  digest” after seeing the complete reference.
+- **Approval receipt:** the owner-approved launcher revision is bound to design digest
+  `9cdc628124487918` in `loop/design-approval.json`; changing any design file invalidates it.
+- **Open follow-up:** none for the non-cluster collector launcher.
+- **Affected:** `feat-009`, `collector/contract-image.lock`, `CollectorContractBootstrap`, and the
+  collector contract oracle.
+
+---
+
 ## 2026-08-27 — Executable MCP bootstrap resolves feat-007 without re-cutting
 
 - **Decision:** Keep feat-006 as the bounded MCP build and feat-007 as its independent HTTP proof;

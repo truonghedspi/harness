@@ -1,0 +1,13 @@
+{
+  "id": "TC-COLLECTOR-0002",
+  "condition_id": "TCON-COLLECTOR-0002",
+  "requirement_id": "INV-META-1",
+  "technique": "property",
+  "property_kind": "round_trip",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.CollectorIngestContractIT",
+  "test_method": "generatedDistinctFixturesRoundTripEveryDiagnosticField",
+  "preconditions": ["Generated source fields are valid and pairwise distinct."],
+  "steps": ["Export eight deterministic distinct-valued eligible rows through the real collector.", "Submit emitted bodies to ingress and capture normalized records."],
+  "expected": {"assertion_kind": "property_holds", "description": "Every named diagnostic and correlation value equals its independent source-fixture value."}
+}

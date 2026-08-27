@@ -1,0 +1,12 @@
+{
+  "id": "TC-COLLECTOR-0004",
+  "condition_id": "TCON-COLLECTOR-0004",
+  "requirement_id": "INV-SCOPE-1",
+  "technique": "decision_table",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.CollectorIngestContractIT",
+  "test_method": "onlyOptedInTestRowsCrossTheCaptureIngress",
+  "preconditions": ["The fixture contains opted-in test, non-opted-in test, and opted-in production rows."],
+  "steps": ["Run all decision-table rows through the real collector pipeline and inspect captured requests."],
+  "expected": {"assertion_kind": "event_emitted", "description": "Only opted-in test rows emit requests; both excluded classes emit none."}
+}

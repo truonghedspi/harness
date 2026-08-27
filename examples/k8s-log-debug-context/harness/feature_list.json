@@ -1,115 +1,359 @@
 {
   "$comment": "Scope source of truth. Only checker promotes done; evidence and review state are preserved.",
-  "states": ["not-started", "active", "blocked", "in-progress", "passing", "done"],
+  "states": [
+    "not-started",
+    "active",
+    "blocked",
+    "in-progress",
+    "passing",
+    "done"
+  ],
   "features": [
     {
-      "id": "feat-001", "name": "Java 21 Maven baseline",
+      "id": "feat-001",
+      "name": "Java 21 Maven baseline",
       "behavior": "The repository has a Java 21 Maven build whose standard harness startup executes a real green-or-red test suite from a clean checkout",
       "verification": "node harness/init.mjs",
       "falsifier": "The baseline exits green with no manifest or tests, uses a JDK other than 21, or swallows a failing Maven test [X-004]",
-      "context": {"touches": ["pom.xml", "mvnw", "service/src/test/java/io/harness/logcontext/BaselineTest.java"], "note": "Use Java 21 and Maven; init.mjs detects pom.xml and prefers ./mvnw."},
-      "dependencies": [], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      "context": {
+        "touches": [
+          "pom.xml",
+          "mvnw",
+          "service/src/test/java/io/harness/logcontext/BaselineTest.java"
+        ],
+        "note": "Use Java 21 and Maven; init.mjs detects pom.xml and prefers ./mvnw."
+      },
+      "dependencies": [],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-002", "name": "Sanitized normalized ingestion", "kind": "build",
+      "id": "feat-002",
+      "name": "Sanitized normalized ingestion",
+      "kind": "build",
       "behavior": "IngestService.ingest(String) parses one serialized v1 JSON object, returns the stable accepted or rejection result, and invokes IndexPort exactly once only with a sanitized normalized document for an eligible valid record",
       "verification": "./mvnw -q -Dtest=IngestServiceTest test",
       "falsifier": "The service bypasses the serialized ingress seam, accepts an out-of-scope, incomplete, or unsupported-major record, invokes IndexPort for a rejection or other than exactly once for an acceptance, or exposes a configured secret or additive-field overwrite in the indexed document [INV-SCOPE-1] [INV-REDACT-1] [INV-META-1] [INV-SCHEMA-1]",
-      "context": {"touches": ["service/src/main/java/io/harness/logcontext/ingest/IngestService.java", "service/src/main/java/io/harness/logcontext/model/NormalizedLogRecord.java", "service/src/test/java/io/harness/logcontext/ingest/IngestServiceTest.java"], "note": "Implement the approved ingest(String) -> IngestResult seam over a supplied IndexPort: validate scope and required wire fields, normalize, redact, then make the single index call; use the five stable rejection codes and the context packet rather than exposing parser helpers.", "packet": "loop/context-packets/feat-002.json"},
-      "dependencies": ["feat-001"], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      "context": {
+        "touches": [
+          "service/src/main/java/io/harness/logcontext/ingest/IngestService.java",
+          "service/src/main/java/io/harness/logcontext/model/NormalizedLogRecord.java",
+          "service/src/test/java/io/harness/logcontext/ingest/IngestServiceTest.java"
+        ],
+        "note": "Implement the approved ingest(String) -> IngestResult seam over a supplied IndexPort: validate scope and required wire fields, normalize, redact, then make the single index call; use the five stable rejection codes and the context packet rather than exposing parser helpers.",
+        "packet": "loop/context-packets/feat-002.json"
+      },
+      "dependencies": [
+        "feat-001"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-003", "name": "Ingest schema and safety contract", "kind": "prove",
+      "id": "feat-003",
+      "name": "Ingest schema and safety contract",
+      "kind": "prove",
       "behavior": "A black-box ingest contract proves additive schemaVersion 1 compatibility and rejects unsafe scope, metadata, redaction, and major-version cases before indexing",
       "verification": "./mvnw -q -Poracle-test -Dtest=IngestContractTest test",
       "falsifier": "Happy-path JSON passes while an additive schemaVersion 1 field is rejected, or a missing identity field, configured secret, or schemaVersion 2 record is indexed [INV-SCOPE-1] [INV-REDACT-1] [INV-META-1] [INV-SCHEMA-1]",
-      "conditions": ["TCON-INGEST-0001", "TCON-INGEST-0002", "TCON-INGEST-0003", "TCON-INGEST-0004", "TCON-INGEST-0005"],
-      "context": {"touches": ["service/src/test/java/io/harness/logcontext/contract/IngestContractTest.java", "service/src/test/resources/contracts/ingest-v1.json"], "note": "Drive IngestService.ingest(String) with the exact v1 JSON wire shape and capture IndexPort; assert Accepted or the stable rejection code plus call count, and never call parser or normalization helpers."},
-      "dependencies": ["feat-002"], "status": "not-started", "readyForCheck": false, "evidence": [
+      "conditions": [
+        "TCON-INGEST-0001",
+        "TCON-INGEST-0002",
+        "TCON-INGEST-0003",
+        "TCON-INGEST-0004",
+        "TCON-INGEST-0005"
+      ],
+      "context": {
+        "touches": [
+          "service/src/test/java/io/harness/logcontext/contract/IngestContractTest.java",
+          "service/src/test/resources/contracts/ingest-v1.json"
+        ],
+        "note": "Drive IngestService.ingest(String) with the exact v1 JSON wire shape and capture IndexPort; assert Accepted or the stable rejection code plus call count, and never call parser or normalization helpers."
+      },
+      "dependencies": [
+        "feat-002"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [
         {
           "date": "2026-08-26",
           "run": "red",
           "cmd": "./mvnw -q -Poracle-test -Dtest=IngestContractTest test",
           "result": "Tests run: 5, failures: 5, errors: 0. Every condition fails with a JUnit assertion that the required public serialized-ingest contract io.harness.logcontext.ingest.IngestService is absent; the test compiles, the v1 fixture loads, and no failure is a compile error or missing fixture. This is the expected pre-implementation red for TCON-INGEST-0001 through TCON-INGEST-0005."
         }
-      ], "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      ],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-004", "name": "OpenSearch log index adapter", "kind": "build",
+      "id": "feat-004",
+      "name": "OpenSearch log index adapter",
+      "kind": "build",
       "behavior": "The OpenSearch adapter installs a seven-day schemaVersion 1 mapping and supports constrained time, Kubernetes identity, message, and test.run_id searches over sanitized documents",
       "verification": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify",
       "falsifier": "The adapter uses incompatible field types, omits seven-day retention, or returns records outside requested time and identity filters [INV-META-1] [INV-CORR-1] [X-002] [X-003]",
-      "context": {"touches": ["service/src/main/java/io/harness/logcontext/index/OpenSearchLogIndex.java", "service/src/main/resources/opensearch/log-record-v1.json", "service/src/test/java/io/harness/logcontext/index/OpenSearchLogIndexIT.java"], "note": "Map observedAt as date, identity/correlation as exact fields, and message for full-text search behind the index port."},
-      "dependencies": ["feat-002"], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      "context": {
+        "touches": [
+          "service/src/main/java/io/harness/logcontext/index/OpenSearchLogIndex.java",
+          "service/src/main/resources/opensearch/log-record-v1.json",
+          "service/src/test/java/io/harness/logcontext/index/OpenSearchLogIndexIT.java"
+        ],
+        "note": "Map observedAt as date, identity/correlation as exact fields, and message for full-text search behind the index port."
+      },
+      "dependencies": [
+        "feat-002"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-005", "name": "OpenSearch storage contract", "kind": "prove",
+      "id": "feat-005",
+      "name": "OpenSearch storage contract",
+      "kind": "prove",
       "behavior": "A real OpenSearch integration proof indexes sanitized records and retrieves only exact run-id or namespace/workload/half-open-window matches through the typed index port",
       "verification": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify",
       "falsifier": "A fake or raw OpenSearch client passes while the public OpenSearchLogIndex/IndexPort round trip loses a named field, RunIdLogQuery broadens beyond its exact run id, or WorkloadWindowLogQuery drops namespace, workload, or either half-open time bound [INV-META-1] [INV-CORR-1] [X-002]",
-      "conditions": ["TCON-INDEX-0001", "TCON-INDEX-0002", "TCON-INDEX-0003"],
-      "context": {"touches": ["service/src/test/java/io/harness/logcontext/contract/OpenSearchStorageContractIT.java", "service/src/test/resources/opensearch/records.json"], "note": "Construct OpenSearchLogIndex(OpenSearchClient, indexName) against an authorized ephemeral real store; index via IndexPort.index, search only via RunIdLogQuery or WorkloadWindowLogQuery, and assert returned NormalizedLogRecord values plus exact filtering without calling the client directly. An unavailable Docker/OPENSEARCH runtime is an environment checkpoint, not behavioral red or green.", "packet": "loop/context-packets/feat-005.json"},
-      "dependencies": ["feat-004"], "status": "not-started", "readyForCheck": false, "evidence": [
+      "conditions": [
+        "TCON-INDEX-0001",
+        "TCON-INDEX-0002",
+        "TCON-INDEX-0003"
+      ],
+      "context": {
+        "touches": [
+          "service/src/test/java/io/harness/logcontext/contract/OpenSearchStorageContractIT.java",
+          "service/src/test/resources/opensearch/records.json"
+        ],
+        "note": "Construct OpenSearchLogIndex(OpenSearchClient, indexName) against an authorized ephemeral real store; index via IndexPort.index, search only via RunIdLogQuery or WorkloadWindowLogQuery, and assert returned NormalizedLogRecord values plus exact filtering without calling the client directly. An unavailable Docker/OPENSEARCH runtime is an environment checkpoint, not behavioral red or green.",
+        "packet": "loop/context-packets/feat-005.json"
+      },
+      "dependencies": [
+        "feat-004"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [
         {
           "date": "2026-08-26",
           "run": "checkpoint",
           "cmd": "docker info --format '{{.ServerVersion}}'",
           "result": "Environment unavailable: Docker cannot connect to /Users/loren/.colima/default/docker.sock and no OPENSEARCH environment is configured. No real OpenSearch instance was available, so this is not recorded as red behavioral evidence. Separately, the approved contract defines IndexPort.index(NormalizedLogRecord) but no query method or OpenSearchLogIndex construction seam, so TCON-INDEX-0001 through TCON-INDEX-0003 cannot be implemented through the index port without inventing an API."
         }
-      ], "checkerNotes": "RESOLVED DESIGN: approved digest 64a7b9ee26db6b10 defines OpenSearchLogIndex(OpenSearchClient, String), IndexPort.search(LogQuery), exact RunIdLogQuery, conjunctive WorkloadWindowLogQuery, half-open TimeWindow, and bounded LogQueryResult. The real OpenSearch environment remains a test-implementation checkpoint, not a design gap; see DECISIONS.md and loop/context-packets/feat-005.json.", "attempts": 0, "maxAttempts": 3
+      ],
+      "checkerNotes": "RESOLVED DESIGN: approved digest 64a7b9ee26db6b10 defines OpenSearchLogIndex(OpenSearchClient, String), IndexPort.search(LogQuery), exact RunIdLogQuery, conjunctive WorkloadWindowLogQuery, half-open TimeWindow, and bounded LogQueryResult. The real OpenSearch environment remains a test-implementation checkpoint, not a design gap; see DECISIONS.md and loop/context-packets/feat-005.json.",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-006", "name": "Bounded read-only MCP service", "kind": "build",
+      "id": "feat-006",
+      "name": "Bounded read-only MCP service",
+      "kind": "build",
       "behavior": "The authenticated Streamable HTTP MCP service exposes only search_logs and get_failure_context and enforces correlation, 15-minute, 200-record, 256-KiB, five-second, and no-pagination limits",
       "verification": "./mvnw -q -Dtest=McpQueryServiceTest test",
       "falsifier": "A tool falls back from a supplied run id, accepts an unbounded request, exceeds a budget, writes the index, or invokes Kubernetes [INV-CORR-1] [INV-BOUND-1] [INV-READ-1] [X-006] [X-007]",
-      "context": {"touches": ["service/src/main/java/io/harness/logcontext/mcp/McpQueryService.java", "service/src/main/java/io/harness/logcontext/query/CorrelationResolver.java", "service/src/test/java/io/harness/logcontext/mcp/McpQueryServiceTest.java"], "note": "Use supplied test.run_id exclusively; otherwise require namespace, workload, and interval, then cap before reading."},
-      "dependencies": ["feat-004"], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      "context": {
+        "touches": [
+          "service/src/main/java/io/harness/logcontext/mcp/McpQueryService.java",
+          "service/src/main/java/io/harness/logcontext/query/CorrelationResolver.java",
+          "service/src/test/java/io/harness/logcontext/mcp/McpQueryServiceTest.java"
+        ],
+        "note": "Use supplied test.run_id exclusively; otherwise require namespace, workload, and interval, then cap before reading."
+      },
+      "dependencies": [
+        "feat-004"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-007", "name": "MCP wire and authorization contract", "kind": "prove",
+      "id": "feat-007",
+      "name": "MCP wire and authorization contract",
+      "kind": "prove",
       "behavior": "A Streamable HTTP contract proves ServiceAccount JWT authorization, the exact two-tool surface, bounded truncation metadata, validation errors, and absence of write or Kubernetes capabilities",
       "verification": "./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify",
       "falsifier": "Direct tests pass while a missing or invalid JWT reaches tool dispatch or index query, a valid JWT is denied before normal validation, initialization exposes non-tool capabilities, the tool list contains anything beyond search_logs and get_failure_context, an unknown tool reaches the index, or a pagination, response-size, or deadline bound is violated [INV-AUTH-1] [INV-TOOLS-1] [INV-BOUND-1] [INV-READ-1]",
-      "conditions": ["TCON-MCP-0001", "TCON-MCP-0002", "TCON-MCP-0003", "TCON-MCP-0004", "TCON-MCP-0005", "TCON-MCP-0006", "TCON-MCP-0007", "TCON-MCP-0008", "TCON-MCP-0009", "TCON-MCP-0010"],
-      "context": {"touches": ["service/src/test/java/io/harness/logcontext/contract/McpHttpContractIT.java", "service/src/test/resources/contracts/mcp-tools.json"], "note": "Start the real loopback HTTP boundary only through McpServiceBootstrap.start(McpHttpServerConfig(port 0), capturing IndexPort, deterministic ServiceAccountJwtValidator), drive endpoint() as an MCP client, and always close RunningMcpServer; observe authorization, closed tool surface, budgets, and side effects only through wire responses and captured dependencies.", "packet": "loop/context-packets/feat-007.json"},
-      "dependencies": ["feat-006"], "status": "not-started", "readyForCheck": false, "evidence": [
-        { "date": "2026-08-27", "run": "red", "cmd": "./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify", "result": "10 assertion failures: Required public MCP contract is absent: io.harness.logcontext.mcp.McpServiceBootstrap; compilation and the default baseline remain green" }
-      ], "checkerNotes": "RESOLVED DESIGN: owner-approved digest 4ff1c56ce4b88469 defines McpServiceBootstrap.start(McpHttpServerConfig, IndexPort, ServiceAccountJwtValidator), loopback port 0, RunningMcpServer.endpoint(), and close() for a deterministic real-HTTP oracle. The 11-feature DAG and feat-007 wire/auth scope remain unchanged; see DECISIONS.md and loop/context-packets/feat-007.json.", "attempts": 0, "maxAttempts": 3
+      "conditions": [
+        "TCON-MCP-0001",
+        "TCON-MCP-0002",
+        "TCON-MCP-0003",
+        "TCON-MCP-0004",
+        "TCON-MCP-0005",
+        "TCON-MCP-0006",
+        "TCON-MCP-0007",
+        "TCON-MCP-0008",
+        "TCON-MCP-0009",
+        "TCON-MCP-0010"
+      ],
+      "context": {
+        "touches": [
+          "service/src/test/java/io/harness/logcontext/contract/McpHttpContractIT.java",
+          "service/src/test/resources/contracts/mcp-tools.json"
+        ],
+        "note": "Start the real loopback HTTP boundary only through McpServiceBootstrap.start(McpHttpServerConfig(port 0), capturing IndexPort, deterministic ServiceAccountJwtValidator), drive endpoint() as an MCP client, and always close RunningMcpServer; observe authorization, closed tool surface, budgets, and side effects only through wire responses and captured dependencies.",
+        "packet": "loop/context-packets/feat-007.json"
+      },
+      "dependencies": [
+        "feat-006"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [
+        {
+          "date": "2026-08-27",
+          "run": "red",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify",
+          "result": "10 assertion failures: Required public MCP contract is absent: io.harness.logcontext.mcp.McpServiceBootstrap; compilation and the default baseline remain green"
+        }
+      ],
+      "checkerNotes": "RESOLVED DESIGN: owner-approved digest 4ff1c56ce4b88469 defines McpServiceBootstrap.start(McpHttpServerConfig, IndexPort, ServiceAccountJwtValidator), loopback port 0, RunningMcpServer.endpoint(), and close() for a deterministic real-HTTP oracle. The 11-feature DAG and feat-007 wire/auth scope remain unchanged; see DECISIONS.md and loop/context-packets/feat-007.json.",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-008", "name": "Collector preflight and opt-in deployment", "kind": "build",
+      "id": "feat-008",
+      "name": "Collector preflight and opt-in deployment",
+      "kind": "build",
       "behavior": "The Helm deployment installs a scoped OpenTelemetry Collector DaemonSet that preflights node-log access, collects only opted-in test workloads, enriches identity and test.run_id, and sends schemaVersion 1 JSON records to ingest",
       "verification": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
       "falsifier": "The chart omits preflight, reads non-opted-in workloads, drops metadata, or permits traffic outside ingest [INV-SCOPE-1] [INV-META-1] [A-006] [X-001] [X-003] [X-008]",
-      "context": {"touches": ["charts/log-debug-context/templates/collector-daemonset.yaml", "collector/otel-collector.yaml", "service/src/test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java"], "note": "Fail preflight loudly and retain sidecar as the explicit fallback; do not silently broaden host access."},
-      "dependencies": ["feat-003"], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      "context": {
+        "touches": [
+          "charts/log-debug-context/templates/collector-daemonset.yaml",
+          "collector/otel-collector.yaml",
+          "collector/contract-image.lock",
+          "service/src/main/java/io/harness/logcontext/collector/CollectorContractBootstrap.java",
+          "service/src/test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java"
+        ],
+        "note": "Fail preflight loudly and retain sidecar as the explicit fallback; implement the owner-approved Docker/OCI launcher with the immutable lock, read-only fixtures, health readiness and bounded forced cleanup; do not silently broaden host access or substitute a fake collector."
+      },
+      "dependencies": [
+        "feat-003"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-009", "name": "Collector-to-ingest contract", "kind": "prove",
+      "id": "feat-009",
+      "name": "Collector-to-ingest contract",
+      "kind": "prove",
       "behavior": "A collector pipeline contract sends each representative opted-in container log as one compatible enriched schemaVersion 1 UTF-8 JSON object per ingress request and excludes non-opted-in records",
       "verification": "./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify",
       "falsifier": "Static YAML passes while the Collector wraps records in an incompatible batch envelope, emits a wrong-typed or incomplete v1 object, loses Kubernetes or test metadata, or forwards an excluded pod [INV-SCOPE-1] [INV-META-1] [INV-SCHEMA-1]",
-      "conditions": ["TCON-COLLECTOR-0001", "TCON-COLLECTOR-0002", "TCON-COLLECTOR-0003", "TCON-COLLECTOR-0004"],
-      "context": {"touches": ["service/src/test/java/io/harness/logcontext/contract/CollectorIngestContractIT.java", "service/src/test/resources/collector/pod-logs.json"], "note": "Execute the real collector config against a capture ingress endpoint; assert one UTF-8 JSON object per request matches the approved v1 types and can be submitted through IngestService.ingest(String)."},
-      "dependencies": ["feat-008"], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "NEEDS DESIGN: TP-COLLECTOR-0009 still records a fixture-contract spec gap. The approved launcher names pod-logs.json but does not define its source schema or how out-of-cluster fixture rows represent Kubernetes identity, opt-in, environment, and optional test.run_id. Define that observable fixture contract, then have test-designer remove or revise the plan's spec_gap before test implementation; inventing it here would make the oracle choose collector behavior.", "attempts": 0, "maxAttempts": 3
+      "conditions": [
+        "TCON-COLLECTOR-0001",
+        "TCON-COLLECTOR-0002",
+        "TCON-COLLECTOR-0003",
+        "TCON-COLLECTOR-0004"
+      ],
+      "context": {
+        "touches": [
+          "service/src/test/java/io/harness/logcontext/contract/CollectorIngestContractIT.java",
+          "service/src/test/resources/collector/pod-logs.json"
+        ],
+        "note": "Execute the real collector config against a capture ingress endpoint; assert one UTF-8 JSON object per request matches the approved v1 types and can be submitted through IngestService.ingest(String)."
+      },
+      "dependencies": [
+        "feat-008"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [
+        {
+          "date": "2026-08-27",
+          "run": "red",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify",
+          "result": "Tests run: 4, failures: 4, errors: 0. All four validated conditions compile and load their fixtures, then fail because the required public collector contract io.harness.logcontext.collector.CollectorContractConfig is absent. This is the expected pre-implementation red, not a compile or fixture failure."
+        }
+      ],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-010", "name": "Cluster access policy", "kind": "build",
+      "id": "feat-010",
+      "name": "Cluster access policy",
+      "kind": "build",
       "behavior": "The chart gives the collector only scoped log-read and ingest egress while MCP accepts cluster-internal authenticated traffic and reaches OpenSearch without exposing either backend to callers",
       "verification": "./mvnw -q -Dtest=ClusterAccessPolicyTest test",
       "falsifier": "Rendered policy grants broad Kubernetes access, exposes OpenSearch, allows unauthenticated MCP, or blocks the intended path [INV-READ-1] [X-007]",
-      "context": {"touches": ["charts/log-debug-context/templates/rbac.yaml", "charts/log-debug-context/templates/networkpolicy.yaml", "service/src/test/java/io/harness/logcontext/deploy/ClusterAccessPolicyTest.java"], "note": "Keep Kubernetes and OpenSearch credentials server-side; encode the one-way edges in NetworkPolicy."},
-      "dependencies": ["feat-006", "feat-008"], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      "context": {
+        "touches": [
+          "charts/log-debug-context/templates/rbac.yaml",
+          "charts/log-debug-context/templates/networkpolicy.yaml",
+          "service/src/test/java/io/harness/logcontext/deploy/ClusterAccessPolicyTest.java"
+        ],
+        "note": "Keep Kubernetes and OpenSearch credentials server-side; encode the one-way edges in NetworkPolicy."
+      },
+      "dependencies": [
+        "feat-006",
+        "feat-008"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     },
     {
-      "id": "feat-011", "name": "Kubernetes diagnostic-context journey", "kind": "prove",
+      "id": "feat-011",
+      "name": "Kubernetes diagnostic-context journey",
+      "kind": "prove",
       "behavior": "A namespace-isolated Kubernetes journey emits a unique correlated log from an opted-in workload and retrieves its redacted Kubernetes and test context only through authenticated MCP before bounded cleanup",
       "verification": "tests/k8s/run-journey.sh",
       "falsifier": "Components pass alone but the full flow loses context, leaks a secret, crosses correlation, bypasses MCP, hangs, or leaves resources [INV-JOURNEY-1] [INV-REDACT-1] [INV-CORR-1] [INV-BOUND-1] [INV-READ-1]",
-      "context": {"touches": ["tests/k8s/run-journey.sh", "tests/k8s/fixtures/log-emitter.yaml", "tests/k8s/fixtures/mcp-client.yaml"], "note": "Use unique namespace/marker, explicit deadlines, MCP-only assertions, and trapped cleanup; report A-006 preflight distinctly."},
-      "conditions": ["TCON-JOURNEY-0001", "TCON-JOURNEY-0002", "TCON-JOURNEY-0003", "TCON-JOURNEY-0004", "TCON-JOURNEY-0005", "TCON-JOURNEY-0006", "TCON-JOURNEY-0007", "TCON-JOURNEY-0008", "TCON-JOURNEY-0009"],
-      "dependencies": ["feat-005", "feat-007", "feat-009", "feat-010"], "status": "not-started", "readyForCheck": false, "evidence": "", "checkerNotes": "", "attempts": 0, "maxAttempts": 3
+      "context": {
+        "touches": [
+          "tests/k8s/run-journey.sh",
+          "tests/k8s/fixtures/log-emitter.yaml",
+          "tests/k8s/fixtures/mcp-client.yaml"
+        ],
+        "note": "Use unique namespace/marker, explicit deadlines, MCP-only assertions, and trapped cleanup; report A-006 preflight distinctly."
+      },
+      "conditions": [
+        "TCON-JOURNEY-0001",
+        "TCON-JOURNEY-0002",
+        "TCON-JOURNEY-0003",
+        "TCON-JOURNEY-0004",
+        "TCON-JOURNEY-0005",
+        "TCON-JOURNEY-0006",
+        "TCON-JOURNEY-0007",
+        "TCON-JOURNEY-0008",
+        "TCON-JOURNEY-0009"
+      ],
+      "dependencies": [
+        "feat-005",
+        "feat-007",
+        "feat-009",
+        "feat-010"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     }
   ]
 }

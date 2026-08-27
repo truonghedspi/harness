@@ -1,0 +1,12 @@
+{
+  "id": "TC-COLLECTOR-0001",
+  "condition_id": "TCON-COLLECTOR-0001",
+  "requirement_id": "INV-SCHEMA-1",
+  "technique": "contract",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.CollectorIngestContractIT",
+  "test_method": "eachEligibleLogBecomesOneUtf8V1ObjectAcceptedBySerializedIngress",
+  "preconditions": ["The approved pinned collector image is available to the permitted OCI runtime."],
+  "steps": ["Run the real collector configuration over two eligible JSONL rows and capture ingress HTTP requests.", "Submit each strict UTF-8 object body through IngestService.ingest(String)."],
+  "expected": {"assertion_kind": "property_holds", "description": "Exactly two separate numeric-v1 JSON objects are emitted and each is accepted once by serialized ingress."}
+}

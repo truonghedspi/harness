@@ -1,0 +1,13 @@
+{
+  "id": "TC-COLLECTOR-0003",
+  "condition_id": "TCON-COLLECTOR-0003",
+  "requirement_id": "INV-META-1",
+  "technique": "property",
+  "property_kind": "field_sensitivity",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.CollectorIngestContractIT",
+  "test_method": "changingOneSourceFieldChangesOnlyItsCorrespondingNormalizedField",
+  "preconditions": ["The base source record has pairwise-distinct named values and every mutation remains valid."],
+  "steps": ["Mutate each named source field independently and export all variants through the collector and ingress seams."],
+  "expected": {"assertion_kind": "property_holds", "description": "Only the corresponding normalized field changes for each single-field source mutation."}
+}
