@@ -6,9 +6,9 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-27
-- **Active feature:** feat-001 — exact Java 21 gate implemented; host JDK 21 provisioning required
+- **Active feature:** feat-001 — implementation and review packet await independent checker
 - **Latest commit:** e2e5b29 Chặn review thiếu contract trước checker
-- **Baseline (`node harness/init.mjs`):** red — exact Java 21 gate rejects the host's only installed runtime, Temurin 25.0.3
+- **Baseline (`node harness/init.mjs`):** green with explicit Homebrew OpenJDK 21; the same gate rejects Temurin 25.0.3
 
 ## Done
 
@@ -23,12 +23,12 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 - [ ] Java 21 Maven baseline (`feat-001`)
   - Details: Maven Enforcer accepts only `[21,22)` and the JUnit baseline asserts runtime feature 21 exactly.
-  - Blockers: this host has only Temurin 25.0.3; provision JDK 21 before recording green evidence.
+  - Blockers: none; red JDK 25 rejection and green JDK 21 execution are recorded for checker review.
 
 ## Next
 
-1. Provision a JDK 21 runtime and rerun `node harness/init.mjs` for feat-001 green evidence.
-2. Build the review packet, then route `feat-001` through independent checker review.
+1. Route `feat-001` through independent checker review without changing checker-owned status.
+2. After checker disposition, continue with the next dependency-eligible product feature.
 
 ## Known Issues / Risks
 

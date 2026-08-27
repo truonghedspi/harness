@@ -24,19 +24,55 @@
         "note": "Use Java 21 and Maven; init.mjs detects pom.xml and prefers ./mvnw."
       },
       "dependencies": [],
-      "status": "active",
-      "readyForCheck": false,
+      "status": "passing",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-27",
           "run": "red",
           "cmd": "node harness/init.mjs",
           "result": "Maven Enforcer rejected host JDK 25.0.3 because feat-001 requires exact Java 21 range [21,22); the host exposes no installed JDK 21."
+        },
+        {
+          "date": "2026-08-27",
+          "run": "green",
+          "cmd": "node harness/init.mjs",
+          "result": "With JAVA_HOME and PATH selecting Homebrew OpenJDK 21, Maven verification ran the real BaselineTest suite and reported Baseline green."
         }
       ],
-      "checkerNotes": "ENVIRONMENT CHECKPOINT: exact Java 21 enforcement is implemented, but this host only has Temurin 25.0.3; provision JDK 21 and rerun node harness/init.mjs before review.",
+      "checkerNotes": "Exact Java 21 enforcement rejects JDK 25 and the standard init gate passes when explicitly run with the provisioned OpenJDK 21 runtime.",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "f0e16d50d6523467f03032759a92fe68feb873ca2303e31a5123ead3c349f518",
+        "claimRefs": [
+          "feat-001 behavior",
+          "feat-001 falsifier X-004"
+        ],
+        "changedPaths": [
+          "pom.xml",
+          "mvnw",
+          "service/src/test/java/io/harness/logcontext/BaselineTest.java"
+        ],
+        "runs": [
+          {
+            "cmd": "node harness/init.mjs",
+            "exit": 0,
+            "result": "OpenJDK 21 selected explicitly; Maven verification executed BaselineTest and reported Baseline green."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "not-applicable: the build gate creates no persistent service or external resource",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: the deterministic single-process baseline owns no shared mutable state",
+          "realBoundary": "covered",
+          "discrimination": "A broken Maven distribution URL could still pass this run because Maven 3.9.11 was already present in the local wrapper cache."
+        },
+        "residualUnknowns": [
+          "Fresh-checkout Maven archive download was not exercised because the checksum-pinned Maven distribution was cached."
+        ]
+      }
     },
     {
       "id": "feat-002",
