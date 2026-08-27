@@ -1,0 +1,603 @@
+{
+  "schema": "harness-installation/1",
+  "installedAt": "2026-08-26T03:08:15.625Z",
+  "layout": "contained",
+  "files": {
+    "AGENTS.md": {
+      "sha256": "bd960ba2859c60d24b9587210c62de997a09ff842d00030d64e67a61bc311155",
+      "ownership": "project-customizable"
+    },
+    "DECISIONS.md": {
+      "sha256": "a712a03a76aaf0255a3f701b7b0b58866b7b3d0c46fb6da241fbcb751d798300",
+      "ownership": "harness-owned"
+    },
+    "agents.generated.json": {
+      "sha256": "c47a5a3cc2d945e87b9167bc1f170410b6f49cf562f662afb0e058bd3687ad57",
+      "ownership": "harness-owned"
+    },
+    "agents.manifest.json": {
+      "sha256": "fe30faae0deff1964853b33518c1b5a2b623f489e5a71b66b85a671adadb59b4",
+      "ownership": "project-customizable"
+    },
+    "check-coverage.mjs": {
+      "sha256": "8f93a7efe0552e2a2cd48cf7a99b140417789b75d6bb86cb6b3da7052c7f6380",
+      "ownership": "harness-owned"
+    },
+    "cli.mjs": {
+      "sha256": "08c6d30ee4a267da75d2ca3278594abe8d80584da5d4e8b2a20a49900f39875f",
+      "ownership": "harness-owned"
+    },
+    "docs/INDEX.md": {
+      "sha256": "62fb1c376f9ad93c14cbac65a74ccf6bfbd89b8de5dc1fec21e43bc867975a12",
+      "ownership": "project-customizable"
+    },
+    "docs/architecture.md": {
+      "sha256": "a06c00e8fc286476c7932f5bb70512251855001150ca20bd1e96a4d35078c0e6",
+      "ownership": "project-customizable"
+    },
+    "docs/assumptions.md": {
+      "sha256": "3351711048e7ce56cb5513ee64812bddccdea8b1e49c5a76ff48c38e743c5392",
+      "ownership": "project-customizable"
+    },
+    "docs/constraints.md": {
+      "sha256": "f2d729091dbcd3937ea094c5fb6bf0ffd1a06d2d1ee76a633afa1f215b8fefeb",
+      "ownership": "project-customizable"
+    },
+    "docs/context/README.md": {
+      "sha256": "9b484ae15e12aaeb4b3f17c6a6ee66633b40c8c62b4981c08ae796030c47fab7",
+      "ownership": "project-customizable"
+    },
+    "docs/cross-cutting.md": {
+      "sha256": "128c13c779f29eb56194f72ec1a29f863443e349012e21100c150bab2bc3ce99",
+      "ownership": "project-customizable"
+    },
+    "docs/definition-of-done.md": {
+      "sha256": "40c22200e22a2cee5b5804de88810f38d98ac9e291e02b647d9ab763f15bae24",
+      "ownership": "project-customizable"
+    },
+    "docs/design/README.md": {
+      "sha256": "79b68dc9c14e080b89984bf64d4e6fc734b357c7434cb37acf520625747e7c56",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/adopting-an-existing-project.md": {
+      "sha256": "c607c31fbf7e153124c9b1cb0d5bf54ca3366b1b5bab8274b7abdfb387442082",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/agent-memory.md": {
+      "sha256": "7298d8958192030270c8bd76941deaea8f6b284aa894a8dda5bef80771b4ac3b",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/critique-technique-sources.md": {
+      "sha256": "4d7a6a75a81ba1883c5464fb04e523a39e9ff72b154fb9a7d1799ebbaab65a5b",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/design-engineering.md": {
+      "sha256": "dc66057f3b3ecc632867bf7e0baa2f72fdf3fff9ea2408d51b8e36daef6f6561",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/feature-decomposition.md": {
+      "sha256": "b5e0475050fedca9a03ee2e28bc380ed65834ab46cb133e765813d7f66d791ed",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/graph.md": {
+      "sha256": "a82ea1d3472a1b42bba5d5fad8529d610882f01fa9cc177e0273491a240513ea",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/how-google-tests-software-research.md": {
+      "sha256": "60f2d1931f450ad6debc767675ed929b217bce59b96730e5735eaf2721e132d6",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/human-attention.md": {
+      "sha256": "a4edb31b0c617d100bf0c8246db43cdd8e3bad09af319f5db4800daa126c7c2d",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/invariant-contract.md": {
+      "sha256": "fd186d80193741d37c218bd04b380beba61942e12e7f8f26e6319d6473002703",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/knowledge-layout.md": {
+      "sha256": "a9f144c0d4c97d9d7a4ffbbf36c2cd33d8c5a0edcf52c9fb900aaa308ccc9b43",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/llm-failure-modes.md": {
+      "sha256": "ed918716f9356eb60cce09b2b5847ee0523bcc1f54b146df82dc7394c01e8d63",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/multi-service.md": {
+      "sha256": "408484e1b368fac08fb0107434d1c7ff9d6f65ddd891d7e3aa0ab36006a35565",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/presenting-and-proposing.md": {
+      "sha256": "cba4b5e18047ba7632b7898a89951a0df7c08eab680b634508075a7333a82498",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/runtimes.md": {
+      "sha256": "0eefc098a7d54c286cd9b75721d2549608e411b3a61dd8f6b7231b47decb9fad",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/step-acceptance.md": {
+      "sha256": "16749bdfb7cf2aa78b5b7943c3995713001d0e3a764ece0a7d0cffa8fbbeb962",
+      "ownership": "project-customizable"
+    },
+    "docs/reference/test-authoring.md": {
+      "sha256": "e845900af424e425710241a2610ad133f5eb05ba1a8ffe1097e262ffa8689752",
+      "ownership": "project-customizable"
+    },
+    "docs/testing-standards.md": {
+      "sha256": "b9beaabb5a0af73d64ffe86723ac473e0f40eb7a1cabcac850fe094403be201e",
+      "ownership": "project-customizable"
+    },
+    "env/README.md": {
+      "sha256": "626e423591b99e82513aaaba644f42d1734ef56dad029acffc3c76272dcaa9c9",
+      "ownership": "harness-owned"
+    },
+    "env/environment.example.json": {
+      "sha256": "ea3cc37cd639e8950b0e0fa248f97567aebc239ada62557975be38996673c99b",
+      "ownership": "harness-owned"
+    },
+    "feature_list.digest.md": {
+      "sha256": "9fda72732a0f3ae3232f93f5e32eb9138802bd4cd63cdb276e3be32910c1e78d",
+      "ownership": "harness-owned"
+    },
+    "feature_list.json": {
+      "sha256": "53994c7d54434ddcffa510bf4732a99f52a23c70ba0c59dcd687bf96046856f1",
+      "ownership": "harness-owned"
+    },
+    "init.cmd": {
+      "sha256": "824933615a8e8b806c4425976b9900794d5b96ff9738cd074727a3a9e5db8ccc",
+      "ownership": "harness-owned"
+    },
+    "init.mjs": {
+      "sha256": "9ff69cf348aa74fc4e0f023a35329edce4c1c52ba85b71236052e1493e645ee9",
+      "ownership": "project-customizable"
+    },
+    "init.sh": {
+      "sha256": "b7ca799eb2e9efd840e3d865ceb8092323fedc9fe033a394a15a3d10f7519275",
+      "ownership": "harness-owned"
+    },
+    "loop/approval-gate.mjs": {
+      "sha256": "d25b8d9bb9300c41b98beab6f9293c5828c6b59ebc364cb4dccb2174b4382b85",
+      "ownership": "harness-owned"
+    },
+    "loop/checker-prompt.md": {
+      "sha256": "cb7a7c735edbfee62e17f79027b84b61396f1c6b5cac96a25953a54b25f55a98",
+      "ownership": "harness-owned"
+    },
+    "loop/dispatch.cmd": {
+      "sha256": "bddc9f5d31bf3a231c48656231bff5245ed7ba1c57f5738d01df59782056dc15",
+      "ownership": "harness-owned"
+    },
+    "loop/dispatch.mjs": {
+      "sha256": "c7afd9db7c0b810c19cb34edb451a59fa0d6370ada557643e46cae62cfa47f54",
+      "ownership": "harness-owned"
+    },
+    "loop/dispatch.sh": {
+      "sha256": "d4d40a378e218f79ea89b35b76933878a0d89aa0cd0c923ef181c499af8ea020",
+      "ownership": "harness-owned"
+    },
+    "loop/goal.md": {
+      "sha256": "780d126854f7d9d3b1ce51310b9a9dcea4797ed90ac878cbdbadfcc9bb3a5a3b",
+      "ownership": "harness-owned"
+    },
+    "loop/maker-prompt.md": {
+      "sha256": "a9017c77185506da044d931d7e05d2ca240b4635e1ae568daee259e52828abe7",
+      "ownership": "harness-owned"
+    },
+    "loop/route.mjs": {
+      "sha256": "9417a0bf34f43ce5c4ebe3fcba14769f3070c23740af95bf3531599b58030982",
+      "ownership": "harness-owned"
+    },
+    "loop/run-loop.cmd": {
+      "sha256": "1b7b305f1d7ccf80f1533a9ce4003406d2190569534f0208730df0cb395db4cb",
+      "ownership": "harness-owned"
+    },
+    "loop/run-loop.mjs": {
+      "sha256": "a5bf1a7bc1b760202273d2d259f2af65357784a9ebb504cb71e22fccef2e91fa",
+      "ownership": "harness-owned"
+    },
+    "loop/run-loop.sh": {
+      "sha256": "36a3a9471c0cbf062b5af2ef27c096a9880d68940fe9ef98a9b9ed37c0fe0839",
+      "ownership": "harness-owned"
+    },
+    "loop/work-split/README.md": {
+      "sha256": "43b613b29bf64d79be4d4b65a9de25a1a1d33892a3d2f2a15b3ae04778613be5",
+      "ownership": "harness-owned"
+    },
+    "memory/checker/MEMORY.md": {
+      "sha256": "cccd8bed8b7efdafd27ef1d7c0b94850830767cb031d53c9978875c61409be64",
+      "ownership": "harness-owned"
+    },
+    "memory/design-facilitator/MEMORY.md": {
+      "sha256": "e43ffd3598c5550f27d0956bc341379048380dab8c2fe4a73dbf472bf7078fc9",
+      "ownership": "harness-owned"
+    },
+    "memory/feature-planner/MEMORY.md": {
+      "sha256": "fbb3f02fcdfd56ed280f083becf575f38ae1f83bb8519b197a473cfc38cd6dda",
+      "ownership": "harness-owned"
+    },
+    "memory/harness-setup/MEMORY.md": {
+      "sha256": "1d6979a3a75a73075171b8e13fc5320b3e0cbcb21523656387dcc4e1baaf5c6e",
+      "ownership": "harness-owned"
+    },
+    "memory/k8s-integration-tester/MEMORY.md": {
+      "sha256": "85fbdf610089e3290361982bdd2a646aa9c59bdf2c237af93600aa0765e4cd46",
+      "ownership": "harness-owned"
+    },
+    "memory/maker/MEMORY.md": {
+      "sha256": "f445697ffd282b8566a24ecd1d563cc6710d5f6ac5e141a14639f15f77f4b03c",
+      "ownership": "harness-owned"
+    },
+    "memory/orchestrator/MEMORY.md": {
+      "sha256": "690a68286f2f11329ab9e4f4454becc69967c6b5495d5a49077633b1e0c59b82",
+      "ownership": "harness-owned"
+    },
+    "memory/test-designer/MEMORY.md": {
+      "sha256": "577898d29c53ab89abb35e2006f86fe225feb18534fdb4f66a5a8e03dc1005c1",
+      "ownership": "harness-owned"
+    },
+    "memory/test-implementer/MEMORY.md": {
+      "sha256": "2a56410fa6d2a91bc344e880b13fd4022b3df9f19a683709ae36f7e8a43a4916",
+      "ownership": "harness-owned"
+    },
+    "progress.md": {
+      "sha256": "46b9e52e82afe448461b9ca496356f7254589f6b220a0582ebacd40ee6853fdc",
+      "ownership": "harness-owned"
+    },
+    "prompts/design-facilitator.md": {
+      "sha256": "90add8afd5ec252d9923bcabb73ec9a5bdc893a2fd906097f88cd0e23c97fe09",
+      "ownership": "project-customizable"
+    },
+    "prompts/feature-planner.md": {
+      "sha256": "51ef87738dca5080ac03d46d6b0279e037a5448a6aae49249a9c89e78a4fef53",
+      "ownership": "project-customizable"
+    },
+    "prompts/harness-setup.md": {
+      "sha256": "ab198c7116e9dd6743ccbd6cb9fb1326d754a298df10a540fb134f018c3918c6",
+      "ownership": "project-customizable"
+    },
+    "prompts/k8s-integration-tester.md": {
+      "sha256": "b3a46fa550ef7c1b5ca209e053200c1aa38cc4da61d51e7698ebcc437878f577",
+      "ownership": "project-customizable"
+    },
+    "prompts/orchestrator.md": {
+      "sha256": "75ba2a993ac2c02233f663e517e028b200d5b8388360d23867887020d5489cbc",
+      "ownership": "project-customizable"
+    },
+    "prompts/test-designer.md": {
+      "sha256": "744576ff1838345850bbe9559992095b29819be9a3caef25d4ce5630925c3161",
+      "ownership": "project-customizable"
+    },
+    "prompts/test-implementer.md": {
+      "sha256": "836970f06cc25ac1710a5e2f5cdc8dc1f290f8ccd9b170108406137d640dff69",
+      "ownership": "project-customizable"
+    },
+    "session-handoff.md": {
+      "sha256": "d2f7bbe2a5466460b5ad53256e2ec2a7d7fccffdc39705220308f71514dd5251",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/SKILL.md": {
+      "sha256": "2a3829746a5218a7ada964e11fff72226c801c2e41e244aee8d6e787eef52a0e",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/evals/evals.json": {
+      "sha256": "e65804576ab80a143f51dc1222b1ce2cc955e1638ae11f21615f1c1546775e57",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/evals/run-fixtures.mjs": {
+      "sha256": "3d3e7ff93d93dbbd9ae0396dfa6f4c4adc4db205c7df3685122f5840a4dbe02e",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/references/cucumber-profile.md": {
+      "sha256": "36f4586b20d656d365228421450cbd59d10bf9bf5478fcf198ea4c749bae79e4",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/references/driver-contract.md": {
+      "sha256": "6ed0b2b25189aa9ece8f98d3de149b2aa485ea9226efcb94d64c90cc13e27713",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/schemas/business-environment.schema.json": {
+      "sha256": "6c5dc2426dcc22638dd9866934f7267dd7ebbcf60fbc59d41602b27ea096de8f",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/schemas/journey-oracle.schema.json": {
+      "sha256": "3ff5075dc14a92937f8766be94c3dacec4d042e69a7b8dc3938909d0d07011c9",
+      "ownership": "harness-owned"
+    },
+    "skills/business-journey/scripts/check-business-journey.mjs": {
+      "sha256": "776158067ba6f7e7fa7af643af854ca1137d1e28f33fbccb73fb661cc1af2a48",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/SKILL.md": {
+      "sha256": "97ba7c34b4c20b50957c226fba9ff0052f9f8bcab37dbe57bed58a5a95068d6f",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/README.md": {
+      "sha256": "8006ce95ac25cd233d9ac670474e6c7bac17e4267c8835c189cd78d30dcd55c9",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/evals.json": {
+      "sha256": "4ef2ac61440492c6dc20c0f5a9bf0018da8d3bd44a3c75205958452bb649757e",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/fixtures/invented-invariant/docs/design/ledger.md": {
+      "sha256": "24e46fc4aa1d59f055b1810daeef973e94dd397e94d146a49be7d79b48ea4d07",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/fixtures/invented-invariant/feature_list.json": {
+      "sha256": "74b73807e962e916bbd39b28ef2ffc1321da022484c4791d74ea8b1b033a1b12",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/fixtures/orphan-build/feature_list.json": {
+      "sha256": "4c5dfc8e647dfc3e05191ebd90f8e7598c3a4d5b511fc1e824408e4b40b9ccb8",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/fixtures/valid/docs/design/ledger.md": {
+      "sha256": "24e46fc4aa1d59f055b1810daeef973e94dd397e94d146a49be7d79b48ea4d07",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/fixtures/valid/feature_list.json": {
+      "sha256": "f05701541cea60c843088dff7689958cdded431df32992ca4a4e5982e41fb436",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/inputs/ledger/docs/design/ledger.md": {
+      "sha256": "0dc8b026cf4e8f56ddb88b8ac8845d9c1d3158a214544158dd160476752a2879",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/inputs/ledger/package.json": {
+      "sha256": "9c0af952d0b4e5eb491e45beafc77b032242df6dfe236380d5a390bd28727f23",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/inputs/ledger/requirement.md": {
+      "sha256": "39030227a3f18f5ac9698d56f3936c5033e09c65766de0c4acd87554eacbecf0",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/evals/run-fixtures.mjs": {
+      "sha256": "4db3fcd5c3789c8c6b50c4738469ef8b520ba8326f8c529c40994af40f6db9f2",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/references/counterexamples.md": {
+      "sha256": "b5321817d6978cd450147e852c11cec5fa6cab3e7490e4ae6736d9754cdfd680",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/references/cutting-rules.md": {
+      "sha256": "a69634e05aac30cd04186a290ba022fed330605a9649bdeb627cbc2d7d83d709",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/schemas/feature-plan.schema.json": {
+      "sha256": "51a630dd06094e1ea278ae0fd9d9e1aec330e8bd3f8ddcfc44798c06aecdb96a",
+      "ownership": "harness-owned"
+    },
+    "skills/feature-planning/scripts/check-plan.mjs": {
+      "sha256": "65b7c59f0d9f40ba2cd599553081ffd23c828bb155cb83716f283678e2659b14",
+      "ownership": "harness-owned"
+    },
+    "skills/harness-upgrade/SKILL.md": {
+      "sha256": "73d9c91216bef4e1a165c59c236bec25ae632c1dca6b7dbd1fc4f1a07d316830",
+      "ownership": "harness-owned"
+    },
+    "skills/harness-upgrade/evals/evals.json": {
+      "sha256": "b4348136b6c255740d0bc3fe4b4482e476ac6366c6285d41426387f5781829d7",
+      "ownership": "harness-owned"
+    },
+    "skills/harness-upgrade/references/migrations.md": {
+      "sha256": "52c7e17b0780984c2748faa4286f09efcd60a991e07d12d081a2f95f616b1e7a",
+      "ownership": "harness-owned"
+    },
+    "skills/harness-upgrade/references/ownership.md": {
+      "sha256": "31d87a6e37d6c86a6c70a2f3e2eebf724e6a4895f7cb206fadade1911ff6b475",
+      "ownership": "harness-owned"
+    },
+    "skills/harness-upgrade/scripts/check-upgrade-plan.mjs": {
+      "sha256": "e239de2b53037556d219eb35475058468ce88c300503fcf89967cb4f9bb3ca61",
+      "ownership": "harness-owned"
+    },
+    "skills/harness-upgrade/scripts/plan-upgrade.mjs": {
+      "sha256": "51388a562775ac69ee49126995a127c2480de11341efcd7ab0b9221736f6e064",
+      "ownership": "harness-owned"
+    },
+    "skills/quality-strategy/SKILL.md": {
+      "sha256": "436b910720fe609ef24002f21abb4e4d8678cfd69506ed328bf787ad8b7e6a77",
+      "ownership": "harness-owned"
+    },
+    "skills/quality-strategy/evals/run-fixtures.mjs": {
+      "sha256": "60f2512632c9dcd4cdca2e9cd26ef3b2d1f84dbbb403851da8f8857fa37dc824",
+      "ownership": "harness-owned"
+    },
+    "skills/quality-strategy/references/google-concepts.md": {
+      "sha256": "442566d36094456e290e4a00c62a445fbc107fb6c1782ae204942c3d7f908229",
+      "ownership": "harness-owned"
+    },
+    "skills/quality-strategy/schemas/test-risk.schema.json": {
+      "sha256": "d3ebb0782af55c816b17271641385a5b7d5afb8587e6b07f58985173b2e1c94f",
+      "ownership": "harness-owned"
+    },
+    "skills/quality-strategy/scripts/check-quality-strategy.mjs": {
+      "sha256": "b8d9391a3a76a330d3d623ea09bd7b2715738702b97d896673811e3d772e05c1",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/SKILL.md": {
+      "sha256": "da54afce68bc6bb43bbdabe2665f460343dac8d65bdd2a62a47263550f109f83",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/checklists/designer-checklist.md": {
+      "sha256": "a7a89e75bb99b7f337b321bf4f32f2433d665c9513321570041943e3be291e9b",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/checklists/reviewer-checklist.md": {
+      "sha256": "888a2da7fdd3e42cf6ec703347486f66cbb9699915037359d54cbb91746c43e2",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/references/anti-patterns.md": {
+      "sha256": "446acb33b2307c9e208d425ace3c83d6200c1547cb1c78116272e1e26fa81650",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/references/decision-table.md": {
+      "sha256": "72ec5ea40f98b01198f5177d65f8da6c972f64aff2f3c29424d667b4111b06f5",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/references/generators.md": {
+      "sha256": "008a9a623bb0dafddd7dedaebbb332348bfec60a889f757148ac5d71f766c615",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/references/property-catalog.md": {
+      "sha256": "20a02e7ea93eabeb658344cb62f95c159f4c021b51a3c6bdaf99b00fdb04b76e",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/references/strategy-matrix.md": {
+      "sha256": "8bd2c32692ffb9d38164cc3fa50c31a2d0206b65a710af439b0a090483d4009f",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/schemas/test-case.schema.json": {
+      "sha256": "bf86a2ab43a68d4d314df5a03eaedf9f886438a18915b81a2390e9c9d785f7e1",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/schemas/test-condition.schema.json": {
+      "sha256": "1bd4be1e5792d118f751cc2ddc658af3a8ee4eac5848f4e9717c14f102329c79",
+      "ownership": "harness-owned"
+    },
+    "skills/test-design/schemas/test-plan.schema.json": {
+      "sha256": "78ffaa6ead2f82413a9b98c73ca165ffe088546a879fb902e96100b969cf1808",
+      "ownership": "harness-owned"
+    },
+    "tools/adoption-baseline.mjs": {
+      "sha256": "a42dfb8355e4e4693ff878b75e9b0101cd2bb74b3f364ff8c778aabc783776ae",
+      "ownership": "harness-owned"
+    },
+    "tools/agent-context.mjs": {
+      "sha256": "17ac34dc990eced814d0d6f21e8bee58c0e955116b0a769b2f1d21a443c9ab00",
+      "ownership": "harness-owned"
+    },
+    "tools/check-capability-eval.mjs": {
+      "sha256": "ca52c0730f15ecfb611e85911b56bbda5151da7d696eda54f89c1966674d494a",
+      "ownership": "harness-owned"
+    },
+    "tools/codex-dispatch.mjs": {
+      "sha256": "9714638b54c7f18a8229c0a1ac914943f87e63a1c35dec4bc78805ecc7c73465",
+      "ownership": "harness-owned"
+    },
+    "tools/collect-services.mjs": {
+      "sha256": "0cfda57b12ca3623174e6a7b07933f772cd7757e91d3691a01e10e4b00878a0c",
+      "ownership": "harness-owned"
+    },
+    "tools/context-budget.mjs": {
+      "sha256": "7a328a8d807ed3d99f398b8431b3a4a3cf4468faaaa2036a4d2f59613c11a2f3",
+      "ownership": "harness-owned"
+    },
+    "tools/context-collection-eval.mjs": {
+      "sha256": "ab934f4daa7c4a3a9142ac54fdfc4587040a2991f9d5d5c282dd5f42d218e1c7",
+      "ownership": "harness-owned"
+    },
+    "tools/context-plan.mjs": {
+      "sha256": "6348238cbe04a4a39b848f85866565e0cda857c912e798930bdb1e25771a22dd",
+      "ownership": "harness-owned"
+    },
+    "tools/cross-cutting-audit.mjs": {
+      "sha256": "512af4fafc656ca04cce577bc66811c8538f9cb301a7daf92e60c91a7db68164",
+      "ownership": "harness-owned"
+    },
+    "tools/environment.mjs": {
+      "sha256": "0c836a3f5e2f268a13da2e8cba745fad495a5924538988dc2cd36ef8c7a4b7bc",
+      "ownership": "harness-owned"
+    },
+    "tools/feature-digest.mjs": {
+      "sha256": "9caefdc22bfca7f6be013688cdf1ae7275ec77eaaf09a776b59faa7351122cee",
+      "ownership": "harness-owned"
+    },
+    "tools/feature.mjs": {
+      "sha256": "cbdd67dc9b51088048e59b08efac9eb73f0e4e64c7063c462d5aa7e547dca196",
+      "ownership": "harness-owned"
+    },
+    "tools/gen-agents.mjs": {
+      "sha256": "9792acf7616a7d608c69acd5c69bbfab8b90ad2f47ebcbb05032ff9119f90da6",
+      "ownership": "harness-owned"
+    },
+    "tools/guard-write.mjs": {
+      "sha256": "e17b727747175469e6d2bb98d53289b7d40e94511392ac06b4fcc4c55466ed7b",
+      "ownership": "harness-owned"
+    },
+    "tools/harness-status.mjs": {
+      "sha256": "3a97af7313b6053dfc4fd9b71f2c41f55eb3d7466f6f26e3ba07a1fd3ff214a3",
+      "ownership": "harness-owned"
+    },
+    "tools/hook-calibrate.mjs": {
+      "sha256": "a62ed156d75471abaac6784c1f7ccd0442c3001bb325c584f316b447a78ae65b",
+      "ownership": "harness-owned"
+    },
+    "tools/k8s-test-env.sh": {
+      "sha256": "2d0097a4fa9454d3a2ac6fae6a46ade9fa9694c99356d071edc9616661062528",
+      "ownership": "harness-owned"
+    },
+    "tools/loop-status.mjs": {
+      "sha256": "2120586bc77ecabe03b5e08aac2a7ef5f09bd1a9a609445c26ce15810652d909",
+      "ownership": "harness-owned"
+    },
+    "tools/mcp-k8s-readonly-wrapper.sh": {
+      "sha256": "79eff7ece7044d54b26283b7a0f88677d8abcd72bb92cd8ad1916e1af60bfc62",
+      "ownership": "harness-owned"
+    },
+    "tools/memory-consolidate.mjs": {
+      "sha256": "995705da89829466b85cbd84642d90ac751fc466f803a62cb5226fb7bbe5c841",
+      "ownership": "harness-owned"
+    },
+    "tools/memory-promote.mjs": {
+      "sha256": "92365ddaeac926f7fc559f015195ce5d450e75f547be8b159702b56987bacaa2",
+      "ownership": "harness-owned"
+    },
+    "tools/memory-query.mjs": {
+      "sha256": "ac43a356bdbf8e2ef4117ab83c6d4cd8b3bf88309b54e594d9668063913fdc33",
+      "ownership": "harness-owned"
+    },
+    "tools/replay-parallel.mjs": {
+      "sha256": "0325b0de0ec44bda01ca2b2a6a76adb9cf174db0307e54825769b3387d457f05",
+      "ownership": "harness-owned"
+    },
+    "tools/review-contract.mjs": {
+      "sha256": "c8e7b10339e849e08da76d98100794328f0c0c1b202908da55dd313d04151aab",
+      "ownership": "harness-owned"
+    },
+    "tools/review-digest.mjs": {
+      "sha256": "6ab93c7cca9df5138ffe9031b5d6d887f2a0fe2f14a91bf9ae0cbae3186dddea",
+      "ownership": "harness-owned"
+    },
+    "tools/run-report.mjs": {
+      "sha256": "77235b73d0c83a9459293ded878b62107b4e18406fd45e3b72136481ab05b249",
+      "ownership": "harness-owned"
+    },
+    "tools/services-check.mjs": {
+      "sha256": "31f3b3d4201fa5c98c494b2b311ca67806312f704eaf4ddf239ceda1ec72b073",
+      "ownership": "harness-owned"
+    },
+    "tools/survey-project.mjs": {
+      "sha256": "a347e8ac9722ddc714bf0caceb057175ad1fe93cb0040b0881c9b0f338e1f020",
+      "ownership": "harness-owned"
+    },
+    "tools/telemetry-calibrate.mjs": {
+      "sha256": "c50202ff01e93eecdab12f7421e0d41b4de93b9ec725ab3d5254244ef0b3b272",
+      "ownership": "harness-owned"
+    },
+    "tools/telemetry.mjs": {
+      "sha256": "37e87f33822a4ff65218365526acf1d024ecd4afe457cd899c958b7d865e9a90",
+      "ownership": "harness-owned"
+    },
+    "tools/timeline.mjs": {
+      "sha256": "3a5711c4d7118f20b8c9832173c841f8423fa700e4da7929532d5310fbe23f5f",
+      "ownership": "harness-owned"
+    },
+    "tools/trace.mjs": {
+      "sha256": "436c3877324a26c897d12d0a46ec96620c05d4d961bfccccad1f770906e50cb4",
+      "ownership": "harness-owned"
+    },
+    "tools/verify-harness.mjs": {
+      "sha256": "3f74a8624377bf6d2d91e8592141c7482e9722e608d65ee85b087a49cc41c259",
+      "ownership": "harness-owned"
+    },
+    "tools/work-split.mjs": {
+      "sha256": "1cf8590cc350199ad38bc60a3da2fbc604b43ed91a43dbb67fdafcab710850e0",
+      "ownership": "harness-owned"
+    },
+    "vendor.manifest.json": {
+      "sha256": "f6cb413dc32841e9dea018216d141655035764f5069421291cac215deb6b07ca",
+      "ownership": "harness-owned"
+    }
+  }
+}

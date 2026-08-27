@@ -1,0 +1,20 @@
+{
+  "id": "TC-INGEST-0003",
+  "condition_id": "TCON-INGEST-0003",
+  "requirement_id": "INV-META-1",
+  "technique": "decision_table",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.IngestContractTest",
+  "test_method": "everyRequiredIdentityFieldIsRejectedWhenMissingOrBlank_INV_META_1",
+  "preconditions": [
+    "The base v1 fixture has all six required identity fields",
+    "A capturing IndexPort records every submitted document"
+  ],
+  "steps": [
+    "For each of namespace, pod, container, workload, observedAt, and source, submit one missing-field and one blank-field record"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "Every invalid identity variant returns a metadata or source rejection and the IndexPort receives zero documents."
+  }
+}

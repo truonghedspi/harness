@@ -1,0 +1,12 @@
+{
+  "plan_id": "TP-INGEST-0003",
+  "component": "serialized ingest boundary and captured index port",
+  "spec_refs": [
+    "harness/docs/design/log-debug-context.md#data-and-query-contract",
+    "harness/docs/design/log-debug-context.md#invariants-and-test-seams",
+    "harness/docs/cross-cutting.md#X-008",
+    "harness/feature_list.json#feat-003"
+  ],
+  "risk_tier": "T1",
+  "spec_gaps": []
+}

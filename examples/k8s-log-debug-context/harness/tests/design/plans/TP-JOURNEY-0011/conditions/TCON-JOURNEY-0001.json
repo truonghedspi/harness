@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0001",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-JOURNEY-1",
+  "behavior": "Given a uniquely named disposable namespace and an opted-in workload that emits a unique marker with test.run_id, an authenticated get_failure_context call returns that marker plus namespace, pod, container, workload, observed timestamp, and the same test.run_id through MCP.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only a Level-3 end-to-end scenario across the collector, ingest boundary, OpenSearch, and MCP can detect loss or distortion between independently deployed components."
+}

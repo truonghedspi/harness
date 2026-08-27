@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0007",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-READ-1",
+  "behavior": "A journey client using its scoped ServiceAccount JWT can retrieve the marker through Streamable HTTP MCP, while the same client identity has no pod-log read permission, no OpenSearch credential, and no direct network path to OpenSearch.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "The deployed identity and network boundary must be exercised together to prove that successful diagnosis depends only on MCP rather than hidden backend access."
+}

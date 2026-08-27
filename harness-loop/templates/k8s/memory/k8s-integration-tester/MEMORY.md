@@ -9,4 +9,7 @@ environmental (resource contention, a stale image, a cluster-specific quirk), or
 change was needed for a non-obvious reason. Don't write one for a routine deploy/test/teardown
 cycle that worked as expected.
 
+Write entries and hooks **in English**, whatever language the rest of the project uses: memory is
+addressed to whichever agent reads it next, not to this project's readers (`docs/reference/agent-memory.md`).
+
 <!-- - [Title](slug.md) — one-line hook -->

@@ -1,0 +1,20 @@
+{
+  "id": "TC-INGEST-0002",
+  "condition_id": "TCON-INGEST-0002",
+  "requirement_id": "INV-REDACT-1",
+  "technique": "decision_table",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.IngestContractTest",
+  "test_method": "configuredSecretsAreRedactedInEverySupportedLocation_INV_REDACT_1",
+  "preconditions": [
+    "IngestPolicy configures the distinct literal token-9Z! for redaction",
+    "A capturing IndexPort exposes only the submitted normalized document"
+  ],
+  "steps": [
+    "Submit records with the literal in message only, attribute only, both locations, and neither location"
+  ],
+  "expected": {
+    "assertion_kind": "state",
+    "description": "Every configured occurrence is replaced by [REDACTED], safe content and attribute keys remain unchanged, and no captured document contains the secret."
+  }
+}

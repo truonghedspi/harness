@@ -1,0 +1,19 @@
+{
+  "id": "TC-MCP-0003",
+  "condition_id": "TCON-MCP-0003",
+  "requirement_id": "INV-BOUND-1",
+  "technique": "example",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "oversizedContextIsBoundedWithoutPartialRecordsAndReportsTruncation_INV_BOUND_1",
+  "preconditions": [
+    "The capturing IndexPort supplies complete distinct records whose unbounded response exceeds 256 KiB"
+  ],
+  "steps": [
+    "Measure the complete HTTP response and compare each included record start marker with its end marker"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "The complete response is no larger than 256 KiB, contains only whole records, and explicitly reports truncation."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0007",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-AUTH-1",
+  "behavior": "Given the same recognized MCP tool request with validation-invalid arguments, a valid Kubernetes ServiceAccount JWT reaches normal tool validation after dispatch with zero index queries, while a missing or invalid JWT is rejected as unauthorized with zero tool dispatches and zero index queries.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Credential state selects one of two observable authorization outcomes; a three-row decision table distinguishes valid admission from both unauthenticated paths and proves rejection occurs before privileged seams."
+}

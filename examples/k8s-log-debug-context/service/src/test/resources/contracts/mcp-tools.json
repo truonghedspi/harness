@@ -1,0 +1,27 @@
+{
+  "protocolVersion": "2025-06-18",
+  "validBearerToken": "valid-sa-jwt",
+  "invalidBearerToken": "invalid-sa-jwt",
+  "toolNames": [
+    "search_logs",
+    "get_failure_context"
+  ],
+  "maximumIntervalMinutes": 15,
+  "maximumRecords": 200,
+  "maximumResponseBytes": 262144,
+  "deadlineSeconds": 5,
+  "searchArguments": {
+    "namespace": "ci-payments",
+    "workload": "payments-test",
+    "fromInclusive": "2026-08-26T09:45:00Z",
+    "toExclusive": "2026-08-26T10:00:00Z",
+    "maxRecords": 200,
+    "messageContains": "failed"
+  },
+  "failureArguments": {
+    "testRunId": "run-8842",
+    "fromInclusive": "2026-08-26T09:45:00Z",
+    "toExclusive": "2026-08-26T10:00:00Z",
+    "maxRecords": 200
+  }
+}

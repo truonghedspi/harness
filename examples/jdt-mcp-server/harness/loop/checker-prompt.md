@@ -51,6 +51,10 @@ rules keep it from leaving debris:
 
 For every feature with `"readyForCheck": true`:
 
+0. Require `node harness/tools/review-contract.mjs <feat-id>` to pass. A malformed handoff is
+   `SUBMISSION_INCOMPLETE`, not REJECT: clear `readyForCheck`, leave `attempts` unchanged, and name
+   the missing field. Do not spend semantic-review budget on evidence the admission gate could
+   classify mechanically.
 1. Re-run the recorded `evidence` command yourself. Evidence that does not reproduce is treated
    as absent — reject.
 2. Exercise the highest verification level the change touches (`harness/docs/testing-standards.md`). If a
@@ -87,9 +91,18 @@ reason, or a vague one ("couldn't figure it out"), is not acceptable — send it
 
 Verdict per feature:
 
-- **APPROVE** → set `"status": "done"`, remove `readyForCheck`, keep the evidence block.
-- **REJECT** → write concrete reasons into `checkerNotes`, set `"status": "in-progress"`, and
-  set `readyForCheck` back to `false`.
+- Write a structured `checkerVerdict` for every semantic verdict:
+  `{status, basis, violatedRef, counterexample, reproduction, observed, exitCriterion}`. `basis` is
+  `declared-contract` when the public rubric was violated or `novel-counterexample` when your
+  private probe found something the maker could not have known. Prose in `checkerNotes` remains a
+  readable rendering and routing marker, never the only source of the verdict.
+- **APPROVE** → set `"status": "done"`, remove `readyForCheck`, keep the evidence block, and set
+  `checkerVerdict.status="approve"`.
+- **REJECT** → increment `attempts` by one (it counts failed review cycles, not maker checkpoints),
+  write concrete reasons into `checkerNotes`, set `checkerVerdict.status="reject"` with every
+  field above, and set `readyForCheck` back to `false`. If the new
+  count reaches `maxAttempts`, set `status: blocked` with the concrete exhausted-review reason;
+  otherwise set `status: in-progress` so the maker can address the verdict.
 - **REJECT because the claim rests on an unexamined design assumption** (the behavior may be
   implemented correctly, but only under a premise nobody wrote down) → start `checkerNotes` with
   `NEEDS DESIGN:` and name the assumption. The `design-facilitator` picks it up; the maker is forbidden from
@@ -104,6 +117,17 @@ Verdict per feature:
   That marker is the routing signal: the next session runs the `feature-planner` agent against it
   before any maker touches it again — you never restructure `harness/feature_list.json` yourself, and the
   maker doesn't either.
+- **The red comes from the ORACLE, not the implementation** (the test asserts something its own
+  validated condition never said, or its fixture contradicts its assertion) → start `checkerNotes`
+  with `NEEDS ORACLE FIX:` and quote the exact assertion line and why it contradicts the condition.
+  Do **not** REJECT: the maker's implementation may be correct, and a REJECT sends them to change
+  working code. Do not fix the test yourself either — you are write-restricted to state files
+  precisely so a green you produced cannot be presented as the maker's.
+  This marker is the routing signal that carries a `prove` feature back to the oracle layer even
+  after its `evidence` is non-empty; without it that feature is unreachable by every node, because
+  the test-implementer rule keys on empty evidence and the maker is forbidden from touching an
+  oracle-layer test. Say explicitly which assertion carries the falsifier's force and must NOT be
+  weakened — a repair permission is not a permission to make the test easier to pass.
 - **APPROVE with real non-blocking work remaining** → approve the current claim, then start the
   first line of `checkerNotes` with `FOLLOW-UP:` and state one actionable concern. The router sends
   it to the planner, which owns creating explicit scope or documenting why it is discarded.
@@ -121,7 +145,9 @@ write-restricted to state files (`harness/feature_list.json`, `harness/progress.
 `harness/trace/**`, `harness/memory/checker/**`) by design, so you cannot pass your own edits off as the maker's
 work.
 
-If a claim looked right but wasn't, and the way you caught it wasn't obvious — or a whole class of
-feature keeps needing the same extra scrutiny — write one entry to `harness/memory/checker/` (new
-`<slug>.md` + a line in `MEMORY.md`). Don't write one for a routine approve/reject; that's the job
-working as intended, not a lesson.
+**End-of-session reflection — answer it, don't skip it:** did this session produce something the
+*next* checker run shouldn't have to rediscover — a claim that looked right but wasn't and the way
+you caught it wasn't obvious, or a whole class of feature that keeps needing the same extra
+scrutiny?
+- **Yes** → write one entry to `harness/memory/checker/` (new `<slug>.md` + a line in `MEMORY.md`).
+- **No** → nothing to write. A routine approve/reject is the job working as intended, not a lesson.

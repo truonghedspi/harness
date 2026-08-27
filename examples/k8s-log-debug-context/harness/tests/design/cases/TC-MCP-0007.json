@@ -1,0 +1,19 @@
+{
+  "id": "TC-MCP-0007",
+  "condition_id": "TCON-MCP-0007",
+  "requirement_id": "INV-AUTH-1",
+  "technique": "decision_table",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "authorizationPrecedesDispatchWhileValidJwtReachesNormalValidation_INV_AUTH_1",
+  "preconditions": [
+    "One initialized MCP session sends the same recognized tool and invalid arguments with valid, missing, and invalid bearer credentials"
+  ],
+  "steps": [
+    "Observe HTTP outcomes, deterministic validator inputs, and captured index searches for all three credential rows"
+  ],
+  "expected": {
+    "assertion_kind": "state",
+    "description": "A valid JWT reaches normal argument validation; missing and invalid JWTs are unauthorized before dispatch; none of the invalid calls queries the index."
+  }
+}

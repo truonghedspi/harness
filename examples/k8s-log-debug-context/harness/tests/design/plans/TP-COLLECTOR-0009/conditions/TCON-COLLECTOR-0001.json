@@ -1,0 +1,10 @@
+{
+  "id": "TCON-COLLECTOR-0001",
+  "plan_id": "TP-COLLECTOR-0009",
+  "requirement_id": "INV-SCHEMA-1",
+  "behavior": "Given two representative opted-in container log entries, the real collector pipeline sends exactly two ingress requests, and each request body is one UTF-8 JSON object with numeric schemaVersion 1 rather than a batch or transport envelope and is accepted by IngestService.ingest(String).",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "The one-record-per-request wire shape is observable only across the real collector configuration, capture HTTP endpoint, and serialized ingest seam, so a contract test catches batching and incompatible envelope defects."
+}

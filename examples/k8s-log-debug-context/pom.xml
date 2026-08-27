@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.harness</groupId>
+  <artifactId>k8s-log-debug-context</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <junit.version>5.11.4</junit.version>
+    <!--
+      Red-first contract oracles live under the contract package before their product feature is
+      implemented. The normal baseline remains a real suite, but does not treat those expected
+      reds as a broken checkout. -Poracle-test selects them explicitly for feature verification.
+    -->
+    <baseline.test.excludes>**/contract/**</baseline.test.excludes>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <testSourceDirectory>service/src/test/java</testSourceDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>require-java-21-compatible-jdk</id>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules><requireJavaVersion><version>[21,)</version></requireJavaVersion></rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+        <configuration>
+          <failIfNoTests>true</failIfNoTests>
+          <excludes>
+            <exclude>${baseline.test.excludes}</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <profiles>
+    <profile>
+      <id>oracle-test</id>
+      <properties>
+        <baseline.test.excludes>**/__no_contract_test_matches__/**</baseline.test.excludes>
+      </properties>
+    </profile>
+  </profiles>
+</project>

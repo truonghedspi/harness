@@ -1,0 +1,10 @@
+{
+  "id": "TCON-WSID-0002",
+  "plan_id": "TP-WSID-0001",
+  "requirement_id": "INV-POOL-1",
+  "behavior": "For any two fixture paths the router itself puts in one project -- resolveWorkspace returns the same workspaceId for both, e.g. reactor root and a file nested in a module, or a symlink alias and the real root when the router calls them one -- acquiring each through its own returned projectRoot yields leases carrying one identical workspaceId and one identical absolute dataDir, and while both leases are held pool.status() lists exactly one live workspace covering them, never two.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Same seam and bug class as TCON-WSID-0001, so the same contract technique, but a claim it cannot make: this pins the -data allocation, not only the id [INV-POOL-1]. Taking the equivalence class from the router's own output keeps it decidable while X-005 is open. It goes red where id agreement stays green: a pool keying its live-workspace map or its dataDir on the projectRoot string handed to it, not on the agreed identity, splits one project across two -data dirs once a root is spelled two ways."
+}

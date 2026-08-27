@@ -36,6 +36,14 @@ const captured = {
     wrapper: wrapperNames.map((f) => path.join(project, f)).find(existsSync) || null,
   },
   kubernetes: { kubeconfig: process.env.KUBECONFIG || null, context: kubeContext() },
+  // Small CLI utilities the harness's own documented workflows reach for. They matter because
+  // their ABSENCE is silent: on macOS neither `timeout` nor `gtimeout` exists, so a mutant round
+  // written as `timeout 120 node --test ... | grep "^not ok"` sends `command not found` to stderr,
+  // the grep sees empty input, and the pass prints its headers and nothing else — which reads as
+  // "every mutant survived", the most expensive wrong conclusion available at that step. Two
+  // separate makers on examples/jdt-mcp-server rediscovered this five features apart. A missing
+  // utility recorded here is a fact the next agent reads instead of paying for again.
+  utilities: Object.fromEntries(["timeout", "gtimeout", "jq", "rg"].map((name) => [name, commandPath(name)])),
   apiKeys: Object.fromEntries(keys.map((name) => [name, { source: "environment", present: !!process.env[name] }])),
 };
 if (args.includes("--capture")) {
@@ -53,4 +61,8 @@ else {
   console.log(`  maven   ${output.maven?.wrapper || output.maven?.executable || "not found"}`);
   console.log(`  k8s     ${output.kubernetes?.context || "no current context"}`);
   console.log(`  api keys ${Object.entries(output.apiKeys || {}).filter(([, v]) => v.present).map(([k]) => k).join(", ") || "none present"}`);
+  const utils = output.utilities || {};
+  const missing = Object.entries(utils).filter(([, v]) => !v).map(([k]) => k);
+  console.log(`  utils   ${Object.entries(utils).filter(([, v]) => v).map(([k]) => k).join(", ") || "none"}` +
+    `${missing.length ? `   MISSING: ${missing.join(", ")} — a command that is absent fails into an empty pipe, not an error` : ""}`);
 }

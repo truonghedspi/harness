@@ -1,0 +1,10 @@
+{
+  "id": "TCON-DIAG-0005",
+  "plan_id": "TP-DIAG-0001",
+  "requirement_id": "INV-DIAG-3",
+  "behavior": "Given a live JDT LS instance attached to the cache under workspaceId A that has published a real diagnostic for a file URI, when java_diagnostics is called through its production signature with a facade whose workspace() routes to a different workspaceId B while scopeOf() yields that same file URI of A, then the answer carries exactly one entry and its status is the explicit 'not-reported' marker; workspace A's report is never served to B.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "TCON-DIAG-0003 gives the two workspaces two distinct absolute paths, so the URI alone already separates them and workspaceId becomes a redundant key component -- checker mutants m1 (one flat map keyed by URI only, shared by absorb/get/list/forget) and m2 (get() scanning every other workspace on a miss) both survive it. The discriminating axis is two workspaceIds colliding on ONE canonical URI, which only the cache key can decide; it needs a real publish through cache.attach so the report under test is one the notification path actually absorbed, not an injected payload [INV-DIAG-3]."
+}

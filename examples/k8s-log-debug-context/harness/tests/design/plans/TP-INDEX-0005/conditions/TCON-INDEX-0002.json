@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INDEX-0002",
+  "plan_id": "TP-INDEX-0005",
+  "requirement_id": "INV-CORR-1",
+  "behavior": "Given real indexed records inside one time window where exactly one record has the requested test.run_id and distractors share its namespace, workload, and message but have different or absent run identifiers, a run-id query returns only the exactly matching record and never falls back to a distractor.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Exact correlation depends on the query plan surviving translation into real OpenSearch semantics; a contract test with near-identical distractors catches ignored run-id filters and accidental fallback."
+}

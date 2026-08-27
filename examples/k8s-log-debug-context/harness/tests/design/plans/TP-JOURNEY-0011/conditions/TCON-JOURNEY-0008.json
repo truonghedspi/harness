@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0008",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-JOURNEY-1",
+  "behavior": "On successful completion, assertion failure, or outer-watchdog timeout, the journey invokes trapped cleanup and terminates only after its uniquely named namespace is absent or after cleanup reports a loud bounded failure.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Lifecycle behavior is observable only around the complete Kubernetes scenario, including forced failure paths that expose missing traps and unbounded teardown."
+}

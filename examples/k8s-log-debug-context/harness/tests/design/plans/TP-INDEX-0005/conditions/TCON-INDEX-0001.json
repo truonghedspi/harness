@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INDEX-0001",
+  "plan_id": "TP-INDEX-0005",
+  "requirement_id": "INV-META-1",
+  "behavior": "Given a sanitized normalized record whose namespace, pod, container, workload, observedAt, source, message, and test.run_id all have distinct values, indexing and then retrieving it through the index port backed by real OpenSearch returns those values unchanged.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "The defect can occur only across document serialization, the real OpenSearch mapping, and result deserialization; a boundary contract with distinct literals detects omitted, swapped, or incorrectly typed searchable fields."
+}

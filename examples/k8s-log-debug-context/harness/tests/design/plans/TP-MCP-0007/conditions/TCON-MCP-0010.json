@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0010",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-TOOLS-1",
+  "behavior": "Given a valid Kubernetes ServiceAccount JWT, an invocation of any tool name outside search_logs and get_failure_context is rejected as unknown before an index query.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Membership in the approved two-name set decides dispatch eligibility; a closed-set decision table catches aliases or unpublished tool names that leak through to the index adapter."
+}

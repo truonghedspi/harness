@@ -202,7 +202,13 @@ test("TCON-POOL-0003: eviction always preserves the absolute data directory for 
 
     const live = await statuses(pool);
     for (const evictedProject of recorder.stopOrder) {
-      assert.equal(workspaceForProject(live, evictedProject), undefined, "an evicted workspace must be absent from pool.status()");
+      // TCON-POOL-0003 giới hạn sự vắng mặt khỏi status vào đúng thời điểm evict. Một project đã bị
+      // evict rồi được acquire lại (fixture cố ý làm vậy với project-0) đang sống hợp lệ, nên chỉ
+      // khẳng định vắng mặt cho project chưa được acquire lại kể từ lần evict.
+      if (!recorder.liveProjects.has(evictedProject)) {
+        assert.equal(workspaceForProject(live, evictedProject), undefined, "an evicted workspace must be absent from pool.status()");
+      }
+      // INV-POOL-4: thư mục -data phải tồn tại cho MỌI workspace từng bị evict, không có ngoại lệ.
       const dataDir = rememberedDataDirs.get(evictedProject);
       assert.ok(dataDir, `test must have observed ${evictedProject}'s data directory before eviction`);
       assert.ok(existsSync(dataDir), `eviction must preserve ${evictedProject}'s -data directory at ${dataDir}`);

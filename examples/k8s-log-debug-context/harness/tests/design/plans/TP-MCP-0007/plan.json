@@ -1,0 +1,14 @@
+{
+  "plan_id": "TP-MCP-0007",
+  "component": "Streamable HTTP MCP wire boundary",
+  "spec_refs": [
+    "requirement.md#required-outcomes",
+    "harness/docs/design/log-debug-context.md#data-and-query-contract",
+    "harness/docs/design/log-debug-context.md#invariants-and-test-seams",
+    "harness/docs/cross-cutting.md#X-006",
+    "harness/docs/cross-cutting.md#X-007",
+    "harness/feature_list.json#feat-007"
+  ],
+  "risk_tier": "T1",
+  "spec_gaps": []
+}

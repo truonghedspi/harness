@@ -1,0 +1,13 @@
+{
+  "plan_id": "TP-JOURNEY-0011",
+  "component": "Kubernetes diagnostic-context Level-3 journey",
+  "spec_refs": [
+    "requirement.md#required-outcomes",
+    "harness/docs/design/log-debug-context.md#invariants-and-test-seams",
+    "harness/docs/cross-cutting.md#cross-cutting-decision-register--kubernetes-log-debug-context",
+    "harness/docs/constraints.md#must",
+    "harness/feature_list.json#feat-011"
+  ],
+  "risk_tier": "T2",
+  "spec_gaps": []
+}

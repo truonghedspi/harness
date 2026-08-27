@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0004",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "Given more than 200 matching records whose unbounded serialization exceeds 256 KiB inside an allowed interval, a successful authenticated MCP query returns at most 200 records and at most 256 KiB, reports truncation, and exposes no pagination cursor or continuation token.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "An over-budget dataset traversing the real storage and wire boundaries discriminates server-enforced limits from client-side or mocked truncation."
+}

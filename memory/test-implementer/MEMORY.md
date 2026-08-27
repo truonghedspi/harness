@@ -8,4 +8,8 @@ Write a new entry when a test could not be made to fail red for a non-obvious re
 generator produced useless inputs until it was fixed, or when a mutant survived a test that looked
 sufficient. Don't write one for a routine red-green cycle.
 
+Write entries and hooks **in English**, whatever language the rest of the project uses: memory is
+addressed to whichever agent reads it next, not to this project's readers. Entries already written
+in another language stay as they are — this governs what gets written from now on.
+
 <!-- - [Title](slug.md) — one-line hook -->

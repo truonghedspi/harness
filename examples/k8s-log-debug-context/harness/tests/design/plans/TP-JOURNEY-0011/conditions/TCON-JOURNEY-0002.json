@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0002",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-REDACT-1",
+  "behavior": "Given an opted-in workload log containing a unique safe marker and configured secret values in both message text and structured attributes, authenticated MCP retrieval returns the safe marker but never any original secret value.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "The externally observed MCP response must prove that redaction survives the complete collection and indexing path rather than only an isolated redaction unit."
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "design-approval/1",
+  "designDigest": "4ff1c56ce4b88469",
+  "status": "approved",
+  "approvedBy": "project owner",
+  "approvedAt": "2026-08-26",
+  "decisions": [
+    "Use the recommended node-level OpenTelemetry Collector pipeline with sidecar fallback for inaccessible sources.",
+    "Bound MCP queries to 15 minutes, 200 records, 256 KiB, and five seconds without pagination.",
+    "Authenticate cluster-internal Streamable HTTP with Kubernetes ServiceAccount JWT and NetworkPolicy.",
+    "Require schemaVersion 1, allow additive compatibility, and reject unsupported major versions."
+    ,
+    "Make schema compatibility independently observable through INV-SCHEMA-1 at the ingest-to-index seam.",
+    "Make JWT authorization outcomes observable through INV-AUTH-1 and the exact MCP tool surface through INV-TOOLS-1.",
+    "Define the serialized JSON v1 ingress contract and IngestService/IndexPort observable seam for independent oracle implementation.",
+    "Define the OpenSearch query-port seam and exact correlation result contract for independent storage oracle implementation.",
+    "Define McpServiceBootstrap start/endpoint/close seam with injected IndexPort and ServiceAccountJwtValidator for independent MCP wire tests."
+  ],
+  "acceptedRisks": [
+    {
+      "concern": "The target cluster may prevent a DaemonSet from reading selected node logs.",
+      "reason": "The owner accepted a preflight-first approach with sidecar fallback for confirmed inaccessible workloads."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "TC-INGEST-0001",
+  "condition_id": "TCON-INGEST-0001",
+  "requirement_id": "INV-SCOPE-1",
+  "technique": "decision_table",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.IngestContractTest",
+  "test_method": "onlyOptedInNonProductionRecordsReachTheIndex_INV_SCOPE_1",
+  "preconditions": [
+    "IngestPolicy admits only environment test",
+    "A capturing IndexPort records every submitted document"
+  ],
+  "steps": [
+    "Submit the opted-in test fixture, then variants with optIn false, optIn missing, and production environment"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "Only the opted-in test record is accepted and indexed once; every other row returns OUT_OF_SCOPE and is not indexed."
+  }
+}

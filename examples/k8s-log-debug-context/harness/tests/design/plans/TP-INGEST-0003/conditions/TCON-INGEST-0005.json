@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INGEST-0005",
+  "plan_id": "TP-INGEST-0003",
+  "requirement_id": "INV-SCHEMA-1",
+  "behavior": "Given an otherwise valid serialized record declaring an unsupported major schema version, the ingest boundary returns a validation rejection and the captured index port observes zero submissions.",
+  "behavior_shape": "decision",
+  "technique": "equivalence_partition",
+  "priority": "P0",
+  "rationale": "The declared major version partitions ingress into supported and unsupported classes; an unsupported-class example directly catches permissive parsers that index versions outside the approved contract."
+}

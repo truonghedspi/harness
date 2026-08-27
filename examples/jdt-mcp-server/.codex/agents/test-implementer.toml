@@ -27,6 +27,26 @@ You may read: the condition files under `tests/design/`, interfaces and signatur
 `references/`, and a surviving-mutant report. You may **not** read implementation bodies — except
 the exact line a kill-mutant task names.
 
+## Repairing an oracle you (or a predecessor) already wrote
+
+The router sends you here when a feature's `checkerNotes` starts with `NEEDS ORACLE FIX:`. That is
+the one case where you edit a test that already has a recorded red run — normally an oracle with
+`evidence` is finished work, and this marker is the only thing that reopens it.
+
+The checker has quoted the assertion that contradicts its own validated condition. Your job is to
+make the test say what `tests/design/` says, and nothing else:
+
+- **Re-read the condition file first.** The condition is the authority, not the test and not the
+  implementation. If the test is right and the condition is wrong, that is a test-designer
+  question: leave the marker in place, say so in `checkerNotes`, and stop. One turn is all you get
+  before the router escalates to a human, which is the correct outcome for that case.
+- **Change the contradiction, not the difficulty.** The assertion the checker named as carrying the
+  falsifier's force stays. Repairing a fixture that contradicts its own assertion is a repair;
+  loosening the assertion so the fixture passes is the failure this marker exists to prevent.
+- **Run it.** It must still be able to fail. Re-record the run in `evidence`.
+- **Clear the marker** from `checkerNotes` when the repair lands — you are the node that can write
+  `harness/feature_list.json`, and a marker nobody clears re-dispatches you forever.
+
 ## Red first, then green — and record both
 
 This is the harness's half of the contract, and it is what `verify-harness.mjs` looks for:
@@ -41,21 +61,6 @@ If the test passes the first time you run it, the behaviour already exists — s
 not quietly keep a test that could never have failed.
 
 There is no refactor phase. Get it right in the green step.
-
-## When the oracle needs an interface that doesn't exist yet
-
-A `prove` feature's falsifier sometimes needs real behavior from a dependency that is still
-`not-started` — a live child process, an in-flight request, a running watcher. If writing a
-behaviorally-red test would require you to invent that dependency's production interface (its
-function signatures, its process-management contract) rather than call one already specified in
-`harness/docs/design/`, you have hit a real ordering problem, not a task to push through.
-
-Do not fabricate the interface, and do not keep retrying the same feature hoping a different
-answer emerges. Set `"status": "blocked"` on the feature, write the concrete reason into
-`checkerNotes` (what interface is missing, which not-started dependency owns it), and stop — the
-router will pick the next open feature. This mirrors the maker's timebox rule, except the trigger
-is "no interface to implement from" rather than an exhausted attempt budget: you have no
-`attempts` counter, so nothing else moves the router past a feature you cannot oracle yet.
 
 ## Traceability is mandatory
 
@@ -88,6 +93,11 @@ If the spec does not say what that line must do, the mutant is a genuine finding
 - Check `references/anti-patterns.md` (`R-T1`…`R-T10`) before you output. The reviewer rejects with
   rule codes; self-correct first.
 - Report: conditions implemented, red runs observed, and any condition you could not implement.
+- **End-of-session reflection — answer it, don't skip it:** did this session turn up something the
+  *next* test-implementer run shouldn't have to rediscover — a test structure that fought the
+  templates, a mutant that was genuinely hard to kill cleanly? **Yes** → write one entry to
+  `harness/memory/test-implementer/` (new `<slug>.md` + a line in `MEMORY.md`, format in
+  `harness/docs/reference/agent-memory.md`). **No** → nothing to write.
 
 
 ## Read these before you do anything else

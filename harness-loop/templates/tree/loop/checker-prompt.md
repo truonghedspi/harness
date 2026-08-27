@@ -117,6 +117,17 @@ Verdict per feature:
   That marker is the routing signal: the next session runs the `feature-planner` agent against it
   before any maker touches it again — you never restructure `feature_list.json` yourself, and the
   maker doesn't either.
+- **The red comes from the ORACLE, not the implementation** (the test asserts something its own
+  validated condition never said, or its fixture contradicts its assertion) → start `checkerNotes`
+  with `NEEDS ORACLE FIX:` and quote the exact assertion line and why it contradicts the condition.
+  Do **not** REJECT: the maker's implementation may be correct, and a REJECT sends them to change
+  working code. Do not fix the test yourself either — you are write-restricted to state files
+  precisely so a green you produced cannot be presented as the maker's.
+  This marker is the routing signal that carries a `prove` feature back to the oracle layer even
+  after its `evidence` is non-empty; without it that feature is unreachable by every node, because
+  the test-implementer rule keys on empty evidence and the maker is forbidden from touching an
+  oracle-layer test. Say explicitly which assertion carries the falsifier's force and must NOT be
+  weakened — a repair permission is not a permission to make the test easier to pass.
 - **APPROVE with real non-blocking work remaining** → approve the current claim, then start the
   first line of `checkerNotes` with `FOLLOW-UP:` and state one actionable concern. The router sends
   it to the planner, which owns creating explicit scope or documenting why it is discarded.

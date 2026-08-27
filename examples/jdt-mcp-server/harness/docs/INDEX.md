@@ -24,4 +24,5 @@ the new files here.
 | `harness/docs/design/tool-surface.md` | Adding or changing an MCP tool, or cutting features — the tool catalogue, result rules, `INV-TOOL/CA/DIAG` invariants, and the build order |
 | `harness/docs/design/critique.md` | Before accepting or overriding the recommendation — the assumptions check, premortem, devil's advocacy, and what would change the recommendation |
 | `harness/DECISIONS.md` | "Why is it like this?" — decisions with their rejected alternatives |
+| `harness/DECISIONS/INDEX.md` | The live log doesn't answer it — closed periods rotated out of `DECISIONS.md`; open one entry from the index, never the whole archive |
 | `harness/progress.md` | "Where were we?" — cross-session state |

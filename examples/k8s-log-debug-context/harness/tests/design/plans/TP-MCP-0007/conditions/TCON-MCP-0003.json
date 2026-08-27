@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0003",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "Given matching records whose serialized diagnostic context would exceed 256 KiB, the complete MCP response stays at or below 256 KiB, contains no partial record, and explicitly reports truncation.",
+  "behavior_shape": "fixed_rule",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The approved 256-KiB value is a fixed policy rule; measuring the public wire payload catches implementations that cap only source message bytes or cut malformed partial records."
+}

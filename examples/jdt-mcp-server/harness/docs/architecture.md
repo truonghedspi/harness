@@ -6,7 +6,8 @@ must be able to answer all five questions below. If it can't, the knowledge isn'
 
 > Earlier architecture decisions were human-approved; the current design revision requires a fresh
 > matching approval before downstream work can resume. `harness/feature_list.json` is the existing
-> 32-feature cut — see `harness/DECISIONS.md`'s 2026-08-20 entries for the non-obvious splits.
+> cut, now 34 features — see `harness/DECISIONS/2026-08-20.md` for the original splits and
+> `harness/DECISIONS.md` for everything decided since.
 
 ## What is this?
 

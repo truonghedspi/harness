@@ -1,0 +1,10 @@
+{
+  "id": "TCON-WSID-0001",
+  "plan_id": "TP-WSID-0001",
+  "requirement_id": "INV-POOL-1",
+  "behavior": "For every path in the routing fixture tree -- a reactor root, a module directory, a source file nested in a module, a path under a reactor nested in another reactor, the standalone project, and a symlink alias of a managed root -- let r = resolveWorkspace(path); the lease pool.acquire(r.projectRoot) returns always reports a workspaceId exactly equal to r.workspaceId, for every path, with no path exempt.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Identity is computed twice by two separately changeable components and exists as one value only when both run -- the matrix's integration row verbatim, wrong contract between components, answered by a contract test at the seam [INV-POOL-1]. The oracle compares the two returned ids only with each other: never with a literal digest, never with one re-derived by importing a hashing helper from src. So it says nothing about the algorithm X-005 leaves open, yet goes red when ONE side changes hash input, encoding or normalisation."
+}

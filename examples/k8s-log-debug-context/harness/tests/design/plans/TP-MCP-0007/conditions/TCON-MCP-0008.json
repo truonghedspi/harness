@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0008",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-TOOLS-1",
+  "behavior": "Given authenticated MCP initialization, the advertised capability set contains exactly the tools capability and contains no prompt, resource, or other capability.",
+  "behavior_shape": "fixed_rule",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The approved initialization surface is a closed fixed set, so an exact wire-response example detects both omitted tools support and any additional capability."
+}

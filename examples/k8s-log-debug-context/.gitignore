@@ -1,0 +1,18 @@
+
+
+# Run output, including trace/scratch/ — the sanctioned home for a checker's throwaway probe, so it
+# cannot be mistaken for project code or survive as unmaintained proof (loop/checker-prompt.md).
+# The adoption baseline is durable cross-session state, not run output; keep it tracked so a clone
+# inherits the same debt boundary and ratchets.
+trace/*
+!trace/adoption-baseline.json
+
+# --- harness: run output. Regenerated every run; committing it is pure diff noise.
+harness/trace/*
+!harness/trace/adoption-baseline.json
+harness/loop/current.json
+harness/loop/route-log.jsonl
+harness/env/local.json
+harness/env/secrets.env
+.mvn/repository/
+target/

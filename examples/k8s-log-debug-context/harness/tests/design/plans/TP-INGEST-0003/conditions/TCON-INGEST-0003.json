@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INGEST-0003",
+  "plan_id": "TP-INGEST-0003",
+  "requirement_id": "INV-META-1",
+  "behavior": "Given one otherwise valid serialized record for each required identity field omitted or blank—namespace, pod, container, workload, observedAt, and source—the ingest boundary rejects every record and the captured index port observes zero submissions.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Required-field admission is a set of independently falsifiable presence decisions; a decision table covers every named field and catches validators that check only a subset."
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TCON-COLLECTOR-0002",
+  "plan_id": "TP-COLLECTOR-0009",
+  "requirement_id": "INV-META-1",
+  "behavior": "For generated opted-in log fixtures whose namespace, pod, container, workload, observedAt, source, message, and optional test.run_id values are mutually distinct, submitting each collector-emitted request through IngestService preserves every named value in the captured normalized record.",
+  "behavior_shape": "mapping",
+  "technique": "property",
+  "property_kind": "round_trip",
+  "priority": "P0",
+  "rationale": "A source-fixture to collector-wire to normalized-record round trip proves all required diagnostic fields survive the boundary and exposes swapped, dropped, or overwritten metadata."
+}

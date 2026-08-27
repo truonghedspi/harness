@@ -1,0 +1,11 @@
+{
+  "id": "TCON-COLLECTOR-0003",
+  "plan_id": "TP-COLLECTOR-0009",
+  "requirement_id": "INV-META-1",
+  "behavior": "For each required Kubernetes or log field and the optional test.run_id field in turn, changing only that source value changes only the corresponding collector-emitted and normalized field while all other named fields remain unchanged.",
+  "behavior_shape": "mapping",
+  "technique": "property",
+  "property_kind": "field_sensitivity",
+  "priority": "P0",
+  "rationale": "Field-sensitivity complements the round trip by discriminating field swaps and hard-coded enrichment values that a shared or accidentally duplicated fixture could conceal."
+}

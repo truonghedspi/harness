@@ -6,7 +6,10 @@
       "ref": "bb6b5f2",
       "vendoredAt": "2026-08-16",
       "vendoredCommit": null,
-      "localModifications": []
+      "localModifications": [{
+        "file": "schemas/test-case.schema.json",
+        "why": "allow INV-* design invariant identifiers alongside REQ-* requirements so independent test cases can trace approved design invariants — DECISIONS.md 2026-08-26"
+      }]
     },
     {
       "path": "skills/feature-planning",

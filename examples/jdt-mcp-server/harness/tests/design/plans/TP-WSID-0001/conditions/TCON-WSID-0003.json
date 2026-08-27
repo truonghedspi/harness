@@ -1,0 +1,10 @@
+{
+  "id": "TCON-WSID-0003",
+  "plan_id": "TP-WSID-0001",
+  "requirement_id": "INV-POOL-1",
+  "behavior": "For any two fixture paths the router keeps apart -- resolveWorkspace returns two different workspaceIds, including for two managed roots deliberately given the same directory basename -- the leases the pool serves for them always carry different workspaceIds and different dataDirs, every dataDir is an absolute path, and while both leases are held no two live workspaces in pool.status() share a dataDir.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "The other half of the same contract at the same seam: TCON-WSID-0002 forbids splitting one project, this forbids merging two -- INV-POOL-1's own no-sharing and absolute clauses. Two roots sharing a directory basename make it deterministic without pinning the digest, killing any derivation keyed on something coarser than the whole canonical root (basename, first segment, a constant), which TCON-ROUTE-0002 cannot see because it observes only the router side of the seam."
+}

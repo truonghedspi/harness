@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0001",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "Given otherwise valid MCP requests whose explicit intervals are below, exactly at, and above 15 minutes, the running HTTP boundary accepts the first two and rejects the above-limit request before querying the index port.",
+  "behavior_shape": "fixed_rule",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The approved 15-minute value is a fixed policy rule; explicit below, at, and above examples detect off-by-one acceptance and validation performed after an index read."
+}

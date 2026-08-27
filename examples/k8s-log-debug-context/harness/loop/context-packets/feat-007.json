@@ -1,0 +1,49 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-007",
+  "mustRead": [
+    "docs/design/log-debug-context.md",
+    "tests/design/plans/TP-MCP-0007/plan.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0001.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0002.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0003.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0004.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0005.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0006.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0007.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0008.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0009.json",
+    "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0010.json",
+    "../pom.xml"
+  ],
+  "mustNotRead": [
+    "../collector",
+    "../charts",
+    "../service/src/main/java/io/harness/logcontext/ingest",
+    "../service/src/main/java/io/harness/logcontext/index/OpenSearchLogIndex.java"
+  ],
+  "facts": [
+    "The oracle starts the real Streamable HTTP boundary only through McpServiceBootstrap.start(McpHttpServerConfig, IndexPort, ServiceAccountJwtValidator); reflection and an externally prestarted service are outside this proof.",
+    "McpHttpServerConfig may bind loopback port 0. RunningMcpServer.endpoint() returns the actual bound MCP URI, and close() must release the socket after every test.",
+    "The oracle injects a capturing IndexPort and deterministic ServiceAccountJwtValidator. The server extracts an optional bearer token before validation; JwtValidation.Invalid covers both missing and invalid credentials.",
+    "Valid credentials reach normal tool validation. Missing or invalid credentials return unauthorized before tool dispatch or IndexPort.search; the wire proof distinguishes those outcomes with captured calls.",
+    "Authenticated initialization exposes only the tools capability, tools/list returns exactly search_logs and get_failure_context, and an unknown tool is rejected before IndexPort.search.",
+    "The ten conditions also prove the fixed 15-minute, 200-record, 256-KiB, five-second, and no-pagination limits, plus zero index writes and zero Kubernetes commands. These are observed through the public wire response and capturing dependencies.",
+    "This feature owns only the independent MCP HTTP contract oracle. McpQueryService and bootstrap implementation remain feat-006; cluster policy remains feat-010; the Kubernetes journey remains feat-011."
+  ],
+  "sourceInputs": [
+    { "path": "docs/design/log-debug-context.md", "sha256": "253709bfa56992228d7020ce99e4a145c1654854c7197caf98d4e9044f49c04a" },
+    { "path": "tests/design/plans/TP-MCP-0007/plan.json", "sha256": "74e03b7eb74bcee0f036cf3304719474f9b6642fd35d6d3a8393c21ca3b25661" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0001.json", "sha256": "a50a254f3a757a48efc79aeeb04c16cfcd9de536554d41ec850b914417d71b6f" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0002.json", "sha256": "62721ecdf1d67559105becb9c97cb47e5d146da759991cc1e50c917ff05a93a5" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0003.json", "sha256": "db75d4e9d982c79b755d57c8475a07ebc1632a7d19c2102e04e85720ac48ccf2" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0004.json", "sha256": "f1ae0b5d8fa6d59611a90375d8dedc5352c1f2edc60b2b7486527634f3bb6f5b" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0005.json", "sha256": "ed875fd045b186862f28317060cb44fb69b17c5bdb1145d1b675b5b8db3a3c04" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0006.json", "sha256": "87e606a2829929432962a1a6d05c59b5d0cea1753724119bf67873a9ef32faee" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0007.json", "sha256": "1ced55fe2c6a240593cadf09df87993ec6f3248317d44cd6b57782984e6311c5" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0008.json", "sha256": "4a767d97ea1d4c8867684568237f336a13cf4ac66213b0a068506830bfc961ab" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0009.json", "sha256": "2cf39e0ffe6737aeef193a346dd192b3d32926879293dc4352c99f317f4820b7" },
+    { "path": "tests/design/plans/TP-MCP-0007/conditions/TCON-MCP-0010.json", "sha256": "3419fd762a906956cc377d2ae34aa7c5d7eb6ba09fb68dd99cbd20f661dc45cf" },
+    { "path": "../pom.xml", "sha256": "23ed9482097ed472e9bd9a72e8a57e02c7599c20b2e15275b5993196ce8a5406" }
+  ]
+}

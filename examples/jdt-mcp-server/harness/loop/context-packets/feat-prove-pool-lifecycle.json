@@ -1,0 +1,32 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-prove-pool-lifecycle",
+  "mustRead": [
+    "../test/integration/pool-lifecycle.integration.spec.ts",
+    "tests/design/plans/TP-POOL-0001/conditions/TCON-POOL-0003.json",
+    "../src/workspace/workspace-pool.ts",
+    "docs/design/runtime-model.md"
+  ],
+  "mustNotRead": [
+    "docs/design/tool-surface.md",
+    "docs/design/critique.md",
+    "../test/integration/project-router.integration.spec.ts"
+  ],
+  "facts": [
+    "The oracle for this feature already exists and was authored before the implementation: test/integration/pool-lifecycle.integration.spec.ts implements TCON-POOL-0001/0002/0003 against INV-POOL-2 and INV-POOL-4. Do not re-author it and do not write a second oracle for the same conditions.",
+    "The implementation this oracle judges is complete and approved: feat-workspace-pool is done, src/workspace/workspace-pool.ts is sha256 a72b2ed5afff75691465ad044b5d49c07056fb40548fd3e1e7fdf4a2430d12a8, and its own verification (10 unit + 2 integration tests) was independently replayed green by the checker on 2026-08-22 under five mutants. Start from 'the pool is probably right', not from 'the pool is probably wrong'.",
+    "ESTABLISHED DEFECT, do not rediagnose: TCON-POOL-0003 is currently RED because of the ORACLE, not the implementation. Inside the per-acquire loop the test iterates the whole of recorder.stopOrder and asserts each of those projects is absent from pool.status(). Its own fixture sequence is [p0, p1, p0, p2, p0], which re-acquires p0 after p0 was evicted, so p0 is correctly live again and the absence assertion fires on a workspace that was legitimately restarted.",
+    "TCON-POOL-0003's validated condition text is the authority and it does not require permanent absence: it scopes status-absence to the observation moment ('immediately after each eviction -- observed via pool.status() no longer listing that workspace -- the evicted workspace's absolute -data directory still exists'). The oracle over-asserts beyond its own condition. The condition file itself needs no redesign, so no test-designer turn is required for this fix.",
+    "PRE-AUTHORISED CORRECTION, exactly one, recorded in harness/DECISIONS.md (2026-08-22): scope the status-absence assertion to workspaces that were evicted AND have not since been re-acquired. Everything else in that file stays byte-identical — the fixture sequence, the cap-1 recorder, the LRU model in TCON-POOL-0002, and the closing assertion that the same workspace was evicted at least twice.",
+    "HARD BOUND on that correction: the -data directory existence check must remain unconditional for every project that ever appears in recorder.stopOrder. That assertion IS the INV-POOL-4 falsifier ('an evicted workspace's -data directory is deleted instead of kept for warm restart'). Narrowing, skipping or try/catching it turns a green run into a false pass and the checker will reject the feature.",
+    "The rest of this oracle was independently confirmed to have falsifying power, so a green run after the correction is meaningful: under a mutant that suffixes dataDir with a per-call tick, TCON-POOL-0003 fails on 'a re-requested workspace must reuse its warm -data directory' — INV-POOL-4 warm restart is genuinely pinned. Under a mutant making terminate() a no-op, the pool's own integration oracle goes red.",
+    "Evidence expectations for this feature: the recorded red (2026-08-20, 3 failures, module absent) is stale — it predates the implementation. Record a fresh red run showing TCON-POOL-0003 failing on the over-broad absence assertion, then the green run after the correction. A green-only evidence list is reported as evidence-no-red by verify-harness.mjs.",
+    "Scope fence: the router/pool workspace-identity agreement gap is NOT this feature's problem. It is cut as feat-prove-workspace-identity with its own oracle file. Do not widen this oracle, its conditions, or its falsifier to reach across to project-router."
+  ],
+  "sourceInputs": [
+    { "path": "../test/integration/pool-lifecycle.integration.spec.ts", "sha256": "4ed2eca0facee42540b1b888a485b4f577ae106248c4d2f2417d806a40104a88" },
+    { "path": "tests/design/plans/TP-POOL-0001/conditions/TCON-POOL-0003.json", "sha256": "f344401e0e9db6df59bd81db62145bbe51df90d1a01e7d7ec131da568d9c8afb" },
+    { "path": "../src/workspace/workspace-pool.ts", "sha256": "a72b2ed5afff75691465ad044b5d49c07056fb40548fd3e1e7fdf4a2430d12a8" },
+    { "path": "docs/design/runtime-model.md", "sha256": "bccbe6dfe3163444b58fa7a77845515c7a9d52a900c2f6d64f74a2b7c7e99951" }
+  ]
+}

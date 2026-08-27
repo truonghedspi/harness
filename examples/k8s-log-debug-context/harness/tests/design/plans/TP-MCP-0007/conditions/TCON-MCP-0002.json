@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0002",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "Given the index port supplies more than 200 matching records, the MCP response contains at most 200 records and explicitly reports truncation; a response with exactly 200 records is not falsely marked truncated.",
+  "behavior_shape": "fixed_rule",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The approved 200-record value is a fixed policy rule; explicit at-limit and over-limit examples distinguish correct truncation from off-by-one or metadata-only enforcement."
+}

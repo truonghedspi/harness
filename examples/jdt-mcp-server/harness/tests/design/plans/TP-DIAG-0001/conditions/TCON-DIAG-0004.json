@@ -1,0 +1,10 @@
+{
+  "id": "TCON-DIAG-0004",
+  "plan_id": "TP-DIAG-0001",
+  "requirement_id": "INV-DIAG-1",
+  "behavior": "Given a pool at its cap whose least-recently-used workspace is being evicted and is still inside its process stop(), when a concurrent acquire for that same project root starts a second JDT LS process under the same workspaceId and that successor absorbs a publishDiagnostics for a URI, then after the predecessor's stop() completes and its eviction cleanup runs, querying that URI under that workspaceId still returns the successor's report and never the explicit 'not reported yet' marker.",
+  "behavior_shape": "stateful",
+  "technique": "deterministic_replay",
+  "priority": "P0",
+  "rationale": "Stateful, not integration: outcome depends on pool history and the scenario runs on a fake spawnWorkspace, not two real components; D2 bars concurrent for a single-threaded event loop. A real JDT LS turns the window into a timing dependency and no command sequence builds it (#ensureCapacityFor awaits all of #evict), so deterministic replay of one scripted overlap fits, invariant checked after. Oracle is unit-level: test/workspace/workspace-succession.spec.ts, not test/integration/ [INV-DIAG-1]."
+}

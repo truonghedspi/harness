@@ -7,4 +7,8 @@ Write a new entry when a maker's claim looked right but wasn't (and how you actu
 or a class of feature keeps needing the same scrutiny. Don't write one for a routine approve/reject
 — that's the job working as intended, not a lesson.
 
+Write entries and hooks **in English**, whatever language the rest of the project uses: memory is
+addressed to whichever agent reads it next, not to this project's readers. Entries already written
+in another language stay as they are — this governs what gets written from now on.
+
 - [grep demo step header is not falsifiable](grep-demo-step-header-not-falsifiable.md) — a verification that greps a demo.sh step title always matches; grep the assertion result or the exit code instead

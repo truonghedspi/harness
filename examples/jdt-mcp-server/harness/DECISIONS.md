@@ -2,269 +2,190 @@
 
 The *why* behind choices (Lesson 5). Rationale is the most expensive thing to rebuild across
 sessions — record it here so a future session (human or agent) doesn't relitigate settled calls
-or repeat a rejected approach.
-
-One entry per decision. Newest first.
+or repeat a rejected approach. One entry per decision. Newest first.
 
 ---
 
-## 2026-08-21 — Nhánh "outermost" của reactor lồng reactor bổ sung vào `feat-prove-routing` sẵn có
+## 2026-08-26 — Human override: project WIP is 4; verification may follow implementation
 
-- **Quyết định:** thêm `TCON-ROUTE-0007` (traces to `INV-ROUTE-1`, kỹ thuật decision_table) vào `feat-prove-routing`; đưa trạng thái về `in-progress`, giữ nguyên evidence và attempts/maxAttempts hiện có; không tạo tính năng mới.
-- **Nguyên nhân:** verdict APPROVE của chính tính năng này nêu FOLLOW-UP.
-  - Mutant M3 (thay `findLast(isReactor)` bằng `find(isReactor)`, tức chọn reactor lồng bên trong thay vì reactor ngoài cùng) vẫn xanh cả 6 điều kiện.
-  - Nguyên nhân gốc: cây fixture chưa từng có reactor B (`<modules>`) lồng trong reactor A (cũng `<modules>`).
-  - `INV-ROUTE-1` (`docs/design/runtime-model.md:40`) và `A-006` (`docs/assumptions.md:29`) đều nói rõ "outermost", nên từ này chưa có điều kiện nào phân biệt.
-- **Phương án bị từ chối:** tạo một tính năng riêng cho gap này.
-  - Bị từ chối vì cùng lý do đã áp dụng hai lần trước (`TCON-ROUTE-0005`, `TCON-ROUTE-0006`).
-  - Gap dùng chung đúng một seam (`resolveWorkspace(path)`), một tệp oracle (`test/integration/project-router.integration.spec.ts`), cùng invariant `INV-ROUTE-1`; tách ra sẽ nhân đôi cùng một component và fixture.
-- **Ràng buộc được thoả mãn:** mọi claim quan trọng của `INV-ROUTE-1` (kể cả từ "outermost") nay có một điều kiện phân biệt độc lập, không chỉ suy luận gián tiếp.
-- **Ảnh hưởng:** `feat-prove-routing` — behavior, falsifier, conditions, context.note, checkerNotes, status `done` → `in-progress`.
-  - `feat-project-router` không bị đụng: vẫn `done`, vẫn giữ nguyên evidence.
-  - Việc còn lại: lớp oracle (test-designer/test-implementer) viết và triển khai `TCON-ROUTE-0007` — fixture reactor A (`<modules>`) chứa reactor B (`<modules>` riêng) lồng trong một thư mục module của A; đường dẫn dưới B phải phân giải về A.
-
----
-
-## 2026-08-21 — Trường hợp fallback không-reactor được bổ sung vào `feat-prove-routing` sẵn có
-
-- **Quyết định:** thêm điều kiện `TCON-ROUTE-0006` (traces to `INV-ROUTE-1`) vào `feat-prove-routing`
-  thay vì tạo một tính năng mới; mở rộng behavior/falsifier của tính năng này để bao gồm trường hợp
-  đó ngay tại chỗ.
-- **Nguyên nhân:** kiểm tra viên (checker) chạy một đột biến (mutant) trên `feat-project-router` sau
-  khi tính năng đã ở trạng thái done — thay `mavenRoots.findLast(...) ?? mavenRoots[0]?.directory`
-  bằng `mavenRoots[mavenRoots.length - 1]?.directory` (luôn lấy pom.xml tổ tiên ngoài cùng, xoá hẳn
-  điều kiện kiểm tra `<modules>`) vẫn giữ cả 5 điều kiện xanh. Nguyên nhân gốc: chưa có fixture nào
-  lồng một pom.xml bên dưới một pom.xml tổ tiên KHÔNG phải reactor, nên nhánh fallback đã được sửa
-  của `INV-ROUTE-1` ("nếu không có pom.xml tổ tiên nào khai báo `<modules>` bao quanh đường dẫn, dùng
-  pom.xml tổ tiên gần nhất") chưa từng được phân biệt với "luôn lấy pom.xml tổ tiên ngoài cùng".
-- **Phương án bị từ chối:** tạo một tính năng test-coverage-gap riêng biệt cho trường hợp này. Bị từ
-  chối vì nó dùng chung đúng một seam (`resolveWorkspace(path)`), một tệp oracle
-  (`test/integration/project-router.integration.spec.ts`), và cùng invariant family với
-  `feat-prove-routing` đã sở hữu — tách ra sẽ nhân đôi cùng một component và fixture, đúng như tiền
-  lệ đã áp dụng khi thêm `TCON-ROUTE-0005`.
-- **Ràng buộc được thoả mãn:** mỗi claim quan trọng của `INV-ROUTE-1` (bao gồm cả nhánh fallback) có
-  một điều kiện phân biệt (discriminating) độc lập, không chỉ được suy luận gián tiếp từ các điều
-  kiện khác.
-- **Ảnh hưởng:** `feat-prove-routing` (behavior, falsifier, conditions, checkerNotes); không đụng đến
-  `feat-project-router` (giữ nguyên trạng thái done và evidence). Lớp oracle (test-designer/
-  test-implementer) còn phải viết và triển khai `TCON-ROUTE-0006` trước khi tính năng này có thể
-  được đánh giá lại.
+- **Decision:** the human explicitly set the project work-in-progress limit to four concurrent
+  features and authorized implementation to proceed before the deferred verification pass.
+- **Boundary:** this changes scheduling, not truth. Each feature keeps independent state, attempt
+  history, scope, and evidence; no unverified feature may become `passing` or `done`, and only the
+  checker may approve `done` after the recorded command runs.
+- **Planner effect:** decomposition may leave up to four independent eligible claims available. It
+  does not merge them, erase their DAG edges, or manufacture evidence to make deferred tests look
+  complete.
+- **Ownership note:** generated runtime instructions still describe the default WIP=1 policy. This
+  receipt records the project-specific human override without hand-editing generated workflow files
+  from the feature-planner role.
 
 ---
 
-## 2026-08-21 — Module paths resolve to their enclosing reactor root
+## 2026-08-26 — Cache-side URI canonicalization stays as unmeasured defensive redundancy
 
-- **Decision:** clarify `INV-ROUTE-1`: derive the root fresh from each call path; choose the
-  outermost enclosing ancestor POM declaring `<modules>`, otherwise the nearest ancestor POM.
-- **Reason:** the earlier accepted architecture states one JDT LS subprocess per Maven reactor root,
-  and the existing five-path routing oracle already proves that behavior. The previous invariant's
-  unqualified nearest-POM wording contradicted both, leaving a green suite attached to a false
-  literal claim.
-- **Rejected alternative:** use the nearest POM for every path. It gives module-local isolation but
-  creates one workspace per module and contradicts the accepted reactor-level lifecycle.
-- **Constraint it satisfies:** fresh path-derived routing and one workspace identity per reactor;
-  `INV-ROUTE-1` and `INV-ROUTE-3` are now consistent with the oracle.
-- **Affected:** `project-router`, `feat-project-router`, `feat-prove-routing`, A-006, and
-  `test/integration/project-router.integration.spec.ts`.
-
----
-
-## 2026-08-21 — Routing's unmanaged-path claim joins the existing prove feature
-
-- **Decision:** reuse `test/integration/project-router.integration.spec.ts` as the build verification
-  and widen `feat-prove-routing` with TCON-ROUTE-0005 for the explicit named-path error required by
-  `INV-ROUTE-2`.
-- **Reason:** the prior build command named an undefined npm script and nonexistent unit file, while
-  the maintained integration oracle already owns every other branch of the same pure
-  `resolveWorkspace(path)` seam. The unmanaged branch is not independently dispatchable.
-- **Rejected alternative:** create a second unit oracle or a separate prove feature only for an
-  unmanaged path. Either would duplicate the same component, fixture, command, and implementation
-  context.
-- **Constraint it satisfies:** every build has runnable behavioral verification, and its explicit
-  error behavior is independently falsified rather than inferred from managed-path success.
-- **Affected:** `feat-project-router`, `feat-prove-routing`, TP-ROUTE-0001, and the router context
-  packet; prior evidence and attempt history remain intact.
-
-## 2026-08-21 — Provisioner success path stays in the existing prove feature
-
-- **Decision:** widen `feat-prove-provisioner` to cover a clean-cache, checksum-verified download,
-  extraction, and resolvable pinned install; reopen `feat-jdtls-provisioner` with its attempts reset
-  only after preserving the exhausted-attempt diagnosis and evidence.
-- **Reason:** the checker found one missing acceptance path in an otherwise valid 12-case oracle.
-  The path exercises the same provisioner, integration file, command, and invariant family, so it
-  is not an independently dispatchable feature.
-- **Rejected alternative:** add a second prove feature solely for successful installation. That
-  would split one inseparable behavior across two paid dispatches and duplicate the same seam.
-- **Constraint it satisfies:** the prove claim now distinguishes an implementation that only
-  handles cache/error paths from one that actually installs the pinned distribution (`INV-PROV-2`).
-- **Affected:** `feat-prove-provisioner` behavior/falsifier/marker and
-  `feat-jdtls-provisioner` retry state; all prior evidence and condition history are preserved.
-
-## 2026-08-21 — Provisioner build reuses its authored behavioral oracle
-
-- **Decision:** `feat-jdtls-provisioner` now verifies with
-  `test/integration/jdtls-provisioner.integration.spec.ts`, the runnable oracle already owned by
-  `feat-prove-provisioner`; the build/prove feature boundary and all existing state remain intact.
-- **Reason:** the prior build verification named a nonexistent unit test and an undefined `npm test`
-  script, so the maker could not obtain a behavioral red or green run. The integration suite already
-  exercises all four `INV-PROV-*` invariants and has recorded red-first and mutant evidence.
-- **Rejected alternative:** adding a duplicate unit oracle solely to preserve a distinct command.
-  That would duplicate the same provisioner contract and add a paid test-authoring dispatch without
-  an independently demonstrable claim.
-- **Constraint it satisfies:** every feature has one runnable, discriminating verification while the
-  independent prove feature continues to own and preserve the oracle evidence.
-- **Affected:** `feat-jdtls-provisioner` verification and checker-marker resolution only.
-
-## 2026-08-20 — Feature cut from the approved design (32 features, 10 components)
-
-- **Decision:** Cut `feature_list.json` from `loop/design-approval.json` digest `c0a83df4b8d6c5b2`.
-  `feat-001` kept and expanded (Node deps + a pinned JDT LS fixture download step); `feat-002`/
-  `feat-003` placeholders retired entirely — replaced by 18 build + 13 prove features covering the
-  10 named components and all 30 `INV-` ids in `docs/design/runtime-model.md` and
-  `docs/design/tool-surface.md`.
-- **Reason:** the design's own `## Feature impact` table names exactly these components as new and
-  the two placeholders as never-real; `skills/feature-planning/scripts/check-plan.mjs` requires
-  every non-baseline falsifier to cite a real invariant and every invariant to be cited — the cut is
-  sized so both hold with zero findings.
-- **Rejected alternative:** cutting one feature per component (10 total). Several components' own
-  invariants span more than one falsifiable claim (e.g. `workspace-pool` has 5), and cramming them
-  into one verification command would violate the "one verifiable claim" rule — so most components
-  got a build/prove pair, several tool components got one thin build feature each sharing a
-  multi-tool prove feature (`feat-prove-navigation-tools` covers hover/definition/references).
-- **Constraint it satisfies:** `feature-decomposition.md` Step 3 sizing, the invariant-contract's
-  forward/backward traceability, and the human-accepted build order.
-- **Affected:** `feature_list.json` in full.
-
-## 2026-08-20 — Build order encoded as real DAG edges, not just documentation
-
-- **Decision:** `docs/design/tool-surface.md#Build order` says file-sync-watcher + readiness-gate
-  land before any capability tool, and code actions land last. Rather than relying on the maker to
-  read and honor that prose, the sequencing is a real dependency chain: each capability-tool stage's
-  build feature depends on the *previous* stage's *prove* feature finishing
-  (`feat-tool-completion` → `feat-prove-diagnostics`; `feat-tool-rename` → `feat-prove-completion`;
-  `feat-tool-code-actions` → `feat-prove-rename`), and every navigation/diagnostics/completion/
-  rename/code-action build depends transitively on `feat-file-sync-watcher` and
-  `feat-readiness-gate` already being built.
-- **Reason:** the maker picks "the first not-started feature whose dependencies are all done" — an
-  unenforced ordering is only ever as reliable as the next session remembering to read the prose.
-  This was an explicit ask from the requester routing this planning pass, not a default of the
-  planning skill.
-- **Rejected alternative:** leaving the tools as sibling features under `feat-tool-layer-core` with
-  no cross-tool edges, trusting `feature_list.digest.md`'s array order. Rejected because nothing
-  stops the loop from building `java_code_actions` before `java_rename` if both happen to be
-  eligible at once, which is exactly the risk ordering the human accepted was meant to prevent.
-- **Constraint it satisfies:** the accepted sequencing decision in `loop/design-approval.json`.
-- **Affected:** every capability-tool build feature's `dependencies` array.
-
-## 2026-08-20 — `lsp-client`'s falsifier derived from `INV-POOL-3`, not a new invariant
-
-- **Decision:** `feat-lsp-client`'s falsifier cites `INV-POOL-3` (filed under `workspace-pool` in
-  `docs/design/runtime-model.md`), not a new `INV-LSP-*` id.
-- **Reason:** no design document states a dedicated invariant for `lsp-client`'s own framing/
-  correlation correctness — its "Observable seam" column exists in the component table but never
-  got an invariant row. `INV-POOL-3` ("every in-flight request completes with an error when its
-  process exits") is the one invariant a broken id-correlation table would actually violate, and the
-  mechanism that makes it true lives entirely inside `lsp-client` even though the table files the
-  invariant under `workspace-pool`. This is a real, existing invariant honestly derived from, not an
-  invented one — see `docs/reference/invariant-contract.md`'s "cite the id you actually derived
-  from."
-- **Rejected alternative:** writing `NEEDS DESIGN:` to ask for a dedicated `INV-LSP-*` id. Rejected
-  because a citable, apt invariant already exists and the gap (basic Content-Length round-trip
-  correctness on its own, independent of process-exit behavior) is noted in
-  `loop/context-packets/feat-lsp-client.json` instead, where it can inform the test without blocking
-  a foundation feature everything else in Stage 1 depends on.
-- **Constraint it satisfies:** the invariant-contract's backward-traceability rule (no fabricated
-  citation).
-- **Affected:** `feat-lsp-client`.
-
-## 2026-08-20 — Streamable HTTP front door (A-003) deferred out of this cut
-
-- **Decision:** no feature was cut for the flagged-off Streamable HTTP transport in this pass.
-  `feat-daemon-supervisor` and `feat-mcp-shim` are scoped to the Unix-socket path only.
-- **Reason:** `A-003` confirms v1 ships the HTTP front door behind a flag, but its `Origin`-
-  validation/localhost-binding/auth MUSTs (`docs/cross-cutting.md` X-010) are still an *open*
-  cross-cutting row — no owner, no date, no `INV-` id anywhere in `docs/design/runtime-model.md` or
-  `docs/design/tool-surface.md` covers it. `check-plan.mjs` requires every non-baseline feature to
-  cite a real invariant; manufacturing one for X-010 would be exactly the "invented traceability"
-  the invariant contract exists to prevent.
-- **Rejected alternative:** cutting the feature anyway with no citation, or citing an unrelated
-  `INV-SHIM-*`/`INV-TOOL-*` id for cover. Both rejected as dishonest coverage.
-- **What would unblock this:** a design-facilitator pass that promotes X-010's recommendation into a
-  real `INV-` row (or an explicit decision that the HTTP front door ships without the `Origin`/auth
-  MUSTs it inherits from the MCP spec, which would itself need a human sign-off given those are spec
-  `MUST`s). Reported to the human/orchestrator directly rather than encoded as a blocked feature,
-  since there is no well-specified feature to attach the marker to yet.
-- **Constraint it satisfies:** invariant-contract backward traceability; does not touch A-003 itself,
-  which stays confirmed for whenever this is unblocked.
-- **Affected:** `feat-daemon-supervisor`, `feat-mcp-shim`; no feature yet exists for the HTTP
-  transport.
-
-## 2026-08-20 — Disk-retention GC (X-006) and crash-retry (X-009) left uncut
-
-- **Decision:** no feature covers automatic `-data` garbage collection after 30 days or a
-  transparent one-time retry after a workspace crash.
-- **Reason:** both are cross-cutting recommendations in `docs/cross-cutting.md`, still open, with no
-  backing `INV-` id. The invariant that **is** stated for eviction (`INV-POOL-4`: eviction never
-  deletes `-data`) is already covered by `feat-prove-pool-lifecycle`. Retry-after-crash is explicitly
-  the agent's decision per `INV-TOOL-4`'s `workspace-crashed` error case (already covered by
-  `feat-prove-navigation-tools`), not a daemon-side behavior the design commits to.
-- **Rejected alternative:** cutting speculative features for both. Rejected — no invariant, no
-  acceptance scenario, and `requirement.md` doesn't ask for either; these are genuine v1.1-shaped
-  follow-ups, not guessed-past gaps.
-- **Constraint it satisfies:** "don't invent a feature not backed by an invariant or scenario."
-- **Affected:** none in this cut; flagged for whoever later promotes X-006/X-009 to closed
-  decisions.
+- **Source:** the approved `feat-prove-diagnostics-identity` checker follow-up. Mutant m3b removed
+  only `canonicalFileUri(report.uri)` and survived the feature's 3 integration cases plus the 19
+  diagnostics unit cases.
+- **Decision:** choose option (a). The load-bearing canonicalization is the `projectFiles()` side of
+  `projectUris()`. Canonicalizing `DiagnosticsReader.list()` output is defensive normalization at a
+  structural port: the current `DiagnosticsCache` already canonicalizes on `absorb()`, so no
+  present oracle measures that second call.
+- **Why no feature:** this is neither a product defect nor an independently demonstrable behavior.
+  Cutting a test-only feature for an intentionally defensive branch would overstate the current
+  contract and violate the lower size bound in `cutting-rules.md`.
+- **Rejected alternative:** inject a fake reader returning a noncanonical URI. That would promote a
+  permissive structural-port possibility into required behavior without a design invariant or a
+  real second reader implementation demanding it.
+- **Effect:** preserve the approved feature, evidence, attempts, and status. The implementation
+  comment should describe the second call as unmeasured defensive redundancy, not claim both sides
+  are required to prevent duplicate physical-file results.
 
 ---
 
-## 2026-08-19 — Architecture options considered and rejected (design session, approved 2026-08-19)
+## 2026-08-25 — Gỡ chặn `feat-prove-navigation-tools`: điều kiện thoát trong chính ghi chú chặn đã thoả
 
-Recorded so a future session does not relitigate them. The full argument maps are in
-`harness/docs/design/architecture.md`; the self-critique is in `harness/docs/design/critique.md`.
-Human approval is on record in `harness/loop/design-approval.json` (digest `c0a83df4b8d6c5b2`).
-
-- **Decision:** Node/TypeScript daemon, reached through a thin
-  stdio shim over a Unix domain socket, with one JDT LS subprocess per Maven reactor root — plus a
-  Streamable HTTP front door in v1 behind a flag.
-- **Reason:** MCP stdio is per-client-launch (*"the client launches the MCP server as a
-  subprocess"*), which contradicts the one-daemon-many-projects constraint. The shim resolves it at
-  the edge, and the MCP spec explicitly sanctions reusing stdio framing over a Unix socket. The
-  language axis matters far less than expected: JDT LS runs as a subprocess in every implementation
-  found, including the Java ones.
-- **Rejected — Option B, Java/LSP4J + MCP Java SDK over Streamable HTTP:** its strongest argument
-  (LSP4J vs a hand-rolled Node LSP client) did not survive verification —
-  `vscode-languageserver-protocol@3.18.2` covers every method needed with none missing. It also
-  keeps the highest first-run friction, against an explicit OSS-audience objective, and adds a third
-  JVM to a process tree already holding one per workspace.
-- **Rejected — Option C, Node + Streamable HTTP only, no shim:** least code and most standard, but
-  it makes the user start a daemon before their agent works. Its one surviving advantage — the
-  daemon can run on a bigger machine — was absorbed as the flagged HTTP front door instead of
-  rejected.
-- **Constraint it satisfies:** one long-running daemon serving multiple Maven projects concurrently;
-  general-purpose OSS distribution; full seven-capability v1 scope.
-- **Affected:** every component in `harness/docs/design/architecture.md`; changing the transport axis
-  rewrites `mcp-shim` and `daemon-supervisor` only, which is why the decision sits at the edge.
+- **Nguồn:** router dừng ở `human` với bốn tính năng mở nhưng không tính năng nào định tuyến được.
+- **Quyết định:** `blocked` → `not-started`, `attempts` giữ nguyên 0/3, không đổi `behavior`,
+  `falsifier`, `verification`, `conditions` hay `dependencies`. Ghi chú chặn cũ giữ nguyên bên dưới
+  dòng `GỠ CHẶN 2026-08-25` để lưu vết.
+- **Nguyên nhân:** ghi chú chặn nêu điều kiện thoát nguyên văn — "implement and specify the four
+  dependencies first". Cả bốn (`feat-tool-hover`, `feat-tool-definition`, `feat-tool-references`,
+  `feat-tool-layer-core`) nay đều `done` và đã qua checker, nên `java_hover`/`java_definition`/
+  `java_references` cùng mcp-tool-layer và per-workspace pool đã là giao diện gọi được thật.
+- **Tiền lệ:** cùng dạng với `feat-prove-pool-crash-handling` (2026-08-22) và
+  `feat-prove-daemon-lifecycle` — một ghi chú chặn tự nêu điều kiện thoát thì việc kiểm tra điều
+  kiện đó là công việc của người lập kế hoạch, không phải của một lượt maker.
+- **Ảnh hưởng:** tính năng trở lại hàng đợi của test-implementer; không đổi mã sản phẩm, không đổi
+  test, không đổi tính năng nào khác.
 
 ---
 
-## 2026-08-19 — Gradle deferred, not dropped
+## 2026-08-25 — INV-DIAG-3 mất sức phân biệt: cắt `feat-prove-diagnostics-identity`, giữ `feat-prove-diagnostics` `blocked`
 
-- **Decision:** v1 supports Maven only. Workspace identity is the nearest ancestor `pom.xml`.
-- **Reason:** stated constraint from the elicitation session.
-- **Rejected alternative:** build-system-agnostic project detection in v1 — it would make
-  `project-router` and `INV-ROUTE-1` speculative before a single Maven case works.
-- **Constraint it satisfies:** v1 scope.
-- **Affected:** `project-router`, `INV-ROUTE-1..3`, A-006.
+- **Nguồn:** verdict REJECT của `feat-prove-diagnostics` (checker, 2026-08-25) với hai phát hiện
+  độc lập. Tính năng đó giữ nguyên `blocked`, `attempts` 3/3, evidence và checkerNotes không bị đụng
+  — mục này là lý do chặn được ghi nhận, nên `verify-harness` không coi là `blocked-unjustified`.
+- **Quyết định:** cắt MỘT tính năng `prove` mới `feat-prove-diagnostics-identity`, oracle nằm ở tệp
+  MỚI `test/integration/diagnostics-identity.integration.spec.ts`, kèm quyền sửa có giới hạn cho
+  phần quy chuẩn hoá URI trong `projectUris()`.
+- **Nguyên nhân 1 — trục phân biệt của `TCON-DIAG-0003` sai từ fixture.** Fixture cấp hai đường dẫn
+  TUYỆT ĐỐI khác nhau, trong khi khoá cache là (workspaceId, URI canonical); riêng URI đã đủ phân
+  biệt nên `workspaceId` là thành phần khoá thừa. Hai mutant sống sót 3/3 xanh: m1 (Map phẳng khoá
+  chỉ theo URI) và m2 (`get()` quét chéo mọi workspace khi trượt). Checker đã đo và bác bỏ giả
+  thuyết tương đương: chính hai mutant đó làm 3 ca và 2 ca của `test/lsp/diagnostics-cache.spec.ts`
+  đỏ. Trục đúng là hai `workspaceId` va vào CÙNG một khoá.
+- **Nguyên nhân 2 — một lỗi thật chưa ca nào chạm.** `projectUris()` trong `src/tools/diagnostics.ts`
+  hợp `facade.projectFiles()` (cách viết của người gọi) với `reader.list()` (đã canonical hoá) bằng
+  `Set`; hai chuỗi khác ký tự cùng trỏ một tệp không bị khử trùng, nên một tệp vật lý xuất hiện hai
+  mục giống hệt nhau trong phạm vi project.
+- **Vì sao MỘT tính năng chứ không hai:** cùng một nguyên nhân gốc (identity của khoá cache), cùng
+  một tệp oracle, và cùng một fixture lộ ra cả hai — một tệp Java thật dưới `<root>/real/...` cộng
+  symlink thư mục `<root>/link -> <root>/real` cho hai cách viết URI, cùng một JDT LS thật cho
+  đường notification. Tách đôi là trả tiền hai lượt dispatch cho một seam duy nhất, đúng điều
+  `cutting-rules.md` gọi là chia nhỏ một hành vi không tách rời. Thứ tự oracle-trước vẫn được giữ:
+  test-implementer viết ca trước, maker chỉ được sửa `src/` sau khi có lượt đỏ.
+- **Phương án bị từ chối — sửa `TCON-DIAG-0003` tại chỗ trong tệp cũ.** Tệp đó thuộc
+  `feat-prove-diagnostics` đã có evidence, mà router không đưa một tính năng `prove` có evidence về
+  lại tầng oracle (memory `pre-authored-oracle-cannot-return-to-oracle-layer`). Giữ nguyên tệp cũ
+  làm lưu vết còn rẻ hơn là sửa xuyên qua một tính năng đã hết ngân sách.
+- **Phương án bị từ chối — fixture đắt với hai JDT LS thật cùng trỏ một tệp nguồn.** Nó phụ thuộc
+  một tiền đề chưa có ai phát biểu: hai workspace sống đồng thời có bao giờ giữ cùng một URI
+  canonical không. Đã ghi thành mục Human checkpoints trong `loop/goal.md` theo mục 7 của checker;
+  trục rẻ không phụ thuộc câu trả lời đó vì nó phán xét khoá cache, không phán xét hai tiến trình.
+- **Sửa kèm về DAG:** `feat-tool-completion` đổi phụ thuộc `feat-prove-diagnostics` →
+  `feat-prove-diagnostics-identity`. Cạnh này là cổng thứ tự build của giai đoạn diagnostics
+  (`DECISIONS/2026-08-20.md`); treo nó vào một tính năng đã hết ngân sách thì cả chuỗi bốn tính năng
+  `feat-tool-*` không bao giờ chạy được nữa.
+- **Ảnh hưởng:** 35 → 36 tính năng (19 build, 16 prove, 1 baseline); gói ngữ cảnh mới
+  `loop/context-packets/feat-prove-diagnostics-identity.json`; kỳ 2026-08-23 của tệp này chuyển vào
+  `harness/DECISIONS/2026-08-23.md` để giữ ngân sách 300 dòng. `check-plan.mjs` còn đúng một finding
+  đã có ngoại lệ được chấp nhận (`context-touches` trên `feat-workspace-pool`).
 
 ---
 
-<!-- Template for new entries:
+## 2026-08-25 — `TCON-DIAG-0004`: `stateful` + `deterministic_replay`, không phải `integration`
 
-## YYYY-MM-DD — Title
+- **Nguồn:** mục FOLLOW-UP trong verdict APPROVE của `feat-prove-evict-succession`. Tính năng giữ
+  nguyên `done`; status, evidence và tệp oracle không bị đụng.
+- **Quyết định:** ghi đè nguyên tử `TCON-DIAG-0004.json`: `behavior_shape` `integration` →
+  `stateful`, `technique` `e2e_scenario` → `deterministic_replay`, `rationale` viết lại cho khớp.
+  Planner tự sửa vì router không đưa một tính năng `prove` đã có evidence về lại tầng oracle được
+  (memory `pre-authored-oracle-cannot-return-to-oracle-layer`).
+- **Nguyên nhân:** oracle chạy trên spawner giả ở bộ unit, không phải hai thành phần thật.
+  `strategy-matrix.md` cấm gán `integration` cho behavior kiểm chứng được ở mức unit với contract
+  giả lập; mục D2 của `designer-checklist.md` cấm `concurrent` cho single-threaded event loop.
+- **Sửa kèm:** `behavior` dài 505 ký tự, vượt giới hạn 500 của schema từ lượt trước; rút còn 491
+  bằng cách thay `the predecessor's eviction cleanup` thành `its eviction cleanup`, không đổi nghĩa.
+- **Ngoại lệ D3 được chấp nhận:** TP-DIAG-0001 nay có một condition `stateful` mà không có condition
+  `property_kind: invariant` kèm theo. Không cắt thêm điều kiện: cửa sổ này chỉ dựng được bằng hai
+  lời gọi acquire chồng lấn, mà một command sequence sinh tự động không bao giờ dựng được.
+- **Không đụng `plan.json`:** schema đặt `additionalProperties: false`, không có field ghi chú;
+  `spec_gaps` dành cho spec mơ hồ, đây không phải. Lý do nằm trong `rationale` của chính condition.
+- **Ảnh hưởng:** không đổi `feature_list.json`, không đổi mã sản phẩm, không đổi test.
 
-- **Decision:**
-- **Reason:**
-- **Rejected alternative:**
-- **Constraint it satisfies:**
-- **Affected:**
--->
+---
+
+## 2026-08-25 — Mutant N1 của `#evict` KHÔNG tương đương: cắt `feat-prove-evict-succession`
+
+- **Nguồn:** mục FOLLOW-UP trong verdict APPROVE của `feat-tool-layer-core`, request
+  `follow-up:feat-tool-layer-core:bcf69f4971bf`. Tính năng giữ nguyên `done`; evidence và
+  checkerNotes không bị đụng.
+- **Quyết định:** cắt tính năng `prove` mới `feat-prove-evict-succession`, kèm quyền sửa có giới hạn
+  cho đúng một khối chú thích trong `src/workspace/workspace-pool.ts`.
+- **Không chọn phương án (b) của checker** (hạ cấp chú thích rồi bỏ ca): số đo cho thấy thứ tự trong
+  `#evict` thật sự chịu lực, nên bỏ ca là chôn một khoảng trống có thật.
+- **Nguyên nhân 1 — giả thuyết tương đương đã bị số đo bác bỏ.** Planner dựng lại mutant N1 trên bản
+  sao `src/` ngoài cây nguồn (repo không bị đụng): cap 3, spawner giả, chỉ tiến trình đầu tiên của
+  root A có `stop()` chậm. Bản gốc giữ diagnostics của kẻ kế nhiệm (`reported: true`); mutant N1 làm
+  nó thành `false`.
+- **Nguyên nhân 2 — `stop()` có điểm nhường thật.** `terminate()` gửi SIGTERM rồi `await exited`,
+  leo thang SIGKILL sau `STOP_GRACE_MS` = 5 000 ms. Cửa sổ đó rộng hơn cold start ~2 300 ms, đủ cho
+  một lần acquire lại cùng project root hoàn tất.
+- **Nguyên nhân 3 — chú thích hiện tại nêu SAI mối nguy.** Câu ở dòng 328-329 nói một notification
+  muộn không được rơi vào cache của workspace đang biến mất. Thứ đó bị chính `forget()` trong cùng
+  hàm detach xoá ngay sau đó, nên nó không falsify được — đúng lý do N1 sống sót 28/28. Mối nguy
+  thật là chiều ngược lại: `cache.forget(workspaceId)` muộn của kẻ tiền nhiệm xoá cache của kẻ kế
+  nhiệm vừa tiếp quản cùng identity.
+- **Vì sao identity bị dùng chung giữa hai thế hệ tiến trình:** `#identify` băm
+  `sha256(canonicalRoot)`, độc lập với pid. `#evict` xoá entry khỏi `#entries` trước khi dọn dẹp,
+  nên một `acquire` song song không thấy entry cũ và spawn tiến trình mới dưới đúng `workspaceId` đó.
+- **Vì sao cần hai lời gọi acquire song song:** `#ensureCapacityFor` await TRỌN `#evict`, nên một
+  chuỗi acquire đơn lẻ không bao giờ dựng được tình huống này. Cùng lý do `INV-POOL-5` tồn tại.
+- **Phương án bị từ chối — ghi `context.note` vào `feat-tool-layer-core`.** Tính năng đã `done`, nên
+  router không bao giờ đưa lại cho maker. Đây đúng bài học từ FOLLOW-UP `lsof` ngày 2026-08-23.
+- **Phương án bị từ chối — gộp vào `feat-prove-diagnostics`.** Tính năng đó là oracle tích hợp chạy
+  JDT LS thật, đang `in-progress` và bị chặn bởi một điều kiện môi trường (`EMFILE` của `fs.watch`).
+  Nhét một ca đơn vị về thứ tự evict vào đó làm lệnh verification mang hai mức và khiến ca mới bị
+  chặn bởi một vấn đề không liên quan.
+- **Phương án bị từ chối — gộp vào `feat-prove-cross-process-integration`.** Tính năng đó `blocked`
+  vì hai dependency chưa bắt đầu, và cửa sổ đua này chỉ tất định khi `stop()` được tiêm.
+- **Phương án bị từ chối — feature-planner tự sửa chú thích ngay.** Câu chú thích đúng phụ thuộc vào
+  thứ ca mới chứng minh, nên sửa trước là lại khẳng định một điều chưa ai đo.
+- **Ràng buộc được thoả mãn:** `INV-DIAG-1` — đọc lại luôn trả về payload gần nhất; một tệp mà JDT LS
+  đã báo cáo không được đọc ra thành "chưa báo cáo". Tệp oracle là tệp MỚI
+  `test/workspace/workspace-succession.spec.ts`, nên `test/workspace/workspace-attachments.spec.ts`
+  của một tính năng đã done vẫn bất khả xâm phạm.
+- **Ảnh hưởng:** 34 → 35 tính năng (19 build, 15 prove; DAG vẫn sâu 15 mức tại
+  `feat-prove-code-actions`, tính năng mới ở mức 7). `check-plan.mjs` còn đúng một finding đã có
+  ngoại lệ được chấp nhận (`context-touches` trên `feat-workspace-pool`).
+- **Còn mở, ngoài phạm vi lượt này:** chưa tệp nào trong `src/` gọi `createWorkspacePool` hay truyền
+  `attachments`, tức composition root nối pool + cache + tầng tool vẫn chưa có tính năng nào sở hữu.
+
+---
+
+## Kho lưu trữ
+
+Các kỳ đã đóng nằm trong `harness/DECISIONS/` — bắt đầu từ `harness/DECISIONS/INDEX.md`. Kỳ
+2026-08-19 (lựa chọn kiến trúc, hoãn Gradle) đã chuyển sang `harness/DECISIONS/2026-08-19.md`
+ngày 2026-08-22. Kỳ 2026-08-20 (lần cắt tính năng đầu tiên, thứ tự build, hai khoảng trống chưa
+cắt) chuyển sang `harness/DECISIONS/2026-08-20.md` ngày 2026-08-23. Kỳ 2026-08-21 (năm lần nới
+tính năng `prove` sẵn có thay vì cắt tính năng mới) chuyển sang `harness/DECISIONS/2026-08-21.md`
+cùng ngày 2026-08-23. Kỳ 2026-08-22 (timeout thiếu ở hai spec tích hợp; ba việc tồn đọng từ
+`feat-workspace-pool`) chuyển sang `harness/DECISIONS/2026-08-22.md` cùng ngày 2026-08-23. Kỳ
+2026-08-23 (bốn quyết định FOLLOW-UP: `lsof`, listener `error` của `probeDaemon`, hàm gỡ đăng ký
+của `attach()`, và lần cắt `feat-lsp-notifications`) chuyển sang `harness/DECISIONS/2026-08-23.md`
+ngày 2026-08-25.
+
+<!-- Mẫu cho mục mới: ## YYYY-MM-DD — Tiêu đề, rồi các gạch đầu dòng Quyết định / Nguyên nhân /
+     Phương án bị từ chối / Ràng buộc được thoả mãn / Ảnh hưởng. -->

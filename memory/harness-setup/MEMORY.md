@@ -8,4 +8,8 @@ Write a new entry when a toolchain/environment quirk cost real time to figure ou
 for this stack, a version mismatch, an MCP connectivity gotcha) — future re-setup or
 troubleshooting shouldn't have to rediscover it. Don't write one for a routine, expected setup.
 
+Write entries and hooks **in English**, whatever language the rest of the project uses: memory is
+addressed to whichever agent reads it next, not to this project's readers. Entries already written
+in another language stay as they are — this governs what gets written from now on.
+
 <!-- - [Title](slug.md) — one-line hook -->

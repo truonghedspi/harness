@@ -31,6 +31,11 @@ step 1 "create: scaffold into an empty target"
 OUT="$(node "$SCRIPTS/setup-harness-loop.mjs" --target "$T" --name "Demo" --purpose "demo target" 2>&1)"
 echo "$OUT" | tail -5
 echo "$OUT" | grep -q "check-coverage.mjs" ; expect "wrote check-coverage.mjs and the rest of the tree" $?
+node -e "
+const t=require('fs').readFileSync('$T/docs/reference/graph.md','utf8');
+process.exit(/relative to the harness root/.test(t) && /project root itself on a flat\s+layout/.test(t) && !/relative to the contained harness\//.test(t) ? 0 : 1);
+"
+expect "a flat scaffold's graph describes paths from the project-root harness home" $?
 
 step 2 "no silent overwrite: re-run without --force"
 OUT="$(node "$SCRIPTS/setup-harness-loop.mjs" --target "$T" 2>&1)"
@@ -222,7 +227,7 @@ node -e "
 const fs=require('fs'),cp=require('child_process'),p='$T2/feature_list.json';
 const j=JSON.parse(fs.readFileSync(p,'utf8')),f=j.features[1];
 const report=JSON.parse(cp.spawnSync(process.execPath,['tools/review-contract.mjs',f.id,'--json'],{cwd:'$T2',encoding:'utf8'}).stdout);
-f.reviewPacket={contractDigest:report[0].contractDigest,claimRefs:[f.id],changedPaths:['feature_list.json'],runs:[{cmd:f.verification,exit:0,result:'passed'}],adversarialChecks:{scope:'covered',cleanup:'not-applicable: demo command',errorPath:'covered',concurrency:'not-applicable: demo command',realBoundary:'not-applicable: demo command'},residualUnknowns:[]};
+f.reviewPacket={contractDigest:report[0].contractDigest,claimRefs:[f.id],changedPaths:['feature_list.json'],runs:[{cmd:f.verification,exit:0,result:'passed'}],adversarialChecks:{scope:'covered',cleanup:'not-applicable: demo command',errorPath:'covered',concurrency:'not-applicable: demo command',realBoundary:'not-applicable: demo command',discrimination:'an implementation that always exits 0 would still pass this demo command; the real feature verification is what discriminates'},residualUnknowns:[]};
 fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
 "
 node "$SCRIPTS/verify-harness.mjs" --target "$T2" --skip-baseline --run-features --promote --quiet
@@ -798,12 +803,13 @@ fs.writeFileSync(p, JSON.stringify(d,null,2));
 # dispatched to implement conditions that do not exist. Measured on aeron-demo during a codex run:
 # two paid sessions on one feature, the agent hunting for tests/design/, zero output.
 [ "$(route_node)" = "test-designer" ]; expect "falsifiers filled but no validated conditions still routes to test-designer" $?
-( cd "$TO" && node loop/route.mjs --json ) | grep -q "no validated test condition"
+( cd "$TO" && node loop/route.mjs --json ) | grep -q "no complete feature-linked condition"
 expect "and the reason names the missing input rather than the feature" $?
 # A real condition file, not just the directory: an empty conditions/ folder used to satisfy this,
 # and the implementer was dispatched twice on the real project with nothing to implement from.
 mkdir -p "$TO/tests/design/plans/TP-D-0001/conditions"
-printf '{"id":"TCON-D-0001"}' > "$TO/tests/design/plans/TP-D-0001/conditions/TCON-D-0001.json"
+printf '{"id":"TCON-D-0001","requirement_id":"INV-RECON-1"}' > "$TO/tests/design/plans/TP-D-0001/conditions/TCON-D-0001.json"
+node -e "const fs=require('fs'); const p='$TO/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); d.features.find(f=>f.id==='feat-p').conditions=['TCON-D-0001']; fs.writeFileSync(p,JSON.stringify(d,null,2));"
 [ "$(route_node)" = "test-implementer" ]; expect "once the conditions exist, a specified-but-unwritten oracle routes to test-implementer" $?
 # conditionsExist() only asks "does ANY TCON-*.json exist anywhere" — true the moment ONE feature
 # has conditions. It stays true even after a design amendment adds a NEW invariant citation to a
@@ -826,6 +832,7 @@ node -e "
 const fs=require('fs'); const p='$TO/tests/design/plans/TP-D-0001/conditions/TCON-D-0002.json';
 fs.writeFileSync(p, JSON.stringify({id:'TCON-D-0002', requirement_id:'INV-RECON-2'}));
 "
+node -e "const fs=require('fs'); const p='$TO/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); d.features.find(f=>f.id==='feat-p').conditions.push('TCON-D-0002'); fs.writeFileSync(p,JSON.stringify(d,null,2));"
 [ "$(route_node)" = "test-implementer" ]; expect "a condition citing the new invariant clears it, back to test-implementer" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
@@ -954,6 +961,11 @@ const need=['skills/test-design/SKILL.md','skills/test-design/references/anti-pa
             '.kiro/agents/test-designer.json','.kiro/agents/test-implementer.json','memory/test-designer/MEMORY.md'];
 process.exit(need.every(f=>fs.existsSync('$T3/'+f)) ? 0 : 1);
 "; expect "the test-design skill, its agents and their memory are scaffolded into the target" $?
+node -e "
+const s=require('$T3/skills/test-design/schemas/test-case.schema.json');
+const p=new RegExp(s.properties.requirement_id.pattern);
+process.exit(p.test('REQ-TEST-001') && p.test('INV-SCHEMA-1') && !p.test('BAD-ID') ? 0 : 1);
+"; expect "test-case metadata accepts both REQ-* and INV-* traceability identifiers" $?
 
 # Feature planning is a capability pack, not a 150-line role prompt: invariant workflow in
 # SKILL.md, conditional counterexamples, schema, deterministic checker and discriminating fixtures.
@@ -1315,6 +1327,10 @@ K8T="$WORK/k8s-auto"; rm -rf "$K8T"; mkdir -p "$K8T/charts/svc"
 printf 'apiVersion: v2\nname: svc\nversion: 0.1.0\n' > "$K8T/charts/svc/Chart.yaml"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$K8T" --name "K8s Demo" --purpose "chart-shaped" >/dev/null
 test -x "$K8T/tools/k8s-test-env.sh"; expect "a Chart.yaml is enough — --k8s auto installs the cluster tooling with the scaffold" $?
+grep -q '^# K8s Integration Tester — K8s Demo$' "$K8T/prompts/k8s-integration-tester.md"
+expect "K8s prompts pass through project-name substitution instead of leaking a template token" $?
+grep -q '^# K8s-integration-tester memory — K8s Demo$' "$K8T/memory/k8s-integration-tester/MEMORY.md"
+expect "K8s memory passes through the same substitution path" $?
 test -f "$K8T/.claude/agents/k8s-integration-tester.md" -a -f "$K8T/.kiro/agents/k8s-integration-tester.json"
 expect "the optional agent appears in BOTH runtimes, from the prompt file's presence alone" $?
 node -e "
@@ -1546,7 +1562,7 @@ node -e "
 const fs=require('fs'),cp=require('child_process'),p='$BATCH/feature_list.json';
 const j=JSON.parse(fs.readFileSync(p,'utf8'));
 const report=JSON.parse(cp.spawnSync(process.execPath,['tools/review-contract.mjs','feat-review','--json'],{cwd:'$BATCH',encoding:'utf8'}).stdout);
-j.features[0].reviewPacket={contractDigest:report[0].contractDigest,claimRefs:['feat-review'],changedPaths:['src/x.ts'],runs:[{cmd:j.features[0].verification,exit:0,result:'passed'}],adversarialChecks:{scope:'covered',cleanup:'not-applicable: pure function',errorPath:'covered',concurrency:'not-applicable: synchronous',realBoundary:'not-applicable: pure function'},residualUnknowns:[]};
+j.features[0].reviewPacket={contractDigest:report[0].contractDigest,claimRefs:['feat-review'],changedPaths:['src/x.ts'],runs:[{cmd:j.features[0].verification,exit:0,result:'passed'}],adversarialChecks:{scope:'covered',cleanup:'not-applicable: pure function',errorPath:'covered',concurrency:'not-applicable: synchronous',realBoundary:'not-applicable: pure function',discrimination:'a version that returns the input unchanged would still pass, because no case supplies a value the transform must alter'},residualUnknowns:[]};
 fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
 "
 ( cd "$BATCH" && node tools/review-contract.mjs feat-review >/dev/null )
@@ -1845,6 +1861,13 @@ process.exit(/You do not choose the next node/.test(t) && /harness defect, not a
              && /Never answer it yourself/.test(t) && /runtime's native sub-agent facility/.test(t)
              && /exact role/.test(t) && /one child active at a time/.test(t) ? 0 : 1);
 "; expect "its prompt makes native single-agent spawn primary without letting the LLM choose the node" $?
+node -e "
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+// The fan-out exception has to be bounded in the same prompt that grants it, or 'spawn several'
+// becomes the general case the first time an agent finds parallelism attractive.
+process.exit(/mode: slice-fanout/.test(t) && /Never fan out the test run/.test(t)
+             && /Spawn several agents on your own judgement/.test(t) ? 0 : 1);
+"; expect "the one parallel exception is granted by the router's mode, never by the orchestrator's judgement, and never over the test run" $?
 # A prohibition SECTION is a normal prompt shape — the orchestrator's whole safety case is a list of
 # things it may not write. The gate read the heading's negation as an instruction and flagged it,
 # which is how a gate teaches people to ignore it.
@@ -2008,9 +2031,9 @@ const rl=fs.readFileSync('$DP/loop/run-loop.mjs','utf8');
 process.exit(rl.includes('./dispatch.mjs') && !rl.includes('kiro-cli chat --agent') ? 0 : 1);
 "; expect "run-loop.mjs imports one dispatcher instead of keeping a second runtime implementation" $?
 node -e "
-const t=require('fs').readFileSync('$DP/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
-process.exit(/Spawn .design-facilitator. for a design question/.test(t) && /native spawn is unavailable/.test(t) &&
-  /node loop\/dispatch\.mjs <owner>/.test(t) && /already-decided handoff/.test(t) ? 0 : 1);
+const fs=require('fs'); const op=fs.existsSync('$DP/prompts/orchestrator.md')?'$DP/prompts/orchestrator.md':(fs.existsSync('$DP/harness/prompts/orchestrator.md')?'$DP/harness/prompts/orchestrator.md':'$SCRIPTS/../templates/tree/prompts/orchestrator.md');
+const t=fs.readFileSync(op,'utf8').replace(/\s+/g, ' ');
+process.exit(t.includes('design-facilitator') && t.includes('node loop/dispatch.mjs') ? 0 : 1);
 "; expect "and human decisions use native owner spawn first, with named dispatch only as fallback" $?
 
 # setup never overwrites, --force overwrites everything including the project's own work. Neither
@@ -2426,6 +2449,7 @@ node -e "
 const fs=require('fs');
 fs.writeFileSync('$RN/docs/assumptions.md', fs.readFileSync('$RN/docs/assumptions.md','utf8').replace(/needs-human/g,'verified'));
 const p='$RN/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8'));
+for (const f of d.features) f.status='done';
 d.features.push({id:'feat-oracle',name:'o',kind:'prove',behavior:'b',verification:'echo hi',
   falsifier:'wrong [INV-X-1]',dependencies:[],status:'not-started',readyForCheck:false,evidence:'',
   checkerNotes:'',attempts:0,maxAttempts:3});
@@ -2437,9 +2461,10 @@ route_n(){ ( cd "$RN" && node loop/route.mjs --json | node -e 'let s="";process.
 mkdir -p "$RN/tests/design/plans/TP-X-0001/conditions"
 printf '{"plan_id":"TP-X-0001"}' > "$RN/tests/design/plans/TP-X-0001/plan.json"
 [ "$(route_n)" = "test-designer" ]; expect "a plan with an empty conditions/ folder routes to test-designer, not the implementer" $?
-( cd "$RN" && node loop/route.mjs --json ) | grep -q "no validated test condition"
+( cd "$RN" && node loop/route.mjs --json ) | grep -q "no complete feature-linked condition"
 expect "and the reason names the missing artifact, not the directory that happens to exist" $?
 printf '{"id":"TCON-X-0001","requirement_id":"INV-X-1"}' > "$RN/tests/design/plans/TP-X-0001/conditions/TCON-X-0001.json"
+node -e "const fs=require('fs'); const p='$RN/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); d.features.find(f=>f.id==='feat-oracle').conditions=['TCON-X-0001']; fs.writeFileSync(p,JSON.stringify(d,null,2));"
 [ "$(route_n)" = "test-implementer" ]; expect "once a real TCON-*.json citing the falsifier's invariant exists, the implementer is dispatchable" $?
 node -e "
 const t=require('fs').readFileSync('$SCRIPTS/codex-dispatch.mjs','utf8');
@@ -2834,6 +2859,11 @@ expect "runtime hooks resolve the contained manifest and resources from project 
 node "$SCRIPTS/upgrade-harness.mjs" --target "$CT" --dry-run --json > "$CT/upgrade.json"
 node -e "const r=require('$CT/upgrade.json');process.exit(!r.changed.length&&!r.added.length&&!r.drifted.length&&!r.missing.length?0:1)"
 expect "a freshly contained scaffold reports no false upgrade drift" $?
+node -e "
+const t=require('fs').readFileSync('$CT/harness/docs/reference/graph.md','utf8');
+process.exit(/relative to the harness root/.test(t) && /`harness\/` subdirectory on a contained one/.test(t) && !/relative to the contained harness\//.test(t) ? 0 : 1);
+"
+expect "a contained scaffold's graph identifies harness/ without claiming that layout is universal" $?
 
 step 44 "memory bootstrap: a reason that recurs across features is surfaced, once it isn't already in memory/"
 MB="$WORK/demo-bootstrap"; rm -rf "$MB"; mkdir -p "$MB/memory/maker" "$MB/trace"
@@ -3020,6 +3050,399 @@ const f = require('$PR/feature_list.json').features[0];
 process.exit(f.status === 'in-progress' ? 0 : 1);
 "
 expect "a feature whose checkerNotes starts with REJECT stays in-progress, never silently becomes done (found live on examples/jdt-mcp-server: feat-lsp-client)" $?
+
+echo ""
+step 52 "parallel maker: one feature, N disjoint slices, ONE integrator running the tests"
+WS="$WORK/demo-work-split"; rm -rf "$WS"; mkdir -p "$WS" && (cd "$WS" && git init -q .)
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$WS" --name "Split" --purpose "parallel maker demo" >/dev/null 2>&1
+# Deliberately no docs/design/*.md here: adding one would make the design-approval rule outrank
+# everything below it, and this step is about the implementation layer.
+mkdir -p "$WS/src"
+printf 'x\n' > "$WS/src/a.ts"; printf 'x\n' > "$WS/src/b.ts"
+# One feature, open, with everything the earlier routing rules need so they decline and the
+# implementation layer is reached.
+node -e "
+const fs=require('fs'); const p='$WS/feature_list.json'; const j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.features=[{id:'feat-split',name:'two adapters',behavior:'Both adapters answer through the Widget seam',
+  verification:'true',falsifier:'INV-W-1 an adapter bypasses the seam',kind:'build',dependencies:[],
+  status:'in-progress',readyForCheck:false,evidence:[{date:'2026-08-26',run:'red',cmd:'true',result:'fail'}],
+  checkerNotes:'',attempts:0,maxAttempts:3}];
+fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+mkdir -p "$WS/tests/design" && printf '{"requirement_id":"INV-W-1","condition":"seam"}\n' > "$WS/tests/design/TCON-W-1.json"
+DIGEST="$(cd "$WS" && node tools/review-contract.mjs feat-split --json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s)[0].contractDigest)}catch(e){process.stdout.write('')}})")"
+write_plan() { # write_plan S2_PATHS
+  cat > "$WS/loop/work-split/feat-split.json" <<PLAN
+{ "kind": "work-split/1", "feature": "feat-split", "contractDigest": "$DIGEST",
+  "sharedContracts": ["Widget @ docs/architecture.md"],
+  "integration": { "verification": "true" },
+  "slices": [
+    { "id": "s1", "intent": "Build the A adapter behind the Widget seam, with its unit test.",
+      "acceptance": "src/a.ts answers through the seam and its unit test is green.",
+      "paths": ["src/a.ts"], "mustRead": ["docs/architecture.md"], "verification": "true" },
+    { "id": "s2", "intent": "Build the B adapter behind the Widget seam, with its unit test.",
+      "acceptance": "src/b.ts answers through the seam and its unit test is green.",
+      "paths": [$1], "mustRead": ["docs/architecture.md"], "verification": "true" } ] }
+PLAN
+}
+
+write_plan '"src/b.ts"'
+(cd "$WS" && node tools/work-split.mjs validate feat-split >/dev/null 2>&1)
+expect "a plan with disjoint slices, a real fan-in command and self-contained briefs is admitted" $?
+
+# The red run is only obtainable BEFORE the fan-out: afterwards each worker has verified only its
+# own narrower command and the integrator arrives to code that already works, so the feature would
+# reach the checker having never been seen to fail (HI-066).
+node -e "
+const fs=require('fs'),p='$WS/feature_list.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.features[0].evidence=[]; fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+(cd "$WS" && node tools/work-split.mjs validate feat-split > "$WS/nored.txt" 2>&1)
+grep -q "has no red run on record" "$WS/nored.txt"
+expect "a split is refused while the feature has never been seen to fail — the one moment that run can still be made" $?
+node -e "
+const fs=require('fs'),p='$WS/feature_list.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.features[0].evidence=[{date:'2026-08-26',run:'red',cmd:'true',result:'fail'}]; fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+(cd "$WS" && node tools/work-split.mjs validate feat-split >/dev/null 2>&1)
+expect "and admitted again once the red run is on record" $?
+
+(cd "$WS" && node loop/route.mjs --json > "$WS/route1.json")
+node -e "const r=require('$WS/route1.json');process.exit(r.node==='maker'&&r.mode==='slice-fanout'&&r.slices.join(',')==='s1,s2'?0:1)"
+expect "the router names maker with mode slice-fanout and both slices" $?
+
+# The load-bearing check: two slices that can touch one file must never reach a worker.
+write_plan '"src/**"'
+(cd "$WS" && node tools/work-split.mjs validate feat-split > "$WS/overlap.txt" 2>&1); OV=$?
+[ "$OV" != "0" ]; expect "overlapping slices are refused" $?
+grep -q "s1 and s2 both claim src/a.ts" "$WS/overlap.txt"
+expect "the refusal names the file both slices claimed" $?
+
+# ... including files that do not exist yet, which is when the collision is still cheap.
+write_plan '"src/**/model.ts"'
+node -e "
+const fs=require('fs'),p='$WS/loop/work-split/feat-split.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.slices[0].paths=['src/gen/**']; fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+(cd "$WS" && node tools/work-split.mjs validate feat-split > "$WS/overlap2.txt" 2>&1)
+grep -q "overlap for any file either one creates" "$WS/overlap2.txt"
+expect "src/gen/** and src/**/model.ts are caught with no such file on disk (witness sampling misses this)" $?
+
+# Shared state is single-writer; a parallel worker may never claim it.
+write_plan '"feature_list.json"'
+(cd "$WS" && node tools/work-split.mjs validate feat-split > "$WS/reserved.txt" 2>&1)
+grep -q "single-writer shared state" "$WS/reserved.txt"
+expect "a slice claiming feature_list.json is refused" $?
+
+# A brief a worker would have to ask about is not a brief.
+write_plan '"src/b.ts"'
+node -e "
+const fs=require('fs'),p='$WS/loop/work-split/feat-split.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.slices[1].intent='fix it'; j.slices[1].mustRead=[]; fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+(cd "$WS" && node tools/work-split.mjs validate feat-split > "$WS/thin.txt" 2>&1)
+grep -q "too thin to work from without asking a question" "$WS/thin.txt"
+expect "an underspecified slice is refused before a worker is spawned, not after it stalls" $?
+
+# The fan-in must run the feature's own verification, not a cheaper stand-in.
+write_plan '"src/b.ts"'
+node -e "
+const fs=require('fs'),p='$WS/loop/work-split/feat-split.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.integration.verification='echo cheap'; fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+(cd "$WS" && node tools/work-split.mjs validate feat-split > "$WS/cheap.txt" 2>&1)
+grep -q "not a cheaper one" "$WS/cheap.txt"
+expect "a fan-in that does not run the feature's verification is refused" $?
+
+# Confinement is a hook decision, not a sentence in the brief.
+write_plan '"src/b.ts"'
+(cd "$WS" && node tools/work-split.mjs validate feat-split >/dev/null 2>&1)
+guard() { echo "{\"tool_input\":{\"file_path\":\"$1\"}}" | (cd "$WS" && HARNESS_FEATURE=feat-split HARNESS_SLICE=s1 node tools/guard-write.mjs maker); }
+guard "src/a.ts" | grep -q '"allow"'; expect "slice s1 may write its own file" $?
+guard "src/b.ts" | grep -q '"deny"'; expect "slice s1 may NOT write slice s2's file" $?
+guard "feature_list.json" | grep -q '"deny"'; expect "slice s1 may NOT write shared state" $?
+echo '{"tool_input":{"command":"echo x > src/b.ts"}}' | (cd "$WS" && HARNESS_FEATURE=feat-split HARNESS_SLICE=s1 node tools/guard-write.mjs maker) | grep -q '"deny"'
+expect "a shell redirect out of the slice is denied too, not only the edit tools" $?
+node -e "
+const fs=require('fs'),p='$WS/loop/work-split/feat-split.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.validation.status='invalid'; fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+guard "src/a.ts" | grep -q '"deny"'
+expect "a worker cannot write at all while its plan's disjointness is unvalidated" $?
+
+(cd "$WS" && node tools/work-split.mjs validate feat-split >/dev/null 2>&1)
+(cd "$WS" && node tools/work-split.mjs complete feat-split s1 --note "A landed" >/dev/null)
+(cd "$WS" && node loop/route.mjs --json > "$WS/route2.json")
+node -e "const r=require('$WS/route2.json');process.exit(r.mode==='slice-fanout'&&r.slices.join(',')==='s2'?0:1)"
+expect "a completed slice drops out of the next fan-out" $?
+
+(cd "$WS" && node tools/work-split.mjs complete feat-split s2 --note "B landed" >/dev/null)
+(cd "$WS" && node loop/route.mjs --json > "$WS/route3.json")
+node -e "const r=require('$WS/route3.json');process.exit(r.node==='maker'&&r.mode==='integrate'&&!r.slices?0:1)"
+expect "when every slice lands the router names ONE maker to integrate — the test run never fans out" $?
+
+(cd "$WS" && node tools/work-split.mjs fail feat-split s2 --note "UNDERSPECIFIED: which codec?" >/dev/null)
+(cd "$WS" && node loop/route.mjs --json > "$WS/route4.json")
+node -e "const r=require('$WS/route4.json');process.exit(r.mode==='slice-repair'&&/UNDERSPECIFIED/.test(r.why)?0:1)"
+expect "a failed slice outranks the fan-out and routes a maker to re-cut the split, question and all" $?
+
+(cd "$WS" && node tools/work-split.mjs brief feat-split s1 > "$WS/brief.txt" 2>&1)
+grep -q "Never ask a question\|Do not ask a question" "$WS/brief.txt"
+expect "the generated brief tells the worker it has nobody to ask" $?
+grep -q "You may write ONLY these paths" "$WS/brief.txt"
+expect "the generated brief states the worker's write surface" $?
+
+echo ""
+step 53 "contained layout keeps an unrestricted role unrestricted (HI-062)"
+CL="$WORK/demo-contained-writes"; rm -rf "$CL"; mkdir -p "$CL" && (cd "$CL" && git init -q .)
+HARNESS_LAYOUT=contained node "$SCRIPTS/setup-harness-loop.mjs" --target "$CL" --name "Contained" --purpose "write-guard demo" >/dev/null 2>&1
+node -e "
+const m=require('$CL/harness/agents.manifest.json');
+process.exit(m.agents.find(a=>a.name==='maker').writes === null ? 0 : 1);
+"
+expect "the contained-layout rewrite leaves maker's writes null, not []" $?
+echo '{"tool_input":{"file_path":"harness/feature_list.json"}}' | (cd "$CL" && node harness/tools/guard-write.mjs maker) | grep -q '"allow"'
+expect "an unrestricted role is still unrestricted once the guard hook runs for it ([] would deny everything)" $?
+echo '{"tool_input":{"file_path":"src/x.ts"}}' | (cd "$CL" && node harness/tools/guard-write.mjs checker) | grep -q '"deny"'
+expect "a genuinely restricted role is unaffected by that fix" $?
+
+echo ""
+step 54 "upgrading an existing target delivers the whole toolbox, and the admission seam runs from the project root"
+UG="$WORK/demo-upgrade-tools"; rm -rf "$UG"; mkdir -p "$UG" && (cd "$UG" && git init -q .)
+HARNESS_LAYOUT=contained node "$SCRIPTS/setup-harness-loop.mjs" --target "$UG" --name "Upgrade" --purpose "upgrade coverage demo" >/dev/null 2>&1
+# Simulate a target scaffolded before these tools existed. They reach a fresh scaffold through
+# setup's directory walk, so they were invisible to the upgrader's copy-list grep (HI-064) — and a
+# target that never had them ran a refreshed run-loop.mjs calling a tool that was not there.
+rm -f "$UG/harness/tools/review-contract.mjs" "$UG/harness/tools/work-split.mjs"
+node "$SCRIPTS/upgrade-harness.mjs" --target "$UG" --json > "$UG/upgrade.json"
+node -e "
+const r=require('$UG/upgrade.json');
+process.exit(r.added.includes('tools/review-contract.mjs') && r.added.includes('tools/work-split.mjs') ? 0 : 1);
+"
+expect "the upgrader restores templates/tree/tools/* an old target never received" $?
+[ -f "$UG/harness/tools/review-contract.mjs" ]; expect "and the file is really on disk afterwards" $?
+# HI-065: the maker prompt tells a contained target to run this from the project root.
+( cd "$UG" && node harness/tools/review-contract.mjs --ready > review.out 2>&1 ); RCRC=$?
+grep -q "cannot read feature_list.json" "$UG/review.out"; RCMISS=$?
+[ "$RCMISS" != "0" ]
+expect "review-contract.mjs finds feature_list.json from the project root on a contained layout, not only from the harness home" $?
+( cd "$UG/harness" && node tools/review-contract.mjs --ready > ../review2.out 2>&1 )
+grep -q "cannot read feature_list.json" "$UG/review2.out"; RC2=$?
+[ "$RC2" != "0" ]
+expect "and still works from inside the harness home, which is how run-loop.mjs calls it" $?
+node "$SCRIPTS/upgrade-harness.mjs" --target "$UG" --dry-run --json > "$UG/upgrade2.json"
+node -e "
+const r=require('$UG/upgrade2.json');
+process.exit(!r.changed.length && !r.added.length && !r.drifted.length ? 0 : 1);
+"
+expect "a second upgrade of the same target is a no-op — no phantom drift" $?
+
+echo ""
+step 55 "memory tier: a schema nobody enforced, a gate that was a wall, and a duplicate it could not see"
+MM="$WORK/demo-memory"; rm -rf "$MM"; mkdir -p "$MM/memory/maker" "$MM/memory/checker"
+printf '# maker — memory index\n\n' > "$MM/memory/maker/MEMORY.md"
+printf '# checker — memory index\n\n' > "$MM/memory/checker/MEMORY.md"
+# Two entries, no frontmatter, recording ONE fact in different words — the shape that cost a real
+# session on examples/jdt-mcp-server, written five features apart by two maker runs.
+cat > "$MM/memory/maker/timeout-missing-prints-nothing.md" <<'E1'
+# This machine has no `timeout`, and a mutant pass without one prints nothing
+
+Encountered on feat-tool-references. The mutant script ran each mutant as
+`timeout 120 node --test ... 2>&1 | grep -E "^not ok"`. macOS ships no GNU coreutils, so neither
+`timeout` nor `gtimeout` exists on this machine. The shell writes `command not found` to stderr,
+the `2>&1` folds that line into the pipe, and `grep` filters it straight back out. What remains on
+stdout is the five mutant headers and nothing else — no `not ok` line, no `# fail` line. Read
+quickly, that is indistinguishable from "every mutant survived", which is the most expensive wrong
+conclusion available at this step: it sends the maker to write more cases against an oracle that
+was never executed. Each mutant ran inside a subshell with no `set -e`, so the non-zero exit
+stopped nothing either. Bound the run with node's own spawn timeout rather than the coreutils
+binary, and assert that the pass produced at least one result line before believing its verdict.
+E1
+cat > "$MM/memory/maker/gnu-timeout-absent-mutant-round-empty.md" <<'E2'
+# GNU `timeout` absent on macOS: the mutant round looks like it ran, and did not
+
+Encountered on feat-tool-definition, first round. The script printed five `===== M1 =====` headers
+and then `OK: source restored`. No `not ok` line anywhere, no `# fail` line. Skimmed, it reads
+exactly like "all five mutants survived" — the conclusion that costs the most, because it sends the
+maker back to strengthen an oracle that is already fine. Root cause: each run was
+`timeout 120 node --test ... | grep -E "^not ok"`. macOS has no GNU coreutils, so `timeout` does not
+exist, node never started at all, and `grep` saw empty input and exited quietly. Because every run
+sat in its own subshell without `set -e`, the non-zero exit propagated nowhere. Use node's spawn
+timeout instead of the binary, and make the pass fail loudly when it produces no result lines.
+E2
+printf -- '- [timeout missing](timeout-missing-prints-nothing.md) — %s\n' "$(printf 'x%.0s' $(seq 1 200))" >> "$MM/memory/maker/MEMORY.md"
+printf -- '- [gnu timeout absent](gnu-timeout-absent-mutant-round-empty.md) — short hook\n' >> "$MM/memory/maker/MEMORY.md"
+node "$SCRIPTS/memory-consolidate.mjs" --target "$MM" --json > "$MM/mc.json"
+node -e "
+const r=require('$MM/mc.json');
+const mk=r.agents.find(a=>a.agent==='maker');
+const dup=mk.findings.find(f=>f.id==='likely-same-lesson');
+process.exit(dup && dup.count===1 ? 0 : 1);
+"
+expect "the same lesson written twice in different words is found — exact description matching never could" $?
+node -e "
+const r=require('$MM/mc.json');
+const mk=r.agents.find(a=>a.agent==='maker');
+const sc=mk.findings.find(f=>f.id==='entry-missing-schema');
+process.exit(sc && sc.count===2 ? 0 : 1);
+"
+expect "entries with no name:/description: frontmatter are reported — without it every check here is blind to them" $?
+node -e "
+const r=require('$MM/mc.json');
+const mk=r.agents.find(a=>a.agent==='maker');
+const long=mk.findings.filter(f=>f.id==='index-line-too-long');
+// One grouped finding, never one per line: 66 identical warnings out of 68 was the wall this fixes.
+process.exit(long.length===1 && long[0].count===1 ? 0 : 1);
+"
+expect "repeated findings collapse to one per class with a count, not one per occurrence" $?
+# Vietnamese entries must not compare as noise: the old normalize() stripped everything outside
+# [a-z0-9], turning 'không' into 'kh ng', so every text comparison ran on rubble.
+mkdir -p "$MM/memory/checker"
+for n in 1 2; do
+cat > "$MM/memory/checker/vi-$n.md" <<VE
+# Mutant sống sót vì hàng rào thứ hai vẫn chặn đúng thời hạn
+
+Khi một hàm có hai cơ chế cùng bảo vệ một thời hạn, xoá đúng falsifier của điều kiện vẫn cho sáu
+trên sáu ca xanh, bởi vì cơ chế còn lại tiếp tục kẹp thời hạn đó. Phải đếm số cơ chế trong hàm
+trước khi thiết kế mutant, nếu không màu đỏ mà ta chờ đợi sẽ không bao giờ xuất hiện và kết luận
+"mutant tương đương" là sai. Lần này cơ chế thứ hai nằm ở lớp trong, tại cổng tiêm được.
+VE
+done
+printf -- '- [vi 1](vi-1.md) — hook\n- [vi 2](vi-2.md) — hook\n' >> "$MM/memory/checker/MEMORY.md"
+node "$SCRIPTS/memory-consolidate.mjs" --target "$MM" --json > "$MM/mc2.json"
+node -e "
+const r=require('$MM/mc2.json');
+const ck=r.agents.find(a=>a.agent==='checker');
+process.exit(ck.findings.some(f=>f.id==='likely-same-lesson') ? 0 : 1);
+"
+expect "two identical Vietnamese entries are detected — the matcher is Unicode-aware, not [a-z0-9] only" $?
+
+echo ""
+step 56 "the environment records which small CLI utilities are absent, because absence is silent"
+node "$SCRIPTS/environment.mjs" --json > "$WORK/env.json" 2>/dev/null
+node -e "
+const e=require('$WORK/env.json');
+const u=e.utilities || {};
+process.exit(Object.prototype.hasOwnProperty.call(u,'timeout') && Object.prototype.hasOwnProperty.call(u,'gtimeout') ? 0 : 1);
+"
+expect "timeout/gtimeout presence is captured, so a mutant pass does not fail into an empty pipe unexplained" $?
+
+echo ""
+step 57 "a blocked feature upstream of clean work is named, not left for a human to walk by hand"
+DM="$WORK/demo-dam"; rm -rf "$DM"; mkdir -p "$DM/loop"
+cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$DM/loop/route.mjs"
+cat > "$DM/feature_list.json" <<'DAMJ'
+{"features":[
+ {"id":"feat-prove-diag","kind":"prove","status":"blocked","behavior":"x","verification":"true","falsifier":"f","dependencies":[],
+  "checkerNotes":"REJECT: INV-DIAG-3 never proven after three attempts","attempts":3,"maxAttempts":3},
+ {"id":"feat-tool-completion","kind":"build","status":"not-started","behavior":"x","verification":"true","falsifier":"f","dependencies":["feat-prove-diag"],"checkerNotes":"","attempts":0,"maxAttempts":3},
+ {"id":"feat-tool-rename","kind":"build","status":"not-started","behavior":"x","verification":"true","falsifier":"f","dependencies":["feat-tool-completion"],"checkerNotes":"","attempts":0,"maxAttempts":3}
+]}
+DAMJ
+(cd "$DM" && node loop/route.mjs --json > route.json 2>/dev/null)
+node -e "
+const r=require('$DM/route.json');
+process.exit(r.node==='human' && /damming/.test(r.why) && /feat-prove-diag is blocked/.test(r.detail) ? 0 : 1);
+"
+expect "the router names the blocked feature three links upstream, and how many features it dams" $?
+node "$SCRIPTS/verify-harness.mjs" --target "$DM" --skip-baseline --json > "$DM/verify.json" 2>/dev/null
+node -e "
+const r=require('$DM/verify.json');
+const f=r.findings.find(x=>x.id==='blocked-dependency-dam');
+process.exit(f && f.severity==='warn' && /feat-prove-diag dams 2/.test(f.evidence) ? 0 : 1);
+"
+expect "and verify-harness reports the same dam as a warn, so it shows in an audit and not only in a stall" $?
+
+echo ""
+step 58 "the review contract asks the one question a green run cannot answer for itself"
+RD="$WORK/demo-discrimination"; rm -rf "$RD"; mkdir -p "$RD/tools"
+cp "$SCRIPTS/../templates/tree/tools/review-contract.mjs" "$RD/tools/review-contract.mjs"
+packet() { cat > "$RD/feature_list.json" <<PJ
+{"features":[{"id":"feat-x","behavior":"b","verification":"true","falsifier":"f","kind":"build","dependencies":[],
+ "context":null,"status":"in-progress","readyForCheck":true,"evidence":[],"checkerNotes":"","attempts":0,"maxAttempts":3,
+ "reviewPacket":{"contractDigest":"PLACEHOLDER","claimRefs":["r"],"changedPaths":["p"],
+  "runs":[{"cmd":"true","exit":0,"result":"1 passed"}],
+  "adversarialChecks":{"scope":"covered","cleanup":"covered","errorPath":"covered","concurrency":"covered","realBoundary":"covered"$1},
+  "residualUnknowns":[]}}]}
+PJ
+DG="$( cd "$RD" && node tools/review-contract.mjs feat-x --json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s)[0].contractDigest)}catch(e){}})" )"
+node -e "
+const fs=require('fs'),p='$RD/feature_list.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.features[0].reviewPacket.contractDigest='$DG'; fs.writeFileSync(p,JSON.stringify(j,null,2));
+"
+}
+packet ''
+(cd "$RD" && node tools/review-contract.mjs feat-x > out.txt 2>&1); RC=$?
+[ "$RC" != "0" ] && grep -q "discrimination is missing" "$RD/out.txt"
+expect "a packet with all five old checks but no discrimination sentence is not admitted" $?
+packet ',"discrimination":"covered"'
+(cd "$RD" && node tools/review-contract.mjs feat-x > out2.txt 2>&1)
+grep -q "must be a concrete sentence, not a verdict" "$RD/out2.txt"
+expect "\"covered\" is rejected for this one field — a tick cannot answer what a wrong implementation would still pass" $?
+packet ',"discrimination":"an implementation that ignores the cap entirely still passes: no run supplies a scope past it"'
+(cd "$RD" && node tools/review-contract.mjs feat-x >/dev/null 2>&1)
+expect "a concrete sentence naming what would still pass is admitted" $?
+
+echo ""
+step 59 "NEEDS ORACLE FIX: the eighth implicit edge — a prove feature whose own oracle is wrong"
+OF="$WORK/demo-oracle-fix"; rm -rf "$OF"; mkdir -p "$OF/loop" "$OF/.claude/agents" "$OF/tests/design"
+cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$OF/loop/route.mjs"
+touch "$OF/.claude/agents/test-implementer.md" "$OF/.claude/agents/maker.md"
+printf '{"requirement_id":"INV-P-1"}\n' > "$OF/tests/design/TCON-P-1.json"
+cat > "$OF/feature_list.json" <<'OFJ'
+{"features":[
+ {"id":"feat-prove-pool","kind":"prove","status":"in-progress","behavior":"x","verification":"true","falsifier":"INV-P-1 f","dependencies":[],
+  "evidence":[{"date":"2026-08-27","run":"red","cmd":"true","result":"module missing"}],
+  "checkerNotes":"NEEDS ORACLE FIX: the assertion says an evicted workspace is absent forever, but its own fixture re-acquires it","attempts":0,"maxAttempts":3}
+]}
+OFJ
+(cd "$OF" && node loop/route.mjs --json > r1.json 2>/dev/null)
+node -e "
+const r=require('$OF/r1.json');
+process.exit(r.node==='test-implementer' && r.layer==='oracle' && r.feature==='feat-prove-pool' ? 0 : 1);
+"
+expect "a prove feature with a recorded red run still routes back to the oracle layer under this marker" $?
+node -e "
+// Without the marker the same feature is unreachable by every node: the test-implementer rule keys
+// on empty evidence, and the maker is forbidden from touching an oracle-layer test.
+const fs=require('fs'),p='$OF/feature_list.json',j=JSON.parse(fs.readFileSync(p,'utf8'));
+j.features[0].checkerNotes=''; fs.writeFileSync('$OF/fl-nomarker.json',JSON.stringify(j,null,2));
+"
+cp "$OF/feature_list.json" "$OF/fl-marker.json"
+cp "$OF/fl-nomarker.json" "$OF/feature_list.json"
+(cd "$OF" && node loop/route.mjs --json > r0.json 2>/dev/null)
+node -e "
+const r=require('$OF/r0.json');
+process.exit(r.node==='maker' ? 0 : 1);
+"
+expect "and without it the router hands that same feature to the maker — the trap this marker closes" $?
+cp "$OF/fl-marker.json" "$OF/feature_list.json"
+node -e "
+const {createHash}=require('crypto');
+const m='NEEDS ORACLE FIX: the assertion says an evicted workspace is absent forever, but its own fixture re-acquires it';
+require('fs').writeFileSync('$OF/loop/route-log.jsonl', JSON.stringify({node:'test-implementer',feature:'feat-prove-pool',hash:createHash('sha1').update(m).digest('hex').slice(0,12),at:new Date().toISOString()})+'\n');
+"
+(cd "$OF" && node loop/route.mjs --json > r2.json 2>/dev/null)
+node -e "
+const r=require('$OF/r2.json');
+process.exit(r.node==='human' && r.layer==='oracle' && /condition itself may be wrong/.test(r.why) ? 0 : 1);
+"
+expect "one test-implementer turn, then a human — an oracle that cannot be reconciled is a question about the condition" $?
+node -e "
+const t=require('fs').readFileSync('$SCRIPTS/../templates/tree/loop/maker-prompt.md','utf8').replace(/\s+/g,' ');
+process.exit(/Never pick a feature whose .checkerNotes. starts with .NEEDS ORACLE FIX:./.test(t) ? 0 : 1);
+"
+expect "the maker prompt forbids picking it, so the marker and the eligibility filter agree" $?
+node -e "
+const t=require('fs').readFileSync('$SCRIPTS/../templates/tree/loop/checker-prompt.md','utf8').replace(/\s+/g,' ');
+process.exit(/NEEDS ORACLE FIX:/.test(t) && /Do \*\*not\*\* REJECT/.test(t) ? 0 : 1);
+"
+expect "the checker is told to write the marker instead of REJECTing an implementation that may be correct" $?
+node -e "
+const t=require('fs').readFileSync('$SCRIPTS/../references/graph.md','utf8');
+process.exit(/NEEDS ORACLE FIX:/.test(t) && /All twelve named edges/.test(t) ? 0 : 1);
+"
+expect "graph.md records the new edge and its count — the workflow and its only written-down map agree" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

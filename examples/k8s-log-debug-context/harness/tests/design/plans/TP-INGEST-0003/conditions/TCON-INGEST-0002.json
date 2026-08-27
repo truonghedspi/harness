@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INGEST-0002",
+  "plan_id": "TP-INGEST-0003",
+  "requirement_id": "INV-REDACT-1",
+  "behavior": "Given valid serialized records with a configured secret in the message only, a structured attribute only, both locations, or neither location, the captured index document replaces every configured match and preserves non-matching content without exposing an original secret.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Redaction depends on the combination of match presence and field location; a decision table covers every location combination and catches implementations that sanitize only one representation."
+}

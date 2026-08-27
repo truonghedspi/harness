@@ -1,0 +1,20 @@
+{
+  "schema": "harness-environment/1",
+  "java": {
+    "home": "/path/to/jdk-21-or-newer",
+    "executable": "/path/to/jdk-21-or-newer/bin/java"
+  },
+  "maven": {
+    "executable": null,
+    "wrapper": "./mvnw"
+  },
+  "kubernetes": {
+    "kubeconfig": "/path/to/kubeconfig",
+    "context": "disposable-test-cluster"
+  },
+  "apiKeys": {
+    "KIRO_API_KEY": { "source": "environment", "present": false },
+    "OPENAI_API_KEY": { "source": "environment", "present": false },
+    "ANTHROPIC_API_KEY": { "source": "environment", "present": false }
+  }
+}

@@ -13,7 +13,7 @@
 //
 // Usage:
 //   node verify-harness.mjs [--target DIR] [--json] [--report PATH]
-//                           [--skip-baseline] [--run-features] [--promote]
+//                           [--skip-baseline] [--run-features] [--skip-claimed] [--promote]
 //                           [--timeout-ms N] [--quiet]
 // --promote (requires --run-features): mechanically flips readyForCheck/in-progress features to
 // done when their verification command re-runs and exits 0 — the same mechanical half of the
@@ -21,6 +21,14 @@
 // NOT replace the checker's semantic review (does the behavior actually match, is there scope
 // bleed) — it only saves the checker from re-doing the purely mechanical "does this reproduce"
 // step by hand. Never promotes a feature with any blocker finding against it.
+//
+// --skip-claimed replays only readyForCheck features (what --promote actually needs to act on),
+// skipping the re-run of every already-done/passing feature's verification command. Regression
+// detection on already-shipped features is real value (docs/testing-standards.md: environment and
+// contract drift can break unchanged code) but does not need to happen on every single maker
+// iteration — a project with several Level 3 (docs/testing-standards.md) done features pays that
+// cost every iteration for the rest of the project's life otherwise. Callers that want the full
+// regression sweep (periodically, or at the end of a run) omit this flag.
 // Exit: 0 iff no blocker findings.
 import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -35,6 +43,7 @@ const TARGET = path.resolve(opt("--target", "."));
 const AS_JSON = flag("--json");
 const SKIP_BASELINE = flag("--skip-baseline");
 const RUN_FEATURES = flag("--run-features");
+const SKIP_CLAIMED = flag("--skip-claimed");
 const PROMOTE = flag("--promote");
 const QUIET = flag("--quiet");
 if (PROMOTE && !RUN_FEATURES) {
@@ -412,6 +421,66 @@ function gateFeatures() {
     }
   }
 
+  // Admission belongs before semantic review. A malformed maker handoff is mechanically
+  // classifiable, so it must not consume a checker turn or an attempts budget.
+  const offered = features.filter((f) => f.readyForCheck === true);
+  if (offered.length) {
+    const contractTool = P("tools", "review-contract.mjs");
+    if (!exists(contractTool)) {
+      add({
+        gate: "review-contract", id: "admission-tool-missing", layer: "harness",
+        symptom: "readyForCheck features exist but the scaffold has no tools/review-contract.mjs admission gate",
+        remedy: "refresh the skill-owned review-contract tool before dispatching checker",
+      });
+    } else {
+      const result = spawnSync(process.execPath, [contractTool, "--ready", "--json"],
+        { cwd: TARGET, encoding: "utf8", timeout: TIMEOUT_MS });
+      let report = null;
+      try { report = JSON.parse(result.stdout || "null"); } catch {}
+      if (!Array.isArray(report)) {
+        add({
+          gate: "review-contract", id: "admission-report-invalid", layer: "harness",
+          symptom: "tools/review-contract.mjs did not return its documented JSON admission report",
+          remedy: "refresh the skill-owned tool; the checker must not infer admission from prose",
+          evidence: String(result.stderr || result.stdout || "").slice(-500),
+        });
+      } else {
+        const incomplete = report.filter((row) => Array.isArray(row.errors) && row.errors.length);
+        if (incomplete.length) add({
+          gate: "review-contract", id: "submission-incomplete", layer: "project",
+          symptom: `${incomplete.length} readyForCheck feature(s) have an incomplete reviewPacket — this is maker admission feedback, not a checker REJECT`,
+          remedy: "run `node tools/review-contract.mjs <feature-id> --json`, complete the named fields, and leave attempts unchanged",
+          evidence: incomplete.slice(0, 5).flatMap((row) => row.errors).join("; ").slice(0, 1000),
+        });
+      }
+    }
+  }
+
+  // Once a feature adopts typed admission, its semantic verdict cannot fall back to prose only.
+  const badVerdicts = [];
+  for (const f of features.filter((feature) => feature.reviewPacket)) {
+    const marker = String(f.checkerNotes || "").trim();
+    const reviewed = ["done", "passing"].includes(String(f.status || f.state)) ||
+      /^(REJECT|NEEDS DESIGN:|NEEDS RE-PLAN:)/.test(marker);
+    if (!reviewed) continue;
+    const verdict = f.checkerVerdict;
+    if (!verdict || typeof verdict !== "object" || !String(verdict.status || "").trim()) {
+      badVerdicts.push(`${f.id}: checkerVerdict missing`);
+      continue;
+    }
+    if (verdict.status === "reject") {
+      for (const key of ["basis", "violatedRef", "counterexample", "reproduction", "observed", "exitCriterion"]) {
+        if (!String(verdict[key] || "").trim()) badVerdicts.push(`${f.id}: checkerVerdict.${key} missing`);
+      }
+    }
+  }
+  if (badVerdicts.length) add({
+    gate: "review-contract", id: "verdict-incomplete", layer: "project",
+    symptom: `${badVerdicts.length} semantic verdict field(s) are missing after typed admission`,
+    remedy: "checker must record a structured verdict; a REJECT needs basis, violatedRef, counterexample, reproduction, observed, and exitCriterion",
+    evidence: badVerdicts.slice(0, 10).join("; "),
+  });
+
   // An escalation with no trace of exploration is the cheapest kind of waste to catch: the agent
   // spent a human's attention without spending two minutes of its own first
   // (references/human-attention.md). Warn only — under-asking is worse than over-asking, so this
@@ -448,6 +517,48 @@ function gateFeatures() {
       remedy: "record both halves in evidence: the command failing against the unimplemented behavior, then passing after. A test that was only ever seen green may be asserting nothing (references/test-authoring.md)",
       evidence: noRed.slice(0, 5).map((f) => f.id).join(", ") + (noRed.length > 5 ? ", …" : ""),
     });
+  }
+
+  // 1b. A blocked feature upstream of open work. `blocked` is a legitimate terminal state for the
+  // feature itself, and the existing gates check only that it carries a reason. What none of them
+  // ask is what it is holding: a stage-gate edge from a build feature to a prove feature turns that
+  // prove feature's finite `maxAttempts` into the budget of the whole branch behind it, so one
+  // exhausted feature can strand a chain that is otherwise clean. Found on examples/jdt-mcp-server,
+  // where four not-started features with full dependencies and no markers were dammed three links
+  // up and the only symptom was the router saying "none routable".
+  {
+    const byId = new Map(features.map((f) => [String(f.id), f]));
+    const settled = (f) => ["done", "passing"].includes(String(f?.status || f?.state || ""));
+    const isBlocked = (f) => String(f?.status || f?.state || "") === "blocked";
+    const openFeatures = features.filter((f) => !settled(f) && !isBlocked(f));
+    const dams = new Map();
+    for (const f of openFeatures) {
+      const seen = new Set([String(f.id)]);
+      const queue = [...(f.dependencies || [])].map(String);
+      while (queue.length) {
+        const id = queue.shift();
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const dep = byId.get(id);
+        if (!dep || settled(dep)) continue;
+        if (isBlocked(dep)) {
+          if (!dams.has(id)) dams.set(id, []);
+          dams.get(id).push(String(f.id));
+          continue;                                  // the dam is the answer; do not walk past it
+        }
+        for (const next of dep.dependencies || []) queue.push(String(next));
+      }
+    }
+    if (dams.size) {
+      const total = new Set([...dams.values()].flat()).size;
+      add({
+        gate: "features", id: "blocked-dependency-dam", layer: "project", severity: "warn", count: dams.size,
+        symptom: `${dams.size} blocked feature(s) sit upstream of ${total} open feature(s), which cannot start until the block is resolved or the edge is moved`,
+        remedy: "decide per dam: unblock it, cut a successor feature that discharges the same gate and move the edge to it, or drop the edge if it was ordering rather than a real dependency. Leaving it is a branch that will never route (references/graph.md)",
+        evidence: [...dams.entries()].slice(0, 5)
+          .map(([id, list]) => `${id} dams ${list.length} (${list.slice(0, 3).join(", ")})`).join("; "),
+      });
+    }
   }
 
   // 2. Falsifier. "What wrong implementation does this verification catch?" is the question that
@@ -522,9 +633,10 @@ function gateFeatures() {
   if (!RUN_FEATURES) return;
   // Mechanized falsification: re-run the evidence of everything claimed green, or offered for
   // check (readyForCheck) — --promote acts on this same replay, so it must cover readyForCheck
-  // features too, not just already-claimed passing/done ones.
+  // features too, not just already-claimed passing/done ones. --skip-claimed narrows this to
+  // offered-only for a cheap per-iteration pass; see the flag's own usage comment above.
   for (const f of features) {
-    const claimed = ["passing", "done"].includes(String(f.status || f.state));
+    const claimed = !SKIP_CLAIMED && ["passing", "done"].includes(String(f.status || f.state));
     const offered = f.readyForCheck === true;
     const verif = String(f.verification || f.verify || "").trim();
     if ((!claimed && !offered) || !verif || PLACEHOLDER_VERIF.test(verif)) continue;
@@ -585,6 +697,11 @@ function gateLoop() {
     add({ gate: "observability", id: "read-telemetry-missing", layer: "harness",
       symptom: "runtime hooks cannot emit calibrated, redacted read/search telemetry",
       remedy: "refresh skill-owned telemetry.mjs and telemetry-calibrate.mjs" });
+  }
+  if (!exists(P("tools/guard-write.mjs")) || !exists(P("tools/hook-calibrate.mjs"))) {
+    add({ gate: "runtime-hooks", id: "hook-calibration-missing", layer: "harness",
+      symptom: "runtime write-confinement hooks have no allow/deny adapter calibration",
+      remedy: "refresh skill-owned guard-write.mjs and hook-calibrate.mjs" });
   }
   const serviceManifest = readJSON(P("services.manifest.json"));
   if (serviceManifest && !exists(P("skills/business-journey/SKILL.md"))) {

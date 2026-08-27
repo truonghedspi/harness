@@ -8,6 +8,10 @@ Write a new entry when a spec turned out to be ambiguous in a non-obvious way, w
 logic shape was genuinely hard to classify, or when a condition that looked discriminating turned
 out to pass against a wrong implementation. Don't write one for a routine design pass.
 
+Write entries and hooks **in English**, whatever language the rest of the project uses: memory is
+addressed to whichever agent reads it next, not to this project's readers. Entries already written
+in another language stay as they are — this governs what gets written from now on.
+
 - [INV- ids vs the REQ- id the test-condition schema requires](inv-to-req-id-bridge.md) — this project has zero REQ- ids, only INV-<AREA>-<N>; bridge INV-PROV-1 -> REQ-PROV-001 (zero-pad to 3 digits), cite the real INV- id inline, don't invent a different convention per component.
 - [INV-POOL-2's cap-exceeded eviction vs A-001's 15-min idle timer](pool-2-vs-idle-timer.md) — A-001 reads like one idle-eviction policy but is two distinct triggers on the same LRU-idle rule; INV-POOL-2 only covers the cap-exceeded trigger, don't stretch it to cover the timer (no INV- id names that mechanism yet).
 - [INV-SYNC-1's scope vs A-014's watcher-blind-spot content](inv-sync-1-vs-sync-2-boundary.md) — A-014 is filed against INV-SYNC-1 but its content (edit-class/tree-size watcher coverage) is INV-SYNC-2's territory, owned by a different feature; check the INV's own table text, not the assumption row's citation column, before expanding a plan's scope. Also: X-001 (deadline budget) is still open — don't trace a condition to a specific timeout number that isn't settled.

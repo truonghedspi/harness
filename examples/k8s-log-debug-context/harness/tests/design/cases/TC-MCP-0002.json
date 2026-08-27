@@ -1,0 +1,19 @@
+{
+  "id": "TC-MCP-0002",
+  "condition_id": "TCON-MCP-0002",
+  "requirement_id": "INV-BOUND-1",
+  "technique": "example",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "recordLimitReturnsAtMostTwoHundredAndTruthfulTruncation_INV_BOUND_1",
+  "preconditions": [
+    "The capturing IndexPort can supply exact-limit and over-limit normalized record results"
+  ],
+  "steps": [
+    "Call search_logs once with 200 source records and once with 201 source records"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "The wire response returns at most 200 complete records and reports truncation false at the limit and true above it."
+  }
+}

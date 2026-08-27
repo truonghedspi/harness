@@ -1,0 +1,20 @@
+{
+  "plan_id": "TP-COLLECTOR-0009",
+  "component": "OpenTelemetry Collector to serialized ingest boundary",
+  "spec_refs": [
+    "requirement.md#required-outcomes",
+    "harness/docs/design/log-debug-context.md#serialized-ingress-v1",
+    "harness/docs/design/log-debug-context.md#invariants-and-test-seams",
+    "harness/docs/cross-cutting.md#X-001",
+    "harness/docs/cross-cutting.md#X-003",
+    "harness/docs/cross-cutting.md#X-008",
+    "harness/feature_list.json#feat-009"
+  ],
+  "risk_tier": "T1",
+  "spec_gaps": [
+    {
+      "description": "The approved design specifies the collector's observable wire behavior but no executable hermetic launch and lifecycle seam: executable or image source, fixture input mount, capture-ingress configuration, readiness signal, bounded shutdown, and failure reporting remain undefined, so the test implementer cannot run the real collector without inventing product-facing mechanics.",
+      "location": "harness/docs/design/log-debug-context.md#chosen-shape-and-boundaries"
+    }
+  ]
+}

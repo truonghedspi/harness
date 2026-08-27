@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0006",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "When the downstream query path does not complete, an authenticated MCP request terminates with a bounded failure at the five-second server deadline, while an independent outer watchdog fails loudly if that deadline is not honored.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "A controlled failure across the deployed service boundary is necessary to distinguish a real server deadline from a client that can hang indefinitely."
+}

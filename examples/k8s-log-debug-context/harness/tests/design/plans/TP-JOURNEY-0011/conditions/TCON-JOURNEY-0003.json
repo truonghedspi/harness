@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0003",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-CORR-1",
+  "behavior": "Given overlapping logs with distinct markers for a target run and a decoy run in an independently named namespace, an authenticated failure-context query for the target test.run_id returns the target marker and never the decoy marker or decoy namespace.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "A competing end-to-end decoy is required to expose correlation fallback or namespace leakage that isolated component checks cannot reveal."
+}

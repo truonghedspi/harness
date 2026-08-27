@@ -1,0 +1,10 @@
+{
+  "id": "TCON-DIAG-0006",
+  "plan_id": "TP-DIAG-0001",
+  "requirement_id": "INV-DIAG-1",
+  "behavior": "Given a project whose files are reachable through two spellings of the same physical path (a directory symlink <root>/link -> <root>/real) and a live JDT LS instance publishing under the canonical <root>/real spelling, when java_diagnostics answers a project-scope request whose caller spells every project file through <root>/link, then each physical file contributes exactly one entry to the answer: the published file appears once carrying its report, and a project file that never received a publish appears once under the explicit 'not-reported' marker.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "projectUris() unions facade.projectFiles() (caller spelling) with reader.list() (canonicalised by realpathSync inside the cache). A Set cannot fold two byte-different strings that name one file, so one physical file yields two entries and the 'one entry per file' shape that the java_diagnostics row of tool-surface.md states is broken. No unit case reaches the branch: every URI in test/lsp/diagnostics-cache.spec.ts is absent from disk, so realpathSync always throws and canonicalisation is a no-op there. A directory symlink reproduces the split spelling on every POSIX host, unlike the macOS-only /var vs /private/var difference [INV-DIAG-1]."
+}

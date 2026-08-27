@@ -266,6 +266,14 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    unchanged.
    Begin at maturity Level 1 (one `/goal`-style run) and climb the ladder — see
    [references/loop-engineering.md](references/loop-engineering.md).
+12. **A step with two or more independent file sets can be built in parallel.** The maker writes
+   `loop/work-split/<feat-id>.json`; `tools/work-split.mjs validate` admits it only if the slices
+   cannot touch the same path, no slice reaches single-writer state, every brief is self-contained
+   (a parallel worker has nobody to ask), and the fan-in runs the feature's own verification. Then
+   `route.mjs` prints `mode: slice-fanout`, one maker runs per slice — confined to its paths by
+   `guard-write.mjs`, not by its brief — and when they all land, `mode: integrate` names exactly
+   **one** maker to run the tests and own the claim. WIP=1 is untouched: it bounds features, not
+   files. [references/graph.md](references/graph.md) has the fan-out/fan-in rules.
 
 ## Design rules (do not violate)
 
@@ -324,8 +332,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 - Bringing an existing repo under the harness without a day-one wall of warnings (the survey, the
   merge-don't-overwrite table, honest backfill, the debt baseline and ratchet):
   [references/adopting-an-existing-project.md](references/adopting-an-existing-project.md)
-- The harness as an explicit graph — nodes, edges, shared-state ownership, the routing table, and
-  the seven edges that were documented but never dispatched: [references/graph.md](references/graph.md)
+- The harness as an explicit graph — nodes, edges, shared-state ownership, the routing table, the
+  twelve edges that were documented but never dispatched, and where the graph parallelizes (evidence
+  replay, and disjoint slices inside one feature) versus where it refuses to:
+  [references/graph.md](references/graph.md)
 - Turning a requirement into a right-sized `feature_list.json` (the two-axis build/prove split,
   sizing heuristics, dependency DAG construction, a worked example):
   [references/feature-decomposition.md](references/feature-decomposition.md)

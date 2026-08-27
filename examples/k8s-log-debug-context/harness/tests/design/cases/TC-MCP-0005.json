@@ -1,0 +1,19 @@
+{
+  "id": "TC-MCP-0005",
+  "condition_id": "TCON-MCP-0005",
+  "requirement_id": "INV-BOUND-1",
+  "technique": "equivalence_partition",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "everyPaginationSpellingIsRejectedBeforeIndexQuery_INV_BOUND_1",
+  "preconditions": [
+    "Each request is otherwise a valid bounded search_logs call"
+  ],
+  "steps": [
+    "Add cursor, page, offset, and continuationToken in turn and submit each request over HTTP"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "Every pagination representation is rejected as invalid and the capturing IndexPort observes zero searches."
+  }
+}

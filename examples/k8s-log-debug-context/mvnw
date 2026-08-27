@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+set -eu
+
+MAVEN_VERSION=3.9.11
+ARCHIVE="apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+DIST_URL="https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/${ARCHIVE}"
+EXPECTED_SHA512="bcfe4fe305c962ace56ac7b5fc7a08b87d5abd8b7e89027ab251069faebee516b0ded8961445d6d91ec1985dfe30f8153268843c89aa392733d1a3ec956c9978"
+CACHE_ROOT="${MAVEN_USER_HOME:-${HOME}/.m2}/wrapper/dists/apache-maven-${MAVEN_VERSION}"
+MAVEN_HOME="${CACHE_ROOT}/apache-maven-${MAVEN_VERSION}"
+
+if [ ! -x "${MAVEN_HOME}/bin/mvn" ]; then
+  mkdir -p "${CACHE_ROOT}"
+  ARCHIVE_PATH="${CACHE_ROOT}/${ARCHIVE}"
+  if [ ! -f "${ARCHIVE_PATH}" ]; then
+    command -v curl >/dev/null 2>&1 || { echo "mvnw: curl is required to bootstrap Maven" >&2; exit 1; }
+    curl --fail --location --silent --show-error "${DIST_URL}" --output "${ARCHIVE_PATH}"
+  fi
+  ACTUAL_SHA512=$(shasum -a 512 "${ARCHIVE_PATH}" | awk '{print $1}')
+  if [ "${ACTUAL_SHA512}" != "${EXPECTED_SHA512}" ]; then
+    echo "mvnw: Maven archive checksum mismatch" >&2
+    exit 1
+  fi
+  tar -xzf "${ARCHIVE_PATH}" -C "${CACHE_ROOT}"
+fi
+
+exec "${MAVEN_HOME}/bin/mvn" "$@"

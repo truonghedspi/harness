@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "k8s-readonly": {
+      "type": "stdio",
+      "command": "./tools/mcp-k8s-readonly-wrapper.sh",
+      "args": [
+        "--read-only",
+        "--disable-destructive"
+      ],
+      "env": {}
+    }
+  }
+}

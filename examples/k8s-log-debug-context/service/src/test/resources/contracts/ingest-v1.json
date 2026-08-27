@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-08-26T09:45:00Z",
+  "message": "payment test failed",
+  "namespace": "ci-payments",
+  "pod": "payments-test-7dc9b",
+  "container": "test-runner",
+  "workload": "payments-test",
+  "source": "stdout",
+  "optIn": true,
+  "environment": "test",
+  "attributes": {
+    "test.run_id": "run-8842",
+    "log.level": "ERROR"
+  }
+}

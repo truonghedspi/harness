@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INDEX-0003",
+  "plan_id": "TP-INDEX-0005",
+  "requirement_id": "INV-CORR-1",
+  "behavior": "Given no test.run_id and real indexed records comprising one namespace-workload-time match plus distractors outside each supplied namespace, workload, or interval constraint, the fallback query returns only the single record satisfying all three constraints.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Fallback correctness is the conjunction of three filters translated across the index boundary; one distractor per dimension exposes dropped clauses that isolated component tests or an in-memory fake can hide."
+}

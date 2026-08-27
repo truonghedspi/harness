@@ -1,0 +1,19 @@
+{
+  "id": "TC-MCP-0010",
+  "condition_id": "TCON-MCP-0010",
+  "requirement_id": "INV-TOOLS-1",
+  "technique": "decision_table",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "anyUnpublishedToolIsRejectedBeforeIndexQuery_INV_TOOLS_1",
+  "preconditions": [
+    "The MCP session is initialized with a valid ServiceAccount JWT"
+  ],
+  "steps": [
+    "Invoke the unlisted delete_logs tool name with otherwise valid search arguments"
+  ],
+  "expected": {
+    "assertion_kind": "state",
+    "description": "The invocation is rejected as unknown before either IndexPort.search or IndexPort.index is called."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-COLLECTOR-0004",
+  "plan_id": "TP-COLLECTOR-0009",
+  "requirement_id": "INV-SCOPE-1",
+  "behavior": "Given representative workload records for opted-in test scope, non-opted-in test scope, and opted-in production scope, the real collector pipeline sends requests only for the opted-in test row and the capture ingress observes zero requests for both excluded rows.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Collector admission combines opt-in and environment predicates, so a decision table distinguishes the permitted intersection from implementations that forward either excluded class."
+}

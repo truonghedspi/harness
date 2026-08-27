@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0009",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-JOURNEY-1",
+  "behavior": "Before claiming the journey passed, the runner proves on an authorized disposable test namespace that the DaemonSet can observe the fixture's node-visible log; denied or unavailable access produces a distinct A-006 environment checkpoint, never a skip or mock-backed pass.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "A real-cluster preflight separates an environmental authorization gap from product failure and prevents simulated collection from being reported as Level-3 evidence."
+}

@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INGEST-0001",
+  "plan_id": "TP-INGEST-0003",
+  "requirement_id": "INV-SCOPE-1",
+  "behavior": "Given serialized records spanning opted-in non-production scope, non-opted-in scope, and production scope, the ingest boundary submits only the opted-in non-production record to the captured index port and explicitly rejects every other row.",
+  "behavior_shape": "decision",
+  "technique": "decision_table",
+  "priority": "P0",
+  "rationale": "Scope admission combines opt-in and environment classification into accept-or-reject outcomes, so a decision table exposes missing or inverted branches rather than proving only a happy path."
+}

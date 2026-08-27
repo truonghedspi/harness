@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0009",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-TOOLS-1",
+  "behavior": "Given an authenticated tools/list request, the returned tool names form exactly the set search_logs and get_failure_context, with no duplicate or additional entry.",
+  "behavior_shape": "fixed_rule",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The two published names are an exact fixed contract; set equality on the public wire response catches missing, renamed, duplicated, and extra tools."
+}

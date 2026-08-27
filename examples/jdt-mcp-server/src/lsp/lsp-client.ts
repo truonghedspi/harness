@@ -10,6 +10,12 @@ export type ServerRequestHandler = (
   params: unknown,
 ) => unknown | Promise<unknown>;
 
+/**
+ * Handler cho thông điệp đẩy từ server. Notification không có ai để trả lời, nên nó không trả về
+ * giá trị — chữ ký này khớp đúng cổng `LspNotificationSource` mà diagnostics-cache khai báo.
+ */
+export type NotificationHandler = (params: unknown) => void;
+
 export class LspClient {
   readonly #process: LspProcess;
   readonly #pending = new Map<
@@ -17,6 +23,7 @@ export class LspClient {
     { resolve: (value: unknown) => void; reject: (reason: Error) => void }
   >();
   readonly #requestHandlers = new Map<string, ServerRequestHandler>();
+  readonly #notificationHandlers = new Map<string, NotificationHandler[]>();
   #nextId = 1;
   #readBuffer = Buffer.alloc(0);
   #exited: Error | undefined;
@@ -37,6 +44,37 @@ export class LspClient {
 
   public onRequest(method: string, handler: ServerRequestHandler): void {
     this.#requestHandlers.set(method, handler);
+  }
+
+  /**
+   * Đăng ký một subscriber cho notification server→client. Đăng ký cộng dồn, không ghi đè: nhiều
+   * thành phần (cache diagnostics, theo dõi trạng thái) cùng nghe một method, và không thành phần
+   * nào được huỷ đăng ký của thành phần khác chỉ vì đăng ký sau. Hàm trả về gỡ đúng subscriber này.
+   */
+  public onNotification(method: string, handler: NotificationHandler): () => void {
+    const handlers = this.#notificationHandlers.get(method);
+    if (handlers === undefined) this.#notificationHandlers.set(method, [handler]);
+    else handlers.push(handler);
+
+    return () => {
+      const current = this.#notificationHandlers.get(method);
+      if (current === undefined) return;
+      const index = current.indexOf(handler);
+      if (index >= 0) current.splice(index, 1);
+      if (current.length === 0) this.#notificationHandlers.delete(method);
+    };
+  }
+
+  /**
+   * Gửi một notification client→server. Khác request ở đúng một điểm trên dây: khung không mang
+   * `id`. Vì vậy phương thức này không lấy số từ #nextId và không đặt ô nào vào bảng tương quan —
+   * một notification mang id sẽ bị JDT LS coi là request, và ô đó không bao giờ được giải quyết.
+   */
+  public notify(method: string, params?: unknown): void {
+    if (this.#exited) throw this.#exited;
+    const message: Record<string, unknown> = { jsonrpc: "2.0", method };
+    if (params !== undefined) message.params = params;
+    this.#write(message);
   }
 
   public request(method: string, params?: unknown): Promise<unknown> {
@@ -108,6 +146,23 @@ export class LspClient {
           id: message.id,
           error: { code: -32603, message: error instanceof Error ? error.message : String(error) },
         });
+      }
+      return;
+    }
+
+    // Notification server→client: có method, không có id. Trước đây nhánh này rơi vào lệnh return
+    // bên dưới và bị bỏ im lặng, nên textDocument/publishDiagnostics không bao giờ tới cache.
+    if (typeof message.method === "string") {
+      const handlers = this.#notificationHandlers.get(message.method);
+      if (handlers === undefined) return;
+      // Chụp lại danh sách: một handler có thể đăng ký hoặc gỡ đăng ký ngay trong lúc dispatch.
+      for (const handler of [...handlers]) {
+        try {
+          handler(message.params);
+        } catch {
+          // Notification là đường một chiều, không có kênh nào để trả lỗi về. Một subscriber hỏng
+          // không được chặn subscriber còn lại, cũng không được làm chết vòng đọc khung.
+        }
       }
       return;
     }

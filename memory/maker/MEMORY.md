@@ -7,4 +7,8 @@ Write a new entry when a checker rejection, a failed reproduction, or a recurrin
 teaches something the *next* maker run on this project shouldn't have to rediscover. Don't write
 one for routine, expected outcomes — that's noise, not a lesson.
 
+Write entries and hooks **in English**, whatever language the rest of the project uses: memory is
+addressed to whichever agent reads it next, not to this project's readers. Entries already written
+in another language stay as they are — this governs what gets written from now on.
+
 <!-- - [Title](slug.md) — one-line hook -->

@@ -57,7 +57,10 @@ const canonical = (src) => {
   const prefix = (value) => value.startsWith("harness/") ? value : `harness/${value}`;
   for (const agent of manifest.agents || []) {
     agent.prompt = prefix(agent.prompt); agent.resources = (agent.resources || []).map(prefix);
-    agent.writes = (agent.writes || []).map((entry) => harnessOwned.test(entry) ? prefix(entry) : entry);
+    // Keep this byte-identical to setup-harness-loop.mjs's rewrite, including `null` surviving as
+    // `null` for unrestricted roles (HI-062). The two are separate copies of one projection, so any
+    // divergence shows up here as permanent phantom drift on a scaffold created a minute ago.
+    agent.writes = agent.writes ? agent.writes.map((entry) => harnessOwned.test(entry) ? prefix(entry) : entry) : null;
   }
   return JSON.stringify(manifest, null, 2) + "\n";
 };
@@ -85,6 +88,13 @@ for (const m of (read(S("scripts", "setup-harness-loop.mjs")) || "")
   .matchAll(/\["(scripts\/[\w.-]+|references\/[\w.-]+)",\s*"([\w./-]+)"\]/g)) {
   refresh.push([m[1], m[2]]);
 }
+// Tools that live in the template tree rather than in scripts/. They reach a fresh scaffold through
+// setup's walk() and were therefore invisible to the copy-list grep above — so an existing target
+// never received them at all. review-contract.mjs is the one that made this visible: the refreshed
+// run-loop.mjs calls it and the maker prompt requires it, on a target that did not have it (HI-064).
+for (const f of filesUnder(S("templates", "tree", "tools"))) {
+  refresh.push([`templates/tree/tools/${f}`, `tools/${f}`]);
+}
 // Loop machinery. NOT the prompts beside them — those are customised per project.
 for (const f of ["route.mjs", "run-loop.mjs", "run-loop.sh", "run-loop.cmd", "dispatch.mjs", "dispatch.sh", "dispatch.cmd", "approval-gate.mjs"]) {
   if (existsSync(S("templates", "tree", "loop", f))) refresh.push([`templates/tree/loop/${f}`, `loop/${f}`]);
@@ -95,6 +105,11 @@ for (const f of ["init.sh", "init.cmd"]) {
   if (existsSync(S("templates", "tree", f))) refresh.push([`templates/tree/${f}`, f]);
 }
 refresh.push(["scripts/check-coverage.mjs", "check-coverage.mjs"]);   // the root copy setup writes
+// The work-split plan directory's shape doc. Skill-owned: the plan schema is what work-split.mjs
+// validates against, so a target holding an older copy would be reading the wrong contract.
+if (existsSync(S("templates", "tree", "loop", "work-split", "README.md"))) {
+  refresh.push(["templates/tree/loop/work-split/README.md", "loop/work-split/README.md"]);
+}
 // The target-local planner/checker must understand the report emitted by THIS canonical upgrader.
 // Refreshing the capability closes the compatibility loop: an old planner may drop new report
 // fields, but the refreshed checker compares the plan back to its source report and refuses that.

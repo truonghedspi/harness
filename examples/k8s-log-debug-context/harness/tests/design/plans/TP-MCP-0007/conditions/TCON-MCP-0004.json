@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0004",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "Given an index-port response that does not complete within five seconds, the running MCP HTTP request terminates with an explicit deadline error without later emitting a successful response.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Deadline behavior spans asynchronous index access and the HTTP wire lifecycle; a timed boundary contract detects services that configure a timeout but still hang or complete successfully afterward."
+}

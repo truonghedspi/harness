@@ -1,0 +1,74 @@
+{
+  "name": "test-designer",
+  "description": "Turns the spec into test conditions WITHOUT reading the implementation. The independent oracle: designs what must be true, so the test cannot become a transcript of the code it judges.",
+  "prompt": "file://../../harness/prompts/test-designer.md",
+  "tools": [
+    "read",
+    "write",
+    "shell"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4",
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "tests/design/**",
+        "harness/feature_list.json",
+        "harness/docs/assumptions.md",
+        "harness/progress.md",
+        "harness/session-handoff.md",
+        "harness/trace/**",
+        "harness/memory/test-designer/**"
+      ]
+    }
+  },
+  "resources": [
+    "file://../../harness/AGENTS.md",
+    "file://../../harness/docs/constraints.md",
+    "file://../../harness/docs/INDEX.md",
+    "file://../../harness/skills/test-design/SKILL.md",
+    "file://../../harness/docs/reference/test-authoring.md",
+    "file://../../harness/feature_list.digest.md",
+    "file://../../harness/docs/testing-standards.md",
+    "file://../../harness/docs/assumptions.md",
+    "file://../../harness/loop/goal.md",
+    "file://../../harness/memory/test-designer/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node harness/tools/trace.mjs test-designer session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
+      },
+      {
+        "matcher": "read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
+      },
+      {
+        "matcher": "grep",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
+      },
+      {
+        "matcher": "glob",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node harness/tools/trace.mjs test-designer session-end"
+      }
+    ]
+  }
+}

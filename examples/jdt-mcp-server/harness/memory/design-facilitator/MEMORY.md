@@ -9,6 +9,10 @@ turned out false, a library behaving unlike its docs, a boundary that looked cle
 critique technique (Phase 4/5 of `prompts/design-facilitator.md`) that surfaced a real flaw or missed
 one the human later caught. Don't write one for a routine session.
 
+Write entries and hooks **in English**, whatever language the rest of the project uses: memory is
+addressed to whichever agent reads it next, not to this project's readers. Entries already written
+in another language stay as they are — this governs what gets written from now on.
+
 - [JDT LS is stale until told](jdtls-stale-until-told.md) — it ignores on-disk edits and answers confidently wrong; both of this system's silent failure modes look like an empty result
 - [An echoed input cannot falsify](echoed-input-cannot-falsify.md) — the coordinate converter's likeliest bug is self-inverse, so a result field echoing the request passes the astral fixture while hovering the wrong token
 - [A permissive clause is not coverage](permissive-clause-is-not-coverage.md) — a commitment named only on the permissive side of an invariant's `or` has no falsifier; it greps clean and covers nothing

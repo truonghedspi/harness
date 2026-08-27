@@ -1,0 +1,20 @@
+{
+  "id": "TC-MCP-0004",
+  "condition_id": "TCON-MCP-0004",
+  "requirement_id": "INV-BOUND-1",
+  "technique": "contract",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "stalledIndexQueryTerminatesAsDeadlineErrorWithinFiveSeconds_INV_BOUND_1",
+  "preconditions": [
+    "The capturing IndexPort search is held incomplete by a test-owned latch",
+    "JUnit bounds the complete test at 20 seconds"
+  ],
+  "steps": [
+    "Call search_logs and bound the HTTP observation just beyond the approved five-second deadline"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "The request terminates with an explicit deadline error rather than hanging or later returning success."
+  }
+}

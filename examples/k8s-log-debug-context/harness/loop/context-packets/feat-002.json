@@ -1,0 +1,38 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-002",
+  "mustRead": [
+    "docs/design/log-debug-context.md",
+    "tests/design/plans/TP-INGEST-0003/plan.json",
+    "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0001.json",
+    "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0002.json",
+    "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0003.json",
+    "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0004.json",
+    "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0005.json",
+    "../pom.xml"
+  ],
+  "mustNotRead": [
+    "../collector",
+    "../charts",
+    "../service/src/main/java/io/harness/logcontext/index",
+    "../service/src/main/java/io/harness/logcontext/mcp"
+  ],
+  "facts": [
+    "The public input is one UTF-8 JSON object passed to IngestService.ingest(String); parsing and normalization helpers are private implementation details.",
+    "The v1 required members and types are fixed by the approved design. Unknown additive top-level members are tolerated but cannot replace or overwrite named normalized fields.",
+    "IngestResult is Accepted or Rejected(code). The stable rejection codes are INVALID_JSON, UNSUPPORTED_SCHEMA_VERSION, OUT_OF_SCOPE, INVALID_METADATA, and INVALID_SOURCE.",
+    "Accepted means exactly one sanitized NormalizedLogRecord reached IndexPort.index. Every rejection means zero index-port calls.",
+    "Admission order is scope, required metadata normalization, literal redaction in message and attribute values, then the single index call. Attribute keys and non-matching text remain unchanged.",
+    "This feature owns the ingest component and its unit proof. The independent black-box oracle remains feat-003; OpenSearch, collector wiring, MCP, and Kubernetes deployment are outside this feature."
+  ],
+  "sourceInputs": [
+    { "path": "docs/design/log-debug-context.md", "sha256": "92c428e17e3dea7c1d096b8dbb53e8499d7464f110968281b72fb03c3bace08f" },
+    { "path": "tests/design/plans/TP-INGEST-0003/plan.json", "sha256": "63bbc82de801d5f9e3c1fa44b9e2e8ffcc34ab0473e11e867899127c159e22f1" },
+    { "path": "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0001.json", "sha256": "3c14a67ea4b697dc6fac6de15409066ea9c8db98efc007ec5d7184177e9ca8d2" },
+    { "path": "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0002.json", "sha256": "09a3a6a73fa0747916e709e65c3d1f8e7a84c52012603de5f7efb6f6d5a99d06" },
+    { "path": "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0003.json", "sha256": "12b2d5b3959bde0ecf0826182fc85bb0246a505e3efebc1eb99d4f968caf9029" },
+    { "path": "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0004.json", "sha256": "d9355cc9ba1965771c535d782841de69b309db2a456ed764897159713461c5d7" },
+    { "path": "tests/design/plans/TP-INGEST-0003/conditions/TCON-INGEST-0005.json", "sha256": "74f0a23c7416ef31ad196bcd088395eb7f0d28be03fcf1858a7d945d3335e812" },
+    { "path": "../pom.xml", "sha256": "3c1204b4b3e186e76d5a83595d026fdb8ea31394d11e65e191ea17978989021a" }
+  ]
+}

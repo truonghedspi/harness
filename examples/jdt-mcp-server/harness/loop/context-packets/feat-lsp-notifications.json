@@ -1,0 +1,33 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-lsp-notifications",
+  "mustRead": [
+    "../src/lsp/lsp-client.ts",
+    "../src/lsp/diagnostics-cache.ts",
+    "../src/workspace/file-sync-watcher.ts",
+    "docs/design/runtime-model.md"
+  ],
+  "mustNotRead": [
+    "docs/design/critique.md",
+    "docs/design/tool-surface.md",
+    "../src/tools"
+  ],
+  "facts": [
+    "ĐỊNH DẠNG ĐÃ ĐO, không chẩn đoán lại: src/lsp/lsp-client.ts hiện có onRequest/request/#write/#drainFrames/#handleMessage/#failAll và KHÔNG có phương thức công khai nào gửi hay nhận notification. Trong #handleMessage, nhánh đầu xử lý request server→client (có method VÀ có id), rồi dòng `if (typeof message.id !== \"number\") return;` bỏ im lặng mọi thông điệp còn lại — đó chính là chỗ `textDocument/publishDiagnostics` rơi mất. Checker đã tự đọc mã và xác nhận điều này trong verdict APPROVE của feat-diagnostics-cache (2026-08-22).",
+    "Cổng NHẬN đã tồn tại và là hợp đồng phải khớp đúng: `export interface LspNotificationSource { onNotification(method: string, handler: (params: unknown) => void): void; }` trong src/lsp/diagnostics-cache.ts. LspClient chỉ cần thoả cấu trúc này; không sửa diagnostics-cache.ts, tệp đó đã được phê duyệt với 12 mutant.",
+    "Cổng GỬI đã tồn tại và là hợp đồng phải khớp đúng: `export interface LspNotificationSink { notify(method: string, params: unknown): void | Promise<void>; }` trong src/workspace/file-sync-watcher.ts. Watcher gọi đúng hai method: `workspace/didChangeWatchedFiles` và `java/projectConfigurationUpdate`, cả hai với `await`. Không sửa file-sync-watcher.ts.",
+    "RÀNG BUỘC bắt nguồn từ mã người tiêu thụ, không phải sở thích: DiagnosticsCache.attach() (diagnostics-cache.ts:142) gọi source.onNotification(...) mỗi lần được gọi và không có đường gỡ đăng ký ở phía nguồn — hàm nó trả về chỉ lật một cờ nội bộ. Nếu onNotification ghi đè handler theo method giống onRequest (`#requestHandlers.set`), thì subscriber đăng ký trước sẽ bị huỷ đăng ký im lặng khi một thành phần khác đăng ký cùng method. Đăng ký phải cộng dồn.",
+    "Notification khác request ở đúng một điểm trên dây: khung JSON-RPC không mang trường `id`. Vì vậy notify() KHÔNG được lấy số từ #nextId, KHÔNG được ghi vào #pending, và không trả về Promise chờ phản hồi. Một notification mang id sẽ bị JDT LS coi là request và ô #pending đó không bao giờ được giải quyết — đúng nửa sau của falsifier.",
+    "Khung Content-Length và bảng tương quan id đã được chứng minh ở feat-lsp-client (done, APPROVE 2026-08-22, có oracle tích hợp spawn tiến trình thật). Xuất phát từ 'phần khung đang đúng', chỉ thêm nhánh không-id ở cả hai chiều; đừng viết lại #drainFrames hay #write.",
+    "PHẠM VI: chỉ src/lsp/lsp-client.ts và một tệp spec MỚI test/lsp/lsp-client-notifications.spec.ts. test/lsp/lsp-client.spec.ts và test/integration/lsp-client-process.integration.spec.ts là bằng chứng đã được phê duyệt của feat-lsp-client — chạy được, nhưng không sửa. Nếu bốn ca sẵn có của lsp-client.spec.ts đỏ lên thì thay đổi đã phá vỡ hành vi đã chứng minh.",
+    "Việc nối dây production (pool trao lease.client cho cache.attach và cho sink của watcher) KHÔNG thuộc tính năng này; nó thuộc feat-tool-layer-core và feat-mcp-shim, đã ghi trong context.note của feat-tool-layer-core. Chạm src/workspace/workspace-pool.ts trong lượt này là scope bleed.",
+    "Hai invariant được trích dẫn nằm ở docs/design/tool-surface.md (INV-DIAG-1) và docs/design/runtime-model.md (INV-SYNC-2); cả hai đều được phán xét ở cấp tích hợp bởi feat-prove-diagnostics và feat-prove-sync. Kiểm chứng của chính tính năng này là mức unit: một tiến trình giả phát khung không-id vào stdout và ghi lại các khung viết ra stdin."
+  ],
+  "sourceInputs": [
+    { "path": "../src/lsp/lsp-client.ts", "sha256": "6f24720c8e697bbeba8c035e5734b60d8d1ef94153aec4072d4a0775d38253f5" },
+    { "path": "../src/lsp/diagnostics-cache.ts", "sha256": "451f73aa644a5502df2bdd3a71d6775d8daed3140d8688a249d816c14dae1bb4" },
+    { "path": "../src/workspace/file-sync-watcher.ts", "sha256": "712c22202500fc292e32c1f74f57f704e5c3c8d9c8c65a8ed0f4ffa9851a94cf" },
+    { "path": "docs/design/runtime-model.md", "sha256": "bccbe6dfe3163444b58fa7a77845515c7a9d52a900c2f6d64f74a2b7c7e99951" },
+    { "path": "docs/design/tool-surface.md", "sha256": "ff1e19bce1db4590a326a1bc26ac279182acf1d8cc6a57f784c1be2494d04cc4" }
+  ]
+}

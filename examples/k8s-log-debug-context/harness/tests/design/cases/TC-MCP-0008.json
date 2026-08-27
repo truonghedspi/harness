@@ -1,0 +1,19 @@
+{
+  "id": "TC-MCP-0008",
+  "condition_id": "TCON-MCP-0008",
+  "requirement_id": "INV-TOOLS-1",
+  "technique": "example",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "initializationAdvertisesExactlyTheToolsCapability_INV_TOOLS_1",
+  "preconditions": [
+    "The initialize request bears a valid ServiceAccount JWT"
+  ],
+  "steps": [
+    "Initialize over the real loopback Streamable HTTP endpoint and inspect the result capabilities object"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "The exact capability key set is tools, with no prompt, resource, or other capability."
+  }
+}

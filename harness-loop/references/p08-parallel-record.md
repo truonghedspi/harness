@@ -8,8 +8,16 @@ implementation.
 
 It is **evidence replay**. `verify-harness --run-features` re-runs every claimed feature's
 verification one at a time, and those subtasks are genuinely independent — each answers "does THIS
-command still exit 0". No subtask reads another's output. That is the definition of a safe fan-out,
-and it is the only such point in this graph.
+command still exit 0". No subtask reads another's output. That is the definition of a safe fan-out.
+
+> **Amended 2026-08-26.** This file used to call evidence replay "the only such point in this
+> graph". That was too strong, and it was wrong for the reason this experiment itself established:
+> a fan-out is safe when its model of the contended resource is right, not when the node happens to
+> be deterministic code. A second point qualifies — the implementation step *inside one feature*,
+> cut into slices with disjoint write surfaces. WIP=1 still forbids parallel makers on parallel
+> *features*; it never said anything about files. `tools/work-split.mjs` is the guard that makes the
+> contention model mechanical there, exactly as the exclusive-resource group is here, and
+> `references/graph.md` states both sets of rules. The fan-in stays serial in both places.
 
 ## Fan-out rule
 

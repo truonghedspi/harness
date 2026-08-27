@@ -1,0 +1,20 @@
+{
+  "id": "TC-MCP-0006",
+  "condition_id": "TCON-MCP-0006",
+  "requirement_id": "INV-READ-1",
+  "technique": "contract",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "publishedToolsOnlyQueryAndNeverWriteOrAcquireKubernetesCapability_INV_READ_1",
+  "preconditions": [
+    "A capturing IndexPort records searches and writes separately",
+    "The approved bootstrap signature accepts only config, IndexPort, and JWT validator dependencies"
+  ],
+  "steps": [
+    "Call both published tools successfully and one representative validation-invalid request"
+  ],
+  "expected": {
+    "assertion_kind": "state",
+    "description": "Published tools issue only the two permitted searches, issue no index writes, and acquire no Kubernetes capability."
+  }
+}

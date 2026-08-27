@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0005",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "Given otherwise valid tool requests with a cursor, page, offset, or continuation token, the MCP boundary rejects each pagination form as a validation error and performs no index query.",
+  "behavior_shape": "decision",
+  "technique": "equivalence_partition",
+  "priority": "P0",
+  "rationale": "No-pagination is an input-admission rule with multiple forbidden representations; equivalence partitions catch a server that blocks one spelling while accepting another unbounded continuation mechanism."
+}

@@ -152,7 +152,12 @@ if (LAYOUT === "contained") {
   for (const agent of manifest.agents || []) {
     agent.prompt = prefix(agent.prompt);
     agent.resources = (agent.resources || []).map(prefix);
-    agent.writes = (agent.writes || []).map((entry) => harnessOwned.test(entry) ? prefix(entry) : entry);
+    // `null` means unrestricted BY DESIGN (maker, test-implementer) and must survive the rewrite.
+    // Collapsing it to `[]` looks harmless and is not: `[]` is truthy, so gen-agents.mjs emits the
+    // PreToolUse guard for a role that has no restriction, and guard-write.mjs then denies every
+    // write with "not in its list ()". Contained scaffolds only — which is why the flat-layout
+    // demo never saw it (HI-062).
+    agent.writes = agent.writes ? agent.writes.map((entry) => harnessOwned.test(entry) ? prefix(entry) : entry) : null;
   }
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 }
@@ -210,6 +215,7 @@ const EXTRA_COPIES = [
   ["scripts/feature.mjs", "tools/feature.mjs"],
   ["scripts/context-budget.mjs", "tools/context-budget.mjs"],
   ["scripts/review-digest.mjs", "tools/review-digest.mjs"],
+  ["scripts/work-split.mjs", "tools/work-split.mjs"],
   ["scripts/adoption-baseline.mjs", "tools/adoption-baseline.mjs"],
   ["scripts/gen-agents.mjs", "tools/gen-agents.mjs"],
   ["scripts/agent-context.mjs", "tools/agent-context.mjs"],
@@ -391,7 +397,9 @@ if (k8sOn) {
       const dest = path.join(harnessRoot, childRel);
       if (exists(dest) && !FORCE) { skipped.push(childRel); continue; }
       mkdirSync(path.dirname(dest), { recursive: true });
-      writeFileSync(dest, readFileSync(path.join(k8sRoot, childRel), "utf8"));
+      // K8s files are templates too. Keeping this copy path outside substitute() leaked
+      // {{PROJECT_NAME}} into every fresh K8s prompt and memory file (HI-063).
+      writeFileSync(dest, substitute(readFileSync(path.join(k8sRoot, childRel), "utf8"), childRel));
       if (/\.(sh|mjs)$/.test(dest) && /init\.mjs$|\.sh$/.test(dest)) chmodSync(dest, 0o755);
       written.push(childRel);
     }

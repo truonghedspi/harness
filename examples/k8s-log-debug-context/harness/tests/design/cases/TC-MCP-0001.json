@@ -1,0 +1,20 @@
+{
+  "id": "TC-MCP-0001",
+  "condition_id": "TCON-MCP-0001",
+  "requirement_id": "INV-BOUND-1",
+  "technique": "example",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "explicitIntervalsBelowAtAndAboveFifteenMinutesEnforceTheBoundary_INV_BOUND_1",
+  "preconditions": [
+    "The server is bound to a loopback ephemeral port with a valid deterministic ServiceAccount JWT validator",
+    "The capturing IndexPort returns an empty bounded result"
+  ],
+  "steps": [
+    "Call search_logs with intervals below, exactly at, and above the approved 15-minute maximum"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "Below-limit and at-limit requests succeed; the above-limit request is a validation error and never reaches IndexPort.search."
+  }
+}

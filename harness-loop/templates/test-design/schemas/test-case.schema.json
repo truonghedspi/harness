@@ -18,7 +18,8 @@
     },
     "requirement_id": {
       "type": "string",
-      "pattern": "^REQ-[A-Z]+-\\d{3}$"
+      "pattern": "^(REQ-[A-Z]+-\\d{3}|INV-[A-Z]+-\\d+)$",
+      "description": "Cites either a REQ- requirement id or an INV-<AREA>-<N> design invariant id; test cases may trace whichever identifier family the approved design produced."
     },
     "technique": {
       "enum": ["property", "decision_table", "mcdc", "boundary_value", "equivalence_partition", "state_transition", "example", "contract", "e2e_scenario", "jcstress", "deterministic_replay", "fuzzing", "regression_from_property"]

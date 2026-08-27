@@ -1,0 +1,73 @@
+{
+  "name": "checker",
+  "description": "Checker in the maker-checker loop: re-runs evidence, tries to falsify, and is the only agent allowed to set status=done. Write-restricted to state files.",
+  "prompt": "file://../../harness/loop/checker-prompt.md",
+  "tools": [
+    "read",
+    "write",
+    "shell"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4.5",
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "harness/feature_list.json",
+        "harness/progress.md",
+        "harness/session-handoff.md",
+        "harness/trace/**",
+        "harness/memory/checker/**"
+      ]
+    }
+  },
+  "resources": [
+    "file://../../harness/AGENTS.md",
+    "file://../../harness/docs/constraints.md",
+    "file://../../harness/docs/INDEX.md",
+    "file://../../harness/feature_list.digest.md",
+    "file://../../harness/docs/testing-standards.md",
+    "file://../../harness/docs/assumptions.md",
+    "file://../../harness/docs/cross-cutting.md",
+    "file://../../harness/docs/definition-of-done.md",
+    "file://../../harness/DECISIONS.md",
+    "file://../../harness/loop/goal.md",
+    "file://../../harness/memory/checker/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node harness/tools/trace.mjs checker session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
+      },
+      {
+        "matcher": "read",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
+      },
+      {
+        "matcher": "grep",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
+      },
+      {
+        "matcher": "glob",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node harness/tools/trace.mjs checker session-end"
+      }
+    ]
+  }
+}

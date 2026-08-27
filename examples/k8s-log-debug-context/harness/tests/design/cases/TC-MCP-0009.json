@@ -1,0 +1,19 @@
+{
+  "id": "TC-MCP-0009",
+  "condition_id": "TCON-MCP-0009",
+  "requirement_id": "INV-TOOLS-1",
+  "technique": "example",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.McpHttpContractIT",
+  "test_method": "toolsListIsExactlySearchAndFailureContextWithoutDuplicates_INV_TOOLS_1",
+  "preconditions": [
+    "The MCP session is initialized and authenticated"
+  ],
+  "steps": [
+    "Send tools/list over HTTP and collect every returned tool name"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "The ordered unique tool set contains exactly search_logs and get_failure_context with no duplicate or additional entry."
+  }
+}

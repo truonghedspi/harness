@@ -1,0 +1,20 @@
+{
+  "id": "TC-INGEST-0004",
+  "condition_id": "TCON-INGEST-0004",
+  "requirement_id": "INV-SCHEMA-1",
+  "technique": "contract",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.IngestContractTest",
+  "test_method": "additiveV1FieldsAreIgnoredWithoutChangingNormalizedFields_INV_SCHEMA_1",
+  "preconditions": [
+    "The serialized schemaVersion 1 fixture satisfies all v1 safety rules",
+    "The additive futureEnvelope value is distinct from every normalized field"
+  ],
+  "steps": [
+    "Append an unknown top-level futureEnvelope member and submit the serialized object through IngestService.ingest(String)"
+  ],
+  "expected": {
+    "assertion_kind": "state",
+    "description": "The input is accepted and exactly one indexed document preserves every required normalized v1 field unchanged."
+  }
+}

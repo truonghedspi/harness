@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INGEST-0004",
+  "plan_id": "TP-INGEST-0003",
+  "requirement_id": "INV-SCHEMA-1",
+  "behavior": "Given an otherwise valid serialized schemaVersion 1 record containing an unrecognized additive field with a value distinct from every normalized field, the ingest boundary accepts it and submits exactly one sanitized v1 document whose required normalized fields are unchanged to the captured index port.",
+  "behavior_shape": "parsing",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Compatibility is observable only at the serialized ingress-to-index boundary; a contract case catches strict unknown-field rejection and additive data overwriting normalized fields without deriving expectations from a parser implementation."
+}

@@ -70,6 +70,26 @@ trip that gate before the feature's own maker/checker cycle closes it. Wire `npm
 `typecheck` script, `tsc --noEmit`) once the first Level 1/2 test-design plan exists — do not add
 either preemptively, for the same reason.
 
+### Công cụ hệ thống mà bộ tích hợp phụ thuộc
+
+`test/integration/daemon-lifecycle.integration.spec.ts` là tệp duy nhất gọi công cụ ngoài Node:
+`lsof -t <socket>` (TCON-SHIM-0002, đếm daemon đang giữ đường dẫn socket) và `ps -o pid= -p <pids>`
+(TCON-SHIM-0003, tìm process con mồ côi sau shutdown). Máy phát triển macOS có sẵn cả hai
+(`/usr/sbin/lsof`, `/bin/ps`). Image Linux tối giản thì không: debian-slim và alpine đều thiếu
+`lsof`, còn `ps` của busybox không nhận tổ hợp `-o pid= -p`.
+
+Thiếu công cụ luôn cho kết quả ĐỎ, không bao giờ xanh giả — checker đã đo bằng cách chạy lại oracle
+với PATH cắt bớt, ghi tại `harness/DECISIONS.md` ngày 2026-08-23. Hai hàm trợ giúp nuốt lỗi của
+`execFileSync` thành chuỗi rỗng, nên khẳng định phía sau vỡ và in ra `lsof trả về []`. Đó là dấu
+hiệu thiếu công cụ, không phải dấu hiệu vỡ invariant.
+
+Trước khi chạy `npm run test:integration` trên Linux, cài `lsof` và `procps`
+(`apt-get install -y lsof procps`). Khi dự án thêm job CI trên Linux, bước cài này thuộc về chính
+job đó. Cổng baseline không bị ảnh hưởng: `npm test` và `npm run test:baseline` không nạp tệp này.
+
+Không thay `ps` bằng `process.kill(pid, 0)` trong tệp trên. Tiến trình đã chết nhưng chưa được reap
+vẫn hiện trong bảng tiến trình, nên `ps` chặt hơn đúng ở trường hợp INV-SHIM-4 quan tâm.
+
 ## Level 4 — Distributed Business Journey
 
 - Scope: a business command through all participating services until public events and query

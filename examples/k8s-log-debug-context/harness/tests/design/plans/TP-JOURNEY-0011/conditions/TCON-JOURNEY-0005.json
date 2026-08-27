@@ -1,0 +1,10 @@
+{
+  "id": "TCON-JOURNEY-0005",
+  "plan_id": "TP-JOURNEY-0011",
+  "requirement_id": "INV-BOUND-1",
+  "behavior": "An authenticated MCP query whose requested interval exceeds 15 minutes is rejected through the public MCP response rather than widened, clipped silently, or executed against indexed logs.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "A wire-level contract condition verifies the exact cross-service validation outcome for a fixed query-budget boundary."
+}

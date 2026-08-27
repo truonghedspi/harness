@@ -1,0 +1,20 @@
+{
+  "id": "TC-INGEST-0005",
+  "condition_id": "TCON-INGEST-0005",
+  "requirement_id": "INV-SCHEMA-1",
+  "technique": "equivalence_partition",
+  "priority": "P0",
+  "test_class": "io.harness.logcontext.contract.IngestContractTest",
+  "test_method": "unsupportedMajorVersionIsRejectedBeforeIndexing_INV_SCHEMA_1",
+  "preconditions": [
+    "The v1 fixture is otherwise valid",
+    "A capturing IndexPort records every submitted document"
+  ],
+  "steps": [
+    "Change schemaVersion from supported major 1 to unsupported major 2 and submit it through the serialized ingress seam"
+  ],
+  "expected": {
+    "assertion_kind": "return_value",
+    "description": "The result is Rejected with UNSUPPORTED_SCHEMA_VERSION and the IndexPort receives zero documents."
+  }
+}

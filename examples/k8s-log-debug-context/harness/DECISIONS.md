@@ -1,0 +1,128 @@
+# Decisions Log — Kubernetes Log Debug Context
+
+The *why* behind choices (Lesson 5). Rationale is the most expensive thing to rebuild across
+sessions — record it here so a future session (human or agent) doesn't relitigate settled calls
+or repeat a rejected approach.
+
+One entry per decision. Newest first.
+
+---
+
+## 2026-08-27 — Executable MCP bootstrap resolves feat-007 without re-cutting
+
+- **Decision:** Keep feat-006 as the bounded MCP build and feat-007 as its independent HTTP proof;
+  clear feat-007's design marker against owner-approved digest `4ff1c56ce4b88469`.
+- **Reason:** `McpServiceBootstrap.start` now injects the capturing index port and deterministic JWT
+  validator, binds an ephemeral loopback endpoint, and returns a closeable running server, making
+  all ten TP-MCP-0007 conditions executable through the public wire boundary.
+- **Rejected alternative:** Add a bootstrap feature, use reflection, or require an externally
+  prestarted server; bootstrap is the callable seam for the existing build/prove pair, while the
+  alternatives either add no independent capability or make the named Maven proof non-hermetic.
+- **Constraint it satisfies:** The independent oracle can observe real HTTP responses and privileged
+  adapter calls without reading implementation internals or inventing lifecycle behavior.
+- **Affected:** `feat-007`, `TP-MCP-0007`, test-implementer routing; approved design digest
+  `4ff1c56ce4b88469`.
+
+---
+
+## 2026-08-26 — Typed query port resolves feat-005 without re-cutting
+
+- **Decision:** Keep feat-004 as the OpenSearch adapter build and feat-005 as its independent
+  real-store proof; clear feat-005's design marker against approved digest `64a7b9ee26db6b10`.
+- **Reason:** `IndexPort.search(LogQuery)`, the two typed queries, `LogQueryResult`, and
+  `OpenSearchLogIndex(OpenSearchClient, String)` now make all three TP-INDEX-0005 conditions
+  callable without exposing OpenSearch query syntax.
+- **Rejected alternative:** Split exact-run and fallback searches into separate prove features;
+  they use one adapter boundary, one real-store fixture, and one verification command.
+- **Constraint it satisfies:** The oracle uses a real OpenSearch boundary and invariant-derived
+  falsifiers while an unavailable runtime remains an environment checkpoint rather than fake
+  behavioral evidence.
+- **Affected:** `feat-005`, `TP-INDEX-0005`, test-implementer routing; approved design digest
+  `64a7b9ee26db6b10`.
+
+---
+
+## 2026-08-26 — Explicit ingress seam fits the existing build/prove pair
+
+- **Decision:** Keep the 11-feature DAG; make feat-002 own the approved
+  `IngestService.ingest(String)`/`IndexPort` implementation seam and feat-003 prove that seam with
+  serialized v1 JSON and captured adapter calls. Collector proofs emit one JSON object per request.
+- **Reason:** The revision removes implementation ambiguity but does not introduce a new component
+  or acceptance journey; feat-002 and feat-003 already share the exact ingest boundary.
+- **Rejected alternative:** Add a separate schema/parser feature or keep calling the payload a
+  batch; the former duplicates one inseparable seam and the latter contradicts the v1 wire contract.
+- **Constraint it satisfies:** One build claim is independently judged by one boundary proof, with
+  falsifiers derived from INV-SCOPE-1, INV-REDACT-1, INV-META-1, and INV-SCHEMA-1.
+- **Affected:** `feat-002`, `feat-003`, `feat-008`, `feat-009`; approved design digest
+  `bd6662458f053012`.
+
+---
+
+## 2026-08-26 — MCP JWT and closed-surface invariants answer feat-007
+
+- **Decision:** Record `INV-AUTH-1` for valid/missing/invalid Kubernetes ServiceAccount JWT
+  outcomes and `INV-TOOLS-1` for the exact `search_logs`/`get_failure_context` surface; this
+  formalizes existing X-007 and feat-007 scope without adding a capability.
+- **Reason:** The Streamable HTTP proof needs observable authorization and capability seams;
+  `INV-BOUND-1` and `INV-READ-1` respectively cover budgets and side effects, not either gap.
+- **Rejected alternative:** Treat a JWT rejection as a generic validation failure or treat
+  read-only behavior as proof that no extra read tool exists; both permit the stated wrong wire
+  implementations to pass.
+- **Constraint it satisfies:** Every prove-feature condition cites the invariant it actually
+  derives from, rather than a superficially related policy row.
+- **Affected:** `feat-007`, `TP-MCP-0007`, MCP query server, and cluster access policy.
+
+---
+
+## 2026-08-26 — Schema invariant resolves feat-003 without re-cutting
+
+- **Decision:** Keep the 11-feature DAG and trace feat-003's additive-v1 and unsupported-major
+  falsifier directly to approved `INV-SCHEMA-1`; clear its `NEEDS DESIGN` marker.
+- **Reason:** `INV-SCHEMA-1` makes both schema outcomes observable at the ingest-to-index seam, so
+  the existing black-box contract remains one coherent prove feature.
+- **Rejected alternative:** Splitting schema compatibility into another feature would create a
+  second paid dispatch over the same ingress adapter, captured index port, and verification suite.
+- **Constraint it satisfies:** A routing marker is cleared only after its answer is approved and
+  recorded, while every falsifier remains traceable to a design invariant.
+- **Affected:** `feat-003`, test-designer routing; approved design digest `e54ec9db4f8258a1`.
+
+---
+
+## 2026-08-26 — Vertical slices with independent boundary proofs
+
+- **Decision:** Cut five build claims after the Java baseline—ingest, OpenSearch, MCP, collector,
+  and cluster access—and pair them with four boundary proofs plus one full Kubernetes journey.
+- **Reason:** Component tests cannot prove serialized collector/ingest, real-store, MCP wire, or
+  cluster lifecycle behavior; the approved invariants name observable seams for each.
+- **Rejected alternative:** One feature per design-table row would split inseparable ingest policy
+  and correlation logic into dispatches with no independent user-observable proof.
+- **Constraint it satisfies:** Every build is judged by a prove feature at the highest boundary it
+  touches while preserving WIP=1 and a dependency-ordered cut.
+- **Affected:** `feature_list.json`, test-designer handoffs, maker/checker routing.
+
+---
+
+## 2026-08-26 — Node-level log-context MVP
+
+- **Decision:** Owner confirmed node-level collection for selected test workloads, OpenSearch,
+  seven-day redacted non-production scope, Java 21/Maven custom services, and preferred
+  `test.run_id` correlation.
+- **Reason:** These are the five requirement decisions recorded in `docs/assumptions.md`.
+- **Rejected alternative:** Per-pod injection is not the MVP default; retain it for a confirmed
+  node-inaccessible or private-file source.
+- **Constraint it satisfies:** Automatic selected-workload collection and bounded read-only MCP
+  diagnostics (`../requirement.md:15-23`).
+- **Affected:** collector, ingest/redaction, OpenSearch mapping, MCP query service, Kubernetes journey.
+
+---
+
+<!-- Template for new entries:
+
+## YYYY-MM-DD — Title
+
+- **Decision:**
+- **Reason:**
+- **Rejected alternative:**
+- **Constraint it satisfies:**
+- **Affected:**
+-->

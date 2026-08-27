@@ -2,6 +2,106 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-27-layout-neutral-graph",
+      "summary": "The authoritative workflow graph now defines paths relative to the detected harness root instead of assuming every target uses the contained harness/ layout.",
+      "why": "HI-054: flat layout is the default, but graph.md told flat targets that every path was relative to a contained harness/ home, sending readers toward paths that did not exist.",
+      "targetImpact": "Documentation only. Flat and contained targets receive one layout-neutral graph whose opening scope names both possible harness roots; workflow behavior is unchanged.",
+      "paths": ["docs/reference/graph.md"],
+      "mergeActions": ["Refresh docs/reference/graph.md as skill-owned documentation.", "Preserve target-specific graph additions, but retain the layout-neutral harness-root definition."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves both a flat scaffold and a contained scaffold receive the correct scope wording", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "humanDecision": {
+        "questionId": "layout-neutral-authoritative-graph",
+        "question": "Should the default graph describe both supported target layouts rather than assume contained layout?",
+        "answer": "repository owner instructed the existing harness work to continue",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-27",
+        "scope": ["default scaffold workflow documentation"],
+        "basis": [{"kind":"observation","pointer":"HI-054: flat target graph described the nonexistent contained harness/ home"},{"kind":"human","pointer":"chat instruction to continue on 2026-08-27"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
+    },
+    {
+      "id": "HUC-2026-08-27-condition-id-routing",
+      "summary": "Feature-owned oracle routing compares linked TCON artifact ids, while invariant coverage remains checked through requirement citations.",
+      "why": "HI-073: the first feature-owned routing implementation compared TCON ids to INV requirement citations and left every prove feature stuck at test-designer.",
+      "targetImpact": "Targets with feature.conditions arrays can reach test-implementer once the named condition artifacts exist.",
+      "paths": ["loop/route.mjs"],
+      "mergeActions": ["Refresh route.mjs; retain project-specific condition plans."],
+      "verification": ["node loop/route.mjs --json", "bash harness-loop/scripts/demo.sh"],
+      "humanDecision": {
+        "questionId": "condition-id-routing",
+        "question": "Should feature-owned oracle routing validate TCON artifact ids separately from INV citations?",
+        "answer": "repository owner delegated autonomous orchestration and continued the approved design",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-27",
+        "scope": ["default scaffold oracle routing"],
+        "basis": [{"kind":"observation","pointer":"k8s-log-debug-context: complete TP-COLLECTOR-0009 conditions remained unroutable"},{"kind":"human","pointer":"chat instruction to continue autonomously on 2026-08-27"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
+    },
+    {
+      "id": "HUC-2026-08-27-feature-owned-oracle-routing",
+      "summary": "Oracle routing now requires each prove feature to link its own validated condition plan before test implementation.",
+      "why": "HI-072: feat-009 was routed to test-implementer because conditions belonging to other prove features satisfied a global existence check; the missing collector oracle could not be created by any eligible node.",
+      "targetImpact": "A prove feature with no complete feature-linked condition set routes to test-designer, while test-implementer only runs when that feature's own conditions are present.",
+      "paths": ["loop/route.mjs", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh route.mjs and graph.md together; preserve project-specific feature plans.", "Do not infer oracle coverage from another feature's conditions."],
+      "verification": ["node loop/route.mjs reports test-designer for a prove feature missing its own conditions", "bash harness-loop/scripts/demo.sh"],
+      "humanDecision": {
+        "questionId": "feature-owned-oracle-routing",
+        "question": "Should each prove feature require its own linked validated conditions before test implementation?",
+        "answer": "repository owner delegated autonomous orchestration and continued the approved design",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-27",
+        "scope": ["default scaffold oracle routing"],
+        "basis": [{"kind":"observation","pointer":"examples/k8s-log-debug-context: feat-009 selected test-implementer without TP-COLLECTOR-0009"},{"kind":"human","pointer":"chat instruction to continue autonomously on 2026-08-27"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
+    },
+    {
+      "id": "HUC-2026-08-26-test-case-invariant-traceability",
+      "summary": "Test-case metadata accepts design invariant identifiers alongside requirement identifiers.",
+      "why": "HI-067: the condition and skill schemas already accepted INV-* identifiers, but test-case.schema.json rejected them, preventing independent oracle cases from tracing design invariants.",
+      "targetImpact": "Fresh and upgraded targets can emit test-case metadata for REQ-* or INV-* traceability without weakening the closed-world identifier check.",
+      "paths": ["skills/test-design/schemas/test-case.schema.json"],
+      "mergeActions": ["Refresh the vendored test-design schema from the canonical template.", "Preserve unrelated local schema modifications and retain the vendor manifest modification record."],
+      "verification": ["bash harness-loop/scripts/demo.sh", "node tools/verify-harness.mjs --target . --skip-baseline"],
+      "humanDecision": {
+        "questionId": "test-case-invariant-traceability",
+        "question": "Allow INV-* design invariants in test-case metadata alongside REQ-* requirements?",
+        "answer": "repository owner delegated autonomous orchestration and continued the approved design",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-26",
+        "scope": ["vendored test-design schema"],
+        "basis": [{"kind":"observation","pointer":"examples/k8s-log-debug-context: test-implementer reported test-case.schema.json rejecting INV-*"},{"kind":"human","pointer":"chat instruction to continue autonomously on 2026-08-26"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
+    },
+    {
+      "id": "HUC-2026-08-26-k8s-template-substitution",
+      "summary": "Kubernetes-layer templates now receive the same project-name, purpose, command, date, layout, and agent-file substitutions as the core scaffold.",
+      "why": "HI-063: the Kubernetes copy path wrote template bytes directly, leaving {{PROJECT_NAME}} in every fresh K8s integration-tester prompt and memory file. verify-harness correctly classified the fresh-target residue as layer:harness.",
+      "targetImpact": "New K8s scaffolds contain concrete project values in optional-agent files. Existing targets with untouched generated K8s files should refresh those files; customized prompts must be merged rather than overwritten.",
+      "paths": ["prompts/k8s-integration-tester.md", "memory/k8s-integration-tester/MEMORY.md", "tools/k8s-test-env.sh", "tools/mcp-k8s-readonly-wrapper.sh"],
+      "mergeActions": ["Refresh untouched Kubernetes-layer files through upgrade-harness.mjs.", "For a customized K8s prompt or memory index, replace only unresolved template tokens and preserve project-specific content.", "Regenerate runtime agents after refreshing the prompt so embedded Codex instructions and runtime adapters match."],
+      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "humanDecision": {
+        "questionId": "k8s-template-substitution-default",
+        "question": "Fix the harness template path so every future K8s scaffold receives substituted project values?",
+        "answer": "hãy sửa",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-26",
+        "scope": ["default Kubernetes scaffold files"],
+        "basis": [{"kind": "observation", "pointer": "examples/k8s-log-debug-context/harness/trace/verify-report.json: HI-063"}, {"kind": "human", "pointer": "chat approval on 2026-08-26"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
+    },
+    {
       "id": "HUC-2026-08-16-node-native-loop",
       "summary": "The autonomous loop and named-agent dispatcher moved from Bash into Node.js.",
       "why": "Targets on native Windows could run the baseline but still needed Git Bash or WSL for the autonomous loop.",
@@ -361,6 +461,42 @@
         "supersedes": null,
         "openFollowUps": []
       }
+    },
+    {
+      "id": "HUC-2026-08-26-parallel-maker-slices",
+      "summary": "One feature's implementation step may now be built by several makers at once over disjoint file sets, with exactly one maker running the verification afterwards.",
+      "why": "WIP=1 bounds features, not files, so a step touching several independent modules was serialized for no reason — while the real hazard (two agents in one file, or two agents writing single-writer state) had no mechanical guard. tools/work-split.mjs supplies it: a plan is refused when its slices intersect by glob or on disk, when a slice reaches feature_list.json/progress.md/loop/**/memory/**, when a brief is too thin for a worker that has nobody to ask, or when the fan-in runs anything other than the feature's own verification.",
+      "targetImpact": "Optional capability; nothing changes for a target that never writes a plan. loop/route.mjs gains three implementation-layer rules and a mode field; the orchestrator gains one bounded exception to spawning a single child; the maker prompt gains slice-worker and integrator modes; guard-write.mjs confines a worker to its slice when HARNESS_SLICE is set; run-loop.mjs dispatches a fan-out headless (HARNESS_MAX_PARALLEL, default 4). Confinement is real only for workers started with loop/dispatch.mjs --slice on Claude Code or Codex; an in-session spawn cannot set per-child environment, and kiro has no PreToolUse hook at all.",
+      "paths": ["tools/work-split.mjs", "loop/work-split/**", "loop/route.mjs", "loop/run-loop.mjs", "loop/dispatch.mjs", "loop/maker-prompt.md", "prompts/orchestrator.md", "tools/guard-write.mjs", "tools/loop-status.mjs", "agents.manifest.json", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Copy tools/work-split.mjs and create loop/work-split/ with its README; both are new, so no target content is at risk.", "Take the three implementation-layer rules and the mode/slices output from the canonical route.mjs; a target that customized route.mjs keeps its own rules and gains these three immediately above the plain maker rule.", "Merge the maker prompt's mode table plus its Slice worker and Integrator sections, and the orchestrator's fan-out section, preserving project-specific instructions in both.", "Add sliceConfined: true to the maker entry in agents.manifest.json and regenerate every runtime — without it Claude Code emits no PreToolUse hook for maker, so slice confinement is absent while every log line says the guard ran.", "Re-check that unrestricted roles still carry writes: null after the contained-layout rewrite (HI-062); an empty list denies every write."],
+      "verification": ["node tools/work-split.mjs validate <feat-id> refuses overlapping slices, reserved paths, thin briefs and a cheap fan-in", "HARNESS_FEATURE=<feat> HARNESS_SLICE=<slice> node tools/guard-write.mjs maker denies a path outside the slice and allows one inside", "node loop/route.mjs reports mode slice-fanout, then integrate, then slice-repair as slice status changes", "bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-26-upgrade-delivers-template-tools",
+      "summary": "upgrade-harness.mjs now delivers everything under templates/tree/tools/, and review-contract.mjs resolves feature_list.json from its own location instead of cwd.",
+      "why": "Both found by applying the parallel-maker change to examples/jdt-mcp-server. HI-064: the upgrader built its tool list by grepping setup's copy list, so template-tree tools reached a fresh scaffold through setup's directory walk and an existing target never at all — jdt had no tools/review-contract.mjs while its refreshed run-loop.mjs called it and its maker prompt required it. HI-065: review-contract.mjs read feature_list.json relative to cwd, so the exact command the maker prompt gives a contained target (run from the project root) exited 2; run-loop.mjs never saw it because it spawns with cwd already at the harness home.",
+      "targetImpact": "An upgraded target now receives tools/review-contract.mjs and tools/work-split.mjs even if it predates them, and the admission seam runs from either the project root or the harness home. Flat layouts were never affected by HI-065.",
+      "paths": ["tools/review-contract.mjs", "tools/work-split.mjs"],
+      "mergeActions": ["Re-run node harness-loop/scripts/upgrade-harness.mjs --target DIR; both files are skill-owned machinery and are overwritten, so nothing project-specific is at risk.", "If a target still shows agents.manifest.json as drifted afterwards, that is the manifest merge, not these files."],
+      "verification": ["node harness/tools/review-contract.mjs --ready run from the project root does not report 'cannot read feature_list.json'", "node harness-loop/scripts/upgrade-harness.mjs --target DIR --dry-run reports no changed/added/drifted on a second pass", "bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-27-memory-tier-and-oracle-fix-edge",
+      "summary": "Four fixes drawn from reading every memory entry across the example projects: the memory schema is now checked, memory findings are grouped, duplicate detection compares bodies rather than exact wording, a blocked dependency is named where it dams open work, the review contract asks what a wrong implementation would still pass, and a prove feature whose own oracle is wrong finally has a node allowed to fix it.",
+      "why": "HI-068: agent-memory.md documents an entry frontmatter schema that nothing enforced, so on examples/jdt-mcp-server 61 of 71 entries had none, duplicate detection silently no-opped, memory-query.mjs returned '[?]' with empty hooks, and two maker entries five features apart recorded the identical root cause — the second costing a mutant round that read as 'all mutants survived'. The same tool emitted 66 identical warnings out of 68 findings, the wall AGENTS.md calls worse than no gate. HI-069: route.mjs's test-implementer rule keys on empty evidence, so a project that authors oracles before the implementation put every prove feature permanently out of the oracle layer's reach while the maker was forbidden to touch the test and the checker could not write it — no node could fix that file. HI-070: a blocked prove feature used as a stage gate turns its maxAttempts into the whole downstream branch's budget, and the only symptom was the router saying 'none routable'. HI-071: adversarialChecks had five keys and none asked the question a green run cannot answer for itself, which is what about twenty-five checker and maker memory entries are all separately about.",
+      "targetImpact": "memory-consolidate.mjs and environment.mjs gain findings/fields but change no behaviour a target depends on. loop/route.mjs gains one oracle-layer rule and a dependency-walk on the none-routable fallthrough. verify-harness.mjs gains the blocked-dependency-dam warn. tools/review-contract.mjs now REQUIRES adversarialChecks.discrimination as a sentence: any reviewPacket written before this upgrade becomes SUBMISSION_INCOMPLETE until the field is added, which is maker feedback and costs no checker attempt. The three prompts gain the NEEDS ORACLE FIX: contract.",
+      "paths": ["tools/memory-consolidate.mjs", "tools/environment.mjs", "loop/route.mjs", "tools/verify-harness.mjs", "tools/review-contract.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "prompts/test-implementer.md", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh the skill-owned tools and loop/route.mjs; none of them holds project content.", "Merge the NEEDS ORACLE FIX: sections into the three prompts, preserving project-specific instructions: the checker verdict shape, the test-implementer repair rules, and the maker's never-pick list. A target that merges only some of the three gets a marker one role writes and another ignores.", "Add adversarialChecks.discrimination to any reviewPacket already on disk, as a sentence naming what a wrong implementation would still pass — 'covered' is rejected by design.", "Expect memory findings to appear on any target with real memory: missing frontmatter is pre-existing debt, not a regression, and the grouped counts are what make it readable."],
+      "verification": ["node tools/memory-consolidate.mjs --target . reports one grouped finding per class, and entry-missing-schema where entries lack frontmatter", "node loop/route.mjs on a target with a blocked dependency names the dam rather than only the stuck ids", "node tools/review-contract.mjs <feat-id> rejects a packet whose discrimination is \"covered\"", "a feature whose checkerNotes starts NEEDS ORACLE FIX: routes to test-implementer even with non-empty evidence", "bash harness-loop/scripts/demo.sh"]
+    },
+    {
+      "id": "HUC-2026-08-27-memory-written-in-english",
+      "summary": "Memory entries and index hooks are written in English, whatever language the rest of the project uses. Existing entries in another language stay as they are.",
+      "why": "Memory is not project prose: it is an operational record addressed to whichever agent runs next, in the same class as a log line or an identifier, and the reader is rarely the writer. A mixed-language index also costs the cheap skim the index exists to buy — examples/jdt-mcp-server had 43 of its index lines and 55 of its 81 entries in a second language. Deliberately a rule and not a gate: with the back catalogue frozen, a check would fire on 98 items forever with no action available, which is the wall AGENTS.md calls worse than no gate.",
+      "targetImpact": "Documentation only. references/agent-memory.md states the rule, and every memory/<agent>/MEMORY.md template repeats it where an agent will read it before writing. No existing entry is rewritten, and nothing fails because of one.",
+      "paths": ["docs/reference/agent-memory.md", "memory/*/MEMORY.md"],
+      "mergeActions": ["Refresh docs/reference/agent-memory.md; it is skill-owned.", "Add the one-paragraph rule to each memory/<agent>/MEMORY.md header — those files are project content, so copy the paragraph rather than overwriting the file, and leave every existing index line untouched."],
+      "verification": ["grep -c 'in English' memory/maker/MEMORY.md", "node tools/memory-consolidate.mjs --target . reports no new finding class — this change adds no gate"]
     }
   ]
 }

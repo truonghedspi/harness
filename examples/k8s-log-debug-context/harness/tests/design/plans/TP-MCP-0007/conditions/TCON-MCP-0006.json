@@ -1,0 +1,10 @@
+{
+  "id": "TCON-MCP-0006",
+  "plan_id": "TP-MCP-0007",
+  "requirement_id": "INV-READ-1",
+  "behavior": "Given successful calls to every published MCP tool and representative validation failures, the captured adapters observe only permitted index queries and observe zero index writes and zero Kubernetes commands.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Read-only safety is an interaction contract across the public tool boundary and privileged adapters; captured calls falsify hidden write or Kubernetes side effects that response-only assertions cannot see."
+}

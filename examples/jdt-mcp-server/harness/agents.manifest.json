@@ -216,6 +216,7 @@
         "*"
       ],
       "mcp": true,
+      "sliceConfined": true,
       "writes": null,
       "resources": [
         "harness/AGENTS.md",

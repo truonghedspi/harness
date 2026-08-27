@@ -88,6 +88,11 @@ The maker never grades itself; only the checker (re-running evidence independent
 `status: done`. See `references/loop-engineering.md`'s "Generator/evaluator separation" section
 for why.
 
+One iteration may be several makers at once, over disjoint file sets inside one feature — but never
+several *features*, and never a parallel test run. `references/graph.md` states the fan-out and
+fan-in rules; the short version is that the verification is what makes a claim, and a claim is made
+once, by one agent.
+
 ```mermaid
 sequenceDiagram
     participant RL as run-loop.mjs
@@ -98,7 +103,14 @@ sequenceDiagram
     RL->>RL: all features done/blocked-with-reason?<br/>→ exit early, no LLM session spawned
     RL->>M: kiro-cli chat --agent maker
     M->>FS: pick first not-started feature<br/>whose dependencies are all done<br/>(skip NEEDS RE-PLAN and k8s-specialized ones)
-    M->>M: implement one bounded step, run the<br/>most relevant verification for real
+    alt the step has 2+ independent file sets
+        M->>FS: write loop/work-split/<feat>.json, then stop
+        RL->>FS: tools/work-split.mjs validate —<br/>slices disjoint? briefs self-contained?<br/>fan-in runs the feature verification?
+        RL->>M: mode slice-fanout: one maker per slice,<br/>each confined to its paths by guard-write.mjs
+        RL->>M: mode integrate: ONE maker runs the tests<br/>(the verification never fans out)
+    else one file set
+        M->>M: implement one bounded step, run the<br/>most relevant verification for real
+    end
     alt feature-level behavior is incomplete
         M->>FS: checkpoint evidence/progress,<br/>readyForCheck=false
         RL->>RL: skip checker; next iteration<br/>routes the active feature to maker

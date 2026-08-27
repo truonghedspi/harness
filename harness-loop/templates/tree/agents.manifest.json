@@ -216,7 +216,8 @@
         "*"
       ],
       "mcp": true,
-      "writes": null,
+      "sliceConfined": true,
+  "writes": null,
       "resources": [
         "AGENTS.md",
         "docs/constraints.md",

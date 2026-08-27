@@ -1,0 +1,32 @@
+{
+  "plan_id": "TP-WSID-0001",
+  "component": "workspace-identity seam (project-router x workspace-pool)",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-POOL-1",
+    "docs/design/runtime-model.md:50-52",
+    "docs/design/runtime-model.md#INV-ROUTE-3",
+    "docs/design/architecture.md:47",
+    "docs/design/architecture.md:209-210",
+    "docs/cross-cutting.md#X-005",
+    "feature_list.json#feat-prove-workspace-identity"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "X-005 (workspace identity) is still OPEN: 'absolute realpath of the reactor-root directory, hashed for the -data path; symlinks resolved before hashing so two paths to one project are one workspace' is a Recommended answer, not a settled one. A symlink alias of a managed root therefore has two valid readings: (a) alias and real path are ONE workspace, because identity is taken after realpath; (b) the alias is its own root and therefore its own workspace, because nothing settled says resolution happens before identity. This plan does NOT choose. Its conditions define the equivalence class by the router's OWN returned workspaceId and then require the pool to honour exactly that partition, so all three hold under either reading; a symlink alias is still in the fixture, because whichever reading is later settled, the two components must agree on it.",
+      "location": "docs/cross-cutting.md:31 (X-005, open); docs/design/runtime-model.md#INV-ROUTE-3"
+    },
+    {
+      "description": "The spec fixes the router's return shape as { workspaceId, projectRoot } and says it 'canonicalizes', but never says whether the returned projectRoot STRING is the canonical (realpath'd) root or the caller-facing root as asked for. Both readings are valid and the choice is invisible until a symlink alias is used. This plan avoids depending on it: it never compares projectRoot strings, only workspaceId values and -data directories, and always calls pool.acquire with whatever projectRoot the router returned for that path -- which is also the realistic call shape, since the pool is reached through the router at runtime.",
+      "location": "docs/design/architecture.md:47; docs/design/architecture.md:209"
+    },
+    {
+      "description": "Scope note, not an ambiguity. Two things deliberately left out. (1) No condition asserts either component's digest against a hard-coded literal: X-005 leaves the algorithm open, so pinning it would test the recommendation rather than the agreement, and would go red on a legitimate future change of algorithm applied to both sides. Consequence, stated so the checker does not expect otherwise: a mutation applied identically to BOTH derivations survives this plan -- that is not drift, and no oracle can distinguish it from a settled change of algorithm while X-005 is open. (2) The router-side no-collision claim (two distinct roots resolve to distinct ids) is INV-ROUTE-3 and already covered by TCON-ROUTE-0002; TCON-WSID-0003 is the different, uncovered half -- the POOL must not merge two identities the router kept apart, which is INV-POOL-1's own 'no two live workspaces ever share one' clause.",
+      "location": "docs/cross-cutting.md:31 (X-005); tests/design/plans/TP-ROUTE-0001/conditions/TCON-ROUTE-0002.json"
+    },
+    {
+      "description": "Observation note, not an ambiguity, recorded so the implementer does not have to re-derive it. INV-POOL-1 names its seam as 'pool.status() -data paths + the spawned argv'. This plan reads -data from three places, all public: the WorkspaceLease returned by acquire, the WorkspaceStatus rows of status(), and the SpawnWorkspaceArgs the pool passes to the spawnWorkspace hook of WorkspacePoolOptions -- the argv half of the seam, observable without starting a JVM because that hook is an injectable option. A fixture that reads only the lease would miss a pool that reports one dataDir and spawns another.",
+      "location": "docs/design/runtime-model.md#INV-POOL-1 (Observable seam column)"
+    }
+  ]
+}
