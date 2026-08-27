@@ -350,7 +350,7 @@
       ],
       "status": "not-started",
       "readyForCheck": false,
-      "evidence": "",
+      "evidence": "2026-08-27 red — `tests/k8s/run-journey.sh` exited 1 with `JOURNEY_ASSERTION_FAILED: deployment chart is absent: .../charts/log-debug-context`. The complete bounded Level-3 oracle and both Kubernetes fixtures exist; the missing deployable chart is the intended unimplemented product boundary, not a test syntax or fixture error. `bash -n tests/k8s/run-journey.sh` passed first.",
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3

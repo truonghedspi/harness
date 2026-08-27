@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: journey-log-emitter
+  labels:
+    app.kubernetes.io/name: journey-log-emitter
+    log-context.harness.dev/enabled: "true"
+    environment: test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: emitter
+      image: busybox:1.36.1
+      command: ["sh", "-ceu"]
+      args:
+        - |
+          printf '%s\n' '{"message":"__TARGET_MARKER__ password=__MESSAGE_SECRET__","attributes":{"test.run_id":"__TARGET_RUN_ID__","api_key":"__ATTRIBUTE_SECRET__"}}'
+          printf '%s\n' '{"message":"__DECOY_MARKER__","attributes":{"test.run_id":"__DECOY_RUN_ID__"}}'
+          i=1
+          while [ "$i" -le 220 ]; do
+            printf '{"message":"__TARGET_MARKER__ budget-%03d %02500d","attributes":{"test.run_id":"__TARGET_RUN_ID__"}}\n' "$i" 0
+            i=$((i + 1))
+          done
+          sleep 3600

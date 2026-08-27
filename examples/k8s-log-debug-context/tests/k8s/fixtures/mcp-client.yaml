@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: journey-mcp-client
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: journey-mcp-only
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: journey-mcp-client
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: mcp
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: journey-mcp-client
+  labels:
+    app.kubernetes.io/name: journey-mcp-client
+spec:
+  serviceAccountName: journey-mcp-client
+  automountServiceAccountToken: true
+  restartPolicy: Never
+  containers:
+    - name: client
+      image: curlimages/curl:8.12.1
+      command: ["sh", "-c", "sleep 3600"]

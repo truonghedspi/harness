@@ -5,7 +5,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-26
+- **Last updated:** 2026-08-27
 - **Active feature:** feat-001 — baseline implementation awaits independent checker routing
 - **Latest commit:** e2e5b29 Chặn review thiếu contract trước checker
 - **Baseline (`./harness/init.sh`):** green — Maven 3.9.11 wrapper, Java 21 release target, one JUnit test
@@ -17,6 +17,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 - [x] Build/prove feature DAG traced to approved invariants
 - [x] Feature planner consumed the schema-design answer for feat-003 without changing the 11-feature DAG
 - [x] Setup readiness: baseline green, 13/13 coverage, and 0 verification blockers
+- [x] `feat-011` Level-3 journey oracle authored and observed red at the absent deployment-chart boundary
 
 ## In Progress
 
