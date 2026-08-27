@@ -9,6 +9,6 @@ final class BaselineTest {
   @Test
   @Timeout(5)
   void executesTheJava21TestSuite() {
-    assertEquals(21, Runtime.version().feature() >= 21 ? 21 : Runtime.version().feature());
+    assertEquals(21, Runtime.version().feature());
   }
 }

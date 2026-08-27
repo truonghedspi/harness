@@ -37,7 +37,7 @@
             <id>require-java-21-compatible-jdk</id>
             <goals><goal>enforce</goal></goals>
             <configuration>
-              <rules><requireJavaVersion><version>[21,)</version></requireJavaVersion></rules>
+              <rules><requireJavaVersion><version>[21,22)</version></requireJavaVersion></rules>
             </configuration>
           </execution>
         </executions>

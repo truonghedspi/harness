@@ -24,10 +24,17 @@
         "note": "Use Java 21 and Maven; init.mjs detects pom.xml and prefers ./mvnw."
       },
       "dependencies": [],
-      "status": "not-started",
+      "status": "active",
       "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "",
+      "evidence": [
+        {
+          "date": "2026-08-27",
+          "run": "red",
+          "cmd": "node harness/init.mjs",
+          "result": "Maven Enforcer rejected host JDK 25.0.3 because feat-001 requires exact Java 21 range [21,22); the host exposes no installed JDK 21."
+        }
+      ],
+      "checkerNotes": "ENVIRONMENT CHECKPOINT: exact Java 21 enforcement is implemented, but this host only has Temurin 25.0.3; provision JDK 21 and rerun node harness/init.mjs before review.",
       "attempts": 0,
       "maxAttempts": 3
     },
