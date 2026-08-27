@@ -96,7 +96,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "NEEDS RE-PLAN: feat-002's approved public seam requires IngestPolicy, IndexPort, and IngestResult source paths, but context.touches authorizes only IngestService, NormalizedLogRecord, and IngestServiceTest. IndexPort's approved search(LogQuery) signature also depends on query types currently assigned to later features. Expand/reorder the owned paths and dependencies before implementation; do not hide these public types inside an authorized file or invent a temporary incompatible port.",
       "attempts": 0,
       "maxAttempts": 3
     },
