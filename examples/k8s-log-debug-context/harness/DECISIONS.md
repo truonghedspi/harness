@@ -8,6 +8,22 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-28 — Ingestion build owns its Maven source root
+
+- **Decision:** Add `pom.xml` to `feat-002` ownership and require it to map
+  `service/src/main/java` as Maven's main source directory before implementing the approved ingest
+  seam.
+- **Reason:** Maven currently compiles only `service/src/test/java`; product classes written to the
+  approved ingest path would otherwise remain invisible to both the unit proof and downstream builds.
+- **Rejected alternative:** Re-cut build wiring as another feature or move sources into Maven's
+  default root; either adds a dispatch for an inseparable build step or contradicts the approved
+  repository layout.
+- **Constraint it satisfies:** One feature owns every path needed to make its behavior executable,
+  while preserving the compile-complete ingest seam, feature history, and 11-feature DAG.
+- **Affected:** `feat-002`, `pom.xml`, `loop/context-packets/feat-002.json`.
+
+---
+
 ## 2026-08-27 — Hermetic collector source is a post-enrichment JSONL event
 
 - **Decision:** The project owner approved one UTF-8 JSON object per line with timestamp, stream,

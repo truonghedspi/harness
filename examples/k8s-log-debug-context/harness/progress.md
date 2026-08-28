@@ -5,10 +5,10 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-27
-- **Active feature:** feat-002 — unit oracle red; Maven main-source ownership requires re-planning
-- **Latest commit:** e581eee Định tuyến lại public seam của ingest
-- **Baseline (`node harness/init.mjs`):** green with explicit Homebrew OpenJDK 21; the same gate rejects Temurin 25.0.3
+- **Last updated:** 2026-08-28
+- **Active feature:** feat-002 — re-plan resolved; implementation owns Maven main-source wiring
+- **Latest commit:** 3dccb63 Phơi bày source root bị thiếu cho ingestion
+- **Baseline (`node harness/init.mjs`):** red at the expected absent feat-002 public contract with Homebrew OpenJDK 21; Temurin 25.0.3 is rejected by the Java gate
 
 ## Done
 
@@ -26,12 +26,12 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   - Blockers: none; red JDK 25 rejection and green JDK 21 execution are recorded for checker review.
 - [ ] Sanitized normalized ingestion (`feat-002`)
   - Details: its unit proof reports two assertion failures and zero errors at the absent public ingest contract.
-  - Blockers: `pom.xml` does not map `service/src/main/java` as a Maven source directory, and feat-002 does not own that build file.
+  - Blockers: none; feat-002 now owns the bounded `pom.xml` main-source mapping required before product implementation.
 
 ## Next
 
-1. Route the new `NEEDS RE-PLAN:` marker on `feat-002` to the feature planner.
-2. Resume product implementation after feat-002 owns the Maven main-source configuration needed to compile its approved paths.
+1. Route `feat-002` to the maker to add the Maven main-source mapping and implement the approved ingest seam.
+2. Run the unit proof, restore the full baseline to green, and submit the complete feature claim for independent checking.
 
 ## Known Issues / Risks
 

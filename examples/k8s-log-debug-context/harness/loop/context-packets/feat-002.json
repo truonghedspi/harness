@@ -24,7 +24,8 @@
     "Accepted means exactly one sanitized NormalizedLogRecord reached IndexPort.index. Every rejection means zero index-port calls.",
     "IndexPort is introduced compile-complete, with both index(NormalizedLogRecord) and search(LogQuery). This feature therefore owns TimeWindow, LogQuery, RunIdLogQuery, WorkloadWindowLogQuery, and LogQueryResult, but does not implement OpenSearch search behavior.",
     "Admission order is scope, required metadata normalization, literal redaction in message and attribute values, then the single index call. Attribute keys and non-matching text remain unchanged.",
-    "This feature owns the ingest component, the shared public index/query seam, and its unit proof. The independent black-box oracle remains feat-003; OpenSearch adapter behavior, collector wiring, MCP, and Kubernetes deployment are outside this feature."
+    "This feature owns the ingest component, the shared public index/query seam, and its unit proof. The independent black-box oracle remains feat-003; OpenSearch adapter behavior, collector wiring, MCP, and Kubernetes deployment are outside this feature.",
+    "The feature also owns the bounded pom.xml edit that maps service/src/main/java as Maven's main sourceDirectory; no dependency, plugin, or unrelated build-policy change is part of this re-plan."
   ],
   "sourceInputs": [
     { "path": "docs/design/log-debug-context.md", "sha256": "92c428e17e3dea7c1d096b8dbb53e8499d7464f110968281b72fb03c3bace08f" },

@@ -83,10 +83,11 @@
       "falsifier": "The service bypasses the serialized ingress seam, accepts an out-of-scope, incomplete, or unsupported-major record, invokes IndexPort for a rejection or other than exactly once for an acceptance, or exposes a configured secret or additive-field overwrite in the indexed document [INV-SCOPE-1] [INV-REDACT-1] [INV-META-1] [INV-SCHEMA-1]",
       "context": {
         "touches": [
+          "pom.xml",
           "service/src/main/java/io/harness/logcontext/ingest/*.java",
           "service/src/test/java/io/harness/logcontext/ingest/IngestServiceTest.java"
         ],
-        "note": "Implement the complete approved public seam in the ingest package: ingest(String) -> IngestResult over a supplied IndexPort, NormalizedLogRecord, and the typed bounded LogQuery family required by IndexPort.search. Validate scope and required wire fields, normalize, redact, then make the single index call; use the five stable rejection codes and the context packet rather than exposing parser helpers. The package-scoped path is deliberate because Java requires ten mutually dependent public contract types in separate source files and a partial IndexPort would be a temporary incompatible API.",
+        "note": "First map service/src/main/java as Maven's main sourceDirectory in pom.xml, then implement the complete approved public seam in the ingest package: ingest(String) -> IngestResult over a supplied IndexPort, NormalizedLogRecord, and the typed bounded LogQuery family required by IndexPort.search. Validate scope and required wire fields, normalize, redact, then make the single index call; use the five stable rejection codes and the context packet rather than exposing parser helpers. The package-scoped path is deliberate because Java requires ten mutually dependent public contract types in separate source files and a partial IndexPort would be a temporary incompatible API.",
         "packet": "loop/context-packets/feat-002.json"
       },
       "dependencies": [
@@ -102,7 +103,7 @@
           "result": "Tests run: 2, failures: 2, errors: 0; both assertions report the required public IngestService contract absent."
         }
       ],
-      "checkerNotes": "NEEDS RE-PLAN: feat-002 owns service/src/main/java/io/harness/logcontext/ingest/*.java, but pom.xml has no sourceDirectory for service/src/main/java and the feature does not own pom.xml. Maven currently compiles only the authorized service test tree, so product sources at every approved feat-002 path would be invisible. Add the build-source configuration path to this feature before implementation.",
+      "checkerNotes": "RESOLVED RE-PLAN: feat-002 now owns pom.xml and must map service/src/main/java as Maven's main sourceDirectory before implementing the already approved compile-complete ingest seam. The feature boundary, history, and 11-feature DAG are unchanged; see DECISIONS.md and loop/context-packets/feat-002.json.",
       "attempts": 0,
       "maxAttempts": 3
     },
