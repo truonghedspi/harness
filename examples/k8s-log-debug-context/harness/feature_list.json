@@ -552,12 +552,73 @@
       "dependencies": [
         "feat-004"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "",
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-28",
+          "run": "red",
+          "cmd": "./mvnw -q -Dtest=McpQueryServiceTest test",
+          "result": "Tests run: 12, Failures: 11, Errors: 0. Both tool methods returned the NOT_IMPLEMENTED stub (Rejected), so 11 behavior assertions failed on type/code mismatches; only the read-only constructor-shape test passed."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "./mvnw -q -Dtest=McpQueryServiceTest test",
+          "result": "Tests run: 12, Failures: 0, Errors: 0, Skipped: 0 (5.091s)."
+        }
+      ],
+      "checkerNotes": "APPROVE: behavior met and falsifier has real force — 12/12 green, exclusivity mutation went red.\n\nVerification `./mvnw -q -Dtest=McpQueryServiceTest test` reproduces under Homebrew OpenJDK 21: exit 0, Tests run: 12, Failures: 0, Errors: 0, Skipped: 0 (5.1s). Mutation probe (scratch-only, deleted after): flipped CorrelationResolver run-id branch to `if (false)`; suite went red at suppliedRunIdIsUsedExclusivelyWithoutFallback (got WorkloadWindowLogQuery, expected RunIdLogQuery), so INV-CORR-1 exclusivity is not tautological. Cap boundaries assert literal spec figures (15m+1s window, maxRecords 0/201, cursor/page/offset/continuationToken, 40KB×20 > 256KiB), not code-derived values. Read-only held (CapturingIndex.writes empty; sole constructor is IndexPort+CorrelationResolver; no Kubernetes import, only a Javadoc mention). 5s-deadline test is bounded by assertTimeoutPreemptively(6s) plus class-level @Timeout(30s). Red evidence is assertion-based (Failures 11, Errors 0). Exact 262144-byte wire bound and Streamable HTTP tool-surface/tools-list are feat-007 scope, recorded in reviewPacket residualUnknowns — no scope bleed.",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "ef7875676e1fce215dd5833f49e39279bed1e10c8ce098e7c63733f007b7c748",
+        "claimRefs": [
+          "feat-006 falsifier",
+          "INV-CORR-1",
+          "INV-BOUND-1",
+          "INV-READ-1",
+          "X-006"
+        ],
+        "changedPaths": [
+          "service/src/main/java/io/harness/logcontext/mcp/McpQueryService.java",
+          "service/src/main/java/io/harness/logcontext/query/CorrelationResolver.java",
+          "service/src/test/java/io/harness/logcontext/mcp/McpQueryServiceTest.java"
+        ],
+        "runs": [
+          {
+            "cmd": "./mvnw -q -Dtest=McpQueryServiceTest test",
+            "exit": 0,
+            "result": "Tests run: 12, Failures: 0, Errors: 0, Skipped: 0 (5.091s)."
+          },
+          {
+            "cmd": "./harness/init.sh",
+            "exit": 0,
+            "result": "Baseline green (default Maven suite includes McpQueryServiceTest)."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "covered",
+          "realBoundary": "not-applicable: this is an in-service unit test against a capturing IndexPort; the real OpenSearch and Streamable HTTP boundaries are proven by feat-005 (done) and feat-007 (dependent) respectively",
+          "discrimination": "A wrong implementation could swap the canonical serialization that defines the 256-KiB budget for any other message-monotonic encoding and still pass, because this unit proves only whole-record truncation under a monotonic byte budget, not the exact wire bytes — that exact 262144-byte wire bound is feat-007's HTTP contract."
+        },
+        "residualUnknowns": [
+          "The exact 262144-byte wire payload is not asserted here: canonicalBytes uses NormalizedLogRecord.toString() as a message-monotonic proxy; the real JSON wire byte count is proven by feat-007's McpHttpContractIT.",
+          "The five-second deadline is proven as a bounded upper bound (the stalled-search test must return DeadlineExceeded within a 6s preemptive timeout), not as an exact 5000ms budget; a shorter compliant budget would also pass.",
+          "The 'authenticated Streamable HTTP' and 'tools/list is exactly search_logs and get_failure_context' clauses of the behavior belong to feat-007's wire contract (DECISIONS.md 'Executable MCP bootstrap resolves feat-007 without re-cutting'); this build encodes the two-tool surface as exactly two McpQueryService methods."
+        ]
+      },
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": null,
+        "counterexample": null,
+        "reproduction": "./mvnw -q -Dtest=McpQueryServiceTest test -> exit 0, Tests run: 12, Failures: 0, Errors: 0, Skipped: 0 (5.1s) under Homebrew OpenJDK 21",
+        "observed": "Mutation flipped CorrelationResolver run-id branch to if(false): 12 run, 1 failure (suppliedRunIdIsUsedExclusivelyWithoutFallback: RunIdLogQuery vs WorkloadWindowLogQuery), then restore returned green — falsifier has force.",
+        "exitCriterion": "All 12 behavior tests green; run-id exclusivity, correlation, 15-min/200-record/256-KiB/5s/no-pagination caps, and read-only constructor shape each asserted against literal spec figures and a bounded deadline."
+      }
     },
     {
       "id": "feat-007",
@@ -589,19 +650,75 @@
       "dependencies": [
         "feat-006"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
+      "status": "done",
       "evidence": [
         {
           "date": "2026-08-27",
           "run": "red",
           "cmd": "./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify",
           "result": "10 assertion failures: Required public MCP contract is absent: io.harness.logcontext.mcp.McpServiceBootstrap; compilation and the default baseline remain green"
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify",
+          "result": "Tests run: 10, Failures: 0, Errors: 0, Skipped: 0 (5.5s); BUILD SUCCESS"
         }
       ],
-      "checkerNotes": "RESOLVED DESIGN: owner-approved digest 4ff1c56ce4b88469 defines McpServiceBootstrap.start(McpHttpServerConfig, IndexPort, ServiceAccountJwtValidator), loopback port 0, RunningMcpServer.endpoint(), and close() for a deterministic real-HTTP oracle. The 11-feature DAG and feat-007 wire/auth scope remain unchanged; see DECISIONS.md and loop/context-packets/feat-007.json.",
+      "checkerNotes": "APPROVE: 10/10 wire contract tests green; the real loopback boundary enforces auth-before-dispatch, the exact two-tool surface, and the pagination/response-size/deadline bounds.\n\nVerification `./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify` reproduces under Homebrew OpenJDK 21: exit 0, Tests run: 10, Failures: 0, Errors: 0, Skipped: 0 (5.545s). Default baseline `./mvnw -q test` also greens (exit 0; BaselineTest 1 + IngestServiceTest 2 + McpQueryServiceTest 12 = 15 tests, 0 failures) — no regression from the new MCP package. Oracle McpHttpContractIT.java and mcp-tools.json are unmodified (git diff empty); the maker implemented the seam (5 files under service/.../mcp/), not the test. Boundary is a real loopback HttpServer on port 0 driven by java.net.http.HttpClient, not a mocked transport; class-level @Timeout(20s) bounds every test. Falsifier force: capturing IndexPort/validator proxies prove a missing or invalid JWT returns 401 with zero index queries, a valid JWT reaches normal validation (-32602 on empty args, never 401), capabilities == {tools} and tools/list == exactly [search_logs, get_failure_context], an unknown tool and every pagination spelling are rejected before any index query, and the 200-record / 262144-byte / 5s-deadline bounds hold. Session-lifecycle enforcement is correctly scoped out (JWT auth, not session pinning) per reviewPacket residualUnknowns. No scope bleed: new product files are the 5 declared mcp/ wire/auth files; McpQueryService, CorrelationResolver, and McpQueryServiceTest are feat-006's already-done output.",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "255982fcab8590784794a552e7daa3dbb0a16f975406cc48462c00be3b49af0d",
+        "claimRefs": [
+          "feat-007 falsifier",
+          "INV-AUTH-1",
+          "INV-TOOLS-1",
+          "INV-BOUND-1",
+          "INV-READ-1"
+        ],
+        "changedPaths": [
+          "service/src/main/java/io/harness/logcontext/mcp/McpServiceBootstrap.java",
+          "service/src/main/java/io/harness/logcontext/mcp/RunningMcpServer.java",
+          "service/src/main/java/io/harness/logcontext/mcp/McpHttpServerConfig.java",
+          "service/src/main/java/io/harness/logcontext/mcp/ServiceAccountJwtValidator.java",
+          "service/src/main/java/io/harness/logcontext/mcp/JwtValidation.java"
+        ],
+        "runs": [
+          {
+            "cmd": "./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify",
+            "exit": 0,
+            "result": "Tests run: 10, Failures: 0, Errors: 0, Skipped: 0 (5.5s); BUILD SUCCESS"
+          },
+          {
+            "cmd": "./mvnw -q test",
+            "exit": 0,
+            "result": "Default baseline suite green (contract oracles excluded) — no regression from the new MCP package."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "covered",
+          "realBoundary": "covered",
+          "discrimination": "A wrong implementation could issue an Mcp-Session-Id on initialize but never validate it afterward — accepting a tools/call with no session header or a fabricated one — and all ten tests would still pass, because the oracle only asserts the header is present on initialize and re-sends it, never that a missing or stale session is rejected."
+        },
+        "residualUnknowns": [
+          "Streamable HTTP session lifecycle is issued but not enforced: the oracle never asserts a missing or stale Mcp-Session-Id is rejected, so session binding is outside this proof (X-007 scope is JWT authorization, not session pinning).",
+          "The wire 200-record cap is a fixed budget rather than min(requested maxRecords, 200): the oracle always sends maxRecords=200, and production's index adapter enforces the requested maxRecords, so the fixed cap is defense-in-depth only.",
+          "The five-second deadline is proven as an upper bound (the stalled-query call must return a timeout error within the test's 5.75s preemptive timeout), not as an exact 5000ms budget."
+        ]
+      },
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": null,
+        "counterexample": null,
+        "reproduction": "./mvnw -q -Poracle-test -Dtest=McpHttpContractIT verify -> exit 0, Tests run: 10, Failures: 0, Errors: 0, Skipped: 0 (5.545s) under Homebrew OpenJDK 21; default baseline ./mvnw -q test -> exit 0 (BaselineTest 1 + IngestServiceTest 2 + McpQueryServiceTest 12 = 15 tests, 0 failures)",
+        "observed": "Oracle McpHttpContractIT.java and mcp-tools.json unmodified (git diff empty). Real loopback boundary: HttpServer.create(loopback, port 0) + java.net.http.HttpClient POST; class-level @Timeout(20s). Capturing IndexPort/validator proxies prove reject-before-dispatch: missing/invalid JWT -> 401 with zero index.searches; unknown tool and all pagination spellings rejected with zero index queries; capabilities == {tools}; tools/list == exactly [search_logs, get_failure_context]; 200-record and 262144-byte bounds and 5s deadline enforced.",
+        "exitCriterion": "All 10 contract tests green under the recorded command; auth-before-dispatch, exact two-tool surface, pagination/response-size/deadline bounds, and read-only bootstrap each asserted against the fixture's literal figures and captured side effects — falsifier has force (red evidence: 10 failures when the contract was absent)."
+      }
     },
     {
       "id": "feat-008",
