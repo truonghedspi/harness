@@ -6,8 +6,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-27
-- **Active feature:** none — feat-002 requires re-planning before implementation
-- **Latest commit:** e2e5b29 Chặn review thiếu contract trước checker
+- **Active feature:** none — feat-002 re-plan resolved; router may resume implementation
+- **Latest commit:** e581eee Định tuyến lại public seam của ingest
 - **Baseline (`node harness/init.mjs`):** green with explicit Homebrew OpenJDK 21; the same gate rejects Temurin 25.0.3
 
 ## Done
@@ -25,13 +25,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   - Details: Maven Enforcer accepts only `[21,22)` and the JUnit baseline asserts runtime feature 21 exactly.
   - Blockers: none; red JDK 25 rejection and green JDK 21 execution are recorded for checker review.
 - [ ] Sanitized normalized ingestion (`feat-002`)
-  - Details: approved API requires public `IngestPolicy`, `IndexPort`, and `IngestResult`, but the feature does not own their paths.
-  - Blockers: `IndexPort.search(LogQuery)` also crosses into query types currently assigned to later features; router must re-plan ownership/dependencies before code is written.
+  - Details: now owns the compile-complete public ingest/index seam, including the bounded typed query family consumed by later adapter and MCP features.
+  - Blockers: none; the bounded ingest-package ownership decision is recorded in `DECISIONS.md`.
 
 ## Next
 
-1. Route the `NEEDS RE-PLAN:` marker on `feat-002` to the feature planner.
-2. Resume implementation only after the planner makes the approved public seam writable without crossing feature ownership.
+1. Run the router after digest and plan verification.
+2. Resume only the router-selected feature; preserve WIP = 1 while parallelizing independent file slices inside it.
 
 ## Known Issues / Risks
 

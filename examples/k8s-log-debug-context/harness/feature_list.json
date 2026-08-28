@@ -83,11 +83,10 @@
       "falsifier": "The service bypasses the serialized ingress seam, accepts an out-of-scope, incomplete, or unsupported-major record, invokes IndexPort for a rejection or other than exactly once for an acceptance, or exposes a configured secret or additive-field overwrite in the indexed document [INV-SCOPE-1] [INV-REDACT-1] [INV-META-1] [INV-SCHEMA-1]",
       "context": {
         "touches": [
-          "service/src/main/java/io/harness/logcontext/ingest/IngestService.java",
-          "service/src/main/java/io/harness/logcontext/model/NormalizedLogRecord.java",
+          "service/src/main/java/io/harness/logcontext/ingest/*.java",
           "service/src/test/java/io/harness/logcontext/ingest/IngestServiceTest.java"
         ],
-        "note": "Implement the approved ingest(String) -> IngestResult seam over a supplied IndexPort: validate scope and required wire fields, normalize, redact, then make the single index call; use the five stable rejection codes and the context packet rather than exposing parser helpers.",
+        "note": "Implement the complete approved public seam in the ingest package: ingest(String) -> IngestResult over a supplied IndexPort, NormalizedLogRecord, and the typed bounded LogQuery family required by IndexPort.search. Validate scope and required wire fields, normalize, redact, then make the single index call; use the five stable rejection codes and the context packet rather than exposing parser helpers. The package-scoped path is deliberate because Java requires ten mutually dependent public contract types in separate source files and a partial IndexPort would be a temporary incompatible API.",
         "packet": "loop/context-packets/feat-002.json"
       },
       "dependencies": [
@@ -96,7 +95,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "NEEDS RE-PLAN: feat-002's approved public seam requires IngestPolicy, IndexPort, and IngestResult source paths, but context.touches authorizes only IngestService, NormalizedLogRecord, and IngestServiceTest. IndexPort's approved search(LogQuery) signature also depends on query types currently assigned to later features. Expand/reorder the owned paths and dependencies before implementation; do not hide these public types inside an authorized file or invent a temporary incompatible port.",
+      "checkerNotes": "RESOLVED RE-PLAN: feat-002 now owns every source path in the approved compile-complete IngestService/IndexPort seam, including IngestPolicy, IngestResult, and the typed bounded LogQuery family. The dependency order stays feat-001 -> feat-002 -> adapter/MCP consumers, avoiding both a cycle and a temporary indexing-only port; see DECISIONS.md and loop/context-packets/feat-002.json.",
       "attempts": 0,
       "maxAttempts": 3
     },

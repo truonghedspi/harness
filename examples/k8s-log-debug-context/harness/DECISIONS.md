@@ -57,6 +57,24 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-27 — Compile-complete public seam stays one foundation feature
+
+- **Decision:** Keep the 11-feature DAG and make feat-002 own every Java source file required by
+  the approved `IngestService`/`IndexPort` seam, including the bounded typed query family.
+- **Reason:** `IndexPort` has both index and search methods in the approved API. Java requires its
+  public parameter/result types to exist when it compiles; later adapter and MCP features consume
+  this seam but do not need to redefine it.
+- **Rejected alternative:** Introduce an indexing-only temporary port, hide public types as nested
+  implementation details, or make feat-002 depend on a later consumer; these respectively create
+  API churn, contradict the approved design, or introduce a dependency cycle.
+- **Sizing:** feat-002 names the bounded ingest-package glob plus its unit test (two owned paths).
+  The glob covers ten mutually dependent public source files without granting the OpenSearch or MCP
+  packages; adapter search behavior remains feat-004 and MCP behavior remains feat-006.
+- **Affected:** `feat-002` ownership and context packet; dependency edges and all other feature
+  state/evidence remain unchanged.
+
+---
+
 ## 2026-08-27 — Executable MCP bootstrap resolves feat-007 without re-cutting
 
 - **Decision:** Keep feat-006 as the bounded MCP build and feat-007 as its independent HTTP proof;
