@@ -92,10 +92,17 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "not-started",
+      "status": "active",
       "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "RESOLVED RE-PLAN: feat-002 now owns every source path in the approved compile-complete IngestService/IndexPort seam, including IngestPolicy, IngestResult, and the typed bounded LogQuery family. The dependency order stays feat-001 -> feat-002 -> adapter/MCP consumers, avoiding both a cycle and a temporary indexing-only port; see DECISIONS.md and loop/context-packets/feat-002.json.",
+      "evidence": [
+        {
+          "date": "2026-08-28",
+          "run": "red",
+          "cmd": "./mvnw -q -Dtest=IngestServiceTest test",
+          "result": "Tests run: 2, failures: 2, errors: 0; both assertions report the required public IngestService contract absent."
+        }
+      ],
+      "checkerNotes": "NEEDS RE-PLAN: feat-002 owns service/src/main/java/io/harness/logcontext/ingest/*.java, but pom.xml has no sourceDirectory for service/src/main/java and the feature does not own pom.xml. Maven currently compiles only the authorized service test tree, so product sources at every approved feat-002 path would be invisible. Add the build-source configuration path to this feature before implementation.",
       "attempts": 0,
       "maxAttempts": 3
     },
