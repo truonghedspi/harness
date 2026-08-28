@@ -93,19 +93,54 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "active",
-      "readyForCheck": false,
+      "status": "passing",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-28",
           "run": "red",
           "cmd": "./mvnw -q -Dtest=IngestServiceTest test",
           "result": "Tests run: 2, failures: 2, errors: 0; both assertions report the required public IngestService contract absent."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "./mvnw -q -Dtest=IngestServiceTest test",
+          "result": "Tests run: 2, failures: 0, errors: 0; acceptance sanitizes and indexes exactly once, and five invalid partitions never index."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=IngestContractTest test",
+          "result": "Independent black-box oracle passed all 5 scope, redaction, metadata, additive-v1, and unsupported-major conditions."
         }
       ],
-      "checkerNotes": "RESOLVED RE-PLAN: feat-002 now owns pom.xml and must map service/src/main/java as Maven's main sourceDirectory before implementing the already approved compile-complete ingest seam. The feature boundary, history, and 11-feature DAG are unchanged; see DECISIONS.md and loop/context-packets/feat-002.json.",
+      "checkerNotes": "Implemented the compile-complete ingest/index seam after mapping the approved Maven source root; unit verification, independent ingest oracle, and baseline are green.",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "5c32e92db62194f76d45249680de4bc4ef8561a27be83564b804b80fdd70b528",
+        "claimRefs": ["feat-002 behavior", "INV-SCOPE-1", "INV-REDACT-1", "INV-META-1", "INV-SCHEMA-1"],
+        "changedPaths": [
+          "pom.xml",
+          "service/src/main/java/io/harness/logcontext/ingest/*.java",
+          "service/src/test/java/io/harness/logcontext/ingest/IngestServiceTest.java"
+        ],
+        "runs": [
+          {"cmd": "./mvnw -q -Dtest=IngestServiceTest test", "exit": 0, "result": "2 tests passed under OpenJDK 21."},
+          {"cmd": "./mvnw -q -Poracle-test -Dtest=IngestContractTest test", "exit": 0, "result": "5 independent black-box contract tests passed under OpenJDK 21."},
+          {"cmd": "node harness/init.mjs", "exit": 0, "result": "Baseline green under OpenJDK 21."}
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "not-applicable: ingest owns no external resource or returned lifecycle handle",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: ingest keeps immutable policy/port references and no mutable per-request state",
+          "realBoundary": "covered",
+          "discrimination": "The ingest runs do not exercise every constructor invariant in the typed query family, so an incorrect query-limit validator could survive until the storage-adapter feature exercises it."
+        },
+        "residualUnknowns": ["Typed query execution semantics remain owned by the later OpenSearch adapter feature."]
+      }
     },
     {
       "id": "feat-003",

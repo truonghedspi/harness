@@ -26,6 +26,7 @@
     </dependency>
   </dependencies>
   <build>
+    <sourceDirectory>service/src/main/java</sourceDirectory>
     <testSourceDirectory>service/src/test/java</testSourceDirectory>
     <plugins>
       <plugin>

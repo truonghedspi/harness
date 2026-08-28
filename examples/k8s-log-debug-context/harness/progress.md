@@ -6,9 +6,9 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-28
-- **Active feature:** feat-002 — re-plan resolved; implementation owns Maven main-source wiring
+- **Active feature:** feat-002 — ingest implementation awaits independent checker
 - **Latest commit:** 3dccb63 Phơi bày source root bị thiếu cho ingestion
-- **Baseline (`node harness/init.mjs`):** red at the expected absent feat-002 public contract with Homebrew OpenJDK 21; Temurin 25.0.3 is rejected by the Java gate
+- **Baseline (`node harness/init.mjs`):** green with Homebrew OpenJDK 21; Temurin 25.0.3 is rejected by the Java gate
 
 ## Done
 
@@ -25,13 +25,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   - Details: Maven Enforcer accepts only `[21,22)` and the JUnit baseline asserts runtime feature 21 exactly.
   - Blockers: none; red JDK 25 rejection and green JDK 21 execution are recorded for checker review.
 - [ ] Sanitized normalized ingestion (`feat-002`)
-  - Details: its unit proof reports two assertion failures and zero errors at the absent public ingest contract.
-  - Blockers: none; feat-002 now owns the bounded `pom.xml` main-source mapping required before product implementation.
+  - Details: serialized v1 admission, normalization, redaction, and the compile-complete index/query seam pass the unit suite and five-condition black-box oracle.
+  - Blockers: none; review packet is admitted and awaits independent checker judgement.
 
 ## Next
 
-1. Route `feat-002` to the maker to add the Maven main-source mapping and implement the approved ingest seam.
-2. Run the unit proof, restore the full baseline to green, and submit the complete feature claim for independent checking.
+1. Route `feat-002` through independent checker review.
+2. Continue only with the next router-selected dependency consumer after checker disposition.
 
 ## Known Issues / Risks
 
