@@ -1,0 +1,10 @@
+{
+  "id": "TCON-COMPL-0001",
+  "plan_id": "TP-COMPL-0001",
+  "requirement_id": "INV-TOOL-3",
+  "behavior": "Requesting java_completion in a scope whose real completion count exceeds the configured cap returns exactly cap items, marked truncated:true with total equal to the true pre-cut count — never a silently shortened list without a total, and never the full uncapped set.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable by a real completion round-trip through the real JDT LS against a fixture whose member count exceeds the configured cap — the matrix's e2e_scenario technique for integration [INV-TOOL-3]; falsifies an implementation that returns the uncapped list or cuts without reporting the true total."
+}

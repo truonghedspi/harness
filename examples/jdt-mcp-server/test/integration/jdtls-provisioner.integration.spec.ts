@@ -41,7 +41,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -463,5 +463,37 @@ test(
     assert.ok(coreName, "the pinned archive must contain a JDT LS core jar");
     assert.deepEqual(readFileSync(path.join(installedPlugins, launcherName)), readFileSync(path.join(expectedPlugins, launcherName)));
     assert.deepEqual(readFileSync(path.join(installedPlugins, coreName)), readFileSync(path.join(expectedPlugins, coreName)));
+  },
+);
+
+// ---------------------------------------------------------------------------------------------
+// TCON-PROV-0009 — INV-PROV-2: corrupted downloaded bytes are rejected, never installed
+// ---------------------------------------------------------------------------------------------
+
+test(
+  "TCON-PROV-0009: a checksum mismatch on the downloaded bytes fails explicitly and leaves no installed directory",
+  { timeout: 30_000 },
+  async (t) => {
+    const root = makeTempRoot("jdtls-prov-0009-");
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const javaHome = makeFakeJdk(root, 21);
+    const cacheDir = makeEmptyDir(root, "cache");
+    // A fetch boundary that hands back bytes which are NOT the pinned archive — the exact shape of a
+    // corrupted/truncated download that a removed checksum guard would silently install.
+    const fetchImpl = (async () =>
+      new Response(Buffer.from("this is not the pinned JDT LS archive — corrupted download bytes"), { status: 200 })) as typeof fetch;
+    withEnv(t, { JAVA_HOME: javaHome, JDTLS_HOME: undefined });
+
+    await assert.rejects(
+      () => resolveInstall({ cacheDir, fetchImpl, deadlineMs: TEST_DEADLINE_MS }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error, "must reject with an Error, not a raw value");
+        const message = (err as Error).message;
+        assert.match(message, /checksum mismatch/, `corrupted bytes must fail with an explicit checksum-mismatch error; got: ${message}`);
+        return true;
+      },
+    );
+    // The rejected download must never be extracted or installed.
+    assert.equal(existsSync(path.join(cacheDir, "plugins")), false, "a checksum-rejected download must leave no installed directory");
   },
 );

@@ -5,6 +5,35 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
+- **2026-08-28 — HOÀN TẤT: 36/36 done (100%).** Cả 12 feature còn lại đã qua checker review (APPROVE,
+  `status: done`, `checkerVerdict: approve`). Router giờ trả `exit` — mọi feature done. `npm test`
+  159/159; `npm run test:integration` (danger-full-access) 249/249. Bốn tool build
+  (`java_completion`, `java_rename`, `java_code_actions`, `java_apply_code_action`) + oracle prove
+  tương ứng, hai feature blocked-3/3 gỡ bằng điều kiện oracle mới, và end-to-end
+  `feat-prove-cross-process-integration`. Chi tiết: `src/tools/{completion,rename,code-actions,apply-code-action,code-action-store,workspace-edit}.ts`,
+  `src/workspace/sync-guard.ts`, oracle `{completion,rename,code-actions,cross-process}.integration.spec.ts`
+  + `TCON-PROV-0009` + `TCON-DIAG-0004` + `A-021`. Sandbox DSH chặn `ps` (EPERM): `TCON-SHIM-0003`
+  fail giả, xác nhận bằng `danger-full-access`.
+
+- **2026-08-28 — `feat-prove-sync` (oracle + sync-guard, chờ checker):** hiện thực `src/workspace/sync-guard.ts`
+  (`withSyncQuiescence`: chờ watcher settle rồi POLL cho tới khi câu trả lời hết stale, không thì
+  `ResyncingError` code `resyncing`) — thành phần INV-SYNC-1 còn thiếu mà runtime-model mô tả nhưng
+  không build feature nào sở hữu. Viết oracle `test/integration/file-sync.integration.spec.ts` tái
+  hiện spike C qua `textDocument/definition` (workspace/symbol chỉ giải TYPE, đo được bằng spike) trên
+  pool thật + JDT LS thật + watcher thật. Control 2/2 xanh; mutant M1 (guard trả kết quả đầu tiên
+  không poll) làm TCON-SYNC-0001 đỏ đúng falsifier. `npm test` 124/124 xanh. Feature chuyển
+  `blocked` → `in-progress`, ghi evidence + checkerNotes; chưa `readyForCheck` (checker không dispatch
+  được trong phiên). Ghi chú scope: sync-guard là component production mới, nếu tách build feature
+  riêng thì planner cắt lại.
+
+- **2026-08-28 — `feat-prove-readiness` (oracle deadline path, chờ checker):** viết
+  `test/integration/readiness.integration.spec.ts` — 3 caller đồng thời chống một workspace thật không
+  bao giờ ready (không có Java source nên `probeSemanticIndex` luôn `ok:false`) qua pool thật + JDT LS
+  thật + readiness-gate thật; cả 3 reject `WorkspaceNotReadyError` trong deadline tham số (X-001 mở).
+  Control 1/1 xanh; mutant M1 (awaitReady resolve empty success thay vì reject) làm oracle đỏ 1/1.
+  Feature `blocked` → `in-progress`, `readyForCheck: true` + reviewPacket ADMITTED. Cả hai feature
+  (`feat-prove-sync`, `feat-prove-readiness`) giờ chờ checker.
+
 - **2026-08-24 — `feat-prove-diagnostics` maker attempt 1/3:** implementation green; baseline blocks checker. Live JDT LS
   notifications arrived under canonical `file:///private/var/...` URIs while the tool queried the
   same files through `file:///var/...`; `DiagnosticsCache` now keys existing file URIs by canonical

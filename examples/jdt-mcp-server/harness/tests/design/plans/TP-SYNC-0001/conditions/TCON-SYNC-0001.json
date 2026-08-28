@@ -2,9 +2,9 @@
   "id": "TCON-SYNC-0001",
   "plan_id": "TP-SYNC-0001",
   "requirement_id": "INV-SYNC-1",
-  "behavior": "A probe issued through the readiness gate's semantic probe immediately after a workspace's source file is edited directly on disk (before the watcher's `didChangeWatchedFiles` notification for that edit is observed) never returns the stale pre-edit answer -- spike C's `2_afterSilentDiskEdit` state, where the deleted symbol still resolves and zero errors are reported -- it instead settles, within its deadline, as either the corrected post-edit answer or an explicit `resyncing` error.",
+  "behavior": "A sync-guarded tool call issued immediately after a workspace's source file is edited directly on disk (before the watcher's `didChangeWatchedFiles` notification for that edit is observed) never returns the stale pre-edit answer -- spike C's `2_afterSilentDiskEdit` state, where the deleted symbol still resolves and zero errors are reported -- it instead settles, within its deadline, as either the corrected post-edit answer or an explicit `resyncing` error.",
   "behavior_shape": "integration",
   "technique": "e2e_scenario",
   "priority": "P0",
-  "rationale": "Only observable by wiring a real file-sync-watcher, a real JDT LS subprocess and the readiness gate's probe together against real disk I/O -- the matrix's e2e_scenario technique for the integration shape -- reproducing spike C's exact forbidden state directly [INV-SYNC-1]; falsifies an implementation that forwards the probe through without checking the watcher's last-observed change generation, i.e. the literal spike-C failure (`2_afterSilentDiskEdit_resolves: true`, `appErrors: []`)."
+  "rationale": "Only observable by wiring a real file-sync-watcher, a real JDT LS subprocess and the sync guard together against real disk I/O -- the matrix's e2e_scenario technique for the integration shape -- reproducing spike C's exact forbidden state directly [INV-SYNC-1]; falsifies an implementation that forwards the probe through without checking the watcher's last-observed change generation, i.e. the literal spike-C failure (`2_afterSilentDiskEdit_resolves: true`, `appErrors: []`)."
 }

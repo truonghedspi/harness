@@ -1,0 +1,10 @@
+{
+  "id": "TCON-CROSS-0001",
+  "plan_id": "TP-CROSS-0001",
+  "requirement_id": "INV-SYNC-1",
+  "behavior": "An agent editing a source file on disk and then calling java_definition through the real shim-to-daemon-to-JDT-LS pipeline gets a routed answer that is either post-edit or an explicit resync error, never the pre-edit (stale) answer.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "Only observable by driving the real shim over a real socket to a daemon that routes to a real JDT LS — the matrix's e2e_scenario for the process boundary [INV-SYNC-1][INV-ROUTE-1]; falsifies a daemon that answers a post-edit call from the pre-edit model, or routes the call to the wrong workspace."
+}

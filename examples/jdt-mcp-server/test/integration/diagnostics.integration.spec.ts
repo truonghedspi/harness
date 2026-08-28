@@ -209,3 +209,42 @@ test("TCON-DIAG-0003: two live JDT LS instances never cross-serve a diagnostic f
   assert.deepEqual(bReport.problems, [], "workspace B's clean file must not receive workspace A's type error");
   assert.notEqual(a.child.pid, b.child.pid, "the fixture must use two distinct live JDT LS processes");
 });
+
+test("TCON-DIAG-0004: a query carrying workspace B's id but A's file URI is not-reported, never A's report", { timeout: 75_000 }, async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), "jdt-diag-crosskey-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const [a, b] = await Promise.all([
+    startWorkspace(root, "workspace-a", BROKEN),
+    startWorkspace(root, "workspace-b", CLEAN),
+  ]);
+  t.after(() => { stop(a); stop(b); });
+  const cache = createDiagnosticsCache();
+  cache.attach(a.workspaceId, a.client);
+  cache.attach(b.workspaceId, b.client);
+  a.client.notify("initialized", {});
+  b.client.notify("initialized", {});
+  openDocument(a, BROKEN);
+  openDocument(b, CLEAN);
+
+  await waitFor(async () => {
+    const file = (await answer(a, cache)).files[0];
+    return file?.status === "reported" && file.problems.length > 0 ? file : undefined;
+  }, "workspace A's planted diagnostic");
+
+  // The discriminating seam the checker named: the cache key is (workspaceId, URI), so a query that
+  // carries B's id but A's URI must NOT resolve A's report — a flat URI-only cache (m1) or a
+  // cross-workspace scan (m2) would hand A's report back here.
+  const crossFacade: DiagnosticsFacade = {
+    workspace: async () => ({ status: "ready", workspaceId: b.workspaceId }),
+    scopeOf: (candidate) => (candidate === a.sourcePath ? { kind: "file", uri: a.sourceUri } : undefined),
+    projectFiles: () => [],
+  };
+  const cross = await javaDiagnostics(crossFacade, cache, { path: a.sourcePath });
+  assert.equal(cross.isError, false, `java_diagnostics must succeed: ${JSON.stringify(cross)}`);
+  if (cross.isError) throw new Error("unreachable");
+  assert.deepEqual(
+    cross.value.files,
+    [{ uri: a.sourceUri, status: "not-reported" }],
+    "workspace B must never serve a diagnostic published by workspace A, even for A's own file URI",
+  );
+});

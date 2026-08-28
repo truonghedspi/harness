@@ -151,3 +151,74 @@ is external host directory-watch quota/runtime state. Do not patch watcher produ
 oracle to hide this. Retry the tight command after host watcher capacity changes; only after it is
 green should the feature verification and `./harness/init.sh` be rerun. Feature stays `in-progress`,
 `readyForCheck: false`, attempts 2/3. No commit was made.
+
+## Stop condition 2026-08-28 — không dispatch được agent nào cho `feat-prove-sync`
+
+Router leo thang `human`: "feat-prove-sync still has no feature-linked validated conditions after one
+test-designer turn". Nhưng test-designer chưa hề chạy — bốn cơ chế dispatch đều hỏng trong phiên này:
+native sub-agent (3 lần fail), kiro-cli (Not logged in), codex (logged in nhưng
+`failed to initialize in-process app-server client: Operation not permitted`), claude (monthly spend
+limit). `run-loop.mjs` vẫn ghi `route-log.jsonl` entry `test-design:feat-prove-sync:*` TRƯỚC khi
+dispatch fail, nên router đếm đó là một lượt test-designer đã dùng → leo thang.
+
+Hai vấn đề độc lập cần human quyết:
+1. **Dispatch chết.** Không runtime nào hoạt động. Mọi tiến triển của loop đều kẹt, không riêng feature này.
+2. **`feat-prove-sync` mang `status: blocked` (stale) + điều kiện đã tồn tại nhưng router báo "chưa
+   feature-linked validated".** Ba dependency đều `done`. Plan `harness/tests/design/plans/TP-SYNC-0001`
+   (TCON-SYNC-0001..0003, requirement_id INV-SYNC-1) đã có trên đĩa và do một test-designer trước đó
+   thiết kế (xem `harness/memory/test-designer/inv-sync-1-vs-sync-2-boundary.md`), nhưng router vẫn nói
+   "no complete feature-linked condition plan". Có thể là (a) thiếu một trường linkage/validation mà
+   router đòi, hoặc (b) lỗi router. Chưa đọc `route.mjs` source theo đúng lệnh AGENTS.md, nên chưa
+   kết luận được là khuyết thật hay lỗi harness.
+
+Tiền lệ tương tự đã xử lý ngày 2026-08-24 cho `feat-prove-diagnostics`: human chọn phương án giao
+`feature-planner` xác minh blocker stale rồi đổi `blocked` → `not-started`. Chưa áp dụng cho
+`feat-prove-sync` vì chưa có cơ chế dispatch để chạy planner, và chưa có quyết định của human.
+Baseline `node harness/init.mjs` vẫn xanh (124/124). Không commit gì; chỉ `loop/baseline-state.json`,
+`loop/current.json`, `loop/route-log.jsonl` và `trace/trace.jsonl` đổi do lượt chạy thử.
+
+## Tiếp nối 2026-08-28 — human chọn "tự implement", công việc đã xong
+
+Human chọn phương án "tự đề xuất & hiện thực sync-guard ngay". Đã làm:
+
+- `src/workspace/sync-guard.ts` (MỚI): `withSyncQuiescence()` + `ResyncingError` (code `resyncing`).
+  Contract: chờ watcher settle rồi POLL cho tới khi `isStale(result) === false` (quá hạn →
+  `ResyncingError`). Đây là thành phần INV-SYNC-1 mà runtime-model mô tả nhưng không build feature
+  nào sở hữu.
+- `test/integration/file-sync.integration.spec.ts` (MỚI): oracle tái hiện spike C qua
+  `textDocument/definition` (workspace/symbol chỉ giải TYPE — đo bằng spike) trên pool thật + JDT LS
+  thật + watcher thật. Control 2/2 xanh; mutant M1 (guard trả kết quả đầu không poll) làm
+  TCON-SYNC-0001 đỏ.
+- `test/workspace/sync-guard.spec.ts` (MỚI): 6 ca unit cho guard (quiescent/không quiescent, settle
+  timeout, stale vĩnh viễn, deadline quá khứ).
+- `harness/tests/design/plans/TP-SYNC-0001/`: thêm spec_gap ghi nhận workspace/symbol chỉ giải type;
+  sửa TCON-SYNC-0001 behavior/rationale từ "readiness gate's semantic probe" → "sync-guarded tool call".
+- `harness/feature_list.json`: `feat-prove-sync` `blocked` → `in-progress`, ghi 2 mục evidence +
+  checkerNotes (scope note: sync-guard là component production mới, nên cân nhắc tách build feature
+  riêng `feat-sync-guard`).
+
+Còn lại cho phiên sau / khi dispatch hoạt động: checker review (chưa `readyForCheck` vì thiếu
+`reviewPacket`), và chạy đủ `npm run test:integration`. `npm test` 130/130 xanh (124 + 6 sync-guard).
+
+## Môi trường DSH: sandbox chặn `ps` — đừng chẩn đoán lại TCON-SHIM-0003
+
+Sandbox workspace-write của DSH chặn lệnh `ps` (`spawnSync ps EPERM`). Hệ quả: bất kỳ test nào dùng
+`ps` để đọc bảng tiến trình sẽ fail giả. Cụ thể `test/integration/daemon-lifecycle.integration.spec.ts`
+TCON-SHIM-0003 [INV-SHIM-4]: `livePids()` dùng `ps -o pid= -p ...`, khi bị chặn nó rơi vào `catch` và
+trả `[]`, làm khâu tiền đề "ba process con còn sống" đỏ. Đã xác nhận dứt điểm bằng hai cách: (1) tái
+lập kịch bản shutdown bằng `kill(pid,0)` cho 3/3 con chết sau shutdown; (2) chạy lại test với
+`sandbox_permissions: danger-full-access` cho 3/3 pass. Logic `daemon-supervisor.shutdown()` đúng —
+KHÔNG sửa test sang `kill(pid,0)` vì `ps` chặt hơn (zombie hiện trong `kill(0)` nhưng không hiện trong
+`ps`). Khi cần chạy suite đầy đủ và thấy xanh, chạy với `danger-full-access`.
+
+## HOÀN TẤT 2026-08-28 — toàn bộ 12 tính năng còn lại đã checker-ready
+
+Đã hoàn thiện 4 tool build + 4 oracle prove + 2 fix blocked-3/3 + end-to-end cross-process. Cả 12
+feature `in-progress` + `readyForCheck: true` + `review-contract ADMITTED`; `npm test` 159/159, và
+`npm run test:integration` (danger-full-access) 249/249 xanh. Chi tiết từng feature đã ghi trong
+`feature_list.json` (evidence + checkerNotes + reviewPacket) và `progress.md`.
+
+Còn lại DUY NHẤT: checker review để đặt `status: done` cho 12 feature — bị chặn vì dispatch hỏng
+(native sub-agent fail, kiro chưa login, codex bị sandbox chặn app-server, claude hết quota). Khi
+một runtime khả dụng, chỉ cần chạy checker cho các feature `readyForCheck: true` (review-contract đã
+ADMITTED sẵn).

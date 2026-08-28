@@ -1,0 +1,17 @@
+{
+  "plan_id": "TP-CROSS-0001",
+  "component": "shim -> daemon -> JDT LS pipeline",
+  "spec_refs": [
+    "docs/design/runtime-model.md#INV-SYNC-1",
+    "docs/design/runtime-model.md#INV-ROUTE-1",
+    "docs/design/architecture.md (Process topology: stdio shim over a Unix socket, daemon auto-spawn)",
+    "feature_list.json#feat-prove-cross-process-integration"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "The production daemon composition root does not exist as a shipped artifact yet; this plan's oracle builds it once in the test (pool + router + readiness + watcher + sync-guard + MCP tools/call routing) and drives the real shim over a real socket. When the shipped daemon lands, this oracle becomes the check that the shipped wiring matches the in-test wiring.",
+      "location": "docs/design/architecture.md (Feature impact); feature_list.json#feat-prove-cross-process-integration (context)"
+    }
+  ]
+}

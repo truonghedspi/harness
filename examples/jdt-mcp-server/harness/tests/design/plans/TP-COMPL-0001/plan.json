@@ -1,0 +1,18 @@
+{
+  "plan_id": "TP-COMPL-0001",
+  "component": "completion tool (java_completion)",
+  "spec_refs": [
+    "docs/design/tool-surface.md#INV-TOOL-3",
+    "docs/design/tool-surface.md (Size: every list result is capped and says so with the true total)",
+    "docs/cross-cutting.md#X-008",
+    "feature_list.json#feat-prove-completion",
+    "feature_list.json#feat-tool-completion"
+  ],
+  "risk_tier": "T0",
+  "spec_gaps": [
+    {
+      "description": "X-008 (the list-cap decision) is open — 200 is only the recommended default. The condition therefore exercises the CAP THROUGH THE CONFIGURED CAP, not the 200 literal: the oracle configures a low cap (5) against a fixture with more members, so the boundary is exercised for real without pinning a number the design has not settled.",
+      "location": "docs/cross-cutting.md#X-008; docs/design/tool-surface.md#INV-TOOL-3"
+    }
+  ]
+}

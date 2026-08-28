@@ -21,6 +21,10 @@
     {
       "description": "INV-SYNC-1's disjunction ('reflects the change or fails explicitly ... within its deadline') depends on a deadline/timeout value that docs/cross-cutting.md#X-001 marks explicitly 'open' — only a recommended default (30 s, one deadline budget propagated through the readiness wait, the LSP request and the resync wait) is proposed, not confirmed. This plan's conditions describe the observable outcome (never the stale successful answer; either the corrected answer or an explicit `resyncing` error) without asserting a specific deadline magnitude, since no settled value exists to trace to; a concrete wait/timeout bound used by the eventual test implementation is an implementation/fixture choice, not a spec fact, until X-001 resolves.",
       "location": "docs/cross-cutting.md#X-001; docs/design/runtime-model.md#INV-SYNC-1"
+    },
+    {
+      "description": "Adaptation (measured, not assumed): feat-prove-sync's context says the probe goes 'through the readiness gate's semantic probe', but probeSemanticIndex uses the LSP workspace/symbol method, which resolves top-level TYPES only (fuzzy) and never returns a method — a throwaway spike against the pinned JDT LS shows a query for 'greet' returns the class 'Greeter', not the method greet(String). A method rename is therefore invisible to workspace/symbol, so the oracle cannot reproduce spike C through probeSemanticIndex. The conditions therefore read 'a sync-guarded tool call', and the implementation reproduces spike C's exact mechanism — textDocument/definition of the renamed method call site — gated by the INV-SYNC-1 sync guard. INV-SYNC-1's text is about 'any tool result', so this is the same invariant observed through a seam that can actually see a method rename.",
+      "location": "docs/design/evidence.md (spike C: textDocument/definition); docs/design/runtime-model.md#INV-SYNC-1 (observable seam)"
     }
   ]
 }

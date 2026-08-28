@@ -1,0 +1,10 @@
+{
+  "id": "TCON-PROV-0009",
+  "plan_id": "TP-PROV-0001",
+  "requirement_id": "INV-PROV-2",
+  "behavior": "A download whose bytes do not match the pinned archive's checksum is rejected with an explicit checksum-mismatch error and leaves no installed directory — it is never extracted or installed as if valid.",
+  "behavior_shape": "integration",
+  "technique": "e2e_scenario",
+  "priority": "P0",
+  "rationale": "INV-PROV-2's 'verifying its checksum' half is only observable by feeding corrupt bytes through the real fetch boundary and asserting the checksum guard rejects them; a removed guard would silently install the corrupt archive and stay green on every valid-download condition — the exact gap the checker named."
+}
