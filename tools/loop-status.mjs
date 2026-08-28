@@ -51,6 +51,13 @@ function collect() {
   const features = (fl && fl.features) || [];
   out.features = { total: features.length, byStatus: {} };
   for (const f of features) out.features.byStatus[f.status || "?"] = (out.features.byStatus[f.status || "?"] || 0) + 1;
+  const done = out.features.byStatus.done || 0;
+  out.progress = {
+    done,
+    total: features.length,
+    remaining: Math.max(0, features.length - done),
+    percent: features.length ? Math.floor((done / features.length) * 100) : 0,
+  };
   // The ones a human would want to look at: in flight, waiting on judgement, or out of budget.
   out.inFlight = features
     .filter((f) => ["active", "in-progress"].includes(f.status) || f.readyForCheck ||
@@ -116,14 +123,22 @@ function render(s) {
   L.push("  " + "─".repeat(70));
   if (s.current && !s.current.finishedAt) {
     L.push(`  RUNNING   ${s.current.node}${s.current.feature ? ` on ${s.current.feature}` : ""}` +
+      `${s.current.mode ? ` [${s.current.mode}]` : ""}` +
       `   ${dur(s.current.elapsedMs || 0)}   (iteration ${s.current.iteration || "?"})`);
+    // A parallel iteration has several agents inside one dispatch. Without this line the view says
+    // "RUNNING maker" for four workers exactly as it does for one, and a stuck slice is invisible.
+    if (Array.isArray(s.current.slices) && s.current.slices.length) {
+      L.push(`            ${s.current.slices.length} slices in parallel: ${s.current.slices.join(", ")}`);
+    }
   } else {
     L.push(`  idle — no agent dispatched right now`);
   }
-  if (s.next) L.push(`  next      ${s.next.node} [${s.next.layer}] — ${String(s.next.why || "").slice(0, 60)}`);
+  if (s.next) L.push(`  next      ${s.next.node} [${s.next.layer}]${s.next.mode ? ` mode:${s.next.mode}` : ""} — ${String(s.next.why || "").slice(0, 60)}`);
   L.push("");
   const st = Object.entries(s.features.byStatus).map(([k, v]) => `${k} ${v}`).join("  ");
   L.push(`  features  ${s.features.total} total   ${st}`);
+  L.push(`  progress  ${s.progress.done}/${s.progress.total} done (${s.progress.percent}%)` +
+    `   ${s.progress.remaining} remaining`);
   if (s.inFlight.length) {
     L.push("  in flight");
     for (const f of s.inFlight.slice(0, 6))

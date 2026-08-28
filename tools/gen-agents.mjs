@@ -128,8 +128,11 @@ function claudeAgent(a) {
   if (a.resources.length) {
     hooks.push(`  SubagentStart:\n    - command: "node ${TOOL_ROOT}/agent-context.mjs ${a.name}"`);
   }
-  // The only per-agent write restriction Claude Code can express.
-  if (a.writes) {
+  // The only per-agent write restriction Claude Code can express. `sliceConfined` roles get it too
+  // even with no `writes` list: they are unrestricted in a normal iteration and confined to one
+  // slice's paths during a parallel one (tools/work-split.mjs), and the hook is the only place that
+  // distinction can be made at write time.
+  if (a.writes || a.sliceConfined) {
     // Bash too, not only the edit tools. The matcher used to be Edit|Write|NotebookEdit, so a
     // write-restricted agent could still `cat > probe.mjs` — the confinement held for the tools it
     // named and was absent for the one every agent has. Shell inspection is best-effort by nature
@@ -219,7 +222,7 @@ function codexHooks(list) {
     hooks: {
       PreToolUse: [{
         matcher: ".*",
-        hooks: [{ type: "command", command: `node ${TOOL_ROOT}/guard-write.mjs --from-env` }],
+        hooks: [{ type: "command", command: `node ${TOOL_ROOT}/guard-write.mjs --runtime codex --from-env` }],
       }],
       PostToolUse: [{
         matcher: ".*",

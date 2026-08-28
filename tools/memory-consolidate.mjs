@@ -44,9 +44,44 @@ const INDEX_MAX_LINE_CHARS = 150;
 const exists = (p) => { try { statSync(p); return true; } catch { return false; } };
 const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return false; } };
 
+// Unicode-aware on purpose. The old form stripped everything outside [a-z0-9], which turns a
+// Vietnamese entry into consonant rubble ("kh ng" for "không") — so every text comparison in this
+// file was silently comparing noise on any project that does not write in English.
 function normalize(s) {
-  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
+
+// Content tokens for similarity. Short tokens carry almost no signal and inflate every pairwise
+// score toward the middle, which is what makes a threshold impossible to set.
+const STOP = new Set(["that", "this", "with", "from", "have", "does", "when", "then", "than",
+  "which", "what", "will", "would", "there", "their", "been", "were", "into", "onto", "only",
+  "cua", "duoc", "khong", "nhung", "trong", "phai", "nay", "mot", "cho", "hai", "voi"]);
+function tokens(text) {
+  return new Set(normalize(text).split(" ").filter((w) => w.length >= 4 && !STOP.has(w)));
+}
+function jaccard(a, b) {
+  if (!a.size || !b.size) return 0;
+  let shared = 0;
+  for (const t of a) if (b.has(t)) shared += 1;
+  return shared / (a.size + b.size - shared);
+}
+const stripFrontmatter = (content) => content.replace(/^---\n[\s\S]*?\n---\n?/, "");
+
+// Calibrated on examples/jdt-mcp-server: 71 entries, 650 within-agent candidate pairs.
+//   0.25 -> 45 pairs (a wall, and most share only a subject area)
+//   0.30 -> 10 pairs
+//   0.34 ->  4 pairs
+//   0.40 ->  0 pairs — the real duplicate scores 0.374, so this is the hard ceiling
+// 0.34 was the first choice and it was too tight: a second, independently written pair of entries
+// about the same incident scored 0.300, and missing a duplicate costs a session while dismissing
+// one costs a glance. The error is not symmetric, so the threshold sits on the forgiving side.
+//
+// Known limits, both real:
+//   - a long general-purpose entry becomes a hub — on this corpus one mutant-mechanics write-up
+//     pairs with three unrelated entries purely on shared vocabulary
+//   - a duplicate written with no shared concrete nouns is still missed; this finds lessons that
+//     describe the same incident, not lessons that happen to reach the same conclusion
+const DUPLICATE_SIMILARITY = 0.30;
 
 function parseFrontmatter(content) {
   const m = content.match(/^---\n([\s\S]*?)\n---/);
@@ -63,6 +98,23 @@ function checkAgent(agent) {
   const dir = path.join(memoryRoot, agent);
   const indexPath = path.join(dir, "MEMORY.md");
   const findings = [];
+  // One finding per CLASS, with a count and a few examples — never one per occurrence. On a real
+  // project the per-occurrence form produced 66 identical index-line-too-long warnings out of 68
+  // findings, which is the wall review-digest.mjs exists to prevent and which AGENTS.md calls
+  // worse than no gate: it photographs as coverage and teaches people to scroll past.
+  const groups = new Map();
+  const group = (id, example, symptom, remedy) => {
+    if (!groups.has(id)) groups.set(id, { id, severity: "warn", examples: [], symptom, remedy });
+    groups.get(id).examples.push(example);
+  };
+  const flushGroups = () => {
+    for (const g of groups.values()) {
+      const shown = g.examples.slice(0, 3).join(", ");
+      const more = g.examples.length > 3 ? `, +${g.examples.length - 3} more` : "";
+      findings.push({ id: g.id, severity: g.severity, count: g.examples.length,
+        examples: g.examples, symptom: g.symptom(g.examples.length, `${shown}${more}`), remedy: g.remedy });
+    }
+  };
 
   const indexRaw = exists(indexPath) ? readFileSync(indexPath, "utf8") : "";
   const lines = indexRaw.split("\n");
@@ -77,14 +129,14 @@ function checkAgent(agent) {
     if (!m) return;
     linkedSlugs.add(m[1]);
     if (line.length > INDEX_MAX_LINE_CHARS) {
-      findings.push({ id: `index-line-too-long:${i + 1}`, severity: "warn",
-        symptom: `MEMORY.md:${i + 1} is ${line.length} chars (budget ${INDEX_MAX_LINE_CHARS}) — push detail into the linked file, not the index`,
-        remedy: "shorten the one-line hook; move reasoning into the entry file" });
+      group("index-line-too-long", `MEMORY.md:${i + 1} (${line.length} chars)`,
+        (n, ex) => `${n} index line(s) over the ${INDEX_MAX_LINE_CHARS}-char budget — the index has stopped being skimmable: ${ex}`,
+        "shorten the one-line hooks; move reasoning into the entry files");
     }
     if (!exists(path.join(dir, m[1]))) {
-      findings.push({ id: `broken-link:${m[1]}`, severity: "warn",
-        symptom: `MEMORY.md links ${m[1]}, which does not exist in memory/${agent}/`,
-        remedy: "fix or remove the dangling MEMORY.md line" });
+      group("broken-link", m[1],
+        (n, ex) => `${n} MEMORY.md link(s) point at files that do not exist in memory/${agent}/: ${ex}`,
+        "fix or remove the dangling MEMORY.md lines");
     }
   });
 
@@ -93,33 +145,62 @@ function checkAgent(agent) {
     : [];
   for (const f of entryFiles) {
     if (!linkedSlugs.has(f)) {
-      findings.push({ id: `orphan-entry:${f}`, severity: "warn",
-        symptom: `memory/${agent}/${f} exists but MEMORY.md has no line linking it — unreachable`,
-        remedy: "add an index line, or delete the file if it's no longer useful" });
+      group("orphan-entry", f,
+        (n, ex) => `${n} entry file(s) exist but MEMORY.md links none of them — unreachable, so nothing ever reads them: ${ex}`,
+        "add an index line for each, or delete the ones no longer useful");
     }
   }
 
   const seenNames = new Map();
   const seenDescs = new Map();
+  const bodies = [];
   for (const f of entryFiles) {
-    const fm = parseFrontmatter(readFileSync(path.join(dir, f), "utf8"));
+    const raw = readFileSync(path.join(dir, f), "utf8");
+    const fm = parseFrontmatter(raw);
+    bodies.push({ file: f, tokens: tokens(stripFrontmatter(raw)) });
+    // The schema is not decoration: duplicate-name and duplicate-description below both key on it,
+    // and memory-query.mjs prints `[?]` with an empty hook without it. An entry that skips the
+    // frontmatter is an entry the tooling cannot see — it still costs a file, and it silently
+    // switches off the check that would have stopped the same lesson being learned twice.
+    if (!fm.name || !fm.description) {
+      group("entry-missing-schema", f,
+        (n, ex) => `${n} entry file(s) have no \`name:\`/\`description:\` frontmatter — duplicate detection and memory-query.mjs are blind to them: ${ex}`,
+        "add the frontmatter documented in references/agent-memory.md; without it the entry is invisible to every check here");
+    }
     if (fm.name) {
       if (seenNames.has(fm.name)) {
-        findings.push({ id: `duplicate-name:${fm.name}`, severity: "warn",
-          symptom: `${seenNames.get(fm.name)} and ${f} both declare name: ${fm.name}`,
-          remedy: "merge the two entries or rename one" });
+        group("duplicate-name", `${seenNames.get(fm.name)} = ${f}`,
+          (n, ex) => `${n} pair(s) of entries declare the same name: ${ex}`,
+          "merge each pair, or rename one side");
       } else seenNames.set(fm.name, f);
     }
     if (fm.description) {
       const key = normalize(fm.description);
       if (key && seenDescs.has(key)) {
-        findings.push({ id: `duplicate-description:${f}`, severity: "warn",
-          symptom: `${seenDescs.get(key)} and ${f} have near-identical descriptions`,
-          remedy: "likely the same lesson written twice — merge them" });
+        group("duplicate-description", `${seenDescs.get(key)} = ${f}`,
+          (n, ex) => `${n} pair(s) of entries have near-identical descriptions: ${ex}`,
+          "likely the same lesson written twice — merge them");
       } else if (key) seenDescs.set(key, f);
     }
   }
 
+  // Two people describing one fact rarely choose the same words, so an exact-match check on the
+  // description finds only copy-paste. This compares the entry BODIES by token overlap, which is
+  // what catches the same lesson learned twice and written independently — the case that actually
+  // costs a session, because the second author read the index, did not recognise the paraphrase,
+  // and paid for the discovery again.
+  for (let i = 0; i < bodies.length; i++) {
+    for (let j = i + 1; j < bodies.length; j++) {
+      const score = jaccard(bodies[i].tokens, bodies[j].tokens);
+      if (score >= DUPLICATE_SIMILARITY) {
+        group("likely-same-lesson", `${bodies[i].file} ~ ${bodies[j].file} (${score.toFixed(2)})`,
+          (n, ex) => `${n} pair(s) of entries look like the same lesson written twice: ${ex}`,
+          "read both; if they are one fact, merge them and keep the sharper reproduction");
+      }
+    }
+  }
+
+  flushGroups();
   return { agent, entryCount: entryFiles.length, indexLines: lines.length, findings };
 }
 
@@ -232,7 +313,7 @@ if (JSON_OUT) {
   for (const r of report) {
     console.log(`  ${r.agent}: ${r.entryCount} entr${r.entryCount === 1 ? "y" : "ies"}, ${r.indexLines}-line index`);
     for (const f of r.findings) {
-      console.log(`    warn  [${f.id}] ${f.symptom}`);
+      console.log(`    warn  [${f.id}${f.count > 1 ? ` x${f.count}` : ""}] ${f.symptom}`);
       console.log(`          -> ${f.remedy}`);
     }
   }

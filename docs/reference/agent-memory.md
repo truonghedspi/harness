@@ -91,6 +91,18 @@ For `fact`/`pointer`: the fact or location itself, kept short.
 — this is the file that's loaded on every single run, so it has to stay cheap to read. Individual
 entry files are the archival tier: read via grep, or when `MEMORY.md`'s one-liner says "read this."
 
+**Write memory in English — the index and the entries both.** This is deliberate even on a project
+whose documentation language is not English. Memory is not project prose: it is an operational
+record addressed to whichever agent runs next, in the same class as a log line or an identifier,
+and the reader is rarely the writer. A mixed-language index also costs exactly the thing the index
+exists to buy — a cheap skim — because a reader scanning for a relevant hook stops at every line
+they have to switch languages for. Keep commands, error text and file paths verbatim regardless;
+those are evidence, not prose.
+
+Entries already written in another language stay as they are. Rewriting a precise technical record
+risks losing the reproduction detail that made it worth keeping, and that loss is permanent while
+the inconsistency is only untidy — so this rule governs what gets written from now on.
+
 ## Lifecycle — wired into the loop that already exists
 
 1. **At the start of a run**, the agent's own prompt instructs it to read `memory/<agent>/MEMORY.md`

@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/guard-write.mjs --from-env"
+            "command": "node tools/guard-write.mjs --runtime codex --from-env"
           }
         ]
       }

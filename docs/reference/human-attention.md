@@ -119,7 +119,8 @@ finished log.
 So `node loop/run-loop.mjs` is **attended by default**: it pauses after each iteration, shows what
 changed and where the router is heading, and waits. `--headless` (or `HARNESS_ATTENDED=0`) is for
 CI and cron. With no TTY it falls back to headless and says so, rather than blocking on a prompt
-nobody can answer.
+nobody can answer. This flag controls the human checkpoint only. Kiro agent turns use ACP in all
+three rungs; the loop never falls back to `kiro-cli chat --no-interactive`.
 
 | Rung | You are here when | Run it as |
 |---|---|---|

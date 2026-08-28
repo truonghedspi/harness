@@ -45,6 +45,19 @@ catch (e) { console.error(`cannot read agents.manifest.json: ${e.message}`); pro
 const agent = (manifest.agents || []).find((a) => a.name === name);
 if (!agent) { console.error(`no agent "${name}" in agents.manifest.json`); process.exit(2); }
 
+// Cheap, deterministic and fail-closed: exercise the generated allow and deny branches against
+// this installed runtime/version before spending a model turn. A hook file that exists but emits a
+// rejected schema is not enforcement. The report is run output and contains no payload contents.
+const calibration = spawnSync(process.execPath,
+  [H("tools", "hook-calibrate.mjs"), "--target", root, "--runtime", "codex", "--quiet"],
+  { cwd: root, encoding: "utf8" });
+if (calibration.status !== 0) {
+  console.error("Codex PreToolUse adapter calibration failed; refusing to dispatch without a proven allow/deny hook.");
+  if (calibration.stdout) console.error(calibration.stdout.trim());
+  if (calibration.stderr) console.error(calibration.stderr.trim());
+  process.exit(2);
+}
+
 const promptBody = existsSync(P(agent.prompt)) ? readFileSync(P(agent.prompt), "utf8") : null;
 if (promptBody === null) {
   // The kiro equivalent of this failure is silent: a bad file:// URI just starts the unrestricted

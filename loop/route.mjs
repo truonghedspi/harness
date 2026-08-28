@@ -116,6 +116,34 @@ const conditionCitations = () => {
   walk("tests/design");
   return ids;
 };
+const conditionIds = () => {
+  const ids = new Set();
+  const walk = (dir, depth = 4) => {
+    if (depth < 0) return;
+    for (const e of lsSafe(dir)) {
+      const p = `${dir}/${e}`;
+      if (/^TCON-.*\.json$/.test(e)) {
+        const j = readJSON(p);
+        if (j && j.id) ids.add(j.id);
+        continue;
+      }
+      let isDir = false;
+      try { isDir = statSync(p).isDirectory(); } catch { continue; }
+      if (isDir) walk(p, depth - 1);
+    }
+  };
+  walk("tests/design");
+  return ids;
+};
+// Conditions are a feature-owned handoff. Conditions for another prove feature must not make
+// this one eligible for implementation (HI-072).
+const featureConditionsComplete = (feature) => {
+  const ids = Array.isArray(feature.conditions) ? feature.conditions : [];
+  if (!ids.length) return false;
+  const available = conditionIds();
+  const citations = conditionCitations();
+  return ids.every((id) => available.has(id) || citations.has(id));
+};
 
 const fl = readJSON("feature_list.json");
 const features = (fl && fl.features) || [];
@@ -125,6 +153,29 @@ const notes = (f) => String(f.checkerNotes || "").trim();
 const marker = (f) => notes(f).split("\n")[0].trim();
 const status = (f) => String(f.status || f.state || "");
 const open = features.filter((f) => !["done", "passing"].includes(status(f)));
+// A parallel maker iteration, if one has been planned and admitted (tools/work-split.mjs). The
+// router reads the plan's own validation receipt rather than re-deriving disjointness here: the
+// router is pure and cheap by contract, and disjointness needs the working tree. The receipt is
+// written only by `work-split.mjs validate`, and every slice transition re-checks it, so a plan the
+// router calls valid is one a code node said so about.
+const workSplit = (f) => {
+  const plan = readJSON(`loop/work-split/${f.id}.json`);
+  if (!plan || plan.kind !== "work-split/1" || plan.validation?.status !== "valid") return null;
+  const slices = Array.isArray(plan.slices) ? plan.slices : [];
+  if (!slices.length) return null;
+  // One status file per slice, written only by that slice's own worker — never a shared field in
+  // the plan, which several workers would read-modify-write at once. Keep this in step with
+  // tools/work-split.mjs's statusPath().
+  const recorded = (s) => readJSON(`loop/work-split/${f.id}.${s.id}.json`) || { status: "pending" };
+  const seen = slices.map((s) => ({ id: s.id, ...recorded(s) }));
+  return { plan, slices,
+    failed: seen.filter((s) => s.status === "failed"),
+    outstanding: seen.filter((s) => !["complete", "failed"].includes(String(s.status || "pending"))) };
+};
+// Only a feature the maker could pick anyway may drive a fan-out: a marker or a blocked status
+// outranks the split, exactly as it outranks a serial maker turn.
+const splitEligible = () => open.filter((f) => !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(f)) && status(f) !== "blocked");
+
 const designDigest = () => {
   const parts = [];
   for (const f of lsSafe("docs/design").filter((x) => x.endsWith(".md") && x.toLowerCase() !== "readme.md").sort()) {
@@ -318,6 +369,32 @@ const RULES = [
     },
   },
   {
+    // The eighth implicit edge. A `prove` feature's oracle can be wrong — the assertion contradicts
+    // the validated condition it was written from — and until now nothing could fix it. The
+    // test-implementer rule below keys on empty `evidence` to tell "not written yet" from
+    // "written", so a project that authors oracles BEFORE the implementation (and records the red
+    // run, as it must) puts the feature permanently out of that rule's reach; the maker prompt
+    // forbids the maker touching an oracle-layer test; and the checker may not write test files.
+    // Observed on examples/jdt-mcp-server: the fix was a hand-written bounded edit permission in
+    // checkerNotes, re-invented per occurrence. This makes it a state instead of a convention.
+    node: "test-implementer", kind: "agent", layer: "oracle",
+    when: "a feature's checkerNotes starts NEEDS ORACLE FIX: — the oracle contradicts its own condition",
+    match: () => {
+      if (!hasAgent("test-implementer")) return null;
+      const f = open.find((x) => /^NEEDS ORACLE FIX:/.test(marker(x)) && status(x) !== "blocked");
+      if (!f) return null;
+      const hash = markerHash(marker(f));
+      // Same bounded ladder as every other marker: one turn, then a human. An oracle the
+      // implementer could not reconcile with its condition is a question about the condition.
+      if (alreadyDispatched("test-implementer", f.id, hash)) {
+        return { node: "human", kind: "human", layer: "oracle",
+          why: `${f.id} still carries the same NEEDS ORACLE FIX marker after one test-implementer turn — the condition itself may be wrong`,
+          feature: f.id };
+      }
+      return { why: `${f.id}: the checker ruled the red comes from the oracle, not the implementation`, feature: f.id };
+    },
+  },
+  {
     node: "test-designer", kind: "agent", layer: "oracle",
     when: "an unfinished feature has no falsifier, or its falsifier cites an invariant no test condition covers",
     // Three outputs to check, not two: the `falsifier` in feature_list.json, whether ANY condition
@@ -341,6 +418,14 @@ const RULES = [
       const candidates = open.filter((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim());
       if (!candidates.length) return null;
+      const missingFeature = candidates.find((x) => !featureConditionsComplete(x));
+      if (missingFeature) {
+        const requestId = `test-design:${missingFeature.id}:${markerHash(String(missingFeature.falsifier))}`;
+        if (requestDispatched(requestId, "test-designer")) {
+          return { node: "human", kind: "human", layer: "oracle", why: `${missingFeature.id} still has no feature-linked validated conditions after one test-designer turn`, feature: missingFeature.id, requestId };
+        }
+        return { why: `${missingFeature.id} has no complete feature-linked condition plan yet`, feature: missingFeature.id, requestId };
+      }
       // Guard against the livelock this rule could otherwise create: if test-designer has already
       // been sent here for this feature and tests/design/ is STILL absent, that is a human problem,
       // not another session. The marker is written below via `why`, and checkerNotes carries it.
@@ -381,7 +466,7 @@ const RULES = [
       // test anyway. Without this exclusion a feature blocked for a real reason (e.g. waiting on a
       // not-started dependency) kept matching every iteration: found live on examples/jdt-mcp-server,
       // where the same feature was re-dispatched 19 times before this fix.
-      const f = open.find((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
+      const f = open.find((x) => x.kind === "prove" && featureConditionsComplete(x) && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
       return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
     },
@@ -403,6 +488,57 @@ const RULES = [
     },
   },
   {
+    // Repair outranks both fan-out and fan-in: a failed slice is usually a split that was cut
+    // wrong, and re-cutting it is cheaper than integrating around the hole. It is also the one
+    // report a parallel worker can make about its own brief, so it must not be routed past.
+    node: "maker", kind: "agent", layer: "implementation",
+    when: "a validated work split has a failed slice — one maker re-cuts or absorbs it",
+    match: () => {
+      for (const f of splitEligible()) {
+        const w = workSplit(f);
+        if (w && w.failed.length) {
+          return { why: `${f.id}: slice ${w.failed.map((s) => s.id).join(", ")} failed (${w.failed[0].note || "no note"}) — the split needs re-cutting before more parallel work`,
+            feature: f.id, mode: "slice-repair", slices: w.failed.map((s) => s.id) };
+        }
+      }
+      return null;
+    },
+  },
+  {
+    // The fan-out. WIP is still 1 — one FEATURE, one iteration — and the workers are confined to
+    // disjoint files by tools/guard-write.mjs, so this is parallelism inside a step, not two
+    // makers racing for the repo (references/p08-parallel-record.md).
+    node: "maker", kind: "agent", layer: "implementation",
+    when: "a validated work split has slices left — spawn one maker per slice, in parallel",
+    match: () => {
+      for (const f of splitEligible()) {
+        const w = workSplit(f);
+        if (w && w.outstanding.length) {
+          return { why: `${f.id}: ${w.outstanding.length} of ${w.slices.length} slices outstanding; each is a self-contained brief over a disjoint file set`,
+            feature: f.id, mode: "slice-fanout", slices: w.outstanding.map((s) => s.id) };
+        }
+      }
+      return null;
+    },
+  },
+  {
+    // The fan-in, and it is deliberately ONE agent. Per-slice green does not compose into a
+    // feature-level claim: the slices never ran together, and the suite that judges them may bind
+    // a port, a database or a temp directory that N concurrent runs would fight over.
+    node: "maker", kind: "agent", layer: "implementation",
+    when: "every slice of a validated work split is complete — one maker runs the whole verification",
+    match: () => {
+      for (const f of splitEligible()) {
+        const w = workSplit(f);
+        if (w && !w.outstanding.length && !w.failed.length) {
+          return { why: `${f.id}: all ${w.slices.length} slices landed — one maker now runs \`${w.plan.integration?.verification || "the feature verification"}\` and builds the review packet`,
+            feature: f.id, mode: "integrate" };
+        }
+      }
+      return null;
+    },
+  },
+  {
     node: "maker", kind: "agent", layer: "implementation",
     when: "a feature is eligible: dependencies done, no blocking marker, within its attempts budget",
     match: () => {
@@ -415,7 +551,7 @@ const RULES = [
       const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim() && status(p) !== "blocked")
         .flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) =>
-        !/^NEEDS (DESIGN|RE-PLAN):/.test(notes(x)) && status(x) !== "blocked" &&
+        !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(x)) && status(x) !== "blocked" &&
         !(x.kind === "build" && unwritten.has(x.id) && hasAgent("test-implementer")) &&
         (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
       return eligible.length ? { why: `${eligible.length} feature(s) eligible; next is ${eligible[0].id}`, feature: eligible[0].id } : null;
@@ -456,16 +592,58 @@ for (const r of RULES) {
 // eligibility repeats legitimately and must not be treated as a lack of progress.
 if (hit && hit.feature) {
   const f = features.find((x) => x.id === hit.feature);
-  if (f && /^NEEDS (DESIGN|RE-PLAN):/.test(marker(f))) hit.hash = markerHash(marker(f));
+  if (f && /^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(marker(f))) hit.hash = markerHash(marker(f));
+}
+
+// Why a clean-looking feature cannot move. Naming the feature is not naming the cause: the cause is
+// usually several links up its dependency chain, and reading the named features tells you nothing
+// because they are all fine. Observed on examples/jdt-mcp-server — four not-started features with
+// full dependencies and no markers, all dammed by one `blocked` prove feature three links away, and
+// the router said only "4 feature(s) open but none routable". Walking the chain by hand was the
+// whole diagnosis, and it is a walk this function can do.
+const byId = new Map(features.map((f) => [f.id, f]));
+function damFor(feature) {
+  const seen = new Set([feature.id]);
+  const queue = (feature.dependencies || []).map((d) => ({ id: d, path: [feature.id] }));
+  while (queue.length) {
+    const { id, path: chain } = queue.shift();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const dep = byId.get(id);
+    if (!dep) return { id, chain, reason: "declared as a dependency but absent from feature_list.json" };
+    if (status(dep) === "blocked") {
+      return { id, chain, reason: marker(dep) || "blocked with no reason recorded" };
+    }
+    if (["done", "passing"].includes(status(dep))) continue;
+    for (const next of dep.dependencies || []) queue.push({ id: next, path: [...chain, id] });
+  }
+  return null;
 }
 
 // Nothing routable. Distinguish "finished" from "stuck", because they need opposite responses:
 // finished exits 0 and the loop stops; stuck exits 3 and a human is told exactly what is stuck.
 if (!hit) {
   const stuck = open.filter((f) => status(f) !== "blocked");
-  hit = stuck.length
-    ? { node: "human", kind: "human", layer: "unknown", why: `${stuck.length} feature(s) open but none routable — every rule declined`, detail: stuck.slice(0, 5).map((f) => f.id).join(", ") }
-    : { node: "exit", kind: "code", layer: "-", why: "every feature is done, or blocked with a recorded reason" };
+  if (stuck.length) {
+    const dams = new Map();
+    for (const f of stuck) {
+      const dam = damFor(f);
+      if (!dam) continue;
+      if (!dams.has(dam.id)) dams.set(dam.id, { reason: dam.reason, dammed: [] });
+      dams.get(dam.id).dammed.push(f.id);
+    }
+    const detail = dams.size
+      ? [...dams.entries()].map(([id, d]) =>
+          `${id} is blocked (${String(d.reason).slice(0, 90)}) and dams ${d.dammed.length}: ${d.dammed.slice(0, 4).join(", ")}`).join(" | ")
+      : stuck.slice(0, 5).map((f) => f.id).join(", ");
+    hit = { node: "human", kind: "human", layer: "unknown",
+      why: dams.size
+        ? `${stuck.length} feature(s) open but none routable — ${dams.size} blocked feature(s) upstream are damming them`
+        : `${stuck.length} feature(s) open but none routable — every rule declined`,
+      detail };
+  } else {
+    hit = { node: "exit", kind: "code", layer: "-", why: "every feature is done, or blocked with a recorded reason" };
+  }
 }
 
 if (AGENT_ONLY) { console.log(hit.kind === "agent" ? hit.node : ""); process.exit(0); }
@@ -474,5 +652,7 @@ console.log(`next node : ${hit.node}  (${hit.kind})`);
 console.log(`layer     : ${hit.layer}`);
 console.log(`why       : ${hit.why}`);
 if (hit.feature) console.log(`feature   : ${hit.feature}`);
+if (hit.mode) console.log(`mode      : ${hit.mode}`);
+if (hit.slices) console.log(`slices    : ${hit.slices.join(", ")}`);
 if (hit.detail) console.log(`detail    : ${hit.detail}`);
 process.exit(hit.node === "exit" ? 0 : hit.node === "human" ? 3 : 0);

@@ -32,21 +32,24 @@ harness/cli.mjs` when contained). A contained layout's thin root `AGENTS.md` onl
 | `feature-planner` | agent | cut the design into a build/prove DAG and materialize bounded, digest-bound context packets where discovery found a non-obvious implementation seam | requirement, human-approved design (`loop/design-approval.json` matching digest) | `feature_list.json`, `loop/context-packets/**`, `goal.md`, `constraints.md`, checker report |
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
 | `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
-| `maker` | agent | advance exactly one feature by one step | `feature_list.digest.md`, docs | source, `feature_list.json`, `progress.md` |
+| `maker` | agent | advance exactly one feature by one step; publish a digest-bound `reviewPacket` only for a complete claim. Runs in one of three modes — **lead** (may cut the step into parallel slices), **slice worker** (`$HARNESS_SLICE` set: one disjoint file set, no questions, no state writes), **integrator** (`mode: integrate`: runs the feature verification once and owns the claim) | `feature_list.digest.md`, docs, its slice brief | source, `feature_list.json`, `progress.md`; a slice worker writes only its own paths |
+| `tools/work-split.mjs` | code | admit or refuse a parallel maker iteration: slices pairwise disjoint by glob **and** by working tree, no slice reaching single-writer state, every brief self-contained, fan-in running the feature's own verification. Also generates the worker brief and records slice transitions | `loop/work-split/<feat>.json`, feature contract digest, the working tree | `loop/work-split/<feat>.json` validation receipt + slice status, `loop/work-split-log.jsonl` |
+| `tools/review-contract.mjs` | code | validate the public maker→checker handoff before semantic review; classify missing data as `SUBMISSION_INCOMPLETE`, never REJECT | stable feature contract + `reviewPacket` | exit code + JSON admission report |
 | `tools/agent-context.mjs` | code | injects role resources, scoped service rules, and only fresh feature packets plus their `mustRead` originals | `agents.manifest.json`, listed files, `context-plan/1` | context, `harnessContextInputs`, typed `harnessContextReceipt` |
 | `tools/telemetry.mjs` | code | normalize runtime hooks into redacted direct-read/search vs shell-inference events; never retain hook responses | Claude/Kiro PostToolUse, Codex shell hooks | `trace/tool-events.jsonl` (`tool-event/1`) |
 | `tools/telemetry-calibrate.mjs` | code | fixture-check each adapter and publish its honest runtime coverage ceiling | generated telemetry tools | `trace/telemetry-capabilities.json` |
+| `tools/hook-calibrate.mjs` | code | exercise runtime-specific PreToolUse allow/deny output with the installed runtime version; fail dispatch when either branch is malformed | `guard-write.mjs`, installed runtime | `trace/hook-capabilities.json` |
 | `tools/run-report.mjs` | code | aggregate sessions, read/search duplication with coverage labels, state, verification, memory and human-attention signals | trace streams, feature state, verify snapshot, git, memory | human/JSON report |
-| `tools/guard-write.mjs` | code | denies an edit outside an agent's `writes` (`PreToolUse`) — Claude Code per-agent, Codex project-wide keyed on `HARNESS_AGENT` | `agents.manifest.json`, the tool payload | nothing (allow/deny) |
+| `tools/guard-write.mjs` | code | classify an edit against an agent's `writes` — or, when `$HARNESS_SLICE` is set, against that slice's paths alone — then adapt output per runtime: Claude emits allow/deny; Codex emits neutral/deny | `agents.manifest.json`, `loop/work-split/<feat>.json`, runtime, tool payload | runtime-specific PreToolUse response |
 | `tools/codex-dispatch.mjs` | code | Codex only — assembles a role (`codex exec` has no `--agent`): prompt + resources on stdin, identity in the environment | `agents.manifest.json`, prompts, `agent-context.mjs` | nothing (spawns codex) |
 | `loop/route.mjs` | code | **the router** — reads shared state, returns the next node + its layer + why (+ the marker hash, when a marker drove it). `--rules` prints the whole table, so nothing has to parse its source | `feature_list.json`, `docs/assumptions.md`, `loop/route-log.jsonl` | nothing (pure) |
-| `loop/dispatch.mjs` | code | fallback adapter that runs ONE named agent when native in-session sub-agent spawn is unavailable, or from headless/CI. Called by `run-loop.mjs`; does **not** choose who runs. `.sh`/`.cmd` are wrappers | `agents.manifest.json`, `HARNESS_RUNTIME` | nothing directly; the agent it spawns writes |
+| `loop/dispatch.mjs` | code | fallback adapter that runs ONE named agent when native in-session sub-agent spawn is unavailable, or from automation/CI. Kiro uses `tools/kiro-acp-dispatch.mjs` and ACP; Claude/Codex use their CLI adapters. Called by `run-loop.mjs`; does **not** choose who runs | `agents.manifest.json`, `HARNESS_RUNTIME` | nothing directly; the agent it spawns writes |
 | `loop/run-loop.mjs` | code | **the dispatcher** — runs the node the router named on Windows, macOS or Linux, using kiro-cli, Claude Code or Codex (`HARNESS_RUNTIME`, else detected). `.sh`/`.cmd` are wrappers | `route.mjs` output | nothing directly; the agent it spawns writes |
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `orchestrator` | agent | **the front door** — reports state, natively spawns one sub-agent with the exact role `route.mjs` names, and escalates decisions. Script dispatch is fallback only. The default role when a human names none. **Never chooses the node**, and writes no product file | `AGENTS.md`, `graph.md`, `human-attention.md`, `presenting-and-proposing.md`, `loop-status.mjs`, `route.mjs` | `session-handoff.md`, `progress.md`, `loop/approval.md`, `memory/orchestrator/**` |
 | `tools/feature.mjs` | code | one feature out of `feature_list.json` in full, without loading the file. The pair to the digest: digest = every feature in one line, this = one feature in full | `feature_list.json` | nothing |
 | `tools/timeline.mjs` | code | **how it got here** — replays git history of `feature_list.json` into per-day transitions, net weekly progress, reopens, and per-feature age. Read-only | git history, `feature_list.json` | nothing |
-| `tools/loop-status.mjs` | code | **the live view** — where the loop is *right now*: in-flight node + elapsed, escalations, dispatch trail, livelock warning. Read-only, safe against a running loop | `loop/current.json`, `route.mjs`, `feature_list.json`, `route-log.jsonl`, git | nothing |
+| `tools/loop-status.mjs` | code | **the live view** — where the loop is *right now*: done/total/percent/remaining progress, in-flight node + elapsed, escalations, dispatch trail, livelock warning. Read-only, safe against a running loop | `loop/current.json`, `route.mjs`, `feature_list.json`, `route-log.jsonl`, git | nothing |
 | the human, between iterations | human | attended mode: `run-loop.mjs` pauses after every iteration and waits. This is the **default**; `--headless` is what you graduate to | the diff, `loop-status.mjs` | continue / stop |
 | `verify-harness --promote` | code | replay every claimed evidence; flip mechanical passes | `feature_list.json`, repo | `feature_list.json`, `trace/verify-report.json` |
 | `checker` | agent | falsify the maker's claims; sole owner of `done` | `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
@@ -55,56 +58,54 @@ harness/cli.mjs` when contained). A contained layout's thin root `AGENTS.md` onl
 | `skills/quality-strategy` | capability | living Capability–Attribute risk and orthogonal scope/size classification; rejects uncovered material risk and unsafe large-test scheduling | requirements, components, human risk decisions, oracle artifacts | `test-risk.json` and deterministic findings |
 | user-scope `human-presenter` | capability | lightweight pre-delivery audit for every substantive human-facing message; routes intent, provenance, uncertainty, language and the smallest useful representation without becoming a workflow node | the current agent's established claims and reader task | clearer user-facing answer; no project state |
 
-`human-interview` is not a dispatchable node. The originating agent invokes it before yielding; if
-an old `needs-human` row reaches the router, the router returns a human checkpoint and the current
-conversation resolves it without launching a second agent. This preserves the causal context that
-made the gap intelligible.
+`human-interview` is not a dispatchable node. The originating agent invokes it before yielding; an old
+`needs-human` row reaching the router returns a human checkpoint that the current conversation
+resolves, preserving the context that made the gap legible.
 
 `maker`, `test-implementer`, `harness-setup` and `k8s-integration-tester` write unrestricted; every
 other agent is confined by its `writes` list in `agents.manifest.json` — enforced on kiro by
 `toolsSettings.write.allowedPaths` and on Claude Code by the `guard-write.mjs` hook
 (`runtimes.md`). **That confinement is the edge set**: an agent cannot create a handoff it has no
 write access to.
+**The orchestrator is the one agent with no incoming edge from `route.mjs`, deliberately.** It is the
+node that *reads* the router; if the router could dispatch it, the loop could recurse into its own
+front door. It is reachable only from a human, and `AGENTS.md` naming it satisfies the
+`agent-unrouted` gate. Its safety is mechanical: it may not choose a node (it runs `route.mjs`), and
+its `writes` list holds no product file (`guard-write.mjs` on Claude/Codex, `allowedPaths` on kiro).
 
-**The orchestrator is the one agent with no incoming edge from `route.mjs`, deliberately.** It is
-the node that *reads* the router; if the router could dispatch it, the loop could recurse into its
-own front door. It is reachable only from a human, and `AGENTS.md` naming it is what satisfies the
-`agent-unrouted` gate. Its safety comes from two constraints, both mechanical rather than
-instructional: it may not choose a node (it runs `route.mjs`), and its `writes` list contains no
-product file (`guard-write.mjs` enforces it on Claude Code and Codex, `allowedPaths` on kiro).
-
-`human-presenter` is likewise absent from routing because it is not an agent or state transition. It
+`human-presenter` is likewise absent from routing because it is not an agent or a state transition. It
 wraps substantive communication in the current context; routing it as a node would recreate the
 context switch the user-scope skill exists to remove. For Kiro, `install-user-skill.mjs` writes a
-global `inclusion: always` steering bridge that points at the installed skill. The bridge is loaded
-with agent context; it exposes activation rules rather than copying the full skill into every turn.
-`human-interview` uses the same bridge but remains conditional on a human-owned information gap.
+global `inclusion: always` steering bridge pointing at the installed skill — loaded with agent
+context, exposing activation rules, not the whole skill. `human-interview` uses the same bridge but
+stays conditional on a human-owned information gap.
 
-Every agent node above is generated from `agents.manifest.json` into all three runtimes. Adding one
-means adding a manifest entry, not writing three config files.
+Every agent node above is generated from `agents.manifest.json` into all three runtimes: adding one
+means a manifest entry, not three config files.
 
-**The edge set is only as real as the runtime makes it.** On kiro and Claude Code the `writes` list
-is enforced per agent. On Codex it is enforced only when `tools/codex-dispatch.mjs` runs the role —
-Codex hooks are project-wide and its agent TOML has no hooks field, so an interactively-spawned
-Codex agent has no enforced confinement and `guard-write.mjs` says so instead of implying a check
-ran (`runtimes.md`). Same graph, weaker edges on one runtime; that is worth knowing before reading a
-Codex session as evidence that a role stayed in its lane.
+**The edge set is only as real as the runtime makes it.** On kiro and Claude Code the `writes` list is
+enforced per agent. On Codex it holds only when `tools/codex-dispatch.mjs` runs the role — Codex hooks
+are project-wide and its agent TOML has no hooks field, so an interactively-spawned Codex agent has no
+enforced confinement and `guard-write.mjs` says so rather than implying a check ran (`runtimes.md`).
+Same graph, weaker edges on one runtime.
 
-`k8s-integration-tester` is the one node whose *existence* is decided at setup. It is `optional` in
-the manifest, and `gen-agents.mjs` emits an optional agent exactly when its prompt file is present —
-so `setup-harness-loop.mjs --k8s on` copying `templates/k8s/**` is what puts this node in the graph.
-`--k8s auto` (the default) turns it on when the target already holds a `Chart.yaml`, on the reasoning
-that a repo shipping a chart is deployed to a cluster whether or not anything tests it there.
+`k8s-integration-tester` is the one node whose *existence* is decided at setup. `gen-agents.mjs` emits
+an `optional` agent exactly when its prompt file is present, so `setup-harness-loop.mjs --k8s on`
+copying `templates/k8s/**` is what puts this node in the graph. `--k8s auto` (the default) turns it on
+when the target holds a `Chart.yaml`: a repo shipping a chart is deployed whether or not anything
+tests it there.
 
 ## Shared state — one owner per field
 
 | Field | Writer | Readers | Merge rule |
 |---|---|---|---|
 | `feature_list.json[].status` | `checker`, `--promote` | all | single writer per feature; `blocked` beats mechanical promotion |
-| `feature_list.json[].readyForCheck` | `maker` | `--promote`, `checker` | maker sets, checker clears |
+| `feature_list.json[].readyForCheck` | `maker` | `run-loop.mjs`, `--promote`, `checker` | maker sets only for a complete green feature-level claim; partial checkpoints leave false; checker clears |
 | `feature_list.json[].evidence` | `maker` | `checker`, `--promote` | overwrite per attempt |
-| `feature_list.json[].checkerNotes` | `checker`, `maker`, `test-designer` | `maker`, `design-facilitator`, `feature-planner` | append; **first line is the routing marker** |
-| `feature_list.json[].attempts` | `maker` | gate `over-budget` | +1 per iteration, never reset |
+| `feature_list.json[].reviewPacket` | `maker` | `review-contract.mjs`, `checker` | overwrite per submission; `contractDigest` binds behavior, verification, falsifier, dependencies and context |
+| `feature_list.json[].checkerVerdict` | `checker` | maker, verifier, router/human reports | overwrite per semantic review; REJECT carries a reproducible counterexample + exit criterion |
+| `feature_list.json[].checkerNotes` | `checker`, `maker`, `test-designer`, `test-implementer` (clears `NEEDS ORACLE FIX:` only) | `maker`, `design-facilitator`, `feature-planner` | append; **first line is the routing marker**. The node that answers a marker must be able to clear it — row 10 is what happens when it cannot |
+| `feature_list.json[].attempts` | `checker` | maker, gate `over-budget` | +1 per rejected review cycle, never per maker checkpoint, never reset |
 | `feature_list.json[].falsifier` | `feature-planner`, `test-designer` | `checker` | overwrite |
 | `docs/assumptions.md` | `design-facilitator`, `test-designer`; human answer captured in place with `human-interview` | all | row-level; status only moves toward `verified` |
 | `docs/cross-cutting.md` | `design-facilitator`; human choice captured in place with `human-interview` | all | a row closes only with mechanism + owner + enforcing rule |
@@ -112,6 +113,8 @@ that a repo shipping a chart is deployed to a cluster whether or not anything te
 | `trace/**`, `memory/<agent>/**` | each agent, its own dir only | that agent at spawn | append |
 | `loop/approval.md` | **the human** | `approval-gate.mjs` | first line is the verdict; a verdict with no reason is treated as a rejection |
 | `loop/approval-log.jsonl` | `approval-gate.mjs` | audit | append-only |
+| `loop/work-split/<feat>.json` | the lead `maker` writes the plan; `work-split.mjs` writes its `validation` receipt | `route.mjs`, `guard-write.mjs`, the workers | one writer, one turn. Bound to the feature's contract digest, so a changed behavior, verification, falsifier or dependency invalidates the split instead of silently re-cutting it |
+| `loop/work-split/<feat>.<slice>.json` | that slice's own worker, through `work-split.mjs` | `route.mjs`, `loop-status.mjs` | **no merge rule needed** — one file per slice removes the read-modify-write several workers would otherwise race on. A shared `status` field in the plan would lose whichever completion landed second and re-dispatch a slice already built |
 | `loop/current.json` | `run-loop.mjs` (the dispatcher) | `loop-status.mjs` | written at dispatch, stamped `finishedAt` on return. A stale entry with no live process means that iteration crashed or was killed |
 | `loop/route-log.jsonl` | `run-loop.mjs` (the dispatcher) | `route.mjs`, `loop-status.mjs` | append-only. What was actually dispatched, per marker. The router reads it to tell "this node has not had a turn on this marker" from "it had one and nothing changed" — the router stays pure, the dispatcher records |
 | `loop/baseline-state.json` | `run-loop.mjs` | `route.mjs` | typed `green|red` outcome plus evidence digest; red is routable state, not an out-of-graph shell exit |
@@ -136,16 +139,28 @@ if feature.checkerNotes ^ "NEEDS RE-PLAN:"→ feature-planner once → human if 
 if a design's Feature-impact table marks
    change/new and is newer than the
    feature list                           → feature-planner  [the design moved, the cut did not]
+if checkerNotes ^ "NEEDS ORACLE FIX:"     → test-implementer once → human if marker unchanged
 if an open feature has no falsifier       → test-designer
+if a prove feature lacks its own linked
+   validated conditions                    → test-designer [never borrow another feature's oracle]
 if a prove feature has a falsifier
    but no recorded test run               → test-implementer
 if a build feature's prove feature
    has no test yet                        → NOT eligible (the maker would write it)
 if feature.verification touches k8s       → k8s-integration-tester  [integration]
-if feature.attempts >= maxAttempts        → blocked (stop retrying)
+if a validated work split has a failed
+   slice                                  → maker  [mode: slice-repair]  (re-cut before more parallel work)
+if a validated work split has slices left → maker × N in parallel  [mode: slice-fanout]
+if every slice of a validated split is
+   complete                               → maker × 1  [mode: integrate]  (the test run never fans out)
+if feature.attempts >= maxAttempts        → blocked (stop rejected review cycles)
 if a live assumption row has status
    needs-human (HTML examples excluded)   → human checkpoint; current agent uses human-interview [STOPS the loop]
-if feature.readyForCheck                  → verify-harness --promote → checker
+if maker checkpoint and !readyForCheck    → maker again; checker not dispatched
+if feature.readyForCheck and reviewPacket
+   is incomplete                         → maker (SUBMISSION_INCOMPLETE; attempts unchanged)
+if feature.readyForCheck and reviewPacket
+   is admitted                           → verify-harness --promote → checker
 if done feature starts FOLLOW-UP:         → feature-planner          (turn review debt into scope)
 if checker APPROVE                        → done
 if checker REJECT                         → maker            (rollback: implementation layer)
@@ -163,39 +178,46 @@ flowchart TD
   R -->|decomposition| FP[feature-planner]
   R -->|oracle| TD[test-designer]
   R -->|oracle| TI[test-implementer]
+  R -->|"oracle, NEEDS ORACLE FIX:"| TI
   R -->|integration| K["k8s-integration-tester<br/>Level 3"]
   R -->|implementation| M[maker]
+  R -->|"implementation, mode: slice-fanout"| WS[["N × maker, one disjoint slice each<br/>guard-write confines each to its paths"]]
+  WS --> R
+  R -->|"implementation, mode: integrate"| M
   H --> R
   DF --> R
   FP --> R
   TD --> TI
   TI --> R
-  M -->|readyForCheck| A[["loop/approval-gate.mjs<br/>human, only when judgement is owed"]]
-  K --> A
+  M -->|"partial checkpoint<br/>readyForCheck=false"| R
+  M -->|"complete green claim<br/>readyForCheck=true + reviewPacket"| RC[["review-contract.mjs<br/>typed admission"]]
+  RC -->|"SUBMISSION_INCOMPLETE<br/>attempts unchanged"| R
+  RC -->|admitted| A[["loop/approval-gate.mjs<br/>human, only when judgement is owed"]]
+  K -->|"partial checkpoint<br/>readyForCheck=false"| R
+  K -->|"complete green claim<br/>readyForCheck=true"| A
   A -->|approved| P[["verify-harness --promote"]]
   A -->|rejected / timeout| C
   P --> C{checker}
   C -->|APPROVE| DONE([done])
-  C -->|"REJECT (implementation)"| R
+  C -->|"REJECT: attempts +1<br/>(implementation)"| R
   C -->|"NEEDS DESIGN (design)"| R
   C -->|"NEEDS RE-PLAN (decomposition)"| R
   classDef code fill:#eef,stroke:#446
   class I,R,A,P code
 ```
 
-Every rollback returns through `route.mjs`, which is the point: a verdict names the **layer** the
-defect came from, and the router — not the checker, and not the next agent — decides who that is.
+Every rollback returns through `route.mjs`: a verdict names the **layer** the defect came from, and
+the router — not the checker, not the next agent — decides who that is.
 
 Every verdict now has a consumer. Design-approval state is typed and digest-bound, so prose in a
 handoff cannot masquerade as a human's sign-off and a changed design cannot inherit an old approval —
-not even a design changed by one line, which is deliberate: there is no partial-credit "still
-basically approved" state.
+not even one changed by a line. There is no partial-credit "still basically approved" state.
 
 Integration-project creation has a pre-graph checkpoint: `init-integration-project.mjs` inventories
 the service roots and writes digest-bound, evidence-rich decision requests; a human supplies typed
 answers; `finalize-integration-init.mjs` validates every required answer before it may invoke setup
-and seed `feat-registry` plus the Level-4 journey contract. An incomplete or stale answer routes
-back to human review, never forward to an agent that could guess it.
+and seed `feat-registry` plus the Level-4 journey contract. An incomplete or stale answer routes back
+to human review, never forward to an agent that could guess it.
 
 ## The seven implicit edges
 
@@ -214,11 +236,11 @@ human read a report and typed the next command.
 | 7 | baseline red → `maker` repair | `init.sh` | maker step 2 | ~~contradicted~~ **typed `loop/baseline-state.json` + `route.mjs`** | *closed 2026-08-15* — the dispatcher records the gate outcome instead of exiting before routing |
 | 8 | chart present → `k8s-integration-tester` **exists** | the repo itself | setup | ~~nothing — a manual copy~~ **`setup-harness-loop.mjs --k8s auto`** | *closed 2026-08-13* — the node was reachable by the router and installable only by hand, so on every project that never ran that copy, rule 4 routed to an agent that did not exist |
 | 9 | conditions **absent** → `test-designer` | — | test-implementer | ~~nothing — the rule keyed on the falsifier only~~ **`route.mjs`** | *closed 2026-08-13* — test-designer has two outputs (`falsifier` and `tests/design/**`) and only the first was routed on. Where the feature-planner derives falsifiers from the invariant contract, the designer rule never fires, `tests/design/` is never created, and the implementer is dispatched to implement conditions that do not exist. Measured on aeron-demo: two paid Codex sessions on `feat-sit-2`, zero output |
-
 | 10 | `NEEDS DESIGN:` **answered** → `feature-planner` (clear the marker) | designer | — | ~~nothing — the marker rule kept matching~~ **`route.mjs`** | *closed 2026-08-13* — the marker lives in `feature_list.json`, which the designer may not write, so the node that answers the question cannot clear the flag that asked it. Observed live: the designer settled `feat-sit-2` in `DECISIONS.md`, and the router named the designer again, indefinitely. The fix needs three states, not two — unanswered → designer, answered → planner, both-turns-spent → **human**. First attempt keyed the middle state on "a design document mentions this feature, and when" — a proxy that cannot tell WHICH question was answered, so when the test-designer raised a *new* question on the same feature the router escalated a live question to a human. It now keys on dispatch history (`loop/route-log.jsonl`) and identifies a marker by a hash of its own text, so a new question is a new ladder |
 | 11 | rejected design digest changes → retry counter resets, reject loop never bounded or escalated | `design-reviewer` (retired) | `designer` (retired) | ~~`loop/design-review.json` revision counter, reset by any digest change however small~~ **`design-facilitator` (merged role, one session) + human-authored `loop/design-approval.json`, matched on exact digest — no retry counter, because there is no auto-loop between agents to bound** | *closed 2026-08-18* — row 6's fix bounded a design that stayed byte-identical after rejection, not one that changed a little every round, which is what a real reject-and-redesign cycle actually looks like: each small revision was a new digest, so the "one unchanged revision escalates" rule never fired and the two agents could cycle indefinitely, each round a paid session. Neither `designer` nor `design-reviewer` had the business context to know when a design was actually *done* — only a human does, so the loop was replaced rather than re-bounded: one facilitator session produces the options, the critique, and the concerns; only a human can write `status: approved`, and every downstream layer is blocked until it matches the current digest exactly |
+| 12 | a `prove` feature's own oracle is wrong → `test-implementer` | checker (had no marker for it) | — | ~~nothing — the rule keys on empty `evidence`~~ **`NEEDS ORACLE FIX:` + `route.mjs`** | *closed 2026-08-27* — the test-implementer rule tells "not written yet" from "written" by whether `evidence` is empty. A project that authors oracles BEFORE the implementation records a red run the moment it writes one, so from that instant the feature only matches the maker rule — and the maker prompt forbids touching an oracle-layer test, while the checker may not write test files at all. No node in the graph could fix that file. Observed on examples/jdt-mcp-server, where the workaround was a hand-written bounded edit permission in `checkerNotes`, re-invented per occurrence: a convention where a state was needed. The marker outranks the maker's eligibility filter, so a correct implementation cannot be "fixed" to satisfy a broken assertion |
 
-**Status, 2026-08-18.** All eleven named edges are closed by executable state and routing; row 11
+**Status, 2026-08-27.** All twelve named edges are closed by executable state and routing; row 11
 supersedes row 6, which bounded the wrong axis of the same loop. Design state is a typed,
 digest-bound human artifact rather than an inter-agent verdict. Gate `agent-unrouted` fails any
 agent that neither the router nor `route.mjs` names, while `demo.sh` exercises the return edges and
@@ -236,18 +258,42 @@ features: feat-a NEEDS DESIGN, feat-b NEEDS RE-PLAN   → open: 2 → all_settle
   → next iteration: identical → …
 ```
 
-So the loop burns a paid LLM session per iteration, forever, producing nothing — and every
-iteration looks healthy in the log. This is the lecture's claim landing exactly: the edges were
-*documented in prose* and *reported by tooling*, and neither is the same as being modeled.
+So the loop burns a paid LLM session per iteration, forever, producing nothing — and every iteration
+looks healthy in the log. The edges were *documented in prose* and *reported by tooling*, and neither
+is the same as being modeled.
+Note what did **not** find this. Nine mechanical gates and every demo assertion pass on this repo:
+each inspects the *content of a file*, none inspects *which node runs next*. The graph is a different
+axis of verification, not a stricter version of the same one.
+## Where this graph parallelizes, and where it refuses to
 
-Note what did **not** find this. Nine mechanical gates, 32 demo steps and 63 assertions all pass on
-this repo: every gate inspects the *content of a file*, and none inspects *which node runs next*.
-The graph is a different axis of verification, not a stricter version of the same one.
+`p08-parallel-record.md` found one safe fan-out — evidence replay — and stated that WIP=1 forbids
+parallel *makers*. That statement was about features and still holds: two agents on two features
+produce a merge nobody asked for. A second fan-out exists inside **one** feature's implementation
+step, safe for the same reason evidence replay is — the thing the workers contend on is removed
+rather than coordinated. There it was a UDP port; here it is a file.
+
+| Question | Answer |
+|---|---|
+| Contended on? | files, plus single-writer state. `work-split.mjs` refuses a plan whose slices intersect by glob or on disk, and any slice claiming `feature_list.json`, `progress.md`, `loop/**` or `memory/**`. |
+| Where does the red run go? | Before the split, recorded by the lead — afterwards there is nowhere to put it, since each worker verifies only its own command and the integrator arrives to code that already works. `work-split.mjs` refuses a plan whose feature has never been seen to fail. |
+| Enforced by? | `guard-write.mjs`, on `$HARNESS_SLICE` — a brief saying "stay in your files" is prompt-layer, the hook is not. See the runtime caveat below. |
+| Shared state? | Not from a worker. Slice status goes through the code node; `evidence`, `reviewPacket` and `readyForCheck` belong to the lead and the integrator. |
+| Fan-in rule? | AND. One failed slice routes a maker to re-cut the split; "most of the slices landed" is a half-written feature. |
+| Why not fan out the tests? | Per-slice green never composed into a feature-level claim, and N concurrent runs of one suite is the shared-port failure run 1 produced. A split earns its extra lead and integrator sessions only with two or more genuinely independent file sets; refusing a one-slice plan is that judgement made mechanical. |
+
+The router decides a fan-out happens, not the orchestrator: it reads the plan's validation receipt and
+prints `mode: slice-fanout`. The one exception to "spawn exactly one child" is a code node's verdict.
+
+**Enforcement is unequal, and it depends on how the worker was started.** The guard reads
+`HARNESS_SLICE` from the worker's process environment, which `loop/dispatch.mjs --slice` sets and an
+in-session spawn generally cannot — a natively spawned worker inherits the parent's environment, so
+several of them share one identity and none is confined. Kiro has no PreToolUse hook in its agent
+config at all. Confinement is therefore real for `dispatch.mjs`-started workers on Claude Code and
+Codex, and prompt-level everywhere else — the same asymmetry `runtimes.md` records for `writes`.
 
 ## The edge between the two graphs
 
 `verify-harness.mjs` tags every finding `layer: project` or `layer: harness`. A `harness` finding
 belongs to the second graph — `harness-issue.mjs` records it, `improve-harness.mjs` ranks it,
-`harness-improver` fixes the template. That edge *is* dispatched, by `harness-loop.sh`. It is the
-only cross-graph edge, and the only reason a defect found while working one project can change how
-every future project is scaffolded.
+`harness-improver` fixes the template. That edge *is* dispatched, by `harness-loop.sh`: the only
+cross-graph edge, and the only reason a defect found on one project changes every future scaffold.
