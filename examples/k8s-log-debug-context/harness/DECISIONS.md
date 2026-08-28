@@ -8,6 +8,32 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-28 — JDK 21 startup selection is baseline scope, not a product build
+
+- **Decision:** Turn feat-001's FOLLOW-UP into one baseline feature `feat-012` (no `kind`,
+  `dependencies: [feat-001]`) rather than a build/prove pair or a re-open of `feat-001`.
+- **Reason:** The change modifies the baseline gate (`harness/init.mjs`) and its verification is the
+  baseline command itself. Its discriminating proof is pre-existing and independent — `pom.xml`'s
+  Enforcer `requireJavaVersion [21,22)` plus `BaselineTest`'s `Runtime.version().feature()==21` — so
+  the maker does not write the test it is judged by, and a separate prove feature would duplicate the
+  same boundary command.
+- **Rejected alternative:** Re-open `feat-001` (its checker already APPROVEd it and recorded the gap
+  as a FOLLOW-UP, which the router turns into new scope); cut a build/prove pair (the prove would run
+  `env -u JAVA_HOME node harness/init.mjs`, the same boundary as the build); or discard as
+  environment-only refresh of `harness/env/local.json` — the marker explicitly requires `init.mjs` to
+  select the JDK, and a manual export leaves the recorded startup path red from a clean checkout.
+- **Constraint it satisfies:** X-004 (Java 21 runtime) and Startup Readiness "can start" — the
+  baseline runs green from a clean checkout. Selecting JDK 21 also satisfies the MUST
+  `maven.compiler.release=21` regardless of the constraint's "may run on a newer JDK" wording, because
+  the Enforcer range is the stricter mechanical gate.
+- **Layer note:** This is a project-local fix to this target's `harness/init.mjs`. A generic
+  JDK-discovery step in the harness template (so every Maven target inherits it) is a harness-layer
+  enhancement for the harness-loop repo, not this feature list.
+- **Affected:** `feat-012` (new), `harness/init.mjs`, `harness/env/local.json`,
+  `loop/context-packets/feat-012.json`.
+
+---
+
 ## 2026-08-28 — ISM bootstrap stays inside the OpenSearch build/prove pair
 
 - **Decision:** Keep the 11-feature DAG: `feat-004` owns the official client dependency, adapter,

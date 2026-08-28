@@ -32,7 +32,3 @@ agent would otherwise have assumed silently.
 Schema compatibility is an owner-confirmed cross-cutting policy, not a deployment assumption: see
 X-008 in `docs/cross-cutting.md` and its observable contract `INV-SCHEMA-1` in
 `docs/design/log-debug-context.md`.
-
-<!-- Example of a filled row (delete this comment once the table has real content):
-| A-001 | The Archive endpoint never changes address in this deployment | needs-human | scenario 7's premise returns and the design must handle it | Likely fixed — the deployment pins it; confirm? | feat-sit-7 |
--->

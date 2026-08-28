@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
@@ -91,11 +92,25 @@ public final class OpenSearchLogIndexBootstrap {
       throw new IllegalStateException("active daily index does not expose the v1 mapping");
     }
 
-    OpenSearchGateway.Response explain = gateway.request("GET", "/_plugins/_ism/explain/" + activeIndex, null);
-    requireSuccess(explain, "verify active index ISM attachment");
-    if (!explain.body().toString().contains(POLICY_ID)) {
-      throw new IllegalStateException("active daily index is not attached to " + POLICY_ID);
-    }
+    verifyAttachment(gateway, activeIndex);
+  }
+
+  private static void verifyAttachment(OpenSearchGateway gateway, String activeIndex) throws IOException {
+    String endpoint = "/_plugins/_ism/explain/" + activeIndex;
+    long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+    OpenSearchGateway.Response explain;
+    do {
+      explain = gateway.request("GET", endpoint, null);
+      requireSuccess(explain, "verify active index ISM attachment");
+      if (explain.body().toString().contains(POLICY_ID)) return;
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException interrupted) {
+        Thread.currentThread().interrupt();
+        break;
+      }
+    } while (System.nanoTime() < deadline);
+    throw new IllegalStateException("active daily index is not attached to " + POLICY_ID);
   }
 
   private static boolean validPolicy(JsonNode body) {

@@ -40,9 +40,11 @@ const hasHarness = (f) => existsSync(path.join(ROOT, f));
 // failed". A project with a failing test suite printed "Baseline green" and exited 0. A gate that
 // cannot go red is not a gate, so the two cases are separate here: `optional` decides whether to
 // RUN a step, never whether to accept its failure.
-function run(cmd, { label = null, okExitCodes = [0] } = {}) {
+function run(cmd, { label = null, okExitCodes = [0], env = null } = {}) {
   if (label) say(`=== ${label} ===`);
-  const r = spawnSync(cmd, { stdio: "inherit", shell: true, cwd: PROJECT_ROOT });
+  const opts = { stdio: "inherit", shell: true, cwd: PROJECT_ROOT };
+  if (env) opts.env = { ...process.env, ...env };
+  const r = spawnSync(cmd, opts);
   if (r.error) die(`init: could not run \`${cmd}\` — ${r.error.message}`);
   const code = r.status === null ? 1 : r.status;
   if (!okExitCodes.includes(code)) {
@@ -54,6 +56,24 @@ function run(cmd, { label = null, okExitCodes = [0] } = {}) {
 const available = (bin) =>
   spawnSync(IS_WIN ? "where" : "command", IS_WIN ? [bin] : ["-v", bin],
     { stdio: "ignore", shell: !IS_WIN }).status === 0;
+
+// Discover an installed JDK 21 for the Maven branch. Homebrew's OpenJDK 21 is keg-only, so the macOS
+// helper lies here (`/usr/libexec/java_home -v 21` returns the host default, e.g. Temurin 25). Consult
+// the Homebrew keg directly and verify its `release` file before trusting the path. Returning null
+// leaves JAVA_HOME/PATH inherited, so a missing JDK 21 stays red and the Enforcer tells the truth.
+function discoverJdk21Home() {
+  const kegs = [
+    "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home", // Apple Silicon Homebrew
+    "/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",    // Intel Homebrew
+  ];
+  for (const home of kegs) {
+    if (!existsSync(path.join(home, "bin", IS_WIN ? "java.exe" : "java"))) continue;
+    try {
+      if (/^JAVA_VERSION="21(?:\.|")/m.test(readFileSync(path.join(home, "release"), "utf8"))) return home;
+    } catch { /* no release file: not a trusted JDK 21 */ }
+  }
+  return null;
+}
 
 say(`=== Harness init: Kubernetes Log Debug Context ===`);
 
@@ -102,7 +122,14 @@ if (has("package.json")) {
   // The wrapper is mvnw.cmd on Windows and ./mvnw elsewhere; preferring the wrapper matters because
   // a bare `mvn` is frequently not on PATH at all (that was a real harness-layer finding).
   const mvn = IS_WIN ? (has("mvnw.cmd") ? "mvnw.cmd" : "mvn") : (has("mvnw") ? "./mvnw" : "mvn");
-  run(`${mvn} -q verify`, { label: "Maven verification" });
+  // The Enforcer pins [21,22); select an installed JDK 21 for the spawned wrapper only, leaving the
+  // caller's shell untouched. No JDK 21 found -> inherit the environment and let the Enforcer report
+  // the real red instead of guessing.
+  const jdk21 = discoverJdk21Home();
+  const mvnEnv = jdk21
+    ? { JAVA_HOME: jdk21, PATH: `${path.join(jdk21, "bin")}${path.delimiter}${process.env.PATH ?? ""}` }
+    : null;
+  run(`${mvn} -q verify`, { label: "Maven verification", env: mvnEnv });
 } else if (has("build.gradle") || has("build.gradle.kts")) {
   const gradle = IS_WIN ? (has("gradlew.bat") ? "gradlew.bat" : "gradle") : (has("gradlew") ? "./gradlew" : "gradle");
   run(`${gradle} build test`, { label: "Gradle verification" });

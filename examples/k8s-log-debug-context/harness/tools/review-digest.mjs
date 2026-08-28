@@ -65,9 +65,22 @@ const isDoc = (f) => f.endsWith(".md") || f.endsWith(".json");
 const decisionDiff = range ? git(`diff ${range} -- DECISIONS.md DECISIONS/`) : "";
 const newDecisions = decisionDiff.split("\n").filter((l) => /^\+## /.test(l)).map((l) => l.slice(4).trim());
 const assumptionDiff = range ? git(`diff ${range} -- docs/assumptions.md`) : "";
-const newAssumptions = assumptionDiff.split("\n")
-  .filter((l) => l.startsWith("+|") && !/^\+\|\s*id\s*\|/.test(l) && !/^\+\|[\s|:-]+\|$/.test(l))
-  .map((l) => l.slice(1).split("|").slice(1, 4).map((c) => c.trim()));
+// Rows inside an HTML comment (e.g. the "delete this comment once the table has real content"
+// example) are documentation, not live assumptions — skip them so a stale example can't be ranked
+// as a needs-human row. Track comment state across diff lines rather than per-line.
+const newAssumptions = [];
+{
+  let inComment = false;
+  for (const l of assumptionDiff.split("\n")) {
+    const body = l.startsWith("+") ? l.slice(1) : l;
+    if (/<!--/.test(body)) inComment = true;
+    if (/-->/.test(body)) { inComment = false; continue; }
+    if (inComment) continue;
+    if (l.startsWith("+|") && !/^\+\|\s*id\s*\|/.test(l) && !/^\+\|[\s|:-]+\|$/.test(l)) {
+      newAssumptions.push(l.slice(1).split("|").slice(1, 4).map((c) => c.trim()));
+    }
+  }
+}
 const policyDiff = range ? git(`diff ${range} -- docs/cross-cutting.md`) : "";
 const newPolicies = policyDiff.split("\n")
   .filter((l) => /^\+\|\s*X-\d/.test(l))
@@ -94,7 +107,7 @@ for (const f of features) {
       `took ${f.attempts}/${f.maxAttempts} attempts — repeated failure usually means a judgement call was made under pressure`,
       "Read its evidence trail: what was changed to make it pass, and was that the right change?");
   }
-  if (/REJECT/i.test(notes)) {
+  if (/^REJECT\b/.test(notes.trim())) {
     push(4, "contested", f.id,
       "a checker rejected it at least once before it landed",
       "The disagreement was resolved by an agent — do you agree with how?");

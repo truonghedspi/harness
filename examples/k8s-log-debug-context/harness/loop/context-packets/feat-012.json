@@ -1,0 +1,31 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-012",
+  "mustRead": [
+    "init.mjs",
+    "../pom.xml",
+    "env/local.json",
+    "../service/src/test/java/io/harness/logcontext/BaselineTest.java"
+  ],
+  "mustNotRead": [
+    "../service/src/main/java",
+    "../service/src/test/java/io/harness/logcontext/ingest",
+    "../service/src/test/java/io/harness/logcontext/contract",
+    "../service/src/test/java/io/harness/logcontext/index",
+    "../service/src/test/java/io/harness/logcontext/mcp",
+    "../service/src/test/java/io/harness/logcontext/deploy"
+  ],
+  "facts": [
+    "The recorded startup path is `node harness/init.mjs`; it runs `./mvnw -q verify` and inherits JAVA_HOME/PATH, so it reds on the host default Temurin 25 because the pom.xml Enforcer `requireJavaVersion` requires [21,22).",
+    "Homebrew OpenJDK 21.0.12.1 is installed at /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home, but it is keg-only: `/usr/libexec/java_home -v 21` returns /Library/Java/JavaVirtualMachines/temurin-25.jdk/Contents/Home, so JDK discovery must consult the Homebrew keg (or a recorded path), not java_home alone.",
+    "harness/env/local.json records java.executable=/usr/bin/java (Temurin 25), stale relative to the required JDK 21; refresh its java.home and java.executable to the discovered JDK 21.",
+    "The independent discriminator is pre-existing: pom.xml requireJavaVersion [21,22) plus BaselineTest asserting Runtime.version().feature()==21. A wrong or skipped JDK selection cannot pass; keep the Enforcer range and the runtime assertion intact.",
+    "Select JDK 21 by setting JAVA_HOME (and the java on PATH) only for the spawned ./mvnw subprocess; do not require or assume a manual export in the caller's shell."
+  ],
+  "sourceInputs": [
+    { "path": "init.mjs", "sha256": "9ff69cf348aa74fc4e0f023a35329edce4c1c52ba85b71236052e1493e645ee9" },
+    { "path": "../pom.xml", "sha256": "b0de9e7c799d0de77a281763a5873e1fef5a856dead2b43ba197bfa4e43808a0" },
+    { "path": "env/local.json", "sha256": "c89b730a12f3443f353b4fdf8eaf02461b97164e132a3e5e58f5a51360f3a634" },
+    { "path": "../service/src/test/java/io/harness/logcontext/BaselineTest.java", "sha256": "0941e2ae67307196d13d705ad9b5e2576cb2f10408292c044d5c20ad59838719" }
+  ]
+}

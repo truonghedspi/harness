@@ -24,8 +24,7 @@
         "note": "Use Java 21 and Maven; init.mjs detects pom.xml and prefers ./mvnw."
       },
       "dependencies": [],
-      "status": "passing",
-      "readyForCheck": true,
+      "status": "done",
       "evidence": [
         {
           "date": "2026-08-27",
@@ -40,9 +39,18 @@
           "result": "With JAVA_HOME and PATH selecting Homebrew OpenJDK 21, Maven verification ran the real BaselineTest suite and reported Baseline green."
         }
       ],
-      "checkerNotes": "Exact Java 21 enforcement rejects JDK 25 and the standard init gate passes when explicitly run with the provisioned OpenJDK 21 runtime.",
+      "checkerNotes": "RESOLVED FOLLOW-UP: JDK 21 startup selection is now explicit scope as feat-012 (reproducible JDK 21 baseline selection); see DECISIONS.md and loop/context-packets/feat-012.json.\nAPPROVE: `node harness/init.mjs` reproduces green under OpenJDK 21 (exit 0; BaselineTest Tests run: 1, Failures: 0, Errors: 0). The Maven Enforcer [21,22) gate plus the runtime-version assertion make a silent wrong-JDK pass impossible, so the falsifier (no manifest/tests, JDK != 21, swallowed failure) is satisfied.",
       "attempts": 0,
       "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "node harness/init.mjs (JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)",
+        "observed": "exit 0; Maven verification ran BaselineTest (Tests run: 1, Failures: 0, Errors: 0, Skipped: 0) and reported Baseline green.",
+        "exitCriterion": "Satisfied: a real green-or-red suite exists, JDK 21 is enforced, and a failing Maven test fails the gate."
+      },
       "reviewPacket": {
         "contractDigest": "f0e16d50d6523467f03032759a92fe68feb873ca2303e31a5123ead3c349f518",
         "claimRefs": [
@@ -75,6 +83,86 @@
       }
     },
     {
+      "id": "feat-012",
+      "name": "Reproducible JDK 21 baseline selection",
+      "behavior": "The standard startup path node harness/init.mjs discovers and selects an installed JDK 21 before running Maven verification, so the baseline goes green from a clean checkout without a manual JAVA_HOME export",
+      "verification": "env -u JAVA_HOME node harness/init.mjs",
+      "falsifier": "The startup path still inherits the host default Temurin 25 and the Maven Enforcer [21,22) rejects it, goes green only because JAVA_HOME was pre-set to a manually selected OpenJDK 21, or passes by relaxing the Enforcer range or dropping the runtime-version assertion [X-004]",
+      "context": {
+        "touches": [
+          "harness/init.mjs",
+          "harness/env/local.json"
+        ],
+        "note": "Make the Maven branch of harness/init.mjs select an installed JDK 21 (set JAVA_HOME and PATH only for the spawned ./mvnw) before verification, so a clean checkout greens with no manual export. The host default /usr/bin/java is Temurin 25.0.3; Homebrew OpenJDK 21 lives at /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home but is keg-only (/usr/libexec/java_home -v 21 returns temurin-25), and env/local.json's java.executable=/usr/bin/java is stale. Keep the pom.xml Enforcer [21,22) and BaselineTest's Runtime.version().feature()==21 intact as the independent discriminator.",
+        "packet": "loop/context-packets/feat-012.json"
+      },
+      "dependencies": [
+        "feat-001"
+      ],
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-28",
+          "run": "red",
+          "cmd": "env -u JAVA_HOME node harness/init.mjs",
+          "result": "exit 1: Maven Enforcer rejected Temurin 25.0.3 — 'Detected JDK version 25.0.3 ... is not in the allowed range [21,22)'"
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "env -u JAVA_HOME node harness/init.mjs",
+          "result": "exit 0: './mvnw -q verify' passed under the selected Homebrew OpenJDK 21 (BaselineTest Runtime.version().feature()==21 green)"
+        }
+      ],
+      "checkerNotes": "APPROVE: env -u JAVA_HOME node harness/init.mjs reproduces green (exit 0) with no manual JAVA_HOME export; host Temurin 25 goes red (exit 1) under the untouched Enforcer [21,22) and BaselineTest feature()==21, so the green is a genuine JDK-21 selection, not a relaxed discriminator or a pre-set JAVA_HOME. Baseline now auto-selects Homebrew OpenJDK 21 for the Maven branch; `env -u JAVA_HOME node harness/init.mjs` is green (exit 0) after a recorded red (exit 1, Enforcer rejected Temurin 25).\n\nharness/init.mjs: discoverJdk21Home() checks the keg-only Homebrew keg (/opt/homebrew/opt and /usr/local/opt) and verifies its release file says JAVA_VERSION=21, then sets JAVA_HOME and prepends its bin to PATH only for the spawned ./mvnw; if no JDK 21 is found it inherits the environment so the Enforcer still reports the truthful red. harness/env/local.json: java.home and java.executable now point at the Homebrew OpenJDK 21 keg. Enforcer [21,22) and BaselineTest's Runtime.version().feature()==21 are untouched.",
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "env -u JAVA_HOME node harness/init.mjs -> exit 0 (Baseline green); control env -u JAVA_HOME ./mvnw -q verify -> exit 1 (Enforcer: Detected JDK version 25.0.3 not in [21,22))",
+        "observed": "discoverJdk21Home() returns /opt/homebrew/opt/openjdk@21 (release JAVA_VERSION=21.0.12.1) and sets JAVA_HOME/PATH only for the spawned ./mvnw; pom.xml Enforcer [21,22) and BaselineTest Runtime.version().feature()==21 untouched; fallback (no JDK 21 -> inherit env -> Enforcer red) honest.",
+        "exitCriterion": "Satisfied: env -u JAVA_HOME node harness/init.mjs exits 0 from a clean checkout with no manual JAVA_HOME export, and the discriminator is real (Temurin 25 -> exit 1)."
+      },
+      "attempts": 0,
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "08a4a78130fcde0c58c14798fd4c77c9dffcc43abe2d41479be75846d3fd6d71",
+        "claimRefs": [
+          "pom.xml maven-enforcer-plugin requireJavaVersion [21,22)",
+          "BaselineTest.executesTheJava21TestSuite Runtime.version().feature()==21"
+        ],
+        "changedPaths": [
+          "harness/init.mjs",
+          "harness/env/local.json"
+        ],
+        "runs": [
+          {
+            "cmd": "env -u JAVA_HOME node harness/init.mjs",
+            "exit": 1,
+            "result": "Maven Enforcer rejected Temurin 25.0.3: 'Detected JDK version 25.0.3 ... is not in the allowed range [21,22)'."
+          },
+          {
+            "cmd": "env -u JAVA_HOME node harness/init.mjs",
+            "exit": 0,
+            "result": "Baseline green — './mvnw -q verify' passed under the selected Homebrew OpenJDK 21 (JAVA_HOME/PATH set for the spawned ./mvnw only)."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "not-applicable: the fix creates no files, ports, or long-lived processes — JAVA_HOME/PATH are scoped to the short-lived ./mvnw subprocess",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: single-threaded baseline gate; no shared state or parallelism introduced",
+          "realBoundary": "covered",
+          "discrimination": "Any wrong selection — inheriting the host Temurin 25, or using java_home -v 21 which also returns Temurin 25 — turns the recorded env -u JAVA_HOME run red rather than green, and the untouched Enforcer [21,22) plus BaselineTest feature()==21 independently reject a non-21 JVM; the only anchor the runs do not independently pin is the release-file version check, which is redundant on success here because the keg genuinely holds 21."
+        },
+        "residualUnknowns": [
+          "The absent-JDK-21 fallback (discoverJdk21Home() returns null -> inherit env -> Enforcer red) was verified by code path and the recorded pre-fix red run, not by removing the keg (non-destructive constraint).",
+          "The Intel-Homebrew (/usr/local/opt) and Windows (mvnw.cmd) discovery paths are candidates but untested on this Apple Silicon machine."
+        ]
+      }
+    },
+    {
       "id": "feat-002",
       "name": "Sanitized normalized ingestion",
       "kind": "build",
@@ -93,8 +181,7 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "passing",
-      "readyForCheck": true,
+      "status": "done",
       "evidence": [
         {
           "date": "2026-08-28",
@@ -115,21 +202,48 @@
           "result": "Independent black-box oracle passed all 5 scope, redaction, metadata, additive-v1, and unsupported-major conditions."
         }
       ],
-      "checkerNotes": "Implemented the compile-complete ingest/index seam after mapping the approved Maven source root; unit verification, independent ingest oracle, and baseline are green.",
+      "checkerNotes": "APPROVE: `./mvnw -q -Dtest=IngestServiceTest test` reproduces green (exit 0; Tests run: 2, Failures: 0, Errors: 0). Black-box reflection asserts sanitized/redacted exactly-once indexing and the five rejection partitions against hardcoded literals, so the test is neither tautological nor written-from-code and discriminates a wrong implementation.",
       "attempts": 0,
       "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "./mvnw -q -Dtest=IngestServiceTest test (JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)",
+        "observed": "exit 0; Tests run: 2, Failures: 0, Errors: 0.",
+        "exitCriterion": "Satisfied: acceptance indexes exactly once with redaction; the five invalid partitions never index."
+      },
       "reviewPacket": {
         "contractDigest": "5c32e92db62194f76d45249680de4bc4ef8561a27be83564b804b80fdd70b528",
-        "claimRefs": ["feat-002 behavior", "INV-SCOPE-1", "INV-REDACT-1", "INV-META-1", "INV-SCHEMA-1"],
+        "claimRefs": [
+          "feat-002 behavior",
+          "INV-SCOPE-1",
+          "INV-REDACT-1",
+          "INV-META-1",
+          "INV-SCHEMA-1"
+        ],
         "changedPaths": [
           "pom.xml",
           "service/src/main/java/io/harness/logcontext/ingest/*.java",
           "service/src/test/java/io/harness/logcontext/ingest/IngestServiceTest.java"
         ],
         "runs": [
-          {"cmd": "./mvnw -q -Dtest=IngestServiceTest test", "exit": 0, "result": "2 tests passed under OpenJDK 21."},
-          {"cmd": "./mvnw -q -Poracle-test -Dtest=IngestContractTest test", "exit": 0, "result": "5 independent black-box contract tests passed under OpenJDK 21."},
-          {"cmd": "node harness/init.mjs", "exit": 0, "result": "Baseline green under OpenJDK 21."}
+          {
+            "cmd": "./mvnw -q -Dtest=IngestServiceTest test",
+            "exit": 0,
+            "result": "2 tests passed under OpenJDK 21."
+          },
+          {
+            "cmd": "./mvnw -q -Poracle-test -Dtest=IngestContractTest test",
+            "exit": 0,
+            "result": "5 independent black-box contract tests passed under OpenJDK 21."
+          },
+          {
+            "cmd": "node harness/init.mjs",
+            "exit": 0,
+            "result": "Baseline green under OpenJDK 21."
+          }
         ],
         "adversarialChecks": {
           "scope": "covered",
@@ -139,7 +253,9 @@
           "realBoundary": "covered",
           "discrimination": "The ingest runs do not exercise every constructor invariant in the typed query family, so an incorrect query-limit validator could survive until the storage-adapter feature exercises it."
         },
-        "residualUnknowns": ["Typed query execution semantics remain owned by the later OpenSearch adapter feature."]
+        "residualUnknowns": [
+          "Typed query execution semantics remain owned by the later OpenSearch adapter feature."
+        ]
       }
     },
     {
@@ -166,8 +282,7 @@
       "dependencies": [
         "feat-002"
       ],
-      "status": "passing",
-      "readyForCheck": true,
+      "status": "done",
       "evidence": [
         {
           "date": "2026-08-26",
@@ -182,9 +297,18 @@
           "result": "Tests run: 5, failures: 0, errors: 0; the black-box serialized boundary proves all five approved ingest conditions through captured IndexPort calls."
         }
       ],
-      "checkerNotes": "The pre-authored black-box contract is green against the implemented serialized ingest boundary without test or fixture changes.",
+      "checkerNotes": "APPROVE: `./mvnw -q -Poracle-test -Dtest=IngestContractTest test` reproduces green (exit 0; Tests run: 5, Failures: 0, Errors: 0). The black-box oracle covers all five TCON-INGEST conditions from the v1 fixture with independent expected values.",
       "attempts": 0,
       "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "./mvnw -q -Poracle-test -Dtest=IngestContractTest test (JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)",
+        "observed": "exit 0; Tests run: 5, Failures: 0, Errors: 0.",
+        "exitCriterion": "Satisfied: scope, redaction, metadata, additive-v1, and unsupported-major conditions all enforced before indexing."
+      },
       "reviewPacket": {
         "contractDigest": "d280e4feb09a187f85f57e68705e5528515a966b4423cd8b6a13459e6fdf7e44",
         "claimRefs": [
@@ -237,8 +361,7 @@
       "dependencies": [
         "feat-002"
       ],
-      "status": "passing",
-      "readyForCheck": true,
+      "status": "done",
       "evidence": [
         {
           "date": "2026-08-28",
@@ -259,12 +382,28 @@
           "result": "Docker-compatible runtime unavailable at /Users/loren/.colima/default/docker.sock; no real OpenSearch boundary was claimed. feat-005 owns that authorized real-store proof."
         }
       ],
-      "checkerNotes": "Implemented the official-client gateway, canonical ISM policy/template resources, fixed-clock idempotent bootstrap, exact daily-index adapter, and constrained typed queries. Adapter verification and baseline are green; real-store proof remains the explicit feat-005 environment checkpoint.",
+      "checkerNotes": "APPROVE: `./mvnw -q -Dtest=OpenSearchLogIndexIT verify` reproduces green (exit 0; Tests run: 2, Failures: 0, Errors: 0). FakeGateway lifecycle/data-plane tests assert canonical identities and conjunctive query bodies, and the recorded mutant-red run proves discrimination.",
       "attempts": 0,
       "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify (JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)",
+        "observed": "exit 0; Tests run: 2, Failures: 0, Errors: 0.",
+        "exitCriterion": "Satisfied: bootstrap converges on canonical policy/template/UTC daily index and data-plane queries are conjunctive and bounded."
+      },
       "reviewPacket": {
         "contractDigest": "88d566bae26f5cd4d17c0e602bbb209c0968f4f6e9984d0097c01a215d9ca105",
-        "claimRefs": ["INV-RETENTION-1", "INV-DAILY-1", "INV-BOOTSTRAP-1", "INV-INDEX-SCHEMA-1", "INV-META-1", "INV-CORR-1"],
+        "claimRefs": [
+          "INV-RETENTION-1",
+          "INV-DAILY-1",
+          "INV-BOOTSTRAP-1",
+          "INV-INDEX-SCHEMA-1",
+          "INV-META-1",
+          "INV-CORR-1"
+        ],
         "changedPaths": [
           "pom.xml",
           "service/src/main/java/io/harness/logcontext/index/*.java",
@@ -272,8 +411,16 @@
           "service/src/test/java/io/harness/logcontext/index/OpenSearchLogIndexIT.java"
         ],
         "runs": [
-          {"cmd": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify", "exit": 0, "result": "2 adapter lifecycle/data-plane tests passed under OpenJDK 21."},
-          {"cmd": "node harness/init.mjs", "exit": 0, "result": "Baseline green under OpenJDK 21."}
+          {
+            "cmd": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify",
+            "exit": 0,
+            "result": "2 adapter lifecycle/data-plane tests passed under OpenJDK 21."
+          },
+          {
+            "cmd": "node harness/init.mjs",
+            "exit": 0,
+            "result": "Baseline green under OpenJDK 21."
+          }
         ],
         "adversarialChecks": {
           "scope": "covered",
@@ -315,25 +462,77 @@
       "dependencies": [
         "feat-004"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
+      "status": "done",
       "evidence": [
         {
-          "date": "2026-08-26",
-          "run": "checkpoint",
-          "cmd": "docker info --format '{{.ServerVersion}}'",
-          "result": "Environment unavailable: Docker cannot connect to /Users/loren/.colima/default/docker.sock and no OPENSEARCH environment is configured. No real OpenSearch instance was available, so this is not recorded as red behavioral evidence. Separately, the approved contract defines IndexPort.index(NormalizedLogRecord) but no query method or OpenSearchLogIndex construction seam, so TCON-INDEX-0001 through TCON-INDEX-0003 cannot be implemented through the index port without inventing an API."
+          "date": "2026-08-28",
+          "run": "red",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify",
+          "result": "7 run, 7 errors: ensureInstalled threw 'active daily index is not attached to log-debug-retention-v1' because the ISM attachment is asynchronous and verifyInstalled asserted it synchronously."
         },
         {
           "date": "2026-08-28",
-          "run": "checkpoint",
-          "cmd": "docker info --format '{{.ServerVersion}}' and OPENSEARCH_URL probe",
-          "result": "Docker still cannot connect to /Users/loren/.colima/default/docker.sock and OPENSEARCH_URL is unset. This is A-007 environment evidence only, not a behavioral red or green run."
+          "run": "red",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify",
+          "result": "7 run, 1 failure: fallbackRequiresNamespaceWorkloadAndHalfOpenWindow matched 4 records; the match (OR) filter broadened 'fallback marker' to 'shared marker' via the shared token 'marker'."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify",
+          "result": "7 run, 0 failures, 0 errors, 0 skipped against live OpenSearch 2.19.1 (ISM plugin present)."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify",
+          "result": "Tests run: 7, Failures: 0, Errors: 0, Skipped: 0 against live OpenSearch 2.19.1; class-level @Timeout(90s) present."
         }
       ],
-      "checkerNotes": "ORACLE CONDITIONS READY: TP-INDEX-0005 now covers INV-RETENTION-1, INV-DAILY-1, INV-BOOTSTRAP-1, and INV-INDEX-SCHEMA-1 under approved design digest 441eb6d76fd1752d. A-007 remains an environment checkpoint: the oracle must use an authorized real OpenSearch store and must not substitute a fake or mapping-only retention proof.",
-      "attempts": 0,
-      "maxAttempts": 3
+      "checkerNotes": "APPROVE: the REJECT's exit criterion is met. ./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify reproduces green (exit 0; Tests run: 7, Failures: 0, Errors: 0, Skipped: 0) against live OpenSearch 2.19.1. OpenSearchStorageContractIT now carries class-level @Timeout(value = 90, unit = TimeUnit.SECONDS), matching sibling CollectorIngestContractIT's stack-appropriate 90s bound. The 7 assertions (TCON-INDEX-0001..0007) and the 7-record distractor fixture (shared-marker wrong-run/no-run; fallback-marker wrong-namespace/wrong-workload/outside-window) are intact — only the timeout was added.",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify (JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home, OPENSEARCH_URL=http://localhost:9200)",
+        "observed": "exit 0; Tests run: 7, Failures: 0, Errors: 0, Skipped: 0 against live OpenSearch 2.19.1; class-level @Timeout(value = 90, unit = TimeUnit.SECONDS) present, matching sibling CollectorIngestContractIT.",
+        "exitCriterion": "Satisfied: OpenSearchStorageContractIT carries the stack-appropriate 90s @Timeout and the 7 assertions plus distractor fixture are intact."
+      },
+      "reviewPacket": {
+        "contractDigest": "8260edaa344c86b839b83a5144e60fe40bea382189eb41a59f1ae4051d786bed",
+        "claimRefs": [
+          "feat-005 behavior",
+          "feat-005 falsifier",
+          "feat-005 conditions TCON-INDEX-0001..0007"
+        ],
+        "changedPaths": [
+          "service/src/main/java/io/harness/logcontext/index/OpenSearchLogIndexBootstrap.java",
+          "service/src/main/java/io/harness/logcontext/index/OpenSearchLogIndex.java",
+          "service/src/test/java/io/harness/logcontext/contract/OpenSearchStorageContractIT.java"
+        ],
+        "runs": [
+          {
+            "cmd": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify",
+            "exit": 0,
+            "result": "Tests run: 7, Failures: 0, Errors: 0, Skipped: 0 against live OpenSearch 2.19.1; class-level @Timeout(value = 90, unit = TimeUnit.SECONDS) bounds each test."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "covered",
+          "realBoundary": "covered",
+          "discrimination": "A wrong implementation could silently drop messageContains on the run-id path and still pass: TCON-INDEX-0002's runId term already narrows to exactly one record, so only TCON-INDEX-0003's workload-window query forces the phrase filter to actually discard a same-window distractor (shared marker vs fallback marker)."
+        },
+        "residualUnknowns": [
+          "Seven-day deletion is proven only via the installed policy JSON and ISM explain (min_index_age: 7d); actual deletion after seven days is not observed in this ephemeral run.",
+          "flat_object attribute round-trip is exercised only with string-valued attributes; non-string attribute values are not covered."
+        ]
+      }
     },
     {
       "id": "feat-006",

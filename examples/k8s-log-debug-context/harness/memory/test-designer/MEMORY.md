@@ -14,3 +14,4 @@ in another language stay as they are — this governs what gets written from now
 
 <!-- - [Title](slug.md) — one-line hook -->
 - [Collector mapping](collector-contract-still-contains-a-mapping.md) — Split transport from metadata properties.
+- [Bootstrap races are stateful](bootstrap-races-are-stateful.md) — Treat external create races as stateful commands, not memory-model concurrency.

@@ -16,3 +16,4 @@ in another language stay as they are — this governs what gets written from now
 <!-- - [Title](slug.md) — one-line hook -->
 - [Nonstandard source roots](nonstandard-source-root-ownership.md) — Verify manifest wiring before assigning product paths.
 - [Bootstrap with adapter](lifecycle-bootstrap-with-adapter.md) — Keep them together when they share a client, resource, and proof.
+- [Homebrew JDK 21 is keg-only](homebrew-jdk21-keg-only.md) — `/usr/libexec/java_home -v 21` returns Temurin 25; JDK discovery must check the Homebrew keg, not java_home alone.

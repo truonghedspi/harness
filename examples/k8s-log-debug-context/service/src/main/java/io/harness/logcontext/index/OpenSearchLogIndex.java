@@ -77,7 +77,7 @@ public final class OpenSearchLogIndex implements IndexPort {
       throw new IllegalArgumentException("unsupported query type " + query.getClass().getName());
     }
     query.messageContains().ifPresent(term ->
-        filter.addObject().putObject("match").put("message", term));
+        filter.addObject().putObject("match_phrase").put("message", term));
 
     OpenSearchGateway.Response response = request("POST", "/" + indexName + "/_search", body.toString());
     requireSuccess(response, "search documents");

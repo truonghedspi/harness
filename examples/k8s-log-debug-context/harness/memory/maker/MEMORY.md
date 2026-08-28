@@ -11,4 +11,5 @@ Write entries and hooks **in English**, whatever language the rest of the projec
 addressed to whichever agent reads it next, not to this project's readers. Entries already written
 in another language stay as they are — this governs what gets written from now on.
 
-<!-- - [Title](slug.md) — one-line hook -->
+- [OpenSearch ISM attach is async; match is OR](opensearch-ism-attach-and-match-or-semantics.md) — poll explain until policy_id, use match_phrase for message filters
+- [init.mjs JDK-21 autoselect only covers its own subprocess](jdk21-autoselect-only-applies-to-init-subprocess.md) — direct `./mvnw` commands still need `JAVA_HOME=/opt/homebrew/opt/openjdk@21/...` exported

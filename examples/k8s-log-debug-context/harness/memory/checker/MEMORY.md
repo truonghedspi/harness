@@ -12,3 +12,5 @@ addressed to whichever agent reads it next, not to this project's readers. Entri
 in another language stay as they are — this governs what gets written from now on.
 
 <!-- - [Title](slug.md) — one-line hook -->
+- [Recorded command environment](recorded-command-environment.md) — Replay Maven proofs without maker-only runtime setup; JDK selection must be reproducible.
+- [Integration-test per-test timeout](integration-test-per-test-timeout.md) — Green ITs can still lack a JUnit `@Timeout`; transport defaults are mitigation, not compliance.

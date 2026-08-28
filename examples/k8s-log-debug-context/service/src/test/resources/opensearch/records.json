@@ -1,0 +1,9 @@
+[
+  {"offsetSeconds":60,"message":"shared marker","namespace":"${NS}","pod":"pod-match","container":"runner","workload":"${WORKLOAD}","source":"stdout","testRunId":"${RUN}","attributes":{"test.run_id":"${RUN}","case":"match"}},
+  {"offsetSeconds":90,"message":"shared marker","namespace":"${NS}","pod":"pod-wrong-run","container":"runner","workload":"${WORKLOAD}","source":"stdout","testRunId":"${OTHER_RUN}","attributes":{"test.run_id":"${OTHER_RUN}","case":"wrong-run"}},
+  {"offsetSeconds":120,"message":"shared marker","namespace":"${NS}","pod":"pod-no-run","container":"runner","workload":"${WORKLOAD}","source":"stderr","testRunId":null,"attributes":{"case":"no-run"}},
+  {"offsetSeconds":150,"message":"fallback marker","namespace":"${NS}","pod":"pod-fallback","container":"runner","workload":"${WORKLOAD}","source":"stdout","testRunId":null,"attributes":{"case":"fallback-match"}},
+  {"offsetSeconds":150,"message":"fallback marker","namespace":"other-${NS}","pod":"pod-wrong-ns","container":"runner","workload":"${WORKLOAD}","source":"stdout","testRunId":null,"attributes":{"case":"wrong-namespace"}},
+  {"offsetSeconds":150,"message":"fallback marker","namespace":"${NS}","pod":"pod-wrong-workload","container":"runner","workload":"other-${WORKLOAD}","source":"stdout","testRunId":null,"attributes":{"case":"wrong-workload"}},
+  {"offsetSeconds":901,"message":"fallback marker","namespace":"${NS}","pod":"pod-outside-time","container":"runner","workload":"${WORKLOAD}","source":"stdout","testRunId":null,"attributes":{"case":"outside-time"}}
+]
