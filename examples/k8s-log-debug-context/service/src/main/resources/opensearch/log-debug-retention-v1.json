@@ -1,0 +1,23 @@
+{
+  "policy": {
+    "description": "Delete v1 log-debug daily indexes after seven days",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {"state_name": "delete", "conditions": {"min_index_age": "7d"}}
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [{"delete": {}}],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      {"index_patterns": ["log-debug-v1-*"], "priority": 100}
+    ]
+  }
+}

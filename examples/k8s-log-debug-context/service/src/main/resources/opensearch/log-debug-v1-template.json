@@ -1,0 +1,21 @@
+{
+  "index_patterns": ["log-debug-v1-*"],
+  "priority": 100,
+  "template": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "schemaVersion": {"type": "integer"},
+        "observedAt": {"type": "date"},
+        "message": {"type": "text"},
+        "namespace": {"type": "keyword"},
+        "pod": {"type": "keyword"},
+        "container": {"type": "keyword"},
+        "workload": {"type": "keyword"},
+        "source": {"type": "keyword"},
+        "testRunId": {"type": "keyword"},
+        "attributes": {"type": "flat_object"}
+      }
+    }
+  }
+}

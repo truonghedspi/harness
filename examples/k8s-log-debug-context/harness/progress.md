@@ -6,7 +6,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-28
-- **Active feature:** none — feat-004 is re-planned and router-eligible for maker implementation
+- **Active feature:** feat-004 — adapter implementation awaits independent checker
 - **Latest commit:** 234afe2 Khóa digest thiết kế ISM hiện tại
 - **Baseline (`node harness/init.mjs`):** green with Homebrew OpenJDK 21; Temurin 25.0.3 is rejected by the Java gate
 
@@ -32,13 +32,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   - Details: the unchanged black-box oracle now passes all five scope, redaction, metadata, additive-v1, and unsupported-major conditions.
   - Blockers: none; red/green evidence and review packet await independent checker judgement.
 - [ ] OpenSearch log index adapter (`feat-004`)
-  - Details: owns the official client dependency, public idempotent bootstrap, canonical ISM/template resources, UTC daily index, adapter, and adapter-level tests.
-  - Blockers: none; A-007 affects the later real-store proof, not implementation of the approved seam.
+  - Details: official-client gateway, canonical ISM/template resources, idempotent UTC bootstrap, indexing, and typed searches pass adapter tests.
+  - Blockers: no implementation blocker; Docker/OpenSearch remains unavailable for feat-005's independent real-store proof.
 
 ## Next
 
-1. Route feat-004 to the maker for one bounded implementation step.
-2. Expand feat-005's independent real-store oracle to cover INV-RETENTION-1 through INV-INDEX-SCHEMA-1 before claiming that proof complete.
+1. Route feat-004 through independent checker review.
+2. Keep feat-005 at an environment checkpoint until an authorized real OpenSearch store is available.
 
 ## Known Issues / Risks
 

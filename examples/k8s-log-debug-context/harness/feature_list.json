@@ -237,12 +237,56 @@
       "dependencies": [
         "feat-002"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "RESOLVED DESIGN: approved digest 441eb6d76fd1752d defines the fixed ISM policy, v1 template, UTC daily-index identity, public idempotent bootstrap seam, caller-owned client lifecycle, and observable retention/schema checks. feat-004 now owns the official client dependency, bootstrap/adapter sources, canonical resources, and adapter tests; see DECISIONS.md and loop/context-packets/feat-004.json.",
+      "status": "passing",
+      "readyForCheck": true,
+      "evidence": [
+        {
+          "date": "2026-08-28",
+          "run": "red",
+          "cmd": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify",
+          "result": "With a production mutant returning log-debug-v1-template-mutant, tests ran 2 with 1 assertion failure and 0 errors at the fixed template identity."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "green",
+          "cmd": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify",
+          "result": "Tests run: 2, failures: 0, errors: 0; canonical lifecycle convergence and typed data-plane requests/round-trip passed."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "checkpoint",
+          "cmd": "docker info --format '{{.ServerVersion}}'",
+          "result": "Docker-compatible runtime unavailable at /Users/loren/.colima/default/docker.sock; no real OpenSearch boundary was claimed. feat-005 owns that authorized real-store proof."
+        }
+      ],
+      "checkerNotes": "Implemented the official-client gateway, canonical ISM policy/template resources, fixed-clock idempotent bootstrap, exact daily-index adapter, and constrained typed queries. Adapter verification and baseline are green; real-store proof remains the explicit feat-005 environment checkpoint.",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "88d566bae26f5cd4d17c0e602bbb209c0968f4f6e9984d0097c01a215d9ca105",
+        "claimRefs": ["INV-RETENTION-1", "INV-DAILY-1", "INV-BOOTSTRAP-1", "INV-INDEX-SCHEMA-1", "INV-META-1", "INV-CORR-1"],
+        "changedPaths": [
+          "pom.xml",
+          "service/src/main/java/io/harness/logcontext/index/*.java",
+          "service/src/main/resources/opensearch/*.json",
+          "service/src/test/java/io/harness/logcontext/index/OpenSearchLogIndexIT.java"
+        ],
+        "runs": [
+          {"cmd": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify", "exit": 0, "result": "2 adapter lifecycle/data-plane tests passed under OpenJDK 21."},
+          {"cmd": "node harness/init.mjs", "exit": 0, "result": "Baseline green under OpenJDK 21."}
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "covered",
+          "realBoundary": "not-applicable: feat-005 owns the authorized real OpenSearch proof and Docker is currently unavailable",
+          "discrimination": "The gateway-level adapter tests cannot prove that a live OpenSearch ISM plugin accepts the canonical policy or exposes attachment with the expected response shape; feat-005 must falsify that at the real boundary."
+        },
+        "residualUnknowns": [
+          "A-007 ISM availability and scoped permissions remain unverified because no Docker or configured OpenSearch endpoint is available."
+        ]
+      }
     },
     {
       "id": "feat-005",
