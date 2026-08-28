@@ -14,4 +14,5 @@ addressed to whichever agent reads it next, not to this project's readers. Entri
 in another language stay as they are — this governs what gets written from now on.
 
 <!-- - [Title](slug.md) — one-line hook -->
-- [Nonstandard source roots belong to the first build](nonstandard-source-root-ownership.md) — Check manifest source wiring before assigning product paths to a build feature.
+- [Nonstandard source roots](nonstandard-source-root-ownership.md) — Verify manifest wiring before assigning product paths.
+- [Bootstrap with adapter](lifecycle-bootstrap-with-adapter.md) — Keep them together when they share a client, resource, and proof.
