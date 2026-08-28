@@ -573,6 +573,10 @@ headless and says so. From a second terminal, `node tools/loop-status.mjs --watc
 in-flight node and its elapsed time, features in flight, open escalations, the dispatch trail, and
 a livelock warning when the same node hits the same feature four times running. The reasoning and
 the three-rung ladder: [references/human-attention.md](references/human-attention.md).
+After the fact, `node tools/trajectory.mjs` replays the recorded run as one time-ordered ledger —
+marker routes, decision-path events and redacted tool activity with timing — the CLI analogue of the
+deepseek-harness Trajectory tab (`--record N` inspects one record, `--summary` and `--json` exit for
+scripts).
 The flag changes human supervision, not runtime transport: Kiro dispatch always speaks ACP through
 `tools/kiro-acp-dispatch.mjs`; Claude and Codex retain their calibrated CLI adapters.
 
@@ -608,7 +612,7 @@ After setup, the target project should contain:
 - [ ] `progress.md` + `DECISIONS.md` — external state
 - [ ] `session-handoff.md` — lifecycle handoff
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`
-- [ ] `tools/trace.mjs` + `trace/` — observability
+- [ ] `tools/trace.mjs` + `trace/` — observability; `tools/trajectory.mjs` replays it as one ledger
 - [ ] `tools/{verify-harness,memory-query,memory-consolidate}.mjs` +
       `docs/reference/{agent-memory,feature-decomposition}.md` — the knowledge the agents' prompts
       cite and the tools they invoke, copied INTO the target (a prompt citing a file that only

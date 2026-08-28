@@ -3461,6 +3461,39 @@ node -e "const r=require('$FC/final.json');process.exit(r.node==='checker'&&r.la
 expect "checker is selected once every non-blocked open feature has been handed off" $?
 
 echo ""
+step 61 "trajectory.mjs: one chronological ledger over the loop's recorded run"
+TJ="$WORK/trajectory"; rm -rf "$TJ"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$TJ" --name "Traj" --purpose "replay" >/dev/null
+test -f "$TJ/tools/trajectory.mjs"; expect "every scaffold ships the trajectory ledger view" $?
+mkdir -p "$TJ/trace" "$TJ/loop"
+cat > "$TJ/trace/trace.jsonl" <<'TJ1'
+{"ts":"2026-01-02T10:00:00.000Z","actor":"init","event":"session-start"}
+{"ts":"2026-01-02T10:00:20.000Z","actor":"checker","event":"verdict","feature":"feat-a","detail":"APPROVE: works"}
+TJ1
+printf '%s\n' '{"schema":"tool-event/1","ts":"2026-01-02T10:00:10.000Z","actor":"maker","feature":"feat-a","tool":"shell","class":"shell","success":true,"durationMs":150}' > "$TJ/trace/tool-events.jsonl"
+printf '%s\n' '{"node":"design-facilitator","feature":"feat-a","hash":"abc123def456","at":"2026-01-02T09:59:00.000Z"}' > "$TJ/loop/route-log.jsonl"
+node "$TJ/tools/trajectory.mjs" --target "$TJ" --all --json > "$TJ/traj.json"
+node -e "
+const j=require('$TJ/traj.json');
+process.exit(j.length===4 && j[0].source==='route' && j[1].actor==='init' &&
+  j[2].source==='tool' && j[2].durationMs===150 && j[3].event==='verdict' ? 0 : 1);
+"
+expect "it merges the route, decision-path and tool streams into one time-ordered trajectory" $?
+node "$TJ/tools/trajectory.mjs" --target "$TJ" --all > "$TJ/ledger.txt" 2>/dev/null
+grep -q "⊢ shell" "$TJ/ledger.txt" && grep -q "APPROVE: works" "$TJ/ledger.txt" \
+  && grep -q "marker abc123def456" "$TJ/ledger.txt"
+expect "the ledger renders each record compactly — tool, verdict and marker all visible" $?
+node "$TJ/tools/trajectory.mjs" --target "$TJ" --record 3 --all > "$TJ/record.txt" 2>/dev/null
+grep -q '"durationMs": 150' "$TJ/record.txt"
+expect "--record is the inspector: full JSON of the Nth record" $?
+node "$TJ/tools/trajectory.mjs" --target "$TJ" --actor maker --all --json > "$TJ/maker.json"
+node -e "const j=require('$TJ/maker.json');process.exit(j.length===1 && j[0].actor==='maker'?0:1)"
+expect "--actor filters the trajectory to one role" $?
+node "$TJ/tools/trajectory.mjs" --target "$TJ" --summary --all > "$TJ/summary.txt" 2>/dev/null
+grep -q "checker/verdict" "$TJ/summary.txt"
+expect "--summary counts records by actor and event" $?
+
+echo ""
 if [ "$FAIL" = "0" ]; then
   echo "ALL DEMO STEPS PASSED — harness-loop lifecycle proven end-to-end at $T"
 else

@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-28-trajectory-ledger",
+      "summary": "New tools/trajectory.mjs replays the loop's recorded run as one chronological, turn-aware ledger — marker routes, decision-path events and redacted tool activity with timing — with --record/--summary/--json, the CLI analogue of the deepseek-harness Trajectory tab.",
+      "why": "The harness already recorded a run across trace/trace.jsonl, trace/tool-events.jsonl and loop/route-log.jsonl, but no view merged them into the order the run actually happened. loop-status answers 'now', timeline answers 'how feature_list.json got here', run-report aggregates insights; none replayed the trajectory itself. The repository owner asked for a trajectory feature like deepseek-harness.",
+      "targetImpact": "Additive: a new read-only tool under tools/. No existing tool, prompt or state file changes behavior. Fresh and upgraded targets both receive it via setup's copy list and the upgrade grep over that list.",
+      "paths": ["tools/trajectory.mjs", "docs/reference/graph.md"],
+      "mergeActions": ["Copy tools/trajectory.mjs into the target; it reads trace/trace.jsonl, trace/tool-events.jsonl and loop/route-log.jsonl and writes nothing.", "Refresh docs/reference/graph.md's node table and shared-state rows (trajectory.mjs is a read-only reader of trace/** and route-log.jsonl).", "Preserve target-specific graph additions."],
+      "verification": ["bash harness-loop/scripts/demo.sh step 61 proves the tool ships and merges the three streams in time order", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-28-check-upgrade-context-scope",
       "summary": "The upgrade-context producer gate now scopes 'relevant' to target-shipping paths (templates/, references/, scripts/) instead of the whole harness-loop/ tree, so operator-side skill assets no longer demand a ledger entry.",
       "why": "The gate's blanket harness-loop/ prefix false-flagged operator-side commits as ledger omissions — most recently 26c0551fd447, the pr-description user skill, which changed only SKILL.md and user-skills/pr-description/**. Neither is ever shipped to a target, so there was no upgrade context to produce, and the gate had no remediation path short of rewriting history.",
