@@ -1,9 +1,9 @@
 {
   "schema": "design-approval/1",
-  "designDigest": "c206b89185ec03cd",
+  "designDigest": "14c9373d8d22",
   "status": "approved",
   "approvedBy": "project owner",
-  "approvedAt": "2026-08-27",
+  "approvedAt": "2026-08-28",
   "decisions": [
     "Use the recommended node-level OpenTelemetry Collector pipeline with sidecar fallback for inaccessible sources.",
     "Bound MCP queries to 15 minutes, 200 records, 256 KiB, and five seconds without pagination.",
@@ -16,7 +16,8 @@
     "Define the OpenSearch query-port seam and exact correlation result contract for independent storage oracle implementation.",
     "Define McpServiceBootstrap start/endpoint/close seam with injected IndexPort and ServiceAccountJwtValidator for independent MCP wire tests.",
     "Run CollectorContractBootstrap with Docker/OCI, read-only fixtures, health-based readiness, deadline-bounded forced cleanup, and the owner-approved OpenTelemetry Collector Contrib 0.159.0 immutable multi-platform digest.",
-    "Use the approved post-enrichment UTF-8 JSONL source contract for the hermetic collector oracle; leave real Kubernetes API enrichment to the Level-3 journey."
+    "Use the approved post-enrichment UTF-8 JSONL source contract for the hermetic collector oracle; leave real Kubernetes API enrichment to the Level-3 journey.",
+    "Use OpenSearch ISM policy log-debug-retention-v1 with daily log-debug-v1-YYYY.MM.dd indexes, a matching index template, and idempotent bootstrap as the real seven-day retention mechanism."
   ],
   "acceptedRisks": [
     {
