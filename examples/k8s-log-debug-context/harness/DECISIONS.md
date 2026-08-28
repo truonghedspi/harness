@@ -8,6 +8,25 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-28 — ISM bootstrap stays inside the OpenSearch build/prove pair
+
+- **Decision:** Keep the 11-feature DAG: `feat-004` owns the official client dependency, adapter,
+  public retention bootstrap, canonical ISM/template resources, and adapter tests; `feat-005`
+  proves bootstrap idempotency, retention, mapping, and typed queries against real OpenSearch.
+- **Reason:** The approved bootstrap and data plane share one client, one active daily index, and one
+  real-store acceptance boundary; splitting lifecycle installation into another build would add a
+  dispatch without an independently useful capability.
+- **Rejected alternative:** Keep retention as mapping metadata, defer `pom.xml`, or add a separate
+  retention feature. The first does not delete data, the second leaves the named Java seam
+  uncompilable, and the third separates inseparable startup and adapter behavior.
+- **Constraint it satisfies:** Every `feat-004` path needed to compile and install the approved
+  resources has explicit ownership, while independent real-store judgement remains in `feat-005`
+  and downstream dependency edges remain unchanged.
+- **Affected:** `feat-004`, `feat-005`, `pom.xml`, OpenSearch bootstrap/resources/tests, and context
+  packets; approved design digest `441eb6d76fd1752d`.
+
+---
+
 ## 2026-08-28 — Ingestion build owns its Maven source root
 
 - **Decision:** Add `pom.xml` to `feat-002` ownership and require it to map

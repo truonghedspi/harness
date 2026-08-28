@@ -222,16 +222,17 @@
       "id": "feat-004",
       "name": "OpenSearch log index adapter",
       "kind": "build",
-      "behavior": "The OpenSearch adapter installs a seven-day schemaVersion 1 mapping and supports constrained time, Kubernetes identity, message, and test.run_id searches over sanitized documents",
+      "behavior": "The OpenSearch adapter idempotently bootstraps the canonical seven-day ISM-managed v1 UTC daily index before indexing and executes constrained searches over sanitized documents",
       "verification": "./mvnw -q -Dtest=OpenSearchLogIndexIT verify",
-      "falsifier": "The adapter uses incompatible field types, omits seven-day retention, or returns records outside requested time and identity filters [INV-META-1] [INV-CORR-1] [X-002] [X-003]",
+      "falsifier": "Bootstrap falls back to mapping-only retention, creates a duplicate or wildcard resource, selects an index outside the injected clock's UTC day, permits a write before the v1 mapping and ISM attachment are observable, or a search returns records outside requested time and identity filters [INV-RETENTION-1] [INV-DAILY-1] [INV-BOOTSTRAP-1] [INV-INDEX-SCHEMA-1] [INV-META-1] [INV-CORR-1]",
       "context": {
         "touches": [
-          "service/src/main/java/io/harness/logcontext/index/OpenSearchLogIndex.java",
-          "service/src/main/resources/opensearch/log-record-v1.json",
-          "service/src/test/java/io/harness/logcontext/index/OpenSearchLogIndexIT.java"
+          "pom.xml",
+          "service/src/{main,test}/java/io/harness/logcontext/index/*.java",
+          "service/src/main/resources/opensearch/*.json"
         ],
-        "note": "Map observedAt as date, identity/correlation as exact fields, and message for full-text search behind the index port."
+        "note": "Add the official OpenSearch Java client dependency, implement OpenSearchLogIndex plus OpenSearchLogIndexBootstrap and its config/result records, and keep canonical versioned policy/template definitions under the OpenSearch resources path. ensureInstalled validates the fixed log-debug-v1 prefix, reconciles only the named v1 policy/template, creates and verifies the injected Clock's UTC daily index, and returns that active index without closing the caller-owned client; adapter tests cover the lifecycle and data-plane seams.",
+        "packet": "loop/context-packets/feat-004.json"
       },
       "dependencies": [
         "feat-002"
@@ -239,7 +240,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "NEEDS DESIGN: feat-004 requires the adapter to install real seven-day retention, but the approved design defines only OpenSearchLogIndex(OpenSearchClient, String) and a mapping JSON path—no ISM policy/resource identity, lifecycle API, installation/idempotency behavior, or observable seam. Mapping metadata is not retention. After design resolves this, re-plan ownership for the policy artifact and pom.xml because the mandated official OpenSearchClient dependency is also absent and unauthorized.",
+      "checkerNotes": "RESOLVED DESIGN: approved digest 441eb6d76fd1752d defines the fixed ISM policy, v1 template, UTC daily-index identity, public idempotent bootstrap seam, caller-owned client lifecycle, and observable retention/schema checks. feat-004 now owns the official client dependency, bootstrap/adapter sources, canonical resources, and adapter tests; see DECISIONS.md and loop/context-packets/feat-004.json.",
       "attempts": 0,
       "maxAttempts": 3
     },
@@ -247,9 +248,9 @@
       "id": "feat-005",
       "name": "OpenSearch storage contract",
       "kind": "prove",
-      "behavior": "A real OpenSearch integration proof indexes sanitized records and retrieves only exact run-id or namespace/workload/half-open-window matches through the typed index port",
+      "behavior": "A real OpenSearch integration proof observes idempotent seven-day ISM bootstrap and v1 daily-index mapping, then indexes sanitized records and retrieves only exact run-id or namespace/workload/half-open-window matches through the typed index port",
       "verification": "./mvnw -q -Poracle-test -Dtest=OpenSearchStorageContractIT verify",
-      "falsifier": "A fake or raw OpenSearch client passes while the public OpenSearchLogIndex/IndexPort round trip loses a named field, RunIdLogQuery broadens beyond its exact run id, or WorkloadWindowLogQuery drops namespace, workload, or either half-open time bound [INV-META-1] [INV-CORR-1] [X-002]",
+      "falsifier": "A fake or raw client passes while two public bootstrap calls do not converge on the same named policy, template, and UTC daily index, ISM explain or mapping reads contradict the seven-day/v1 contract, the public IndexPort round trip loses a named field, or either typed query broadens beyond its exact identity and half-open time bounds [INV-RETENTION-1] [INV-DAILY-1] [INV-BOOTSTRAP-1] [INV-INDEX-SCHEMA-1] [INV-META-1] [INV-CORR-1]",
       "conditions": [
         "TCON-INDEX-0001",
         "TCON-INDEX-0002",
@@ -260,7 +261,7 @@
           "service/src/test/java/io/harness/logcontext/contract/OpenSearchStorageContractIT.java",
           "service/src/test/resources/opensearch/records.json"
         ],
-        "note": "Construct OpenSearchLogIndex(OpenSearchClient, indexName) against an authorized ephemeral real store; index via IndexPort.index, search only via RunIdLogQuery or WorkloadWindowLogQuery, and assert returned NormalizedLogRecord values plus exact filtering without calling the client directly. An unavailable Docker/OPENSEARCH runtime is an environment checkpoint, not behavioral red or green.",
+        "note": "Against an authorized ephemeral real store and fixed Clock, call OpenSearchLogIndexBootstrap.ensureInstalled twice, observe the returned fixed identities plus ISM explain and template/mapping reads, then pass RetentionInstallation.activeIndex() to OpenSearchLogIndex and exercise indexing/search only through IndexPort. Assert named-field round trip and exact typed filtering; an unavailable Docker/OPENSEARCH runtime or missing A-007 grants is an environment checkpoint, not behavioral red or green.",
         "packet": "loop/context-packets/feat-005.json"
       },
       "dependencies": [
@@ -276,7 +277,7 @@
           "result": "Environment unavailable: Docker cannot connect to /Users/loren/.colima/default/docker.sock and no OPENSEARCH environment is configured. No real OpenSearch instance was available, so this is not recorded as red behavioral evidence. Separately, the approved contract defines IndexPort.index(NormalizedLogRecord) but no query method or OpenSearchLogIndex construction seam, so TCON-INDEX-0001 through TCON-INDEX-0003 cannot be implemented through the index port without inventing an API."
         }
       ],
-      "checkerNotes": "RESOLVED DESIGN: approved digest 64a7b9ee26db6b10 defines OpenSearchLogIndex(OpenSearchClient, String), IndexPort.search(LogQuery), exact RunIdLogQuery, conjunctive WorkloadWindowLogQuery, half-open TimeWindow, and bounded LogQueryResult. The real OpenSearch environment remains a test-implementation checkpoint, not a design gap; see DECISIONS.md and loop/context-packets/feat-005.json.",
+      "checkerNotes": "RESOLVED DESIGN: approved digest 441eb6d76fd1752d preserves the typed query-port seam and adds public idempotent bootstrap plus observable ISM, template, mapping, and daily-index outcomes. feat-005 remains the independent real-store proof; its oracle conditions must now cover INV-RETENTION-1 through INV-INDEX-SCHEMA-1 before implementation. See DECISIONS.md and loop/context-packets/feat-005.json.",
       "attempts": 0,
       "maxAttempts": 3
     },
@@ -359,10 +360,8 @@
       "context": {
         "touches": [
           "charts/log-debug-context/templates/collector-daemonset.yaml",
-          "collector/otel-collector.yaml",
-          "collector/contract-image.lock",
-          "service/src/main/java/io/harness/logcontext/collector/CollectorContractBootstrap.java",
-          "service/src/test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java"
+          "collector/{otel-collector.yaml,contract-image.lock}",
+          "service/src/{main/java/io/harness/logcontext/collector/CollectorContractBootstrap.java,test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java}"
         ],
         "note": "Fail preflight loudly and retain sidecar as the explicit fallback; implement the owner-approved Docker/OCI launcher with the immutable lock, read-only fixtures, health readiness and bounded forced cleanup; do not silently broaden host access or substitute a fake collector."
       },

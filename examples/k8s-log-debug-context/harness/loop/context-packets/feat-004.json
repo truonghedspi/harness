@@ -1,0 +1,41 @@
+{
+  "schema": "feature-context-packet/1",
+  "feature": "feat-004",
+  "mustRead": [
+    "docs/design/opensearch-retention.md",
+    "docs/design/log-debug-context.md",
+    "../pom.xml",
+    "../service/src/main/java/io/harness/logcontext/ingest/IndexPort.java",
+    "../service/src/main/java/io/harness/logcontext/ingest/NormalizedLogRecord.java",
+    "tests/design/plans/TP-INDEX-0005/plan.json",
+    "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0001.json",
+    "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0002.json",
+    "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0003.json"
+  ],
+  "mustNotRead": [
+    "../collector",
+    "../charts",
+    "../service/src/main/java/io/harness/logcontext/mcp",
+    "../tests/k8s"
+  ],
+  "facts": [
+    "Use the official OpenSearch Java client already named by the approved OpenSearchClient seam; pom.xml currently has no production dependency, so feat-004 owns adding it without changing the Java 21 build contract.",
+    "OpenSearchLogIndexBootstrap.ensureInstalled(OpenSearchClient, OpenSearchLogIndexConfig) validates indexPrefix as exactly log-debug-v1 and returns RetentionInstallation(policyId, templateName, activeIndex).",
+    "The fixed resources are policy log-debug-retention-v1, template log-debug-v1-template, and the injected Clock's UTC index log-debug-v1-YYYY.MM.dd; canonical definitions belong under service/src/main/resources/opensearch.",
+    "The policy uses ism_template pattern log-debug-v1-* at priority 100 and reaches a delete action after min_index_age 7d; the template uses the same pattern/priority and installs the approved v1 mappings before any document write.",
+    "Bootstrap reconciles only the exact named policy and template, treats an already-existing daily index as success only after rereading and verifying that exact index, returns only after all three resources are observable, never deletes resources, and never closes the caller-owned client.",
+    "OpenSearchLogIndex remains the data-plane IndexPort seam and receives RetentionInstallation.activeIndex(); its typed query behavior and field round trip remain the same claim already described by INV-META-1 and INV-CORR-1.",
+    "feat-004 owns implementation and adapter-level tests. feat-005 owns the independent authorized-real-store oracle; MCP, collector, chart permissions, and the Kubernetes journey remain outside this feature."
+  ],
+  "sourceInputs": [
+    { "path": "docs/design/opensearch-retention.md", "sha256": "2bfa0d5d919b859d5cbe436a3f118cf987a592709cfb066e06992047e7285aa1" },
+    { "path": "docs/design/log-debug-context.md", "sha256": "04d4adc960949660bcf7e7c3dc8a4f43c2f35537319e452f5b68057340fa142e" },
+    { "path": "../pom.xml", "sha256": "7225d7d749a4333f1c7a1416ed80853bad79b50ce992d7ce9d749608a108b0c4" },
+    { "path": "../service/src/main/java/io/harness/logcontext/ingest/IndexPort.java", "sha256": "6db93d7b2d5f2c844c0c0afe5a4014b150500956623d6fc44af46df44a27881d" },
+    { "path": "../service/src/main/java/io/harness/logcontext/ingest/NormalizedLogRecord.java", "sha256": "1b9b7f44d5af0e96077ceb4f29c05a74d04a3f08fc7fb393e030c35f631cb8b1" },
+    { "path": "tests/design/plans/TP-INDEX-0005/plan.json", "sha256": "dcb6be5b63e6840578199267f2441578e71ac9a12966d789f05a4fe9b3cf9107" },
+    { "path": "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0001.json", "sha256": "1d704ff7fa006dcb17d73e74d59b61a5f8570a2408e320d1f19ba799288a09b8" },
+    { "path": "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0002.json", "sha256": "74c67e273836d44fb5cf9ca79a3ec28ca1123bd98da18a2fdf3a7b1e722227b2" },
+    { "path": "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0003.json", "sha256": "67a2f7c8e1a2104d2b3ce29f338b23900700734c6212b16001f46bfd97a6f698" }
+  ]
+}

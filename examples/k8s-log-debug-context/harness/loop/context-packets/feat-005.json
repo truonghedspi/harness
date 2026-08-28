@@ -2,6 +2,7 @@
   "schema": "feature-context-packet/1",
   "feature": "feat-005",
   "mustRead": [
+    "docs/design/opensearch-retention.md",
     "docs/design/log-debug-context.md",
     "tests/design/plans/TP-INDEX-0005/plan.json",
     "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0001.json",
@@ -16,19 +17,23 @@
     "../service/src/main/java/io/harness/logcontext/mcp"
   ],
   "facts": [
-    "The oracle constructs the real adapter only as OpenSearchLogIndex(OpenSearchClient, String) and observes storage behavior only through IndexPort.index(NormalizedLogRecord) and IndexPort.search(LogQuery); direct client queries are outside this proof.",
+    "The oracle first calls OpenSearchLogIndexBootstrap.ensureInstalled twice with a fixed Clock and the same caller-owned OpenSearchClient, then constructs OpenSearchLogIndex(OpenSearchClient, RetentionInstallation.activeIndex()).",
+    "Bootstrap observations use the returned identities plus ISM explain, policy GET, template/mapping reads, and exact-index existence; direct client document indexing or querying remains outside the data-plane proof.",
+    "The exact resources are policy log-debug-retention-v1, template log-debug-v1-template, and fixed-clock UTC index log-debug-v1-YYYY.MM.dd. Both bootstrap calls must converge on these identities without duplicate or wildcard resources.",
+    "The active index must be ISM-managed by the named policy whose terminal delete action has min_index_age 7d, and must expose the approved v1 date, keyword identity/correlation, and text message mapping before the IndexPort round trip.",
     "RunIdLogQuery requires an exact non-blank testRunId, a required half-open TimeWindow, maxRecords from 1 through 200, and an optional conjunctive message term; it never broadens to workload fallback.",
     "WorkloadWindowLogQuery requires non-blank namespace and workload plus the required half-open interval, maxRecords from 1 through 200, and an optional conjunctive message term; every returned record must satisfy all identity and time predicates.",
     "LogQueryResult contains sanitized NormalizedLogRecord values and a truncated flag; the three current conditions prove named-field round trip, exact run-id isolation, and the namespace/workload/time conjunction without adding a separate pagination surface.",
     "The proof must use an authorized ephemeral real OpenSearch instance. A disconnected Docker-compatible runtime or absent configured endpoint is an environment checkpoint and cannot be replaced by an in-memory fake or claimed as behavioral red/green.",
-    "This feature owns only the independent real-store contract oracle. Adapter implementation remains feat-004; MCP query budgets/wire behavior remain feat-006 and feat-007; Kubernetes lifecycle remains feat-011."
+    "This feature owns only the independent real-store contract oracle and fixtures. Adapter/bootstrap implementation, canonical resources, Maven dependency, and adapter tests remain feat-004; MCP behavior remains feat-006/007 and Kubernetes lifecycle remains feat-011."
   ],
   "sourceInputs": [
-    { "path": "docs/design/log-debug-context.md", "sha256": "a1095287bd36bfbcad9da1a6a46a28cbecca9d50c52d95298b117db1ebd21b5d" },
+    { "path": "docs/design/opensearch-retention.md", "sha256": "2bfa0d5d919b859d5cbe436a3f118cf987a592709cfb066e06992047e7285aa1" },
+    { "path": "docs/design/log-debug-context.md", "sha256": "04d4adc960949660bcf7e7c3dc8a4f43c2f35537319e452f5b68057340fa142e" },
     { "path": "tests/design/plans/TP-INDEX-0005/plan.json", "sha256": "dcb6be5b63e6840578199267f2441578e71ac9a12966d789f05a4fe9b3cf9107" },
     { "path": "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0001.json", "sha256": "1d704ff7fa006dcb17d73e74d59b61a5f8570a2408e320d1f19ba799288a09b8" },
     { "path": "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0002.json", "sha256": "74c67e273836d44fb5cf9ca79a3ec28ca1123bd98da18a2fdf3a7b1e722227b2" },
     { "path": "tests/design/plans/TP-INDEX-0005/conditions/TCON-INDEX-0003.json", "sha256": "67a2f7c8e1a2104d2b3ce29f338b23900700734c6212b16001f46bfd97a6f698" },
-    { "path": "../pom.xml", "sha256": "23ed9482097ed472e9bd9a72e8a57e02c7599c20b2e15275b5993196ce8a5406" }
+    { "path": "../pom.xml", "sha256": "7225d7d749a4333f1c7a1416ed80853bad79b50ce992d7ce9d749608a108b0c4" }
   ]
 }
