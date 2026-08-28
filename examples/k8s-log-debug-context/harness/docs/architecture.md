@@ -16,7 +16,9 @@ workloads, a Java 21/Maven ingest and MCP service, and OpenSearch. The current u
 revision makes both index seams explicit: collectors submit the v1 JSON contract to
 `IngestService.ingest(String)`; `IndexPort.index(NormalizedLogRecord)` receives an accepted
 sanitized document; and `IndexPort.search(LogQuery)` returns a typed, bounded result through the
-real `OpenSearchLogIndex(OpenSearchClient, String)` adapter. MCP accepts valid Kubernetes
+real `OpenSearchLogIndex(OpenSearchClient, String)` adapter. Before that adapter writes, the public
+`OpenSearchLogIndexBootstrap.ensureInstalled` seam installs the versioned ISM policy, template, and
+current daily index described in `docs/design/opensearch-retention.md`. MCP accepts valid Kubernetes
 ServiceAccount JWTs and publishes exactly `search_logs` and `get_failure_context`.
 `McpServiceBootstrap.start(McpHttpServerConfig, IndexPort, ServiceAccountJwtValidator)` starts the
 Streamable HTTP boundary and returns its bound endpoint; tests use loopback port `0` plus capturing
@@ -60,9 +62,10 @@ The three-level hierarchy is in `harness/docs/testing-standards.md`. Fast path:
 
 ## Where are we now? (current state)
 
-The owner approved the topology, MCP policy, and schema policy on 2026-08-26. The current revision
-adds the public MCP bootstrap seam after the serialized ingress and bounded storage-query seams;
-it invalidates the prior digest and requires renewed human approval before implementation continues.
+The owner approved the topology, MCP policy, schema policy, and the OpenSearch ISM retention
+mechanism. The current revision adds the public retention bootstrap seam after the serialized
+ingress and bounded storage-query seams; it invalidates the prior digest and requires the human to
+bind the renewed digest before implementation continues.
 The local Docker daemon is disconnected and no OpenSearch endpoint is configured, so feat-005's
 real-store proof is an environment checkpoint rather than a fabricated red result. The Java
 21-compatible Maven baseline is green; product features remain not started.

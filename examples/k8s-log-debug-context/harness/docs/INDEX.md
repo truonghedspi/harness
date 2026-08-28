@@ -17,6 +17,7 @@ the new files here.
 | `harness/docs/definition-of-done.md` | Deciding whether something is actually finished |
 | `harness/docs/assumptions.md` | Before trusting a design conclusion; a `needs-human` row stops the loop |
 | `harness/docs/cross-cutting.md` | Before picking a mechanism for retry / identity / timeouts — it may already be owned |
+| `harness/docs/design/opensearch-retention.md` | Before changing feat-004's OpenSearch policy, daily index, bootstrap, or permissions |
 | `harness/docs/design/` | Before changing a subsystem someone has already designed |
 | `harness/docs/design/log-debug-context.md` | Before planning or changing collection, ingestion, indexing, or MCP query behavior |
 | `harness/docs/design/collector-contract-launch.md` | Before implementing or proving the real collector pipeline outside a cluster; it is pending owner approval |

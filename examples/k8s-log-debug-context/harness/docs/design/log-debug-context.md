@@ -223,6 +223,14 @@ format.
 environment checkpoint, never behavior: the 2026-08-26 probe found no Colima socket or configured
 `OPENSEARCH` endpoint. Its oracle uses an authorized ephemeral store, never an in-memory fake.
 
+### OpenSearch retention lifecycle
+
+Seven-day retention is enforced by the owner-approved ISM policy `log-debug-retention-v1`, not by
+mapping metadata. Its exact daily-index names, versioned template, idempotent bootstrap seam,
+permissions, and invariant-derived observations are in
+[`opensearch-retention.md`](opensearch-retention.md). `feat-004` must implement that public seam;
+`feat-005` proves it against real OpenSearch.
+
 search_logs requires filters plus an explicit time interval. get_failure_context requires test.run_id when available; otherwise it requires namespace, workload, and an explicit interval. Both tools are read-only. X-006 fixes the server-enforced maximum interval/result/byte budgets, request deadline, truncation response, and no-pagination rule. The service admits a request with a valid Kubernetes ServiceAccount JWT to normal tool validation; it rejects a missing or invalid JWT before dispatch. Its initialized MCP surface offers only the tool capability and its tool list is exactly search_logs and get_failure_context—there are no prompt, resource, or extra tool capabilities. These constraints keep every MCP operation bounded without exposing database query syntax.
 
 ### MCP executable bootstrap

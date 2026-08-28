@@ -28,6 +28,7 @@ Find candidates with `node harness/tools/cross-cutting-audit.mjs --target .`. Th
 | X-006 | MCP query budget and deadline | Maximum 15-minute interval, 200 records, 256 KiB response, five-second deadline, and no pagination | project owner / 2026-08-26 | MCP query contract and bounded journey test | MCP server, correlation resolver, journey |
 | X-007 | MCP caller authentication | Cluster-internal Streamable HTTP authenticated with Kubernetes ServiceAccount JWT and restricted by NetworkPolicy | project owner / 2026-08-26 | deployment policy test and adapter-call contract test | MCP server, deployment |
 | X-008 | Log-record schema compatibility | Required `schemaVersion: 1`; permit backward-compatible additive fields and reject unsupported major versions | project owner / 2026-08-26 | schema contract test | collector, ingest, index adapter, MCP server |
+| X-009 | OpenSearch retention lifecycle | ISM policy `log-debug-retention-v1` automatically attaches to `log-debug-v1-*`; a versioned template and daily UTC indexes provide the v1 mapping, while the policy deletes each managed index after seven days | project owner / 2026-08-28 (human approval) | real-store bootstrap/ISM contract citing INV-RETENTION-1 through INV-INDEX-SCHEMA-1 | index adapter, storage contract, operations |
 
 <!-- Example of a closed row (delete once the table has real content):
 | X-001 | Message identity & de-duplication | (logPosition, indexWithinEntry) | Alice, 2026-08-09 | harness/docs/constraints.md MUST rule + wire-format test | feat-a, feat-b |
