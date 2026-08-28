@@ -6,7 +6,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-28
-- **Active feature:** feat-003 — ingest contract proof awaits independent checker
+- **Active feature:** none — feat-004 requires retention design before adapter implementation
 - **Latest commit:** 3dccb63 Phơi bày source root bị thiếu cho ingestion
 - **Baseline (`node harness/init.mjs`):** green with Homebrew OpenJDK 21; Temurin 25.0.3 is rejected by the Java gate
 
@@ -30,11 +30,14 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 - [ ] Ingest schema and safety contract (`feat-003`)
   - Details: the unchanged black-box oracle now passes all five scope, redaction, metadata, additive-v1, and unsupported-major conditions.
   - Blockers: none; red/green evidence and review packet await independent checker judgement.
+- [ ] OpenSearch log index adapter (`feat-004`)
+  - Details: the approved constructor and mapping surface are insufficient to install the required seven-day retention lifecycle.
+  - Blockers: define the real ISM/lifecycle policy seam and idempotency; then grant ownership of its artifact and the missing OpenSearch client dependency in `pom.xml`.
 
 ## Next
 
-1. Route `feat-003` through independent checker review.
-2. Continue only with the next router-selected feature after checker disposition.
+1. Route the `NEEDS DESIGN:` marker on `feat-004` to the design facilitator.
+2. Re-plan dependency and policy-artifact ownership after the human approves the retention mechanism.
 
 ## Known Issues / Risks
 

@@ -239,7 +239,7 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "",
-      "checkerNotes": "",
+      "checkerNotes": "NEEDS DESIGN: feat-004 requires the adapter to install real seven-day retention, but the approved design defines only OpenSearchLogIndex(OpenSearchClient, String) and a mapping JSON path—no ISM policy/resource identity, lifecycle API, installation/idempotency behavior, or observable seam. Mapping metadata is not retention. After design resolves this, re-plan ownership for the policy artifact and pom.xml because the mandated official OpenSearchClient dependency is also absent and unauthorized.",
       "attempts": 0,
       "maxAttempts": 3
     },
