@@ -6,7 +6,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-28
-- **Active feature:** feat-002 — ingest implementation awaits independent checker
+- **Active feature:** feat-003 — ingest contract proof awaits independent checker
 - **Latest commit:** 3dccb63 Phơi bày source root bị thiếu cho ingestion
 - **Baseline (`node harness/init.mjs`):** green with Homebrew OpenJDK 21; Temurin 25.0.3 is rejected by the Java gate
 
@@ -27,11 +27,14 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 - [ ] Sanitized normalized ingestion (`feat-002`)
   - Details: serialized v1 admission, normalization, redaction, and the compile-complete index/query seam pass the unit suite and five-condition black-box oracle.
   - Blockers: none; review packet is admitted and awaits independent checker judgement.
+- [ ] Ingest schema and safety contract (`feat-003`)
+  - Details: the unchanged black-box oracle now passes all five scope, redaction, metadata, additive-v1, and unsupported-major conditions.
+  - Blockers: none; red/green evidence and review packet await independent checker judgement.
 
 ## Next
 
-1. Route `feat-002` through independent checker review.
-2. Continue only with the next router-selected dependency consumer after checker disposition.
+1. Route `feat-003` through independent checker review.
+2. Continue only with the next router-selected feature after checker disposition.
 
 ## Known Issues / Risks
 
