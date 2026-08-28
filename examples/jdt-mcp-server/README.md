@@ -9,7 +9,10 @@ completion, references, definition, rename, code actions) dưới dạng **MCP t
 ## Mục lục
 
 - [Kiến trúc](#kiến-trúc)
+- [Sử dụng qua MCP](#sử-dụng-qua-mcp)
 - [Các tool](#các-tool)
+- [Hình dạng kết quả](#hình-dạng-kết-quả)
+- [Mã lỗi](#mã-lỗi)
 - [Hành vi cốt lõi](#hành-vi-cốt-lõi)
 - [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
 - [Cấu hình](#cấu-hình)
@@ -36,10 +39,30 @@ MCP client ──stdio──▶ mcp-shim ──unix socket──▶ daemon ─�
 - **`readiness-gate`** — cổng sẵn sàng bằng **semantic probe** (resolve một symbol có thật từ chính
   nguồn của workspace), không tin `ServiceReady`/`ProjectStatus`.
 
+## Sử dụng qua MCP
+
+Server nói **MCP qua stdio**, mỗi message là **một dòng JSON** (newline-delimited). Vòng đời chuẩn:
+
+1. `initialize` — bắt tay, client khai báo capability.
+2. `tools/list` — khám phá 8 tool.
+3. `tools/call` — gọi một tool với `{ name, arguments }`; kết quả nằm trong
+   `content[0].text` (chuỗi JSON), kèm cờ `isError`.
+
+```jsonc
+// → client gửi
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"my-agent","version":"0"}}}
+
+// → client gọi java_definition
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"java_definition","arguments":{"path":"src/main/java/com/acme/Greeter.java","line":5,"column":10}}}
+
+// ← server trả lời
+{"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"path\":\"...\",\"workspaceId\":\"...\",\"position\":{\"line\":5,\"column\":10},\"resolved\":true,\"locations\":[{\"path\":\"...\",\"range\":{\"start\":{\"line\":3,\"column\":19},\"end\":{\"line\":3,\"column\":24}}}]}"}],"isError":false}}
+```
+
 ## Các tool
 
 Mọi vị trí `path/line/column` đều ở hệ toạ độ **1-based** (dòng 1 là dòng đầu tiên, cột 1 là ký tự
-đầu tiên; cột đếm bằng UTF-16 code unit — X-007).
+đầu tiên; cột đếm bằng UTF-16 code unit — X-007). `path` nhận đường dẫn tệp thật trên đĩa.
 
 | Tool | Tham số | Trả về |
 |---|---|---|
@@ -51,6 +74,79 @@ Mọi vị trí `path/line/column` đều ở hệ toạ độ **1-based** (dòn
 | `java_rename` | `path`, `line`, `column`, `newName`, `apply?` | WorkspaceEdit đề xuất **dưới dạng dữ liệu** |
 | `java_code_actions` | `path`, `line`, `column` | các action dạng **handle mờ đục** (`actionId`) |
 | `java_apply_code_action` | `actionId`, `apply?` | edit đã resolve của action đó |
+
+## Hình dạng kết quả
+
+Kết quả mỗi tool là một object JSON (được chuỗi hoá vào `content[0].text`). `range` luôn là
+`{ start: { line, column }, end: { line, column } }` ở hệ 1-based.
+
+**`java_hover`**
+```jsonc
+{ "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 },
+  "resolved": true,
+  "signature": "String greet(String)", "javadoc": "...", "contents": "...",
+  "range": { "start": { "line": 3, "column": 19 }, "end": { "line": 3, "column": 24 } } }
+// hoặc khi không giải được phần tử nào:
+{ "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 }, "resolved": false, "reason": "..." }
+```
+
+**`java_definition`**
+```jsonc
+{ "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 },
+  "resolved": true,
+  "locations": [ { "path": "...", "range": { "start": { "line": 3, "column": 19 }, "end": { "line": 3, "column": 24 } } } ] }
+// hoặc { "resolved": false, "locations": [], "reason": "..." }
+```
+
+**`java_references` / `java_completion`** — cùng bộ `cap` / `total` / `truncated`:
+```jsonc
+{ "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 },
+  "cap": 200, "total": 512, "truncated": true,
+  "references": [ { "path": "...", "range": { "start": { "line": 1, "column": 5 }, "end": { "line": 1, "column": 10 } } } ] }
+// java_completion thay `references` bằng:
+  "items": [ { "label": "someMethod", "detail": "...", "range": { "start": { "line": 1, "column": 1 }, "end": { "line": 1, "column": 5 } } } ]
+```
+
+**`java_diagnostics`** — nhánh `reported` có `problems`, nhánh `not-reported` **không có** `problems`:
+```jsonc
+{ "path": "...", "workspaceId": "...", "scope": "file",
+  "files": [ { "uri": "file:///...", "status": "reported",
+               "problems": [ { "range": { "start": { "line": 4, "column": 13 }, "end": { "line": 4, "column": 19 } }, "message": "Type mismatch: cannot convert from String to int", "severity": 1 } ],
+               "receivedAt": 1730000000000 } ] }
+// tệp chưa từng có publish:
+  "files": [ { "uri": "file:///...", "status": "not-reported" } ]
+```
+
+**`java_rename` / `java_apply_code_action`** — `applied` là `true` đúng khi `apply: true` được truyền:
+```jsonc
+{ "path": "...", "workspaceId": "...", "position": { "line": 3, "column": 19 }, "newName": "salute",
+  "applied": false,
+  "files": [ { "path": "...", "edits": [ { "range": { "start": { "line": 3, "column": 19 }, "end": { "line": 3, "column": 24 } }, "newText": "salute" } ] } ] }
+```
+
+**`java_code_actions`** — caller chỉ thấy `title` + `actionId` (blob nội bộ của JDT LS không lọt ra ngoài):
+```jsonc
+{ "path": "...", "workspaceId": "...", "position": { "line": 4, "column": 13 },
+  "actions": [ { "title": "Organize imports", "actionId": "ca-1" }, { "title": "Generate toString()", "actionId": "ca-2" } ] }
+```
+
+## Mã lỗi
+
+Mọi thất bại là một envelope có cấu trúc — không bao giờ bị mã hoá thành kết quả rỗng thành công
+(INV-TOOL-4). Taxonomy đóng (X-003):
+
+```jsonc
+{ "isError": true, "code": "not-ready", "message": "not-ready: workspace ... cannot answer: ..." }
+```
+
+| `code` | Nghĩa | Khi nào gặp |
+|---|---|---|
+| `unroutable` | đường dẫn không thuộc workspace nào / không đọc được | path sai, tệp không đọc được |
+| `not-ready` | workspace chưa index xong | gọi ngay sau khi workspace mở (warm-up) |
+| `resyncing` | workspace đang cập nhật sau khi file đổi trên đĩa | gọi quá sớm sau khi sửa file — thử lại sau |
+| `workspace-crashed` | tiến trình JDT LS đã chết | JDT LS process exit giữa chừng |
+| `cap-exceeded` | vượt cap workspace đồng thời (mặc định 3) | quá nhiều workspace cùng lúc |
+| `invalid-position` | `line`/`column` ngoài phạm vi file | toạ độ vượt số dòng/cột thật |
 
 ## Hành vi cốt lõi
 
@@ -84,8 +180,9 @@ Biến môi trường:
 | `JDTLS_HOME` | Thư mục JDT LS đã cài sẵn (bỏ qua download; phải có `plugins/org.eclipse.jdt.ls.core_<version>.jar`) |
 | `XDG_RUNTIME_DIR` | Thư mục chứa Unix socket (`jdt-mcp.sock`) |
 
-Cap danh sách (references/completion) đọc từ tuỳ chọn lời gọi (`cap`), mặc định 200 — X-008 vẫn mở nên
-đây là khuyến nghị, không phải hằng số chốt.
+**Cap danh sách** (`references`/`completion`) là **cấu hình phía server** (trường `cap` trong options
+của tool, mặc định 200) — không phải tham số mà MCP caller truyền theo từng lời gọi. X-008 vẫn mở nên
+200 là khuyến nghị, không phải hằng số chốt.
 
 ## Bố cục mã nguồn
 
