@@ -254,7 +254,8 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    harness is ready" — not step 6 alone. If it reports `layer: harness` findings, this skill has a
    bug; follow the Lifecycle section above before blaming the target.
 11. **Start the loop only after both checks pass and the baseline is green.** Local first:
-   `kiro-cli chat --agent maker` then `--agent checker`; or headless `node loop/run-loop.mjs N`.
+   `kiro-cli chat --agent maker` then `--agent checker`; or automated `node loop/run-loop.mjs N`.
+   Kiro turns from the loop use ACP (`kiro-cli acp`), not CLI headless chat.
    Codex dispatch first runs `tools/hook-calibrate.mjs`: write confinement must prove a neutral
    allow and reasoned deny for the installed runtime/version before a model turn is accepted.
    Headless runs skip checker dispatch after partial maker checkpoints and review only complete,
@@ -570,6 +571,8 @@ headless and says so. From a second terminal, `node tools/loop-status.mjs --watc
 in-flight node and its elapsed time, features in flight, open escalations, the dispatch trail, and
 a livelock warning when the same node hits the same feature four times running. The reasoning and
 the three-rung ladder: [references/human-attention.md](references/human-attention.md).
+The flag changes human supervision, not runtime transport: Kiro dispatch always speaks ACP through
+`tools/kiro-acp-dispatch.mjs`; Claude and Codex retain their calibrated CLI adapters.
 
 ## Platform support
 

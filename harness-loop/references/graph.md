@@ -43,7 +43,7 @@ harness/cli.mjs` when contained). A contained layout's thin root `AGENTS.md` onl
 | `tools/guard-write.mjs` | code | classify an edit against an agent's `writes` — or, when `$HARNESS_SLICE` is set, against that slice's paths alone — then adapt output per runtime: Claude emits allow/deny; Codex emits neutral/deny | `agents.manifest.json`, `loop/work-split/<feat>.json`, runtime, tool payload | runtime-specific PreToolUse response |
 | `tools/codex-dispatch.mjs` | code | Codex only — assembles a role (`codex exec` has no `--agent`): prompt + resources on stdin, identity in the environment | `agents.manifest.json`, prompts, `agent-context.mjs` | nothing (spawns codex) |
 | `loop/route.mjs` | code | **the router** — reads shared state, returns the next node + its layer + why (+ the marker hash, when a marker drove it). `--rules` prints the whole table, so nothing has to parse its source | `feature_list.json`, `docs/assumptions.md`, `loop/route-log.jsonl` | nothing (pure) |
-| `loop/dispatch.mjs` | code | fallback adapter that runs ONE named agent when native in-session sub-agent spawn is unavailable, or from headless/CI. Called by `run-loop.mjs`; does **not** choose who runs. `.sh`/`.cmd` are wrappers | `agents.manifest.json`, `HARNESS_RUNTIME` | nothing directly; the agent it spawns writes |
+| `loop/dispatch.mjs` | code | fallback adapter that runs ONE named agent when native in-session sub-agent spawn is unavailable, or from automation/CI. Kiro uses `tools/kiro-acp-dispatch.mjs` and ACP; Claude/Codex use their CLI adapters. Called by `run-loop.mjs`; does **not** choose who runs | `agents.manifest.json`, `HARNESS_RUNTIME` | nothing directly; the agent it spawns writes |
 | `loop/run-loop.mjs` | code | **the dispatcher** — runs the node the router named on Windows, macOS or Linux, using kiro-cli, Claude Code or Codex (`HARNESS_RUNTIME`, else detected). `.sh`/`.cmd` are wrappers | `route.mjs` output | nothing directly; the agent it spawns writes |
 | `loop/approval-gate.mjs` | code | stop for a human before `done` becomes terminal; selective, timeout auto-**rejects** | `feature_list.json`, `review-digest` output | `loop/approval-request.md`, `loop/approval-log.jsonl` |
 | `orchestrator` | agent | **the front door** — reports state, natively spawns one sub-agent with the exact role `route.mjs` names, and escalates decisions. Script dispatch is fallback only. The default role when a human names none. **Never chooses the node**, and writes no product file | `AGENTS.md`, `graph.md`, `human-attention.md`, `presenting-and-proposing.md`, `loop-status.mjs`, `route.mjs` | `session-handoff.md`, `progress.md`, `loop/approval.md`, `memory/orchestrator/**` |
@@ -67,7 +67,6 @@ other agent is confined by its `writes` list in `agents.manifest.json` — enfor
 `toolsSettings.write.allowedPaths` and on Claude Code by the `guard-write.mjs` hook
 (`runtimes.md`). **That confinement is the edge set**: an agent cannot create a handoff it has no
 write access to.
-
 **The orchestrator is the one agent with no incoming edge from `route.mjs`, deliberately.** It is the
 node that *reads* the router; if the router could dispatch it, the loop could recurse into its own
 front door. It is reachable only from a human, and `AGENTS.md` naming it satisfies the
@@ -262,11 +261,9 @@ features: feat-a NEEDS DESIGN, feat-b NEEDS RE-PLAN   → open: 2 → all_settle
 So the loop burns a paid LLM session per iteration, forever, producing nothing — and every iteration
 looks healthy in the log. The edges were *documented in prose* and *reported by tooling*, and neither
 is the same as being modeled.
-
 Note what did **not** find this. Nine mechanical gates and every demo assertion pass on this repo:
 each inspects the *content of a file*, none inspects *which node runs next*. The graph is a different
 axis of verification, not a stricter version of the same one.
-
 ## Where this graph parallelizes, and where it refuses to
 
 `p08-parallel-record.md` found one safe fan-out — evidence replay — and stated that WIP=1 forbids

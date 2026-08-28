@@ -25,7 +25,8 @@ This repository holds the agent-harness assets for the team:
   blockers). Scaffolded targets run the baseline, router, named dispatch and autonomous loop
   natively on Windows, macOS and Linux through Node `.mjs` entry points; `.sh` and `.cmd` files are
   compatibility wrappers only. In an interactive session, the orchestrator natively spawns the
-  one sub-agent selected by the router; Node dispatch is the headless/CI fallback. After every
+  one sub-agent selected by the router; Node dispatch is the automation/CI fallback, using ACP for
+  Kiro turns rather than `chat --no-interactive`. After every
   state change it shows canonical done/total/percent/remaining progress from `loop-status.mjs`.
   Fresh scaffolds contain harness state, tools, prompts and documentation under one root-level
   `harness/` directory. Only `AGENTS.md` and runtime-required `.kiro/`, `.claude/`, `.codex/`

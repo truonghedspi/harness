@@ -2,6 +2,26 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-28-kiro-acp-dispatch",
+      "summary": "Fresh and upgraded targets drive Kiro agent turns through ACP instead of headless chat invocation.",
+      "why": "HI-075: loop/dispatch.mjs still treated an agent turn as a terminal command (`kiro-cli chat --no-interactive`) even though Kiro exposes a stable programmatic boundary through `kiro-cli acp`. The repository owner explicitly requested ACP for harness upgrades.",
+      "targetImpact": "Kiro dispatch now starts `kiro-cli acp --agent <role> --trust-all-tools`, performs initialize/session-new/session-prompt over newline-delimited JSON-RPC, streams agent message chunks and accepts only end_turn. The loop's `--headless` flag remains as a human-supervision switch for CI/cron; it no longer means Kiro headless transport. Claude and Codex dispatch are unchanged.",
+      "paths": ["tools/kiro-acp-dispatch.mjs", "loop/dispatch.mjs", "docs/reference/runtimes.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md", "docs/reference/human-attention.md"],
+      "mergeActions": ["Refresh loop/dispatch.mjs and install the new skill-owned tools/kiro-acp-dispatch.mjs together; dispatch points at that file immediately.", "Keep project prompts and agent configs; the ACP process still selects the same generated Kiro role with --agent.", "Do not translate --headless into a transport choice: it controls only between-iteration checkpoints."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves initialize -> session/new -> session/prompt against a fake ACP backend and rejects runtime refusal text", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "humanDecision": {
+        "questionId": "kiro-acp-instead-of-headless",
+        "question": "Should harness upgrades use ACP instead of Kiro headless chat?",
+        "answer": "tôi muốn upgrade dùng harness dùng acp thay vì headless",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-28",
+        "scope": ["default and upgraded Kiro loop dispatch"],
+        "basis": [{"kind":"observation","pointer":"HI-075: templates/tree/loop/dispatch.mjs used chat --no-interactive"},{"kind":"human","pointer":"active thread goal on 2026-08-28"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
+    },
+    {
       "id": "HUC-2026-08-27-layout-neutral-graph",
       "summary": "The authoritative workflow graph now defines paths relative to the detected harness root instead of assuming every target uses the contained harness/ layout.",
       "why": "HI-054: flat layout is the default, but graph.md told flat targets that every path was relative to a contained harness/ home, sending readers toward paths that did not exist.",

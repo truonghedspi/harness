@@ -47,7 +47,7 @@ function checkRuntime(runtime) {
 }
 
 function invocation(runtime, agent, message) {
-  if (runtime === "kiro") return ["kiro-cli", ["chat", "--agent", agent, "--no-interactive", "--trust-all-tools", message]];
+  if (runtime === "kiro") return [process.execPath, [path.join(ROOT, "tools", "kiro-acp-dispatch.mjs"), agent, message]];
   if (runtime === "claude") return ["claude", ["-p", message, "--agent", agent, "--dangerously-skip-permissions"]];
   return [process.execPath, [path.join(ROOT, "tools", "codex-dispatch.mjs"), agent, message]];
 }

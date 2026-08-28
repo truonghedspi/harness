@@ -1536,10 +1536,12 @@ expect "the Node loop executes without Bash and preserves its mechanical early-s
 BATCH="$WORK/review-batch"; mkdir -p "$BATCH/loop" "$BATCH/bin"
 cp "$SCRIPTS/../templates/tree/loop/run-loop.mjs" "$BATCH/loop/run-loop.mjs"
 cp "$SCRIPTS/../templates/tree/loop/dispatch.mjs" "$BATCH/loop/dispatch.mjs"
+mkdir -p "$BATCH/tools"
+cp "$SCRIPTS/../templates/tree/tools/kiro-acp-dispatch.mjs" "$BATCH/tools/kiro-acp-dispatch.mjs"
 printf '%s\n' '#!/usr/bin/env node' 'process.stdout.write(JSON.stringify({node:"maker",kind:"agent",layer:"implementation",why:"incomplete feature"}));' > "$BATCH/loop/route.mjs"
 printf '%s\n' '#!/usr/bin/env node' 'process.exit(0);' > "$BATCH/init.mjs"
 printf '%s\n' '{"features":[{"id":"feat-partial","status":"active","readyForCheck":false,"checkerNotes":"","attempts":0,"maxAttempts":3}]}' > "$BATCH/feature_list.json"
-printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\n" "$*" >> "$HARNESS_FAKE_RUNTIME_LOG"' > "$BATCH/bin/kiro-cli"
+cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$BATCH/bin/kiro-cli"
 chmod +x "$BATCH/bin/kiro-cli"
 ( cd "$BATCH" && PATH="$BATCH/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BATCH/runtime.log" node loop/run-loop.mjs 1 --headless > "$BATCH/run.log" 2>&1 )
 test "$(grep -c -- '--agent maker' "$BATCH/runtime.log")" = "1" -a "$(grep -c -- '--agent checker' "$BATCH/runtime.log" || true)" = "0" \
@@ -2008,18 +2010,15 @@ process.exit(/Where a verification lives/.test(t) && /smell that a level is miss
 DP="$WORK/dispatch"; rm -rf "$DP"; mkdir -p "$DP/bin"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$DP" --name "Disp" --purpose "named dispatch" >/dev/null
 test -f "$DP/loop/dispatch.mjs" -a -f "$DP/loop/dispatch.cmd" -a -x "$DP/loop/dispatch.sh"; expect "every scaffold ships a runtime-agnostic way to dispatch one named agent" $?
-printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/d.log" 2>&1
-grep -q "agent=design-facilitator" "$DP/d.log"; expect "it runs the agent the caller named, not the one the router would have picked" $?
-printf '#!/usr/bin/env bash\necho "Monthly request limit reached; resets later"\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/q.log" 2>&1
+cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$DP/runtime.log" node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/d.log" 2>&1
+grep -q "\[stub\]" "$DP/d.log" && grep -q '^acp --agent design-facilitator --trust-all-tools$' "$DP/runtime.log"; expect "it runs the named agent through an ACP session, not headless chat" $?
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_OUTPUT="Monthly request limit reached; resets later" node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/q.log" 2>&1
 QC=$?; [ "$QC" = "75" ] && grep -q "runtime refused" "$DP/q.log"
 expect "a quota refusal that exits zero is classified as no agent work" $?
-printf '#!/usr/bin/env bash\necho "PreToolUse hook returned unsupported permissionDecision:allow"\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/hook.log" 2>&1
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_OUTPUT="PreToolUse hook returned unsupported permissionDecision:allow" node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/hook.log" 2>&1
 HC=$?; [ "$HC" = "75" ] && grep -q "runtime refused" "$DP/hook.log"
 expect "a hook-contract failure that exits zero is refused instead of accepting unconfined agent work" $?
-printf '#!/usr/bin/env bash\necho "[stub] agent=$3" >&2\nexit 0\n' > "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
 ( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs ghost "x" ) > "$DP/g.log" 2>&1
 GC=$?; grep -q "no agent" "$DP/g.log" && [ "$GC" = "2" ]
 expect "an agent that is not in the manifest is refused, rather than dispatched into nothing" $?
@@ -2798,11 +2797,7 @@ node -e "const fs=require('fs'),p='$FP/trace/r.json',r=JSON.parse(fs.readFileSyn
 FPA2="$(node "$SCRIPTS/progress-fingerprint.mjs" --target "$FP" --report "$FP/trace/r.json")"
 [ "$FPA" != "$FPB" ] && [ "$FPA" = "$FPA2" ]; expect "progress fingerprints distinguish changed evidence and expose an A-B-A return" $?
 STUBBIN="$WORK/stubbin"; mkdir -p "$STUBBIN"
-cat > "$STUBBIN/kiro-cli" <<'EOF'
-#!/usr/bin/env bash
-echo "[stub kiro-cli] $*" >&2
-exit 0
-EOF
+cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$STUBBIN/kiro-cli"
 chmod +x "$STUBBIN/kiro-cli"
 echo '{ "name": "demo-target", "private": true }' > "$T/package.json"   # make the baseline greenable
 printf '| id | Assumption | Status | If false | Recommended answer | Depended on by |\n|---|---|---|---|---|---|\n' > "$T/docs/assumptions.md"

@@ -101,7 +101,7 @@ sequenceDiagram
     participant C as checker agent
 
     RL->>RL: all features done/blocked-with-reason?<br/>→ exit early, no LLM session spawned
-    RL->>M: kiro-cli chat --agent maker
+    RL->>M: ACP initialize → session/new → session/prompt<br/>(kiro-cli acp --agent maker)
     M->>FS: pick first not-started feature<br/>whose dependencies are all done<br/>(skip NEEDS RE-PLAN and k8s-specialized ones)
     alt the step has 2+ independent file sets
         M->>FS: write loop/work-split/<feat>.json, then stop
@@ -121,7 +121,7 @@ sequenceDiagram
             RL->>M: SUBMISSION_INCOMPLETE<br/>attempts unchanged; checker skipped
         else typed handoff admitted
         RL->>FS: tools/verify-harness.mjs --promote —<br/>mechanical replay; flip clean reproductions<br/>to done (never touches blocked)
-        RL->>C: kiro-cli chat --agent checker
+        RL->>C: new ACP session/prompt<br/>(kiro-cli acp --agent checker)
         C->>FS: read remaining readyForCheck features<br/>+ spot-check the promoted ones
         C->>C: semantic review — behavior actually met,<br/>no scope bleed; falsify, don't confirm
         alt claim survives
