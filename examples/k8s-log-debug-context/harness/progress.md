@@ -6,7 +6,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Current State
 
 - **Last updated:** 2026-08-28
-- **Active feature:** feat-004 — adapter implementation awaits independent checker
+- **Active feature:** none — feat-005 requires oracle conditions for retention/bootstrap invariants
 - **Latest commit:** 234afe2 Khóa digest thiết kế ISM hiện tại
 - **Baseline (`node harness/init.mjs`):** green with Homebrew OpenJDK 21; Temurin 25.0.3 is rejected by the Java gate
 
@@ -34,11 +34,14 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 - [ ] OpenSearch log index adapter (`feat-004`)
   - Details: official-client gateway, canonical ISM/template resources, idempotent UTC bootstrap, indexing, and typed searches pass adapter tests.
   - Blockers: no implementation blocker; Docker/OpenSearch remains unavailable for feat-005's independent real-store proof.
+- [ ] OpenSearch storage contract (`feat-005`)
+  - Details: behavior and falsifier now include four retention/bootstrap invariants, while the plan still contains only three data-plane conditions.
+  - Blockers: oracle owner must design those missing conditions; Docker is unavailable and `OPENSEARCH_URL` is unset for the later real-store run.
 
 ## Next
 
-1. Route feat-004 through independent checker review.
-2. Keep feat-005 at an environment checkpoint until an authorized real OpenSearch store is available.
+1. Route the `NEEDS ORACLE FIX:` marker on feat-005 to the independent oracle owner.
+2. Keep behavioral red/green claims separate from the A-007 environment checkpoint until a real store is available.
 
 ## Known Issues / Risks
 

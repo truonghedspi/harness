@@ -319,9 +319,15 @@
           "run": "checkpoint",
           "cmd": "docker info --format '{{.ServerVersion}}'",
           "result": "Environment unavailable: Docker cannot connect to /Users/loren/.colima/default/docker.sock and no OPENSEARCH environment is configured. No real OpenSearch instance was available, so this is not recorded as red behavioral evidence. Separately, the approved contract defines IndexPort.index(NormalizedLogRecord) but no query method or OpenSearchLogIndex construction seam, so TCON-INDEX-0001 through TCON-INDEX-0003 cannot be implemented through the index port without inventing an API."
+        },
+        {
+          "date": "2026-08-28",
+          "run": "checkpoint",
+          "cmd": "docker info --format '{{.ServerVersion}}' and OPENSEARCH_URL probe",
+          "result": "Docker still cannot connect to /Users/loren/.colima/default/docker.sock and OPENSEARCH_URL is unset. This is A-007 environment evidence only, not a behavioral red or green run."
         }
       ],
-      "checkerNotes": "RESOLVED DESIGN: approved digest 441eb6d76fd1752d preserves the typed query-port seam and adds public idempotent bootstrap plus observable ISM, template, mapping, and daily-index outcomes. feat-005 remains the independent real-store proof; its oracle conditions must now cover INV-RETENTION-1 through INV-INDEX-SCHEMA-1 before implementation. See DECISIONS.md and loop/context-packets/feat-005.json.",
+      "checkerNotes": "NEEDS ORACLE FIX: feat-005 behavior and falsifier now require INV-RETENTION-1, INV-DAILY-1, INV-BOOTSTRAP-1, and INV-INDEX-SCHEMA-1, but its conditions array and TP-INDEX-0005 still define only the three older data-plane conditions. The independent oracle owner must add explicit bootstrap/retention conditions before implementing the real-store test; maker must not invent them inline. A-007 remains an environment checkpoint: Docker is unavailable and OPENSEARCH_URL is unset.",
       "attempts": 0,
       "maxAttempts": 3
     },
