@@ -11,8 +11,16 @@ const ROOT = path.resolve(opt("--target", path.join(path.dirname(fileURLToPath(i
 const LEDGER = "harness-loop/upgrade-context.json";
 const run = (argv) => execFileSync("git", ["-C", ROOT, ...argv], { encoding: "utf8" }).trim();
 const lines = (text) => text.split("\n").map((s) => s.trim()).filter(Boolean);
-const relevant = (file) => file.startsWith("harness-loop/") && file !== LEDGER &&
-  !file.endsWith("harness-issues.jsonl");
+// "Upgrade-relevant" = what a target receives or what scaffolds/upgrades/verifies it: the tree,
+// the reference docs copied into docs/reference/, and the scripts that run against a target.
+// Operator-side skill assets — SKILL.md, user-skills/, prompts/, onboarding-skills/, metadata,
+// README, harness-issues.jsonl — are never shipped to a target, so a change there is not an
+// upgrade change and must not demand a ledger entry. The former blanket `harness-loop/` prefix
+// false-flagged such commits (e.g. 26c0551fd447, the pr-description user skill).
+const relevant = (file) => file !== LEDGER &&
+  (file.startsWith("harness-loop/templates/") ||
+   file.startsWith("harness-loop/references/") ||
+   file.startsWith("harness-loop/scripts/"));
 const findings = [];
 
 let intro = "";
