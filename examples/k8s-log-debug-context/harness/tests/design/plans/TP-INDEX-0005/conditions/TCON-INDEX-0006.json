@@ -1,0 +1,11 @@
+{
+  "id": "TCON-INDEX-0006",
+  "plan_id": "TP-INDEX-0005",
+  "requirement_id": "INV-BOOTSTRAP-1",
+  "behavior": "Across repeated bootstrap command sequences against the same real store, including two callers racing to create an absent active index, every successful call returns the same fixed policy, template, and UTC active-index identities, and resource reads show exactly one of each named resource with no duplicate or wildcard resource created.",
+  "behavior_shape": "stateful",
+  "technique": "property",
+  "property_kind": "invariant",
+  "priority": "P0",
+  "rationale": "The result depends on store history and caller ordering; an invariant over repeated and raced command sequences exposes duplicate creation, identity drift, and treating an unverified already-exists response as success."
+}

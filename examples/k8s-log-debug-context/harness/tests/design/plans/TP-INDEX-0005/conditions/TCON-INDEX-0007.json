@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INDEX-0007",
+  "plan_id": "TP-INDEX-0005",
+  "requirement_id": "INV-INDEX-SCHEMA-1",
+  "behavior": "After bootstrap and before the first IndexPort write, template simulation or an active-index mapping read from real OpenSearch shows observedAt as date; namespace, pod, container, workload, source, and testRunId as keyword; message as text; and the subsequent public IndexPort round trip succeeds through that mapped active index.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "The guarantee spans template installation, concrete-index materialization, and the data-plane adapter; observing the real mapping before a public round trip catches late mapping, dynamic typing, incorrect exact/full-text fields, and an adapter bypassing the bootstrapped index."
+}

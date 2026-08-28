@@ -298,7 +298,11 @@
       "conditions": [
         "TCON-INDEX-0001",
         "TCON-INDEX-0002",
-        "TCON-INDEX-0003"
+        "TCON-INDEX-0003",
+        "TCON-INDEX-0004",
+        "TCON-INDEX-0005",
+        "TCON-INDEX-0006",
+        "TCON-INDEX-0007"
       ],
       "context": {
         "touches": [
@@ -327,7 +331,7 @@
           "result": "Docker still cannot connect to /Users/loren/.colima/default/docker.sock and OPENSEARCH_URL is unset. This is A-007 environment evidence only, not a behavioral red or green run."
         }
       ],
-      "checkerNotes": "NEEDS ORACLE FIX: feat-005 behavior and falsifier now require INV-RETENTION-1, INV-DAILY-1, INV-BOOTSTRAP-1, and INV-INDEX-SCHEMA-1, but its conditions array and TP-INDEX-0005 still define only the three older data-plane conditions. The independent oracle owner must add explicit bootstrap/retention conditions before implementing the real-store test; maker must not invent them inline. A-007 remains an environment checkpoint: Docker is unavailable and OPENSEARCH_URL is unset.",
+      "checkerNotes": "ORACLE CONDITIONS READY: TP-INDEX-0005 now covers INV-RETENTION-1, INV-DAILY-1, INV-BOOTSTRAP-1, and INV-INDEX-SCHEMA-1 under approved design digest 441eb6d76fd1752d. A-007 remains an environment checkpoint: the oracle must use an authorized real OpenSearch store and must not substitute a fake or mapping-only retention proof.",
       "attempts": 0,
       "maxAttempts": 3
     },

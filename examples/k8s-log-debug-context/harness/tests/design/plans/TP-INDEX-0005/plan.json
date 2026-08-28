@@ -1,10 +1,13 @@
 {
   "plan_id": "TP-INDEX-0005",
-  "component": "OpenSearch-backed log index port",
+  "component": "OpenSearch retention bootstrap and log index port",
   "spec_refs": [
     "harness/docs/design/log-debug-context.md#data-and-query-contract",
     "harness/docs/design/log-debug-context.md#invariants-and-test-seams",
+    "harness/docs/design/opensearch-retention.md#invariants-and-observable-seams",
     "harness/docs/cross-cutting.md#X-002",
+    "harness/docs/cross-cutting.md#X-009",
+    "harness/loop/design-approval.json#441eb6d76fd1752d",
     "harness/feature_list.json#feat-005"
   ],
   "risk_tier": "T1",

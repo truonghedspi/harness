@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INDEX-0004",
+  "plan_id": "TP-INDEX-0005",
+  "requirement_id": "INV-RETENTION-1",
+  "behavior": "Given an authorized empty real OpenSearch store, bootstrap installs the active log-debug-v1 daily index under ISM policy log-debug-retention-v1, and policy GET plus ISM explain show a hot default state whose only terminal transition enters a delete state at min_index_age 7d and deletes that index.",
+  "behavior_shape": "fixed_rule",
+  "technique": "example",
+  "priority": "P0",
+  "rationale": "The policy identity, state names, age threshold, and terminal action are owner-approved constants, so an example checked against public OpenSearch reads discriminates exact seven-day ISM retention from mapping metadata, a wrong age, or a non-delete terminal state."
+}

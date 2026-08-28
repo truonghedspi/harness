@@ -1,0 +1,10 @@
+{
+  "id": "TCON-INDEX-0005",
+  "plan_id": "TP-INDEX-0005",
+  "requirement_id": "INV-DAILY-1",
+  "behavior": "Given a fixed service clock and an accepted record whose observedAt falls on a different UTC date, bootstrap selects log-debug-v1-YYYY.MM.dd for the clock's UTC date, the real IndexPort writes the record only to that active index, and existence reads show that call created no adjacent, historical, or future daily index.",
+  "behavior_shape": "integration",
+  "technique": "contract",
+  "priority": "P0",
+  "rationale": "Daily placement crosses the injected clock, bootstrap lifecycle, adapter request, and real store; a contract with a deliberately different event date catches routing by observedAt, a static index, or creation of extra day indexes."
+}
