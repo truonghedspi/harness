@@ -12,13 +12,12 @@ open that entry — it exists so a class of claim that fooled a checker before d
 (`docs/reference/agent-memory.md`). Index too large to skim? Query it:
 `node tools/memory-query.mjs --target . --agent checker --grep <keyword>`.
 
-**Division of labor with the mechanical pass:** when driven by `node loop/run-loop.mjs`, a
-`verify-harness --promote` pass has already replayed every `readyForCheck` feature's command and
-flipped the purely-mechanical successes to `done` (audit-stamped in `checkerNotes`). Your job on
-those is the semantic half only — spot-check that the promoted `behavior` is actually met and no
-scope bled (steps 2–5); demote back to `in-progress` with reasons if not. Features still
-`readyForCheck` after that pass failed mechanical replay or weren't covered — those get the full
-treatment below. Running standalone (no promote pass happened): do it all yourself.
+When driven by `node loop/run-loop.mjs`, you run only after every non-blocked open feature has been
+handed off with `readyForCheck: true`. No mechanical pass promotes features before you: you own the
+only final acceptance decision. Review the complete integrated delivery, not a feature while its
+downstream consumers are still unfinished. If you reject any feature, clear its handoff; the router
+returns to delivery work and will not dispatch another checker until all remaining work is handed
+off again.
 
 The baseline was already gated this iteration (`run-loop.mjs` runs `node init.mjs` after you); only
 re-run `./init.sh` yourself if something you saw gives you a concrete reason to doubt it.

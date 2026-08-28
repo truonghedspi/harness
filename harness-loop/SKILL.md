@@ -99,7 +99,9 @@ was fixed*, not because the one target was patched around:
    `done` once its evidence re-runs clean and the whole report is otherwise blocker-free — the
    purely mechanical half of the checker's job (re-run it, don't trust the claim), not a
    replacement for the checker's semantic review (does the behavior actually match, is there scope
-   bleed). It never promotes anything while any blocker exists anywhere in the report.
+   bleed). The autonomous workflow no longer invokes promotion between features: a complete handoff
+   unlocks downstream delivery, and one final checker batch runs only after all open work is handed
+   off. It never promotes anything while any blocker exists anywhere in the report.
 3. **improve** — when verify finds a `layer: harness` finding, that is a bug in this skill, and it
    must be remembered past the end of the chat:
    ```bash

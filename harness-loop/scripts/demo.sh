@@ -1545,15 +1545,15 @@ cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$BATCH/bin/kiro-cli"
 chmod +x "$BATCH/bin/kiro-cli"
 ( cd "$BATCH" && PATH="$BATCH/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BATCH/runtime.log" node loop/run-loop.mjs 1 --headless > "$BATCH/run.log" 2>&1 )
 test "$(grep -c -- '--agent maker' "$BATCH/runtime.log")" = "1" -a "$(grep -c -- '--agent checker' "$BATCH/runtime.log" || true)" = "0" \
-  && grep -q 'checker skipped: maker recorded a checkpoint' "$BATCH/run.log" \
   && grep -q 'only when the whole feature-level.*behavior' "$SCRIPTS/../templates/tree/loop/maker-prompt.md" \
   && grep -q 'counts failed review cycles, not maker checkpoints' "$SCRIPTS/../templates/tree/loop/checker-prompt.md"
-expect "partial maker checkpoints do not dispatch checker; only complete feature-level claims do" $?
+expect "partial maker checkpoints do not dispatch the final checker" $?
 # A maker can still set readyForCheck too early. Admission classifies that as mechanically
 # incomplete, skips checker, and does not spend the semantic attempts budget.
 cp "$SCRIPTS/../templates/tree/tools/review-contract.mjs" "$BATCH/tools-review-contract.mjs"
 mkdir -p "$BATCH/tools"; cp "$BATCH/tools-review-contract.mjs" "$BATCH/tools/review-contract.mjs"
 printf '%s\n' '{"features":[{"id":"feat-review","behavior":"returns one result","verification":"node -e \"process.exit(0)\"","falsifier":"returns no result","dependencies":[],"context":{"touches":["src/x.ts"],"note":"public seam"},"status":"active","readyForCheck":true,"checkerNotes":"","attempts":0,"maxAttempts":3}]}' > "$BATCH/feature_list.json"
+printf '%s\n' '#!/usr/bin/env node' 'process.stdout.write(JSON.stringify({node:"checker",kind:"agent",layer:"final-acceptance",why:"all work handed off"}));' > "$BATCH/loop/route.mjs"
 : > "$BATCH/runtime.log"
 ( cd "$BATCH" && PATH="$BATCH/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BATCH/runtime.log" node loop/run-loop.mjs 1 --headless > "$BATCH/admission-red.log" 2>&1 )
 test "$(grep -c -- '--agent checker' "$BATCH/runtime.log" || true)" = "0" \
@@ -3441,6 +3441,24 @@ const t=require('fs').readFileSync('$SCRIPTS/../references/graph.md','utf8');
 process.exit(/NEEDS ORACLE FIX:/.test(t) && /All twelve named edges/.test(t) ? 0 : 1);
 "
 expect "graph.md records the new edge and its count — the workflow and its only written-down map agree" $?
+
+echo ""
+step 60 "checker is a final acceptance node, never an inner-loop hop"
+FC="$WORK/demo-final-check"; rm -rf "$FC"; mkdir -p "$FC/loop"
+cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$FC/loop/route.mjs"
+cat > "$FC/feature_list.json" <<'FCJ'
+{"features":[
+ {"id":"feat-a","kind":"build","status":"in-progress","readyForCheck":true,"behavior":"a","verification":"true","falsifier":"wrong a","dependencies":[],"evidence":[{"run":"green"}],"checkerNotes":"","attempts":0,"maxAttempts":3},
+ {"id":"feat-b","kind":"build","status":"not-started","readyForCheck":false,"behavior":"b","verification":"true","falsifier":"wrong b","dependencies":["feat-a"],"evidence":[],"checkerNotes":"","attempts":0,"maxAttempts":3}
+]}
+FCJ
+(cd "$FC" && node loop/route.mjs --json > partial.json 2>/dev/null)
+node -e "const r=require('$FC/partial.json');process.exit(r.node==='maker'&&r.feature==='feat-b'?0:1)"
+expect "one handed-off feature unlocks its dependent, while checker stays out of the delivery loop" $?
+node -e "const fs=require('fs'),p='$FC/feature_list.json',j=JSON.parse(fs.readFileSync(p));j.features[1].status='in-progress';j.features[1].readyForCheck=true;fs.writeFileSync(p,JSON.stringify(j,null,2))"
+(cd "$FC" && node loop/route.mjs --json > final.json 2>/dev/null)
+node -e "const r=require('$FC/final.json');process.exit(r.node==='checker'&&r.layer==='final-acceptance'&&r.features.length===2?0:1)"
+expect "checker is selected once every non-blocked open feature has been handed off" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

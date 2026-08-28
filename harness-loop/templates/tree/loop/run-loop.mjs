@@ -2,7 +2,7 @@
 // Cross-platform autonomous loop driver. The .sh/.cmd files are compatibility wrappers only.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
@@ -103,18 +103,6 @@ async function checkpoint(iteration, node) {
   }
 }
 
-async function approvalAllowsPromote(iteration) {
-  if (!existsSync("loop/approval-gate.mjs")) return true;
-  if (run(process.execPath, ["loop/approval-gate.mjs", "--check"]).status === 0) return true;
-  console.log(`=== iteration ${iteration}/${iterations} — HUMAN APPROVAL required before promote ===`);
-  const wait = run(process.execPath, ["loop/approval-gate.mjs", "--wait", "--timeout-min",
-    process.env.APPROVAL_TIMEOUT_MIN || "0", "--on-timeout", process.env.APPROVAL_ON_TIMEOUT || "reject"],
-  { stdio: "inherit" });
-  rmSync("loop/approval.md", { force: true });
-  rmSync("loop/approval-request.md", { force: true });
-  return wait.status === 0;
-}
-
 // The fan-out: one maker per outstanding slice of a validated work-split plan, all inside ONE
 // feature. WIP=1 is untouched — it bounds features, not files — and tools/guard-write.mjs confines
 // each worker to its slice's paths, so the thing they could contend on is removed rather than
@@ -165,14 +153,6 @@ async function fanOut(next, headless, runtime) {
   return 0;
 }
 
-// Re-running EVERY already-done feature's verification command on every single maker iteration is
-// real regression coverage (docs/testing-standards.md: environment/contract drift can break
-// unchanged code) but not a cost worth paying every iteration forever, especially once a project
-// has Level 3 integration-verified features. Full replay (including already-claimed features) runs
-// only every Nth iteration and once more at the end of the run; every other iteration replays only
-// readyForCheck features — the ones --promote actually needs to act on this iteration.
-const FULL_REPLAY_EVERY = Number(process.env.HARNESS_FULL_REPLAY_EVERY || 5);
-
 async function main() {
   if (allSettled()) {
     console.log("all features done (or blocked with a recorded reason) — nothing to do, exiting early.");
@@ -194,6 +174,15 @@ async function main() {
       appendFileSync("session-handoff.md", `${next.why}\n`);
       return 3;
     }
+    if (next.node === "checker") {
+      const reviewBatch = readyForCheck();
+      if (!reviewBatch.length || existsSync("tools/review-contract.mjs") &&
+          run(process.execPath, ["tools/review-contract.mjs", "--ready"], { stdio: "inherit" }).status !== 0) {
+        console.log("checker skipped: final handoff batch failed mechanical admission; attempts unchanged");
+        continue;
+      }
+      console.log(`final review batch: ${reviewBatch.map((feature) => feature.id).join(", ")}`);
+    }
     if (next.kind === "agent") {
       markCurrent(next, iteration);
       const headless = `You are running HEADLESS under node loop/run-loop.mjs — no human can answer questions, so commit directly instead of asking. The router selected you because: ${next.why}. Run exactly one iteration per your instructions and loop/goal.md. Honor every stop condition.`;
@@ -203,39 +192,16 @@ async function main() {
       markCurrent(next, iteration, true);
       if (code !== 0) return code;
     }
+    if (next.node === "checker") {
+      recordBaseline();
+      baselineChecked = true;
+    }
     if (attended && !await checkpoint(iteration, next.node)) return 0;
-    if (!["maker", "k8s-integration-tester"].includes(next.node)) continue;
-    const reviewBatch = readyForCheck();
-    if (!reviewBatch.length) {
-      console.log("checker skipped: maker recorded a checkpoint, but no complete feature-level claim is ready");
-      continue;
-    }
-    if (existsSync("tools/review-contract.mjs")) {
-      const admission = run(process.execPath, ["tools/review-contract.mjs", "--ready"], { stdio: "inherit" });
-      if (admission.status !== 0) {
-        console.log("checker skipped: SUBMISSION_INCOMPLETE is maker feedback, not a semantic REJECT; attempts unchanged");
-        continue;
-      }
-    }
-    console.log(`review batch: ${reviewBatch.map((feature) => feature.id).join(", ")}`);
-    const promote = await approvalAllowsPromote(iteration);
-    if (promote && existsSync("tools/verify-harness.mjs")) {
-      const fullReplay = iteration % FULL_REPLAY_EVERY === 0;
-      const replayArgs = ["tools/verify-harness.mjs", "--target", ".", "--skip-baseline", "--run-features", "--promote", "--quiet"];
-      if (!fullReplay) replayArgs.push("--skip-claimed");
-      show(process.execPath, replayArgs);
-    }
-    console.log(`=== iteration ${iteration}/${iterations} — checker ===`);
-    const checkerCode = await dispatch("checker", "Check every feature with readyForCheck=true per your instructions. Verdicts and reasons only.", { runtime });
-    if (checkerCode !== 0) return checkerCode;
-    recordBaseline();
-    baselineChecked = true;
   }
-  // A run that ended mid-cycle of FULL_REPLAY_EVERY may never have re-checked already-done
-  // features' evidence this session — do it once here so drift doesn't sit unnoticed until the
-  // next run happens to land on a full-replay iteration.
+  // The checker owns semantic acceptance; this replay is post-verdict regression evidence only
+  // and deliberately lacks --promote.
   if (baselineChecked && existsSync("tools/verify-harness.mjs")) {
-    show(process.execPath, ["tools/verify-harness.mjs", "--target", ".", "--skip-baseline", "--run-features", "--promote", "--quiet"]);
+    show(process.execPath, ["tools/verify-harness.mjs", "--target", ".", "--skip-baseline", "--run-features", "--quiet"]);
   }
   for (const tool of ["memory-consolidate.mjs", "cross-cutting-audit.mjs"]) {
     if (existsSync(path.join("tools", tool))) show(process.execPath, [path.join("tools", tool), "--target", "."]);

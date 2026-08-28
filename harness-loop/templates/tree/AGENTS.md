@@ -71,12 +71,12 @@ how long each open feature has been open. A snapshot cannot tell a moving projec
 | `feature-planner` | `checkerNotes` starts `NEEDS RE-PLAN:` | decomposition — re-cutting `feature_list.json` |
 | `test-designer` → `test-implementer` | no `falsifier`, or the oracle is unwritten | the oracle — **neither reads the implementation** |
 | `maker` | a feature is eligible | implementation. **Cannot set `done`** |
-| `checker` | a feature is `readyForCheck` | judgement — **the only agent that may set `done`** |
+| `checker` | every non-blocked open feature is `readyForCheck` | final acceptance of the integrated delivery — **the only agent that may set `done`** |
 | `k8s-integration-tester` | verification deploys to a real cluster | integration — Level 3 across a real service boundary |
 | `harness-setup` | the environment is not ready | toolchain and baseline |
 
-Two nodes are plain code: `tools/verify-harness.mjs --promote` (replays evidence) and
-`loop/approval-gate.mjs` (stops for a human before `done` becomes terminal).
+Two supporting nodes are plain code: `tools/verify-harness.mjs` (replays evidence without deciding
+semantic acceptance) and `loop/approval-gate.mjs` (selective human judgement before a terminal claim).
 
 ## While you work
 

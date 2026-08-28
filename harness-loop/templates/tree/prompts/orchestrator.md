@@ -112,9 +112,10 @@ maker's step 5. You dispatch what the plan says.
 
 ## When the loop asks for a human
 
-The loop escalates in four shapes: a `NEEDS DESIGN:` / `NEEDS RE-PLAN:` marker, a `needs-human` row
-in `docs/assumptions.md`, `route.mjs` naming `human`, or an approval request from
-`loop/approval-gate.mjs`. In every case:
+The loop escalates in three shapes: a `NEEDS DESIGN:` / `NEEDS RE-PLAN:` marker, a `needs-human` row
+in `docs/assumptions.md`, or `route.mjs` naming `human`. (`loop/approval-gate.mjs` is manual-only:
+the autonomous loop no longer auto-invokes it, because the checker owns final acceptance. A human may
+still run it by hand to hold a terminal `done` claim.) In every case:
 
 - **Translate it.** State the question in the human's terms, not the marker's. What is being asked,
   what depends on it, and what happens either way.

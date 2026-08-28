@@ -66,7 +66,8 @@ Every slice landed. You are one agent, deliberately — this is the fan-in.
    for you) lists every feature with its status, dependencies and an **ELIGIBLE** marker; open
    `feature_list.json` for the full entry of the one you pick:
    - a feature already `in-progress`/`active`, else
-   - the first `not-started` feature whose dependencies are all `done`.
+   - the first `not-started` feature whose dependencies are `done` or have a complete
+     `readyForCheck: true` handoff. A handoff unlocks delivery order; it is not checker approval.
 
    If its `context.packet` is loaded automatically and reported `consumed`, treat its fresh facts
    as established and read the injected `mustRead` sources. Do not reopen every cited design file
@@ -171,7 +172,8 @@ Every slice landed. You are one agent, deliberately — this is the fan-in.
    `node tools/review-contract.mjs <feat-id>` exits 0**. Otherwise keep
    `readyForCheck: false`, keep the feature `active`/`in-progress`, record the checkpoint in
    `progress.md`, and let the router return it to the maker. You must NOT set `status: done` — that
-   is the checker's decision alone.
+   is the checker's decision alone. Continue delivering downstream features; the checker is not
+   dispatched until every non-blocked open feature has reached this handoff state.
 10. Any requirement/architecture question `docs/` doesn't answer is a DESIGN question, not a
    blocker for you to absorb: write `NEEDS DESIGN: <the question>` as the first line of
    `checkerNotes`, leave `status` as it was, and pick the next eligible feature. The

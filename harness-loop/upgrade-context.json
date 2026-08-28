@@ -2,6 +2,26 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-28-final-acceptance-checker",
+      "summary": "Checker moved from per-feature inner-loop review to one final acceptance batch after the complete delivery is handed off.",
+      "why": "The repository owner explicitly requested that checker check only the last step after everything has been handed over. Per-feature checker hops interrupted delivery order and judged features before downstream integration existed.",
+      "targetImpact": "readyForCheck now means a complete handoff that unlocks dependent implementation, not acceptance. The router dispatches checker only when every non-blocked open feature is readyForCheck. Rejection clears the affected handoff and delivery resumes; another checker turn waits for a complete batch again. run-loop no longer mechanically promotes claims before checker.",
+      "paths": ["loop/route.mjs", "loop/run-loop.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/goal.md", "AGENTS.md", "feature_list.json", "agents.manifest.json", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Refresh route.mjs and run-loop.mjs together so handoff-aware dependency eligibility and final checker routing cannot drift.", "Merge project-specific maker/checker prompts while preserving the final-batch timing contract.", "Regenerate runtime agents from agents.manifest.json after prompt changes.", "Preserve project feature state; existing readyForCheck claims become delivery handoffs and will be reviewed together once the remaining work is handed off."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves a handed-off dependency unlocks downstream maker work without checker and that checker routes only after every open feature is handed off", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "humanDecision": {
+        "questionId": "checker-final-acceptance-only",
+        "question": "Should checker run only as the final step after all work is handed off?",
+        "answer": "tôi muốn đổi workflow, checker chỉ check bước cuối cùng sau khi mọi thứ được bàn giao",
+        "answeredBy": "repository owner via chat",
+        "answeredAt": "2026-08-28",
+        "scope": ["default and upgraded project workflow"],
+        "basis": [{"kind":"human","pointer":"active thread goal on 2026-08-28"}],
+        "supersedes": null,
+        "openFollowUps": []
+      }
+    },
+    {
       "id": "HUC-2026-08-28-kiro-acp-dispatch",
       "summary": "Fresh and upgraded targets drive Kiro agent turns through ACP instead of headless chat invocation.",
       "why": "HI-075: loop/dispatch.mjs still treated an agent turn as a terminal command (`kiro-cli chat --no-interactive`) even though Kiro exposes a stable programmatic boundary through `kiro-cli acp`. The repository owner explicitly requested ACP for harness upgrades.",

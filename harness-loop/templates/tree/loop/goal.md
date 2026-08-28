@@ -27,11 +27,12 @@ sets `readyForCheck: true` only when the complete feature behavior is green, but
 
 ## Gates (checker)
 
-`done` requires checker approval. `run-loop.mjs` dispatches the checker only when at least one
-complete feature-level claim has `readyForCheck: true`; maker checkpoints do not spend a checker
-session. The checker falsifies rather than confirms: re-run the recorded evidence, exercise the
-highest test level the change touches, and reject anything that doesn't reproduce. Each rejection,
-not each maker checkpoint, consumes one `attempts` review-cycle budget.
+`done` requires checker approval. `readyForCheck: true` means the feature has been handed off and
+may unblock dependent implementation, but is not accepted. `run-loop.mjs` dispatches the checker
+only after every non-blocked open feature has a complete handoff. The checker then judges the
+integrated delivery as one final batch. A rejection clears that feature's handoff and returns it to
+the maker; another checker session is allowed only after every remaining feature is handed off
+again. Each rejected final-review cycle, not each maker checkpoint, consumes `attempts`.
 
 ## Stop conditions (end the loop, write session-handoff.md, escalate)
 

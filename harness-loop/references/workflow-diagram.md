@@ -85,8 +85,9 @@ produced an invariant to derive one from.
 ## 2. Inside one loop iteration — generator/evaluator separation (Lesson 9/13)
 
 The maker never grades itself; only the checker (re-running evidence independently) may set
-`status: done`. See `references/loop-engineering.md`'s "Generator/evaluator separation" section
-for why.
+`status: done`. The separation is also temporal: makers finish and hand off the whole delivery
+before the checker runs one final acceptance batch. See `references/loop-engineering.md`'s
+"Generator/evaluator separation" section for why.
 
 One iteration may be several makers at once, over disjoint file sets inside one feature — but never
 several *features*, and never a parallel test run. `references/graph.md` states the fan-out and
@@ -102,7 +103,7 @@ sequenceDiagram
 
     RL->>RL: all features done/blocked-with-reason?<br/>→ exit early, no LLM session spawned
     RL->>M: ACP initialize → session/new → session/prompt<br/>(kiro-cli acp --agent maker)
-    M->>FS: pick first not-started feature<br/>whose dependencies are all done<br/>(skip NEEDS RE-PLAN and k8s-specialized ones)
+    M->>FS: pick first not-started feature<br/>whose dependencies are done or handed off<br/>(skip NEEDS RE-PLAN and k8s-specialized ones)
     alt the step has 2+ independent file sets
         M->>FS: write loop/work-split/<feat>.json, then stop
         RL->>FS: tools/work-split.mjs validate —<br/>slices disjoint? briefs self-contained?<br/>fan-in runs the feature verification?
@@ -113,16 +114,14 @@ sequenceDiagram
     end
     alt feature-level behavior is incomplete
         M->>FS: checkpoint evidence/progress,<br/>readyForCheck=false
-        RL->>RL: skip checker; next iteration<br/>routes the active feature to maker
+        RL->>RL: next iteration routes the<br/>active feature to maker
     else complete behavior + green verification + complete evidence
         M->>FS: reviewPacket + readyForCheck=true<br/>(cannot write status=done)
-        RL->>FS: review-contract.mjs --ready
-        alt reviewPacket incomplete
-            RL->>M: SUBMISSION_INCOMPLETE<br/>attempts unchanged; checker skipped
-        else typed handoff admitted
-        RL->>FS: tools/verify-harness.mjs --promote —<br/>mechanical replay; flip clean reproductions<br/>to done (never touches blocked)
-        RL->>C: new ACP session/prompt<br/>(kiro-cli acp --agent checker)
-        C->>FS: read remaining readyForCheck features<br/>+ spot-check the promoted ones
+        RL->>RL: continue delivery while any<br/>non-blocked open feature is not handed off
+        alt every remaining feature handed off
+        RL->>FS: review-contract.mjs --ready<br/>admits the complete final batch
+        RL->>C: one final ACP session/prompt<br/>(kiro-cli acp --agent checker)
+        C->>FS: review every readyForCheck feature<br/>as one integrated delivery
         C->>C: semantic review — behavior actually met,<br/>no scope bleed; falsify, don't confirm
         alt claim survives
             C->>FS: status=done

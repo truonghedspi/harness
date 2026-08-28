@@ -18,7 +18,9 @@ This repository holds the agent-harness assets for the team:
   turn a `layer: harness` finding into a ranked, tracked fix to the template, closed only when
   `--reverify` proves it stopped reproducing). Maker submissions cross a typed admission seam
   before semantic review: incomplete `reviewPacket`s return to maker without spending a checker
-  attempt, while the independent checker keeps private probes and exclusive authority over `done`.
+  attempt. Complete handoffs unlock downstream delivery; the independent checker runs only after
+  every open feature is handed off, then judges the integrated batch and keeps exclusive authority
+  over `done`.
   Run `node harness-loop/scripts/setup-harness-loop.mjs --target <proj>`, then
   `node check-coverage.mjs` (must report 13/13) and
   `node harness-loop/scripts/verify-harness.mjs --target <proj> --run-features` (must report 0
