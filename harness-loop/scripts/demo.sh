@@ -3208,14 +3208,17 @@ HARNESS_LAYOUT=contained node "$SCRIPTS/setup-harness-loop.mjs" --target "$UG" -
 # Simulate a target scaffolded before these tools existed. They reach a fresh scaffold through
 # setup's directory walk, so they were invisible to the upgrader's copy-list grep (HI-064) — and a
 # target that never had them ran a refreshed run-loop.mjs calling a tool that was not there.
-rm -f "$UG/harness/tools/review-contract.mjs" "$UG/harness/tools/work-split.mjs"
+rm -f "$UG/harness/tools/review-contract.mjs" "$UG/harness/tools/work-split.mjs" \
+  "$UG/harness/tools/kiro-acp-dispatch.mjs"
 node "$SCRIPTS/upgrade-harness.mjs" --target "$UG" --json > "$UG/upgrade.json"
 node -e "
 const r=require('$UG/upgrade.json');
-process.exit(r.added.includes('tools/review-contract.mjs') && r.added.includes('tools/work-split.mjs') ? 0 : 1);
+process.exit(r.added.includes('tools/review-contract.mjs') && r.added.includes('tools/work-split.mjs') &&
+  r.added.includes('tools/kiro-acp-dispatch.mjs') ? 0 : 1);
 "
 expect "the upgrader restores templates/tree/tools/* an old target never received" $?
-[ -f "$UG/harness/tools/review-contract.mjs" ]; expect "and the file is really on disk afterwards" $?
+[ -f "$UG/harness/tools/review-contract.mjs" ] && [ -f "$UG/harness/tools/kiro-acp-dispatch.mjs" ]
+expect "and both admission plus ACP dispatch are really on disk afterwards" $?
 # HI-065: the maker prompt tells a contained target to run this from the project root.
 ( cd "$UG" && node harness/tools/review-contract.mjs --ready > review.out 2>&1 ); RCRC=$?
 grep -q "cannot read feature_list.json" "$UG/review.out"; RCMISS=$?

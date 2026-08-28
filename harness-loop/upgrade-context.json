@@ -8,7 +8,7 @@
       "targetImpact": "Kiro dispatch now starts `kiro-cli acp --agent <role> --trust-all-tools`, performs initialize/session-new/session-prompt over newline-delimited JSON-RPC, streams agent message chunks and accepts only end_turn. The loop's `--headless` flag remains as a human-supervision switch for CI/cron; it no longer means Kiro headless transport. Claude and Codex dispatch are unchanged.",
       "paths": ["tools/kiro-acp-dispatch.mjs", "loop/dispatch.mjs", "docs/reference/runtimes.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md", "docs/reference/human-attention.md"],
       "mergeActions": ["Refresh loop/dispatch.mjs and install the new skill-owned tools/kiro-acp-dispatch.mjs together; dispatch points at that file immediately.", "Keep project prompts and agent configs; the ACP process still selects the same generated Kiro role with --agent.", "Do not translate --headless into a transport choice: it controls only between-iteration checkpoints."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves initialize -> session/new -> session/prompt against a fake ACP backend and rejects runtime refusal text", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves initialize -> session/new -> session/prompt against a fake ACP backend, rejects runtime refusal text, and restores the ACP client into a target that predates it", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
       "humanDecision": {
         "questionId": "kiro-acp-instead-of-headless",
         "question": "Should harness upgrades use ACP instead of Kiro headless chat?",
