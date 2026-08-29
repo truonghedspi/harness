@@ -1,17 +1,19 @@
 {
   "schema": "design-approval/1",
-  "designDigest": "7cd41bd9c96d3711",
+  "designDigest": "1ad9eae6fce91ef3",
   "status": "approved",
   "approvedBy": "gommi",
   "approvedAt": "2026-08-29",
   "decisions": [
-    "Option A accepted (didOpen on-query, scoped to java_diagnostics): the daemon composition root (src/cli.ts) sends textDocument/didOpen for the queried document before a file-scoped java_diagnostics answer and waits for its publishDiagnostics within the call deadline. Adds INV-DIAG-4 to harness/docs/design/tool-surface.md; src/tools/diagnostics.ts keeps its 'never sends an LSP request' invariant (the didOpen is a daemon-side wiring side effect, not a tool-layer request).",
+    "Option A accepted (didOpen on-query, scoped to java_diagnostics): the daemon composition root (src/cli.ts) sends textDocument/didOpen for the queried document before a file-scoped java_diagnostics answer and waits for its publishDiagnostics within the call deadline. src/tools/diagnostics.ts keeps its 'never sends an LSP request' invariant (the didOpen is a daemon-side wiring side effect, not a tool-layer request).",
     "Option B (readiness gate additionally waits for diagnostics) rejected: it mixes a per-file concern (publishDiagnostics for one URI) into a per-workspace gate and muddies INV-READY-2 (readiness decided by semantic probe, never by status).",
     "Option C (file-sync-watcher opens every Java file on watch) rejected: O(files) didOpen on startup, memory/time cost, overkill for single-file queries.",
+    "Revision (checker REJECT addressed): INV-DIAG-4 reworded to pin the bounded wait for publishDiagnostics as the load-bearing mechanism, with textDocument/didOpen as a trigger/optimisation. Checker mutant evidence: deleting only the didOpen while keeping the wait still passed the verification, so the wait — not the didOpen — is what the falsifier must name. Falsifier reworded to name the no-wait mutant.",
     "Prior decision (Option R, project-router reactor-root resolution, approvedBy truong.hn.1994@gmail.com on 2026-08-21) remains in force and is recorded in DECISIONS.md."
   ],
   "acceptedRisks": [
-    "didOpen -> publishDiagnostics is asynchronous: if the publish does not arrive by the call deadline, java_diagnostics still answers 'not-reported' (an honest fallback under INV-DIAG-1), never a hang — the bounded wait respects the per-call deadline budget (X-001).",
+    "publishDiagnostics may not arrive by the call deadline: java_diagnostics then still answers 'not-reported' (an honest fallback under INV-DIAG-1), never a hang — the bounded wait respects the per-call deadline budget (X-001).",
+    "didOpen is kept as a speed trigger but is not independently falsified by the oracle: its only observable effect is making the publish arrive sooner, which the wait already tolerates.",
     "<modules> tag detection is validated only against the current fixture tree, not an independent Maven-model parser — an atypical multi-module layout could be misclassified (carried over from the 2026-08-21 approval)."
   ]
 }
