@@ -13,3 +13,4 @@ in another language stay as they are — this governs what gets written from now
 
 - [OpenSearch ISM attach is async; match is OR](opensearch-ism-attach-and-match-or-semantics.md) — poll explain until policy_id, use match_phrase for message filters
 - [init.mjs JDK-21 autoselect only covers its own subprocess](jdk21-autoselect-only-applies-to-init-subprocess.md) — direct `./mvnw` commands still need `JAVA_HOME=/opt/homebrew/opt/openjdk@21/...` exported
+- [Collector contract has two deferred seams](collector-contract-deferred-seams.md) — stock OTel has no raw-JSON exporter (otlphttp → resourceLogs); feat-011 must reconcile log-context.harness.dev/enabled vs debug.logs/enabled

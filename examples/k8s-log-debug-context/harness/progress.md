@@ -5,9 +5,9 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-28 (checker, feat-005 APPROVE → done)
-- **Active feature:** none — `node harness/loop/route.mjs` picks the next node
-- **Latest commit:** e8cbe12 Bổ sung điều kiện oracle retention OpenSearch
+- **Last updated:** 2026-08-29 (maker, feat-008 REJECT fixed — `readyForCheck: true`, attempts 1/3)
+- **Active feature:** feat-008 Collector preflight and opt-in deployment — `readyForCheck: true` (FIXED: policy test now asserts opt-in/enrichment/schemaVersion-1/egress on the chart ConfigMap too)
+- **Latest commit:** 1302959 k8s-log-debug-context: feat-006 MCP query service + feat-007 wire/auth contract done
 - **Baseline (`env -u JAVA_HOME node harness/init.mjs`):** green — init.mjs now selects Homebrew OpenJDK 21 itself (BaselineTest Tests run: 1, Failures: 0)
 - **OpenSearch:** 2.19.1 live at `http://localhost:9200`, ISM plugin present
 
@@ -29,11 +29,11 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- (none)
+- [x] `feat-008` Collector preflight and opt-in deployment — `readyForCheck: true` (maker fixed the REJECT). `CollectorDeploymentPolicyTest` now asserts opt-in/enrichment/schemaVersion-1/egress against BOTH `collector/otel-collector.yaml` and the chart's embedded ConfigMap. Falsification probe (sed `debug.logs/enabled`→`debug.logs/disabled` in the chart) → test red (1 failure, exit 1), restored byte-identical. Single-source-of-truth rejected as impractical (chart ConfigMap legitimately differs: `/var/log/pods` receiver + `k8sattributes` + `resource.attributes` vs the hermetic fixture's `kubernetes.*`); the two copies carry the same markers and the test rejects drift.
 
 ## Next
 
-1. `node harness/loop/route.mjs` routes the next node (feat-006 and later remain `not-started`).
+1. Checker reviews `feat-008` (`readyForCheck: true`); `node harness/loop/route.mjs` names the node.
 
 ## Known Issues / Risks
 
@@ -44,7 +44,9 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-feat-001..005 and feat-012 are `done`. The Maven Enforcer `[21,22)` gate makes a wrong-JDK pass
+feat-001..007 and feat-012 are `done`. The Maven Enforcer `[21,22)` gate makes a wrong-JDK pass
 impossible (it goes red), and `harness/init.mjs` now selects Homebrew OpenJDK 21 itself (feat-012,
-done), so no manual `JAVA_HOME` export is needed. No feature is `in-progress`; `node harness/loop/route.mjs`
-picks the next node.
+done), so no manual `JAVA_HOME` export is needed. feat-008 is `readyForCheck: true` (6/6 deployment
+policy tests green); the checker rules next. Two feat-008 seams are deferred downstream: the journey
+fixture's opt-in label (`log-context.harness.dev/enabled`) differs from the digest-bound `debug.logs/enabled`,
+and the stock OTel Collector has no raw-JSON exporter, so feat-009 must reconcile the wire envelope.

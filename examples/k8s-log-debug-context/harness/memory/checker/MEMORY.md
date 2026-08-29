@@ -14,3 +14,4 @@ in another language stay as they are — this governs what gets written from now
 <!-- - [Title](slug.md) — one-line hook -->
 - [Recorded command environment](recorded-command-environment.md) — Replay Maven proofs without maker-only runtime setup; JDK selection must be reproducible.
 - [Integration-test per-test timeout](integration-test-per-test-timeout.md) — Green ITs can still lack a JUnit `@Timeout`; transport defaults are mitigation, not compliance.
+- [Duplicated config pinned wrong copy](duplicated-config-pinned-wrong-copy.md) — A green policy test can assert a marker on the hermetic config while the live deployment config drifts unpinned.

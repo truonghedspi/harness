@@ -738,12 +738,85 @@
       "dependencies": [
         "feat-003"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "",
-      "attempts": 0,
-      "maxAttempts": 3
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "cmd": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+          "result": "Tests run: 6, Failures: 5, Errors: 0. All five failures are assertion failures naming absent artifacts/contract types (chart, otel-collector.yaml, CollectorContractBootstrap); the image-lock test passes. No compile error or missing fixture."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+          "result": "Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 (BUILD SUCCESS)."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+          "result": "Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 (BUILD SUCCESS). Opt-in/enrichment/schemaVersion-1/egress asserted against BOTH collector/otel-collector.yaml and the chart ConfigMap."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "cmd": "falsification probe: sed debug.logs/enabled -> debug.logs/disabled in charts/log-debug-context/templates/collector-daemonset.yaml, then ./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+          "result": "Tests run: 6, Failures: 1, Errors: 0, exit 1 — collectorConfigCollectsOnlyOptedInAndEnrichesIdentityAndRunId fails: 'chart ConfigMap (collector-daemonset.yaml) must admit only workloads opted in via the debug.logs/enabled=true label (X-003)'. Restored byte-identical (diff empty)."
+        }
+      ],
+      "checkerNotes": "APPROVE: the prior REJECT gap is closed — the policy test asserts opt-in/enrichment/schemaVersion-1/egress against BOTH copies and the chart-opt-in mutation reproduces red.\n\nreview-contract ADMITTED (digest 96574945a7ce). Verification reproduces under Homebrew OpenJDK 21: exit 0, Tests run: 6, Failures: 0, Errors: 0, Skipped: 0. collectorConfigCollectsOnlyOptedInAndEnrichesIdentityAndRunId and collectorConfigSendsOnlyToIngest run assertOptInAndEnrichment/assertEgressOnly over both CONFIG_PATH (collector/otel-collector.yaml) and CHART_PATH (charts/log-debug-context/templates/collector-daemonset.yaml). My falsification probe re-ran the exact prior counterexample — sed debug.logs/enabled->debug.logs/disabled in the CHART ConfigMap — and the suite went RED (6 run, 1 failure, exit 1; the chart-ConfigMap opt-in assertion), then restored byte-identical (sha256 before==after, diff empty). Dep feat-003 done; scope confined to chart/collector/service collector-contract files (CollectorContractConfig.java and RunningCollector.java are co-located contract types the reflection seam requires, not bleed). Static policy oracle: 0.036s, starts no runtime (start() is only reflected, validateContract invoked as a pure method) — no long-running concern.",
+      "attempts": 1,
+      "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": null,
+        "counterexample": null,
+        "reproduction": "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./mvnw -q -Dtest=CollectorDeploymentPolicyTest test -> exit 0, Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 (BUILD SUCCESS).",
+        "observed": "Chart-opt-in falsification probe: sed debug.logs/enabled->debug.logs/disabled in charts/log-debug-context/templates/collector-daemonset.yaml -> RED (Tests run: 6, Failures: 1, Errors: 0, exit 1; 'chart ConfigMap (collector-daemonset.yaml) must admit only workloads opted in via the debug.logs/enabled=true label (X-003)'); restored byte-identical (sha256 before==after, diff empty). The exact prior REJECT gap is closed.",
+        "exitCriterion": "6/6 green; opt-in/enrichment/schemaVersion-1/egress asserted against BOTH collector/otel-collector.yaml and the chart's embedded ConfigMap, and dropping the chart's opt-in filter fails the suite."
+      },
+      "reviewPacket": {
+        "contractDigest": "96574945a7ce0f667927753422a5b97f833aa336542433bd9688d3ca5eb10be1",
+        "claimRefs": [
+          "A-006",
+          "X-001",
+          "X-003",
+          "X-008",
+          "INV-SCOPE-1",
+          "INV-META-1"
+        ],
+        "changedPaths": [
+          "charts/log-debug-context/templates/collector-daemonset.yaml",
+          "collector/otel-collector.yaml",
+          "service/src/main/java/io/harness/logcontext/collector/CollectorContractBootstrap.java",
+          "service/src/main/java/io/harness/logcontext/collector/CollectorContractConfig.java",
+          "service/src/main/java/io/harness/logcontext/collector/RunningCollector.java",
+          "service/src/test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java"
+        ],
+        "runs": [
+          {
+            "cmd": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+            "exit": 0,
+            "result": "Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 (BUILD SUCCESS)."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "not-applicable: a static policy oracle over files starts no runtime and allocates no external resource",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: each test method reads immutable files with no shared mutable state",
+          "realBoundary": "covered",
+          "discrimination": "The recorded runs now assert opt-in/enrichment/schemaVersion-1/egress on both the standalone config and the chart's embedded ConfigMap, so a wrong implementation that drops the opt-in filter from the production chart while leaving collector/otel-collector.yaml intact fails — proven by the falsification probe (sed debug.logs/enabled->disabled in the chart -> red, restored byte-identical); a debug/logging/file exporter key at any indentation in either copy also fails."
+        },
+        "residualUnknowns": [
+          "The DaemonSet hostPath (/var/log/pods, read-only) and non-privileged securityContext are the standard container-log location, not a design-documented cluster fact; A-006 remains the preflight-validated tripwire and the sidecar stays the documented fallback.",
+          "The journey fixture tests/k8s/fixtures/log-emitter.yaml opts in via label log-context.harness.dev/enabled while the digest-bound fixture contract and both collector configs filter on debug.logs/enabled; feat-011 must reconcile that label key before the journey runs.",
+          "The stock OTel Collector has no raw-JSON one-object-per-request HTTP exporter, so collector/otel-collector.yaml uses otlphttp; feat-009's wire contract (no resourceLogs envelope) still needs the OTLP-vs-raw-JSON seam resolved.",
+          "CollectorContractBootstrap.start's Docker/health/cleanup lifecycle is implemented but not executed here (no container runtime); feat-009's contract run exercises it end to end."
+        ]
+      }
     },
     {
       "id": "feat-009",
@@ -778,7 +851,7 @@
           "result": "Tests run: 4, failures: 4, errors: 0. All four validated conditions compile and load their fixtures, then fail because the required public collector contract io.harness.logcontext.collector.CollectorContractConfig is absent. This is the expected pre-implementation red, not a compile or fixture failure."
         }
       ],
-      "checkerNotes": "",
+      "checkerNotes": "NEEDS DESIGN: How does the pinned stock otel/opentelemetry-collector-contrib:0.159.0 emit one raw UTF-8 schemaVersion-1 JSON object per HTTP ingress request, given otlphttp wraps records in the resourceLogs envelope and the approved docs name only the wire shape, never a mechanism?\n\nThe approved contract (harness/docs/design/log-debug-context.md 'Serialized ingress v1' and collector-contract-launch.md) requires one JSON object per ingress request with no batch envelope; feat-009's oracle asserts no resourceLogs and no \"body\":[. Stock OTel Collector Contrib has no raw-JSON one-object-per-request HTTP exporter, and the current collector/otel-collector.yaml uses otlphttp (OTLP envelope). DECISIONS.md 2026-08-27 'Docker/OCI selected' pins the unmodified stock image (no custom/fork exporter), and no approved artifact names an exporter/processor/transform or a capture-endpoint contract that unwraps OTLP. Choosing custom-exporter vs ingest-side OTLP-decode changes the digest-bound image/launcher or the wire contract, so it needs design-facilitator + owner approval before feat-009 can proceed.",
       "attempts": 0,
       "maxAttempts": 3
     },
