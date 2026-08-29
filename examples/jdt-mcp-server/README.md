@@ -3,8 +3,8 @@
 MCP server bọc **Eclipse JDT Language Server**, phơi bày trí tuệ mã nguồn Java (diagnostics, hover,
 completion, references, definition, rename, code actions) dưới dạng **MCP tools** cho AI coding agent.
 
-> **Trạng thái:** 36/36 feature đã hoàn tất và qua kiểm chứng (unit + integration + mutant). Xem mục
-> [Trạng thái](#trạng-thái) về việc phần nối dây CLI còn là việc còn lại.
+> **Trạng thái:** 37/37 feature đã hoàn tất và qua kiểm chứng (unit + integration + mutant). Xem mục
+> [Trạng thái](#trạng-thái) về việc phần đóng gói `npx` còn là việc còn lại.
 
 ## Mục lục
 
@@ -17,6 +17,7 @@ completion, references, definition, rename, code actions) dưới dạng **MCP t
 - [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
 - [Cấu hình](#cấu-hình)
 - [Chạy thử](#chạy-thử)
+- [Cấu hình MCP cho agent](#cấu-hình-mcp-cho-agent)
 - [Bố cục mã nguồn](#bố-cục-mã-nguồn)
 - [Phát triển](#phát-triển)
 - [Trạng thái](#trạng-thái)
@@ -219,10 +220,54 @@ Bản JDT LS đã tải sẵn nằm ở `./jdtls/` (64 MB, gitignored). Nếu ch
 cứ để trống `JDTLS_HOME` để server tự tải lần đầu chạy.
 
 Server in `jdt-mcp-server ready (role=daemon, socket=...)` ra stderr; client nói MCP qua stdin/stdout.
-Để nối vào Claude Code / MCP client, thêm vào cấu hình MCP:
 
-```json
-{ "mcpServers": { "jdt-mcp-server": { "command": "node", "args": ["--experimental-strip-types", "/đường/dẫn/src/cli.ts"] } } }
+## Cấu hình MCP cho agent
+
+Ba file cấu hình đã có sẵn trong repo (đã commit) — mỗi runtime đọc một file, và cả ba phải khớp
+nhau (gate `mcp-runtime-skew`):
+
+| Runtime | File | Ghi chú |
+|---|---|---|
+| Kiro | `.kiro/settings/mcp.json` | `mcpServers` dạng `{command, args, env}` |
+| Claude Code | `.mcp.json` | thêm `"type": "stdio"` |
+| Codex | `.codex/config.toml` | bảng `[mcp_servers.jdt-mcp-server]` (TOML) |
+
+Cả ba đều trỏ cùng một server:
+
+```jsonc
+// .kiro/settings/mcp.json và .mcp.json (Codex viết bằng TOML, xem .codex/config.toml)
+{
+  "mcpServers": {
+    "jdt-mcp-server": {
+      "command": "node",
+      "args": ["--experimental-strip-types", "src/cli.ts"],
+      "env": { "JDTLS_HOME": "./jdtls" }
+    }
+  }
+}
+```
+
+`JDTLS_HOME: "./jdtls"` là đường dẫn tương đối — đúng vì MCP client spawn server với CWD = gốc
+project (nơi file cấu hình nằm). Bỏ `env` thì server tự tải JDT LS về `.cache/` lần đầu chạy.
+
+**Codex cần thêm một dòng** (vì `codex exec` non-interactive mặc định `approval_policy = never`,
+trong khi MCP tool mặc định "requires approval" → mọi call bị chặn):
+
+```toml
+# .codex/config.toml
+[mcp_servers.jdt-mcp-server]
+command = "node"
+args = ["--experimental-strip-types", "src/cli.ts"]
+env = { JDTLS_HOME = "./jdtls" }
+default_tools_approval_mode = "approve"   # 8 tool đều read-only mặc định (apply:true mới ghi)
+```
+
+Cách dùng: chạy agent từ gốc project, nó tự nạp server theo file cấu hình runtime của nó.
+
+```bash
+cd examples/jdt-mcp-server
+kiro                                      # Kiro đọc .kiro/settings/mcp.json
+codex exec "chạy java_diagnostics cho ..."   # Codex đọc .codex/config.toml
 ```
 
 Ví dụ gọi `java_definition` (xem [Sử dụng qua MCP](#sử-dụng-qua-mcp)):
@@ -245,8 +290,8 @@ node harness/init.mjs                             # baseline gate (install fixtu
 
 ## Trạng thái
 
-- **36/36 feature hoàn tất** (`done`), router trả `exit`.
-- Unit **159/159**, integration+unit đầy đủ **249/249** (với quyền đầy đủ cho `ps`).
+- **37/37 feature hoàn tất** (`done`), router trả `exit`.
+- Unit **159/159**, integration+unit đầy đủ **250/250** (với quyền đầy đủ cho `ps`).
 - Mỗi tool/oracle đều có bằng chứng **mutant đỏ** (implementation sai bị oracle bắt) kèm trong
   `harness/feature_list.json`.
 - **Entry point CLI đã có** (`src/cli.ts`, `npm start`, `bin.jdt-mcp-server`) — nối shim → daemon →
