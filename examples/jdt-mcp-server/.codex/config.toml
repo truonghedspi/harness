@@ -4,3 +4,7 @@
 command = "node"
 args = ["--experimental-strip-types", "src/cli.ts"]
 env = { JDTLS_HOME = "./jdtls" }
+# All 8 tools are read-only by default (rename/apply only write with explicit apply:true),
+# so auto-approve them: otherwise a `-a never` / approval_policy=never session fails the call
+# with "MCP tool call requires approval, but approval policy is never".
+default_tools_approval_mode = "approve"
