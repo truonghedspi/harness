@@ -17,6 +17,8 @@ export interface CodeActionStore {
   mint(workspaceId: string, generation: number, action: unknown): string;
   /** Tra handle; `expired` khi generation đổi, `unknown` khi id không có (hoặc khác workspace). */
   resolve(workspaceId: string, generation: number, actionId: string): CodeActionResolve;
+  /** Tìm workspace + generation lúc đúc của một handle, không kiểm stale — để daemon biết gọi resolve ở đâu. */
+  lookup(actionId: string): { workspaceId: string; generation: number } | undefined;
 }
 
 export function createCodeActionStore(): CodeActionStore {
@@ -35,6 +37,10 @@ export function createCodeActionStore(): CodeActionStore {
       if (entry.workspaceId !== workspaceId) return { ok: false, reason: "unknown" };
       if (entry.generation !== generation) return { ok: false, reason: "expired" };
       return { ok: true, action: entry.action };
+    },
+    lookup(actionId) {
+      const entry = entries.get(actionId);
+      return entry === undefined ? undefined : { workspaceId: entry.workspaceId, generation: entry.generation };
     },
   };
 }

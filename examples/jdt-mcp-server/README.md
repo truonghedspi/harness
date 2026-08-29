@@ -16,6 +16,7 @@ completion, references, definition, rename, code actions) dưới dạng **MCP t
 - [Hành vi cốt lõi](#hành-vi-cốt-lõi)
 - [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
 - [Cấu hình](#cấu-hình)
+- [Chạy thử](#chạy-thử)
 - [Bố cục mã nguồn](#bố-cục-mã-nguồn)
 - [Phát triển](#phát-triển)
 - [Trạng thái](#trạng-thái)
@@ -197,6 +198,33 @@ của tool, mặc định 200) — không phải tham số mà MCP caller truy�
 | `test/` | oracle unit + integration (Level 1/3) |
 | `harness/` | vòng lặp maker–checker, thiết kế, tài liệu thiết kế |
 
+## Chạy thử
+
+```bash
+# 1. Cài dependencies (chỉ @types/node + typescript cho dev)
+npm install
+
+# 2. Trỏ JDT LS đã cài sẵn (bỏ qua download lần đầu)
+export JDTLS_HOME=/path/to/jdtls   # thư mục chứa plugins/org.eclipse.jdt.ls.core_*.jar
+export JAVA_HOME=/path/to/jdk21    # JDK ≥ 21
+
+# 3. Chạy server (stdio MCP)
+npm start
+```
+
+Server in `jdt-mcp-server ready (role=daemon, socket=...)` ra stderr; client nói MCP qua stdin/stdout.
+Để nối vào Claude Code / MCP client, thêm vào cấu hình MCP:
+
+```json
+{ "mcpServers": { "jdt-mcp-server": { "command": "node", "args": ["--experimental-strip-types", "/đường/dẫn/src/cli.ts"] } } }
+```
+
+Ví dụ gọi `java_definition` (xem [Sử dụng qua MCP](#sử-dụng-qua-mcp)):
+
+```jsonc
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"java_definition","arguments":{"path":"src/main/java/com/acme/App.java","line":5,"column":10}}}
+```
+
 ## Phát triển
 
 ```bash
@@ -215,9 +243,9 @@ node harness/init.mjs                             # baseline gate (install fixtu
 - Unit **159/159**, integration+unit đầy đủ **249/249** (với quyền đầy đủ cho `ps`).
 - Mỗi tool/oracle đều có bằng chứng **mutant đỏ** (implementation sai bị oracle bắt) kèm trong
   `harness/feature_list.json`.
+- **Entry point CLI đã có** (`src/cli.ts`, `npm start`, `bin.jdt-mcp-server`) — nối shim → daemon →
+  8 tool, đã smoke-test `java_definition` end-to-end.
 
-**Việc còn lại duy nhất** — phần nối dây CLI vận hành: bộ 8 tool đã đầy đủ và được chứng minh, nhưng
-composition root sản phẩm (nối `mcp-shim` → `daemon` → `pool/router/readiness/sync` → các tool) hiện
-được dựng trong oracle integration `test/integration/cross-process.integration.spec.ts`, chưa phải một
-entry point `npm start` / `npx` đóng gói. Khi cần ship, việc còn lại là đưa chính đoạn nối dây đó vào
-một CLI thật (`bin`) — hành vi của nó đã được kiểm chứng end-to-end.
+**Việc còn lại nếu muốn ship `npx`** — đóng gói npm: hiện chạy TypeScript trực tiếp qua
+`node --experimental-strip-types` (không cần build), nên chưa có bước `tsc` → `dist/` cho một gói
+publish. Hành vi đã được kiểm chứng end-to-end; chỉ còn phần đóng gói/distribution.

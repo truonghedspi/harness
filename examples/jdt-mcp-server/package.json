@@ -8,9 +8,13 @@
     "node": ">=22.6.0"
   },
   "scripts": {
+    "start": "node --experimental-strip-types src/cli.ts",
     "test": "node --experimental-strip-types --test test/lsp/*.spec.ts test/workspace/*.spec.ts test/tools/*.spec.ts",
     "test:baseline": "node --experimental-strip-types --test test/integration/baseline-fixture.integration.spec.ts",
     "test:integration": "node --experimental-strip-types --test"
+  },
+  "bin": {
+    "jdt-mcp-server": "src/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
