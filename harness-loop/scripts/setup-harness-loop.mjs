@@ -210,6 +210,7 @@ const EXTRA_COPIES = [
   ["scripts/run-report.mjs", "tools/run-report.mjs"],
   ["scripts/trajectory.mjs", "tools/trajectory.mjs"],
   ["scripts/trace-insights.mjs", "tools/trace-insights.mjs"],
+  ["scripts/harness-config.mjs", "tools/harness-config.mjs"],
   ["scripts/loop-status.mjs", "tools/loop-status.mjs"],
   ["scripts/timeline.mjs", "tools/timeline.mjs"],
   ["scripts/cross-cutting-audit.mjs", "tools/cross-cutting-audit.mjs"],

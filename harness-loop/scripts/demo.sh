@@ -1921,12 +1921,27 @@ const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace
 process.exit(/docs\/reference\/runtimes\.md/.test(t) && /before diagnosing/.test(t) ? 0 : 1);
 "; expect "the orchestrator points at the runtime mapping for on-demand spawn/dispatch diagnosis" $?
 # The user cannot choose a mode they were never told about: the orchestrator must name its dispatch
-# mode and offer the switch at the start, while the router still owns which node runs.
+# mode and offer the switch at the start, while the router still owns which node runs. The default
+# is a machine-local config, not a hard-coded guess.
 node -e "
 const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
 process.exit(/native sub-agent spawn/.test(t) && /script dispatch/.test(t) &&
-  /offer the switch once/.test(t) && /never \*which\* node runs/.test(t) ? 0 : 1);
-"; expect "the orchestrator names its dispatch mode and offers the switch at the start" $?
+  /offer the switch once/.test(t) && /harness-config\.mjs get runMode/.test(t) &&
+  /harness-config\.mjs set runMode/.test(t) && /never \*which\* node runs/.test(t) ? 0 : 1);
+"; expect "the orchestrator names its dispatch mode, reads it from config, and offers the switch" $?
+test -f "$OR/tools/harness-config.mjs"; expect "every scaffold ships the local config get/set tool" $?
+node -e "
+const fs=require('fs'),cp=require('child_process');
+fs.mkdirSync('$OR/env',{recursive:true});
+fs.writeFileSync('$OR/env/local.json', JSON.stringify({schema:'harness-environment/1',java:{home:'/x'},runMode:'native-spawn'}));
+const set=cp.spawnSync(process.execPath,['tools/harness-config.mjs','set','runMode','script-dispatch'],{cwd:'$OR',encoding:'utf8'});
+const after=JSON.parse(fs.readFileSync('$OR/env/local.json','utf8'));
+process.exit(after.runMode==='script-dispatch' && after.java.home==='/x' ? 0 : 1);
+"; expect "set runMode persists while preserving the environment-captured fields" $?
+node "$OR/tools/harness-config.mjs" get runMode > "$OR/rm.txt" 2>/dev/null
+( cd "$OR" && node tools/harness-config.mjs get runMode > rm.txt 2>/dev/null )
+grep -q "script-dispatch" "$OR/rm.txt"
+expect "get runMode returns the persisted default" $?
 node -e "
 // Normalise whitespace first: these are wrapped prose files, and a phrase that happens to
 // straddle a line break is not a missing phrase. A line-based grep here reports the wrong thing.

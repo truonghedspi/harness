@@ -418,7 +418,9 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 (`AGENTS.md` says so, and all three runtimes read it). It reports where the loop is, uses native
 sub-agent spawn for the exact node the router named, and brings decisions back — translated, with
 numbered options and a recommendation. `run-loop.mjs` and `dispatch.mjs` remain the execution
-adapter for headless/CI or a session without native spawning.
+adapter for headless/CI or a session without native spawning. Its dispatch mode is a machine-level
+default held in `env/local.json` (`node tools/harness-config.mjs get runMode`), which it reports
+and can change on request — switching modes changes *how* the node runs, never *which* node runs.
 
 Its safety is two mechanical constraints, not two sentences of good intent:
 

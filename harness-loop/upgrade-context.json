@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-29-harness-local-config",
+      "summary": "env/local.json becomes a schema'd machine-local runtime config with a runMode knob (native-spawn | script-dispatch), read/written through a new tools/harness-config.mjs; the orchestrator reports and persists the mode.",
+      "why": "The repository owner wanted a durable (not per-session) default for the orchestrator's dispatch mode. The harness already had a gitignored env/local.json for machine config (written by environment.mjs) but no structured read/write path. Session-handoff is per-session; a durable default belongs in a config file, and a config the model hand-edits is one it can silently corrupt, so it is tool-mediated.",
+      "targetImpact": "New tools/harness-config.mjs (get/set, merging around environment.mjs's captured fields so the two never clobber). env/local.json gains runMode beside the environment capture. The orchestrator reads it at start, reports the mode, and persists a switch. No other tool or state file changes.",
+      "paths": ["tools/harness-config.mjs", "env/local.json", "prompts/orchestrator.md", "docs/reference/graph.md"],
+      "mergeActions": ["Copy tools/harness-config.mjs into the target.", "Merge the orchestrator prompt's config read/set sentence, preserving project-specific presentation.", "Keep any existing env/local.json fields; environment.mjs and harness-config.mjs own disjoint keys."],
+      "verification": ["bash harness-loop/scripts/demo.sh: harness-config ships; set runMode preserves environment-captured fields; get returns the persisted default; orchestrator prompt reads/persists runMode", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-29-orchestrator-mode-report",
       "summary": "The orchestrator now states its dispatch mode (native sub-agent spawn vs script dispatch) and offers to switch once at the start of a session.",
       "why": "The user cannot choose between the two dispatch modes they were never told about. The repository owner asked the orchestrator to report which mode it is running and ask whether the user wants the other at the start.",
