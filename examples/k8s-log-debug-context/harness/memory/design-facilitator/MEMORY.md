@@ -17,3 +17,4 @@ in another language stay as they are — this governs what gets written from now
 - [Contained harness audit noise](contained-harness-audit-noise.md) — Vendored skills can make the cross-cutting audit report non-product concerns.
 - [Schema policy seam](schema-policy-needs-observable-seam.md) — Compatibility needs an observable invariant.
 - [MCP policy needs two seams](mcp-policy-needs-auth-and-surface-seams.md) — JWT admission and a closed tool set need distinct invariants.
+- [Collector egress is OTLP-only](collector-egress-is-otlp-only.md) — The v1 "one JSON object" contract and the unmodified-stock-image decision are mutually unsatisfiable at the collector egress.

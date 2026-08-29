@@ -21,5 +21,6 @@ the new files here.
 | `harness/docs/design/` | Before changing a subsystem someone has already designed |
 | `harness/docs/design/log-debug-context.md` | Before planning or changing collection, ingestion, indexing, or MCP query behavior |
 | `harness/docs/design/collector-contract-launch.md` | Before implementing or proving the real collector pipeline outside a cluster; it is pending owner approval |
+| `harness/docs/design/collector-ingress-mechanism.md` | Before implementing or proving feat-009's collector→ingest wire — why OTLP is the wire and where the v1 object is decoded |
 | `harness/DECISIONS.md` | "Why is it like this?" — decisions with their rejected alternatives |
 | `harness/progress.md` | "Where were we?" — cross-session state |

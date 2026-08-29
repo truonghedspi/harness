@@ -842,8 +842,7 @@
       "dependencies": [
         "feat-008"
       ],
-      "status": "in-progress",
-      "readyForCheck": true,
+      "status": "done",
       "evidence": [
         {
           "date": "2026-08-27",
@@ -858,7 +857,7 @@
           "result": "Tests run: 4, Failures: 0, Errors: 0, Skipped: 0 (3.016s) against the live pinned collector image: filelog reads the JSONL fixture, the inverted opt-in filter admits exactly the 2 eligible rows, the transform flattens nested kubernetes/attributes into v1, otlphttp sends gzip OTLP, and OtlpLogDecoder unwraps it into one v1 object per record."
         }
       ],
-      "checkerNotes": "FIXED: feat-009 oracle now green against the real pinned collector. Fixes: (1) CollectorContractBootstrap mounted config at /etc/otelcol-contrib/config.yaml (was /etc/otelcol/config.yaml); (2) otel-collector.yaml filter inverted (!=) and OTTL paths nested (attributes[\"kubernetes\"][\"namespace\"]) so the opt-in filter admits only eligible rows and the transform flattens identity fields; (3) message moved to OTLP body via set(body, attributes[\"message\"]); (4) networking: removed --network host, use -p 13133:13133 + host.docker.internal (Colima VM loopback is not the macOS host loopback); (5) implemented OtlpLogDecoder (gzip + OTLP unwrap -> one v1 object per record); (6) oracle captures OTLP, decodes via OtlpLogDecoder, and the fixture lives under target/ (Colima does not mount /var/folders).",
+      "checkerNotes": "FOLLOW-UP: the chart ConfigMap opt-in filter is inverted — collector-daemonset.yaml line 134 uses `resource.attributes[\"k8s.pod.labels.debug.logs/enabled\"] == \"true\"`, and the filter processor drops where the condition is true, so the live DaemonSet would DROP opted-in pods and ADMIT non-opted-in logs (X-003 inverted). The hermetic collector/otel-collector.yaml correctly uses `!= \"true\"` (empirically proven: the oracle admits exactly the 2 opted-in rows). feat-008’s CollectorDeploymentPolicyTest only asserts `contains(\"debug.logs/enabled\") && contains(\"\\\"true\\\"\")` (line 124), which passes on BOTH `==` and `!=`, so it never caught the direction. The chart transform also still reads test.run_id from body and never maps message→body, diverging from the hermetic v1 mapping.\n\nAPPROVE (feat-009 claim): the hermetic collector→ingest contract is verified — ./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify reproduces green (Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, 2.965s) against the real pinned collector (docker-run otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc, byte-equal to collector/contract-image.lock; no fake fallback — awaitReady() throws if health never responds). Opt-in filter admits exactly the 2 eligible rows and excludes the 2 non-opted-in rows; generated-distinct (8 seeds) + single-field-mutation (8 one-hot mutations) round-trip each v1 diagnostic field through OtlpLogDecoder → IngestService.ingest → NormalizedLogRecord, so a hardcoded or field-dropping decoder goes red. @Timeout(90s) present. Baseline ./mvnw -q test → exit 0 (CollectorDeploymentPolicyTest 6/0/0/0, feat-008 no regression). Option A owner-approved (design-approval.json digest 2576534ef71a6361).",
       "attempts": 0,
       "maxAttempts": 3,
       "reviewPacket": {
@@ -902,6 +901,15 @@
           "The transform was previously never executed (feat-008 was static-only); this oracle now exercises it, resolving A-008.",
           "host.docker.internal + -p 13133:13133 is the Colima-safe networking; on a bare-Linux Docker host the original --network host would also work, but this form is portable."
         ]
+      },
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify -> exit 0, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0 (2.965s) under Homebrew OpenJDK 21",
+        "observed": "Real boundary: CollectorContractBootstrap docker-run’s the pinned otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc (byte-equal to collector/contract-image.lock; no fake fallback — awaitReady() throws if the 13133 health endpoint never responds, and the 2-request count assertion fails if no collector delivers). Fixture = 4 rows: 2 opted-in (enabled=true + environment=test), 2 excluded (opt-in false / environment=production); the inverted != filter admits exactly 2 and onlyOptedInTestRowsCrossTheCaptureIngress proves both excluded messages never cross. eachEligibleLogBecomesOneUtf8V1ObjectAcceptedBySerializedIngress asserts 2 requests, schemaVersion number 1, no resourceLogs/envelope. generatedDistinctFixturesRoundTripEveryDiagnosticField (8 seeds) + changingOneSourceFieldChangesOnlyItsCorrespondingNormalizedField (base + 8 single-field mutations) round-trip message/observedAt/source/namespace/pod/container/workload/test.run_id per-field through OtlpLogDecoder -> real IngestService.ingest -> NormalizedLogRecord; schemaVersion/environment/optIn are enforced by the Accepted-ingest assertion. Class-level @Timeout(90s).",
+        "exitCriterion": "Satisfied: every v1 field reconstructs field-exact across the real OTLP transport, and a hardcoded/field-dropping decoder or a filter that admits excluded rows fails at least one of the 4 tests; baseline ./mvnw -q test stays green (CollectorDeploymentPolicyTest 6/0/0/0, feat-008 no regression)."
       }
     },
     {

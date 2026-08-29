@@ -74,9 +74,9 @@ Dependency direction is one-way: collector → ingest → index; MCP → correla
 
 ### Serialized ingress v1
 
-The collector sends one UTF-8 JSON object per ingress request. It is the black-box input to the
-ingest module; tests and future collector adapters use this shape rather than calling a parser or
-normalization helper. These top-level members are required in v1:
+The collector's only HTTP egress is OTLP; the OTLP-decode adapter unwraps each admitted log record
+into one UTF-8 schemaVersion-1 JSON object — the ingest module's black-box input, used by tests and
+future adapters rather than a parser or normalization helper. See [collector-ingress-mechanism.md](collector-ingress-mechanism.md). These top-level members are required in v1:
 
 ```json
 {
@@ -113,24 +113,19 @@ are validation rejections.
 
 ### Collector executable bootstrap
 
-The proposed public launcher and its outstanding owner decision are in
-[`collector-contract-launch.md`](collector-contract-launch.md). This digest-changing proposal must
-be approved before `TP-COLLECTOR-0009` is authored or `feat-009` leaves its design marker.
+The owner-approved OCI launcher is in [`collector-contract-launch.md`](collector-contract-launch.md); the wire mechanism is in [`collector-ingress-mechanism.md`](collector-ingress-mechanism.md).
 
 NormalizedLogRecord is the only document supplied to the index adapter. Its fields are
 `schemaVersion`, `observedAt`, `message`, `namespace`, `pod`, `container`, `workload`, `source`,
-optional `testRunId`, and redacted `attributes`. An opaque source identity may be added later as
-an additive input member, but is not part of v1 admission or the indexed document. X-008 fixes the
-compatibility policy: an otherwise valid `schemaVersion: 1` record must tolerate additive fields
-it does not recognize, while a record with an unsupported major version is rejected before it
-reaches the index port. An additive input field cannot overwrite a normalized field or bypass
-validation/redaction.
+optional `testRunId`, and redacted `attributes`. X-008 fixes the compatibility policy: an otherwise
+valid `schemaVersion: 1` record must tolerate additive fields it does not recognize, while a record
+with an unsupported major version is rejected before it reaches the index port. An additive input
+field cannot overwrite a normalized field or bypass validation/redaction.
 
 ### Ingest module interface
 
-`IngestService` is the public seam for the serialized contract. Its interface is deliberately
-small: parsing, eligibility, normalization, and redaction remain implementation detail, while an
-independent oracle can submit a wire payload and observe the index adapter.
+`IngestService` is the public seam for the serialized contract: parsing, eligibility, normalization,
+and redaction stay implementation detail while an independent oracle submits a wire payload and observes the index adapter.
 
 ```java
 public record IngestPolicy(Set<String> allowedEnvironments,
@@ -220,16 +215,14 @@ format.
 ### Storage-test environment checkpoint
 
 `TP-INDEX-0005` requires real OpenSearch. A disconnected Docker runtime or absent endpoint is an
-environment checkpoint, never behavior: the 2026-08-26 probe found no Colima socket or configured
-`OPENSEARCH` endpoint. Its oracle uses an authorized ephemeral store, never an in-memory fake.
+environment checkpoint, never behavior (2026-08-26 probe: no Colima socket, no `OPENSEARCH` endpoint); its oracle uses an authorized ephemeral store, never an in-memory fake.
 
 ### OpenSearch retention lifecycle
 
 Seven-day retention is enforced by the owner-approved ISM policy `log-debug-retention-v1`, not by
-mapping metadata. Its exact daily-index names, versioned template, idempotent bootstrap seam,
-permissions, and invariant-derived observations are in
-[`opensearch-retention.md`](opensearch-retention.md). `feat-004` must implement that public seam;
-`feat-005` proves it against real OpenSearch.
+mapping metadata; its exact daily-index names, template, idempotent bootstrap, permissions, and
+invariants are in [`opensearch-retention.md`](opensearch-retention.md). `feat-004` implements that
+seam; `feat-005` proves it against real OpenSearch.
 
 search_logs requires filters plus an explicit time interval. get_failure_context requires test.run_id when available; otherwise it requires namespace, workload, and an explicit interval. Both tools are read-only. X-006 fixes the server-enforced maximum interval/result/byte budgets, request deadline, truncation response, and no-pagination rule. The service admits a request with a valid Kubernetes ServiceAccount JWT to normal tool validation; it rejects a missing or invalid JWT before dispatch. Its initialized MCP surface offers only the tool capability and its tool list is exactly search_logs and get_failure_context—there are no prompt, resource, or extra tool capabilities. These constraints keep every MCP operation bounded without exposing database query syntax.
 
@@ -247,8 +240,7 @@ public interface ServiceAccountJwtValidator { JwtValidation validate(Optional<St
 public interface RunningMcpServer extends AutoCloseable { URI endpoint(); }
 public final class McpServiceBootstrap { public static RunningMcpServer start(McpHttpServerConfig config, IndexPort indexPort, ServiceAccountJwtValidator jwtValidator); }
 ```
-The server extracts an optional bearer token before validation; `Invalid` includes a missing token.
-`close()` releases the socket. Production verifies ServiceAccount JWTs; the oracle injects deterministic outcomes.
+The server extracts an optional bearer token before validation; `Invalid` includes a missing token. `close()` releases the socket. Production verifies ServiceAccount JWTs; the oracle injects deterministic outcomes.
 
 ## Invariants and test seams
 

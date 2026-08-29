@@ -13,8 +13,9 @@ cluster or database. The source requirement is `../requirement.md`.
 
 The owner-approved topology is a node-level OpenTelemetry Collector DaemonSet for opted-in test
 workloads, a Java 21/Maven ingest and MCP service, and OpenSearch. The current unapproved design
-revision makes both index seams explicit: collectors submit the v1 JSON contract to
-`IngestService.ingest(String)`; `IndexPort.index(NormalizedLogRecord)` receives an accepted
+revision makes both index seams explicit: collectors submit OTLP (the pinned stock image's only HTTP
+egress), and the OTLP-decode adapter unwraps each admitted log record into the v1 JSON contract it
+submits to `IngestService.ingest(String)`; `IndexPort.index(NormalizedLogRecord)` receives an accepted
 sanitized document; and `IndexPort.search(LogQuery)` returns a typed, bounded result through the
 real `OpenSearchLogIndex(OpenSearchClient, String)` adapter. Before that adapter writes, the public
 `OpenSearchLogIndexBootstrap.ensureInstalled` seam installs the versioned ISM policy, template, and

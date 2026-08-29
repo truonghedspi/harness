@@ -28,9 +28,11 @@ records only. `awaitReady()` succeeds only when the collector health endpoint re
 `readyDeadline`, otherwise it reports startup diagnostics. `close()` stops the named runtime and,
 after `shutdownDeadline`, force-stops it and reports cleanup failure.
 
-The oracle starts its capture ingress first, calls `start`, waits ready, then asserts each captured
-request is one UTF-8 JSON object that can be submitted to `IngestService.ingest(String)`. It closes
-the returned instance in a `finally` path. An unavailable permitted container runtime or unavailable
+The oracle starts its capture ingress first, calls `start`, waits ready, then decodes each captured
+OTLP request and asserts each admitted log record becomes exactly one UTF-8 schemaVersion-1 JSON
+object that can be submitted to `IngestService.ingest(String)`. The decode mechanism and its
+invariants are in [collector-ingress-mechanism.md](collector-ingress-mechanism.md). It closes the
+returned instance in a `finally` path. An unavailable permitted container runtime or unavailable
 pinned image is an explicit environment checkpoint, never a fake collector or behavior result.
 
 ## JSONL fixture contract
@@ -61,9 +63,11 @@ envelope. Each object has exactly this source-facing shape; generators vary valu
 `source` is `stdout` or `stderr`. `attributes` is an object of string values and `test.run_id` is
 optional. Eligibility is the conjunction of label `debug.logs/enabled == "true"` and label
 `environment == "test"`; every other row is discarded before export. For an eligible row the
-collector emits one schemaVersion-1 ingress object, maps `environment` to the top-level admission
-field, maps the identity fields without renaming, and maps `test.run_id` to the existing ingress
-attribute of the same name.
+collector's transform maps the v1 fields into the OTLP log record (body/attributes), and the
+OTLP-decode adapter reconstructs one schemaVersion-1 ingress object per record, maps `environment`
+to the top-level admission field, maps the identity fields without renaming, and maps `test.run_id`
+to the existing ingress attribute of the same name. The OTLP mapping and decode invariants are in
+[collector-ingress-mechanism.md](collector-ingress-mechanism.md).
 
 This hermetic source begins after Kubernetes metadata enrichment. Fetching labels and identity from
 the real Kubernetes API remains the Level-3 journey's responsibility; this contract proves the

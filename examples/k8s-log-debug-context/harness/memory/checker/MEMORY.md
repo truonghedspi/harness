@@ -15,3 +15,4 @@ in another language stay as they are — this governs what gets written from now
 - [Recorded command environment](recorded-command-environment.md) — Replay Maven proofs without maker-only runtime setup; JDK selection must be reproducible.
 - [Integration-test per-test timeout](integration-test-per-test-timeout.md) — Green ITs can still lack a JUnit `@Timeout`; transport defaults are mitigation, not compliance.
 - [Duplicated config pinned wrong copy](duplicated-config-pinned-wrong-copy.md) — A green policy test can assert a marker on the hermetic config while the live deployment config drifts unpinned.
+- [OTLP filter direction is blind to a static marker test](otlp-filter-direction-blind-static-test.md) — `contains("debug.logs/enabled") && contains("\"true\"")` passes on both `==` and `!=`; OTel filter drops where the condition is true, so `== "true"` inverts the opt-in and a static test never catches it.

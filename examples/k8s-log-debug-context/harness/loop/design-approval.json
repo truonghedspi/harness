@@ -1,6 +1,6 @@
 {
   "schema": "design-approval/1",
-  "designDigest": "441eb6d76fd1752d",
+  "designDigest": "2576534ef71a6361",
   "status": "approved",
   "approvedBy": "project owner",
   "approvedAt": "2026-08-28",
@@ -17,12 +17,17 @@
     "Define McpServiceBootstrap start/endpoint/close seam with injected IndexPort and ServiceAccountJwtValidator for independent MCP wire tests.",
     "Run CollectorContractBootstrap with Docker/OCI, read-only fixtures, health-based readiness, deadline-bounded forced cleanup, and the owner-approved OpenTelemetry Collector Contrib 0.159.0 immutable multi-platform digest.",
     "Use the approved post-enrichment UTF-8 JSONL source contract for the hermetic collector oracle; leave real Kubernetes API enrichment to the Level-3 journey.",
-    "Use OpenSearch ISM policy log-debug-retention-v1 with daily log-debug-v1-YYYY.MM.dd indexes, a matching index template, and idempotent bootstrap as the real seven-day retention mechanism."
+    "Use OpenSearch ISM policy log-debug-retention-v1 with daily log-debug-v1-YYYY.MM.dd indexes, a matching index template, and idempotent bootstrap as the real seven-day retention mechanism.",
+    "Adopt Option A for the collector→ingest wire contract: the collector emits OTLP on the wire (the pinned stock image's only HTTP egress) and a new OTLP-decode adapter at the ingest boundary unwraps each admitted log record into exactly one schemaVersion-1 object before IngestService.ingest(String), rather than the collector emitting bare v1 JSON, which the stock image cannot do."
   ],
   "acceptedRisks": [
     {
       "concern": "The target cluster may prevent a DaemonSet from reading selected node logs.",
       "reason": "The owner accepted a preflight-first approach with sidecar fallback for confirmed inaccessible workloads."
+    },
+    {
+      "concern": "The v1 'one JSON object, no envelope' guarantee no longer holds at the collector's egress — the collector emits OTLP, so the no-envelope assertion relocates to the ingest (post-decode) boundary.",
+      "reason": "The owner accepted the relocation because the pinned stock image's only HTTP egress is OTLP (it cannot emit bare v1 JSON), and the OTLP-decode adapter preserves the guarantee exactly where the ingest invariants operate — one schemaVersion-1 object per IngestService.ingest(String) call."
     }
   ]
 }
