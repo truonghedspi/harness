@@ -5,8 +5,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-29 (checker, feat-010 Cluster access policy APPROVED — `status: done`)
-- **Active feature:** none — feat-010 `done`; feat-011 (journey) is next but still blocked on the deployable chart (the `-collector` ServiceAccount is referenced yet undefined, and no `Chart.yaml`/Service/Deployment templates exist)
+- **Last updated:** 2026-08-29 (maker, feat-013 Chart opt-in filter direction and v1 transform — `readyForCheck`, awaiting checker)
+- **Active feature:** feat-013 — `in-progress` / `readyForCheck` (waiting on checker); feat-011 (journey) remains `not-started`, routed to `k8s-integration-tester` (no cluster here)
 - **Latest commit:** 1302959 k8s-log-debug-context: feat-006 MCP query service + feat-007 wire/auth contract done
 - **Baseline (`env -u JAVA_HOME node harness/init.mjs`):** green — init.mjs now selects Homebrew OpenJDK 21 itself (BaselineTest Tests run: 1, Failures: 0)
 - **OpenSearch:** 2.19.1 live at `http://localhost:9200`, ISM plugin present
@@ -30,12 +30,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## In Progress
 
-- (none)
+- `feat-013` Chart opt-in filter direction and v1 transform — chart ConfigMap fixed to `!=` (drop-where-true), message→body, `test.run_id` from `attributes["attributes"]["test.run_id"]`, workload from `k8s.deployment.name`; policy test strengthened to assert filter direction. Verification green (7 run, 0 fail). `readyForCheck: true`, awaiting checker.
 
 ## Next
 
-1. Planner routes feat-010's `FOLLOW-UP`: define the `{{ .Release.Name }}-collector` ServiceAccount in a chart template (it is referenced by `collector-daemonset.yaml:31` and `rbac.yaml`'s ClusterRoleBinding but never defined; design `cluster-access-policy.md:80` falsely cites it as "exists").
-2. `feat-011` (Kubernetes journey) and `feat-013` remain `not-started`.
+1. Checker reviews `feat-013` (`readyForCheck`).
+2. Planner routes feat-010's `FOLLOW-UP`: define the `{{ .Release.Name }}-collector` ServiceAccount in a chart template (it is referenced by `collector-daemonset.yaml:31` and `rbac.yaml`'s ClusterRoleBinding but never defined; design `cluster-access-policy.md:80` falsely cites it as "exists").
+3. `feat-011` (Kubernetes journey) remains `not-started` — k8s-specialized, routed to `k8s-integration-tester`.
 
 ## Known Issues / Risks
 

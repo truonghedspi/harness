@@ -131,20 +131,21 @@ data:
       filter:
         logs:
           log_record:
-            - 'resource.attributes["k8s.pod.labels.debug.logs/enabled"] == "true"'
-            - 'resource.attributes["k8s.pod.labels.environment"] == "test"'
+            - 'resource.attributes["k8s.pod.labels.debug.logs/enabled"] != "true"'
+            - 'resource.attributes["k8s.pod.labels.environment"] != "test"'
       transform:
         log_statements:
           - context: log
             statements:
+              - 'set(body, attributes["message"])'
               - 'set(attributes["schemaVersion"], 1)'
               - 'set(attributes["namespace"], resource.attributes["k8s.namespace.name"])'
               - 'set(attributes["pod"], resource.attributes["k8s.pod.name"])'
               - 'set(attributes["container"], resource.attributes["k8s.container.name"])'
-              - 'set(attributes["workload"], resource.attributes["k8s.workload.name"])'
+              - 'set(attributes["workload"], resource.attributes["k8s.deployment.name"])'
               - 'set(attributes["environment"], resource.attributes["k8s.pod.labels.environment"])'
               - 'set(attributes["optIn"], true)'
-              - 'set(attributes["test.run_id"], body["test.run_id"])'
+              - 'set(attributes["test.run_id"], attributes["attributes"]["test.run_id"])'
     exporters:
       otlphttp:
         endpoint: ${env:INGEST_ENDPOINT}

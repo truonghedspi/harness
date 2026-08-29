@@ -1055,12 +1055,64 @@
       "dependencies": [
         "feat-008"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "",
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "cmd": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+          "result": "Tests run: 7, Failures: 2 (chartMapsWorkloadFromAConcreteOwnerAttributeNotK8sWorkloadName: chart still maps k8s.workload.name; collectorConfigCollectsOnlyOptedInAndEnrichesIdentityAndRunId: chart still uses == \"true\" for the debug.logs/enabled filter), exit 1"
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+          "result": "Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, exit 0"
+        }
+      ],
+      "checkerNotes": "FOLLOW-UP: reconcile the v1 workload source with the journey's bare-Pod emitter — k8s.deployment.name (collector-daemonset.yaml:145) resolves blank for a Deployment-less Pod, so feat-011's journey may emit an empty workload field; the planner should make that explicit or document the emitter's owner.\n\nAPPROVE: chart ConfigMap filter is drop-where-true (!= \"true\"/!= \"test\", mirroring collector/otel-collector.yaml); transform flattens identity (namespace/pod/container/workload), maps message→body and test.run_id from the nested parsed attributes (not body), and maps workload from concrete k8s.deployment.name (not the non-emitted k8s.workload.name). All three falsifier clauses are discriminated — my own falsification (flip chart != \"true\" → == \"true\") went red (1 failure, exact drop-where-true assertion, exit 1), then restored byte-identical.",
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": null,
+        "counterexample": null,
+        "reproduction": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test → exit 0, Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.039 s, under Homebrew OpenJDK 21; baseline ./mvnw -q test → exit 0, all 10 suites green (CollectorDeploymentPolicyTest 7/0, ClusterAccessPolicyTest 4/0 — no feat-008/010 regression).",
+        "observed": "Chart ConfigMap (collector-daemonset.yaml) filter uses != \"true\"/!= \"test\" (drop-where-true), transform flattens namespace/pod/container/workload, set(body, attributes[\"message\"]), set(attributes[\"test.run_id\"], attributes[\"attributes\"][\"test.run_id\"]) not body, workload maps k8s.deployment.name with no k8s.workload.name. Test strengthened from marker-presence to direction: assertOptInAndEnrichment pins != \"true\"/!= \"test\", set(attributes[...]) flatten statements, set(body, and asserts body[\"test.run_id\"] absent, on BOTH the hermetic config and the chart copy; new chartMapsWorkloadFromAConcreteOwnerAttributeNotK8sWorkloadName pins a concrete owner attribute. Falsifier has force: flipping chart != \"true\" → == \"true\" made collectorConfigCollectsOnlyOptedInAndEnrichesIdentityAndRunId go red with the exact drop-where-true message.",
+        "exitCriterion": "7/7 green under the recorded command; flipping the chart filter to == \"true\" fails the drop-where-true assertion; a chart that omits set(body, reads test.run_id from body, or maps k8s.workload.name fails a distinct assertion. Static file-parsing test (~0.04 s), no runtime, no per-test-timeout concern."
+      },
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "7528347f5dd0c10eb750e45809fedf49a12ab787c2047fd3e2dd72e8a6a993e3",
+        "claimRefs": [
+          "feat-013 behavior: drop-where-true != filter and hermetic v1 flattening in the chart ConfigMap",
+          "feat-013 falsifier [X-003] [INV-SCOPE-1] [INV-META-1]",
+          "harness/docs/design/cluster-access-policy.md:69-76 (pinned k8sattributes emits no k8s.workload.name)"
+        ],
+        "changedPaths": [
+          "charts/log-debug-context/templates/collector-daemonset.yaml",
+          "service/src/test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java"
+        ],
+        "runs": [
+          {
+            "cmd": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+            "exit": 0,
+            "result": "Tests run: 7, Failures: 0, Errors: 0, Skipped: 0"
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "not-applicable: the static policy test reads the two YAML artifacts and creates no persistent service or external resource",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: deterministic single-process JUnit run owns no shared mutable state",
+          "realBoundary": "not-applicable: this feature's verification is a static policy oracle over the rendered chart by design; the live-cluster boundary is feat-011's k8s-integration-tester scope and no cluster is available here",
+          "discrimination": "A chart that maps message from the wrong parsed field (e.g. set(body, attributes[\"observedAt\"])) or ties != \"true\" to a different label key would still pass, because the static oracle asserts substring presence (set(body, != \"true\") rather than executing the filter/transform against a fixture — the runtime path is only exercised at feat-009's boundary and feat-011's journey."
+        },
+        "residualUnknowns": [
+          "The chart filter/transform is asserted statically, not executed: the exact OTTL semantics of k8s.deployment.name resolution and attributes[\"attributes\"][\"test.run_id\"] after the chart's regex_parser+json_parser are exercised only by feat-009's collector boundary and feat-011's journey.",
+          "k8s.deployment.name is the chosen concrete owner; the journey's bare-Pod emitter has no Deployment owner, so the workload field may still resolve blank there — reconciling the emitter/workload source is feat-011's k8s-integration-tester scope."
+        ]
+      }
     }
   ]
 }

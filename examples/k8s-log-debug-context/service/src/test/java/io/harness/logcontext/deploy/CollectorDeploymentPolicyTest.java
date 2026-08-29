@@ -83,6 +83,18 @@ class CollectorDeploymentPolicyTest {
     }
 
     @Test
+    void chartMapsWorkloadFromAConcreteOwnerAttributeNotK8sWorkloadName() {
+        String chart = readRequired(CHART_PATH);
+        assertFalse(chart.contains("k8s.workload.name"),
+                "the pinned k8sattributes processor (v0.159.0) emits no k8s.workload.name; "
+                + "mapping it leaves the workload v1 field blank (INV-META-1)");
+        assertTrue(chart.contains("k8s.deployment.name") || chart.contains("k8s.replicaset.name")
+                        || chart.contains("k8s.daemonset.name") || chart.contains("k8s.statefulset.name")
+                        || chart.contains("k8s.job.name") || chart.contains("k8s.cronjob.name"),
+                "chart must map workload from a concrete Kubernetes owner attribute, e.g. k8s.deployment.name (INV-META-1)");
+    }
+
+    @Test
     void imageLockIsImmutableAndPinnedToApprovedDigest() {
         String lock = readRequired(LOCK_PATH).trim();
         assertEquals(CONTRACT_IMAGE, lock,
@@ -121,16 +133,22 @@ class CollectorDeploymentPolicyTest {
     }
 
     private static void assertOptInAndEnrichment(String source, String config) {
-        assertTrue(config.contains("debug.logs/enabled") && config.contains("\"true\""),
-                source + " must admit only workloads opted in via the debug.logs/enabled=true label (X-003)");
-        assertTrue(config.contains("environment") && config.contains("\"test\""),
-                source + " must admit only the test environment (X-003)");
+        assertTrue(config.contains("debug.logs/enabled") && config.contains("!= \"true\""),
+                source + " must DROP non-opted-in logs: the debug.logs/enabled predicate must use != \"true\""
+                        + " (drop-where-true), not == (X-003)");
+        assertTrue(config.contains("environment") && config.contains("!= \"test\""),
+                source + " must DROP non-test logs: the environment predicate must use != \"test\""
+                        + " (drop-where-true), not == (X-003)");
         for (String identity : List.of("namespace", "pod", "container", "workload")) {
-            assertTrue(config.contains(identity),
-                    source + " must enrich the identity field '" + identity + "' (INV-META-1)");
+            assertTrue(config.contains("set(attributes[\"" + identity + "\"]"),
+                    source + " must flatten the identity field '" + identity + "' into a top-level v1 attribute (INV-META-1)");
         }
         assertTrue(config.contains("test.run_id"),
                 source + " must propagate the test.run_id correlation attribute (INV-META-1)");
+        assertFalse(config.contains("body[\"test.run_id\"]"),
+                source + " must not read test.run_id from the body; it is a parsed attribute, not the log body (INV-META-1)");
+        assertTrue(config.contains("set(body"),
+                source + " must map the message into the OTLP body (INV-META-1)");
         assertTrue(config.contains("set(attributes[\"schemaVersion\"], 1)"),
                 source + " must serialize the schemaVersion-1 ingress shape with the value 1 (X-008)");
     }
