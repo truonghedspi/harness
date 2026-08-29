@@ -74,7 +74,7 @@ public final class CollectorContractBootstrap {
         String containerName = "log-context-collector-contract-" + Long.toUnsignedString(System.nanoTime(), 36);
         List<String> command = List.of(
                 "docker", "run", "--rm", "--name", containerName,
-                "--network", "host",
+                "-p", "13133:13133",
                 "-v", fixture.getParent().toAbsolutePath() + ":/fixtures:ro",
                 "-v", CONFIG_PATH.toAbsolutePath() + ":/etc/otelcol-contrib/config.yaml:ro",
                 "-e", "INGEST_ENDPOINT=" + config.ingestEndpoint(),
@@ -108,7 +108,7 @@ public final class CollectorContractBootstrap {
         }
     }
 
-    private static final class DockerRunningCollector implements RunningCollector {
+    public static final class DockerRunningCollector implements RunningCollector {
         private final String containerName;
         private final CollectorContractConfig config;
 

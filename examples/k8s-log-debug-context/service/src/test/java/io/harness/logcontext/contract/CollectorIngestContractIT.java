@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.sun.net.httpserver.HttpServer;
+import io.harness.logcontext.ingest.OtlpLogDecoder;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -33,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -110,33 +110,51 @@ final class CollectorIngestContractIT {
         assertFalse(combined.contains("excluded without opt in") || combined.contains("excluded production"));
     }
 
-    private static List<byte[]> collect(Path fixture, int expectedRequests) throws Exception {
-        List<byte[]> requests = new CopyOnWriteArrayList<>();
-        CountDownLatch delivered = new CountDownLatch(expectedRequests);
-        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+    private static List<byte[]> collect(Path fixture, int expectedRecords) throws Exception {
+        List<byte[]> rawRequests = new CopyOnWriteArrayList<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), 0), 0);
         server.createContext("/", exchange -> {
-            requests.add(exchange.getRequestBody().readAllBytes());
-            delivered.countDown();
+            rawRequests.add(exchange.getRequestBody().readAllBytes());
             exchange.sendResponseHeaders(202, -1);
             exchange.close();
         });
         server.start();
         Object running = null;
         try {
-            URI endpoint = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/ingest");
+            URI endpoint = URI.create("http://host.docker.internal:" + server.getAddress().getPort() + "/ingest");
             Class<?> configType = contractType(COLLECTOR_PACKAGE + "CollectorContractConfig");
             Constructor<?> constructor = configType.getConstructor(URI.class, Path.class, Duration.class, Duration.class);
             Object config = constructor.newInstance(endpoint, fixture.getParent(), Duration.ofSeconds(30), Duration.ofSeconds(10));
             Class<?> bootstrap = contractType(COLLECTOR_PACKAGE + "CollectorContractBootstrap");
             running = bootstrap.getMethod("start", configType).invoke(null, config);
             running.getClass().getMethod("awaitReady").invoke(running);
-            assertTrue(delivered.await(15, TimeUnit.SECONDS),
+            List<String> decoded = awaitDecoded(rawRequests, expectedRecords);
+            assertEquals(expectedRecords, decoded.size(),
                     "collector did not deliver the expected eligible records before the deadline");
+            return decoded.stream().map(s -> s.getBytes(StandardCharsets.UTF_8)).toList();
         } finally {
             if (running != null) invokeClose(running);
             server.stop(0);
         }
-        return List.copyOf(requests);
+    }
+
+    private static List<String> awaitDecoded(List<byte[]> rawRequests, int expectedRecords) throws Exception {
+        OtlpLogDecoder decoder = new OtlpLogDecoder();
+        long deadline = System.nanoTime() + Duration.ofSeconds(15).toNanos();
+        List<String> decoded = decodeAll(decoder, rawRequests);
+        while (decoded.size() < expectedRecords && System.nanoTime() < deadline) {
+            Thread.sleep(100);
+            decoded = decodeAll(decoder, rawRequests);
+        }
+        return decodeAll(decoder, rawRequests);
+    }
+
+    private static List<String> decodeAll(OtlpLogDecoder decoder, List<byte[]> rawRequests) {
+        List<String> decoded = new ArrayList<>();
+        for (byte[] raw : List.copyOf(rawRequests)) {
+            decoded.addAll(decoder.decode(raw));
+        }
+        return decoded;
     }
 
     private static void assertAcceptedByIngest(String json) throws Exception {
@@ -194,7 +212,7 @@ final class CollectorIngestContractIT {
     }
 
     private static Path resourceFixture() throws IOException {
-        Path directory = Files.createTempDirectory("collector-contract-");
+        Path directory = fixtureDirectory("collector-contract-");
         Path source = Path.of("service/src/test/resources/collector/pod-logs.json");
         if (!Files.isRegularFile(source)) return fail("missing collector/pod-logs.json fixture");
         Files.copy(source, directory.resolve("pod-logs.json"));
@@ -202,10 +220,19 @@ final class CollectorIngestContractIT {
     }
 
     private static Path writeFixture(List<SourceRecord> records) throws IOException {
-        Path directory = Files.createTempDirectory("collector-generated-");
+        Path directory = fixtureDirectory("collector-generated-");
         Files.writeString(directory.resolve("pod-logs.json"), records.stream().map(SourceRecord::json)
                 .reduce("", (a, b) -> a + b + "\n"), StandardCharsets.UTF_8);
         return directory.resolve("pod-logs.json");
+    }
+
+    // The fixture must live under the project's target/ (a Colima-shared path), not the macOS
+    // system temp dir: Colima's VM does not mount /var/folders, so a fixture there reads as empty
+    // inside the collector container.
+    private static Path fixtureDirectory(String prefix) throws IOException {
+        Path base = Path.of("target", "collector-fixtures");
+        Files.createDirectories(base);
+        return Files.createTempDirectory(base, prefix);
     }
 
     private static List<SourceRecord> generatedDistinctRecords() {

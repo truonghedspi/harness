@@ -6,6 +6,10 @@
 # to the schemaVersion-1 serialized ingress shape (X-008), and exports it to the ingest endpoint
 # passed as INGEST_ENDPOINT. There is exactly one exporter: records never leave through any path
 # other than ingest.
+#
+# The filter drops records OUTSIDE the opt-in scope (the OTel filter processor drops where its
+# condition is true, so the conditions are negated), and the transform flattens the nested
+# kubernetes.* / attributes.* maps the filelog json_parser emits into the flat v1 attributes.
 receivers:
   filelog:
     include: ["/fixtures/pod-logs.json"]
@@ -16,30 +20,25 @@ receivers:
       - type: json_parser
 
 processors:
-  # Opt-in admission: keep only the conjunction of debug.logs/enabled == "true" and
-  # environment == "test". Every other row is discarded before export (INV-SCOPE-1).
   filter:
     logs:
       log_record:
-        - 'attributes["kubernetes.labels.debug.logs/enabled"] == "true"'
-        - 'attributes["kubernetes.labels.environment"] == "test"'
+        - 'attributes["kubernetes"]["labels"]["debug.logs/enabled"] != "true"'
+        - 'attributes["kubernetes"]["labels"]["environment"] != "test"'
 
-  # Enrichment and schemaVersion-1 serialization: identity fields and test.run_id must survive
-  # the boundary without renaming (INV-META-1); each admitted event is one schemaVersion-1 object.
   transform:
     log_statements:
       - context: log
         statements:
+          - 'set(body, attributes["message"])'
           - 'set(attributes["schemaVersion"], 1)'
-          - 'set(attributes["observedAt"], attributes["observedAt"])'
-          - 'set(attributes["source"], attributes["source"])'
-          - 'set(attributes["namespace"], attributes["kubernetes.namespace"])'
-          - 'set(attributes["pod"], attributes["kubernetes.pod"])'
-          - 'set(attributes["container"], attributes["kubernetes.container"])'
-          - 'set(attributes["workload"], attributes["kubernetes.workload"])'
-          - 'set(attributes["environment"], attributes["kubernetes.labels.environment"])'
+          - 'set(attributes["namespace"], attributes["kubernetes"]["namespace"])'
+          - 'set(attributes["pod"], attributes["kubernetes"]["pod"])'
+          - 'set(attributes["container"], attributes["kubernetes"]["container"])'
+          - 'set(attributes["workload"], attributes["kubernetes"]["workload"])'
+          - 'set(attributes["environment"], attributes["kubernetes"]["labels"]["environment"])'
           - 'set(attributes["optIn"], true)'
-          - 'set(attributes["test.run_id"], attributes["attributes.test.run_id"])'
+          - 'set(attributes["test.run_id"], attributes["attributes"]["test.run_id"])'
 
 exporters:
   # The only egress. No debug, logging, or file exporter may be added here.

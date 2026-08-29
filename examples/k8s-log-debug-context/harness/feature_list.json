@@ -842,19 +842,67 @@
       "dependencies": [
         "feat-008"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
+      "status": "in-progress",
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-08-27",
           "run": "red",
           "cmd": "./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify",
           "result": "Tests run: 4, failures: 4, errors: 0. All four validated conditions compile and load their fixtures, then fail because the required public collector contract io.harness.logcontext.collector.CollectorContractConfig is absent. This is the expected pre-implementation red, not a compile or fixture failure."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify",
+          "result": "Tests run: 4, Failures: 0, Errors: 0, Skipped: 0 (3.016s) against the live pinned collector image: filelog reads the JSONL fixture, the inverted opt-in filter admits exactly the 2 eligible rows, the transform flattens nested kubernetes/attributes into v1, otlphttp sends gzip OTLP, and OtlpLogDecoder unwraps it into one v1 object per record."
         }
       ],
-      "checkerNotes": "RESOLVED DESIGN (digest 2576534ef71a6361): Option A ingest-side OTLP decode. MAKER DIAGNOSIS (collector never actually ran in feat-008 — static test only): (1) FIXED — CollectorContractBootstrap mounted the config at /etc/otelcol/config.yaml but the contrib image reads /etc/otelcol-contrib/config.yaml, so it ran the DEFAULT config (no filelog); (2) BROKEN — otel-collector.yaml filter/transform use flat OTTL paths (kubernetes.namespace, kubernetes.labels.debug.logs/enabled) but filelog json_parser emits NESTED maps (kubernetes -> Map), so the filter admits all rows and the transform drops identity fields; nested-map OTTL access (attributes[\"kubernetes\"][\"namespace\"]) needs syntax verification against the running image; (3) BROKEN — --network host + 127.0.0.1 ingest endpoint does not reach the host capture server under Colima VM networking; (4) TODO — implement OtlpLogDecoder.decode(byte[])->List<String> and make CollectorIngestContractIT decode captured OTLP before asserting.",
+      "checkerNotes": "FIXED: feat-009 oracle now green against the real pinned collector. Fixes: (1) CollectorContractBootstrap mounted config at /etc/otelcol-contrib/config.yaml (was /etc/otelcol/config.yaml); (2) otel-collector.yaml filter inverted (!=) and OTTL paths nested (attributes[\"kubernetes\"][\"namespace\"]) so the opt-in filter admits only eligible rows and the transform flattens identity fields; (3) message moved to OTLP body via set(body, attributes[\"message\"]); (4) networking: removed --network host, use -p 13133:13133 + host.docker.internal (Colima VM loopback is not the macOS host loopback); (5) implemented OtlpLogDecoder (gzip + OTLP unwrap -> one v1 object per record); (6) oracle captures OTLP, decodes via OtlpLogDecoder, and the fixture lives under target/ (Colima does not mount /var/folders).",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "d83e4a9ea7a08adebd8f1d009b56c1fd8adb1d1b51cbd9bcab7ee60cf911e26e",
+        "claimRefs": [
+          "feat-009 falsifier",
+          "INV-SCOPE-1",
+          "INV-META-1",
+          "INV-SCHEMA-1",
+          "INV-OTLP-1",
+          "INV-OTLP-2"
+        ],
+        "changedPaths": [
+          "service/src/main/java/io/harness/logcontext/ingest/OtlpLogDecoder.java",
+          "service/src/main/java/io/harness/logcontext/collector/CollectorContractBootstrap.java",
+          "collector/otel-collector.yaml",
+          "service/src/test/java/io/harness/logcontext/contract/CollectorIngestContractIT.java"
+        ],
+        "runs": [
+          {
+            "cmd": "./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify",
+            "exit": 0,
+            "result": "Tests run: 4, Failures: 0, Errors: 0, Skipped: 0 (3.016s)."
+          },
+          {
+            "cmd": "./mvnw -q test",
+            "exit": 0,
+            "result": "Baseline green; CollectorDeploymentPolicyTest (feat-008) still passes with the corrected config."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: one collector instance per test, run sequentially",
+          "realBoundary": "covered",
+          "discrimination": "A decoder that hardcodes the two resource-fixture messages would pass only the fixed fixture and fail generatedDistinctFixturesRoundTripEveryDiagnosticField and changingOneSourceFieldChangesOnlyItsCorrespondingNormalizedField, which vary every field independently — those two tests exercise the decode path per-field, so the green is not a lookup table."
+        },
+        "residualUnknowns": [
+          "The collector image is launched via the pinned otel/opentelemetry-collector-contrib:0.159.0 digest; an unavailable Docker runtime remains an environment checkpoint (no fake collector is substituted).",
+          "The transform was previously never executed (feat-008 was static-only); this oracle now exercises it, resolving A-008.",
+          "host.docker.internal + -p 13133:13133 is the Colima-safe networking; on a bare-Linux Docker host the original --network host would also work, but this form is portable."
+        ]
+      }
     },
     {
       "id": "feat-010",
