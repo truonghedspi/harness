@@ -32,6 +32,8 @@ import { javaApplyCodeAction } from "./tools/apply-code-action.ts";
 const NEWLINE = "\n";
 const READY_DEADLINE_MS = 120_000;
 const SYNC_DEADLINE_MS = 20_000;
+/** INV-DIAG-4: upper bound on waiting for the publish a didOpen triggers before answering. */
+const DIAG_OPEN_WAIT_MS = 10_000;
 const cacheRoot = path.resolve(process.env.JDT_CACHE_ROOT ?? ".cache/jdt-mcp");
 
 // -------------------------------------------------------------------------------------------
@@ -152,6 +154,36 @@ function resolvesStale(r: unknown): boolean {
   return !!r && typeof r === "object" && (r as { isError?: boolean; value?: { resolved?: boolean } }).isError === false && (r as { value?: { resolved?: boolean } }).value?.resolved === true;
 }
 
+/**
+ * INV-DIAG-4: mở document được hỏi để JDT LS validate và push publishDiagnostics, rồi chờ (có giới
+ * hạn) cho publish đó trước khi java_diagnostics đọc cache. Side effect này nằm ở lớp nối dây của
+ * daemon — `diagnostics.ts` vẫn không tự phát LSP request nào. Khi hết hạn mà chưa có publish, câu
+ * trả lời trung thực vẫn là `not-reported` (INV-DIAG-1), không bao giờ treo.
+ */
+async function openForDiagnostics(
+  lease: { client?: import("./lsp/lsp-client.ts").LspClient },
+  filePath: string,
+  workspaceId: string,
+): Promise<void> {
+  const client = lease.client;
+  if (client === undefined) return;
+  const uri = pathToFileURL(filePath).href;
+  let text: string;
+  try {
+    text = readFileSync(filePath, "utf8");
+  } catch {
+    return; // file không đọc được — javaDiagnostics tự trả kết quả có cấu trúc của nó
+  }
+  client.notify("textDocument/didOpen", {
+    textDocument: { uri, languageId: "java", version: 1, text },
+  });
+  const deadline = Date.now() + DIAG_OPEN_WAIT_MS;
+  while (Date.now() < deadline) {
+    if (cache.get(workspaceId, uri).reported) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 // -------------------------------------------------------------------------------------------
 // Route MCP tools/call -> 8 tool.
 // -------------------------------------------------------------------------------------------
@@ -176,8 +208,13 @@ async function routeTool(name: string, args: Record<string, unknown>): Promise<u
         return await guarded(workspaceId, watcher, () => references(facade, { path: filePath, line: num(args.line), column: num(args.column), includeDeclaration: typeof args.includeDeclaration === "boolean" ? args.includeDeclaration : undefined }), () => false);
       case "java_completion":
         return await guarded(workspaceId, watcher, () => javaCompletion(facade, { path: filePath, line: num(args.line), column: num(args.column) }), () => false);
-      case "java_diagnostics":
-        return await guarded(workspaceId, watcher, () => javaDiagnostics(buildDiagnosticsFacade(filePath, workspaceId), cache, { path: filePath }), () => false);
+      case "java_diagnostics": {
+        const diagFacade = buildDiagnosticsFacade(filePath, workspaceId);
+        return await guarded(workspaceId, watcher, async () => {
+          await openForDiagnostics(lease, filePath, workspaceId);
+          return javaDiagnostics(diagFacade, cache, { path: filePath });
+        }, () => false);
+      }
       case "java_rename":
         return await guarded(workspaceId, watcher, () => javaRename(facade, { path: filePath, line: num(args.line), column: num(args.column), newName: str(args.newName), apply: args.apply === true }), () => false);
       case "java_code_actions":

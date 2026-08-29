@@ -2329,7 +2329,7 @@
           "result": "181 tests, 181 pass, 0 fail (lần chạy trước đó 5 ca feat-001 đỏ vì suite unit đang đỏ tạm thời do maker song song sửa src/tools/hover.ts; chạy lại sau khi họ xanh thì sạch)"
         }
       ],
-      "checkerNotes": "Hai quyết định hình dạng cần checker soi: (1) mốc \"chưa báo cáo\" là {uri,status:\"not-reported\"} KHÔNG có trường problems — mảng rỗng ở đó chính là falsifier; (2) phạm vi project hợp nhất facade.projectFiles(workspaceId) với khoá của cache, vì bảng tool nói java_diagnostics trả lời cho \"every file in the project\" và một tệp chưa index sẽ vắng mặt khỏi cache — bỏ nó đi đọc ra y hệt \"tệp đó sạch\". Cổng DiagnosticsFacade cố ý KHÔNG có request(): tool này không bao giờ phát LSP request. Phần nối dây thật (project-router + readiness-gate + pathToFileURL + watcher cấp danh sách tệp) thuộc về daemon, chưa có ở đây.\n[mechanically promoted by verify-harness --promote on 2026-08-24: verification re-run, exited 0]",
+      "checkerNotes": "FOLLOW-UP: daemon (src/cli.ts) chưa từng gửi textDocument/didOpen, nên java_diagnostics chỉ nhận publishDiagnostics từ build import lần đầu — trên workspace đã import (đã có .project/.classpath), tool trả not-reported vĩnh viễn cho file chưa mở. Phần nối dây kích hoạt publish cho file được hỏi chưa ai sở hữu, thuộc planner.\n\nHai quyết định hình dạng cần checker soi: (1) mốc \"chưa báo cáo\" là {uri,status:\"not-reported\"} KHÔNG có trường problems — mảng rỗng ở đó chính là falsifier; (2) phạm vi project hợp nhất facade.projectFiles(workspaceId) với khoá của cache, vì bảng tool nói java_diagnostics trả lời cho \"every file in the project\" và một tệp chưa index sẽ vắng mặt khỏi cache — bỏ nó đi đọc ra y hệt \"tệp đó sạch\". Cổng DiagnosticsFacade cố ý KHÔNG có request(): tool này không bao giờ phát LSP request. Phần nối dây thật (project-router + readiness-gate + pathToFileURL + watcher cấp danh sách tệp) thuộc về daemon, chưa có ở đây.\n[mechanically promoted by verify-harness --promote on 2026-08-24: verification re-run, exited 0]\n\nFOLLOW-UP resolved by feature-planner 2026-08-29: planned into feat-diag-open-on-query (build) — carries a NEEDS DESIGN marker for the daemon-side didOpen seam before the falsifier can cite the new invariant.",
       "attempts": 1,
       "maxAttempts": 3
     },
@@ -3065,6 +3065,92 @@
         "basis": "declared-contract",
         "reproduction": "npm run test:integration -- test/integration/cross-process.integration.spec.ts reproduced green; mutant probe for the falsifier turned the oracle red (recorded in evidence).",
         "exitCriterion": "the falsifier's named wrong implementation was applied and the verification went red; reverting restored green."
+      }
+    },
+    {
+      "id": "feat-diag-open-on-query",
+      "name": "Daemon triggers validation for the queried document",
+      "kind": "build",
+      "behavior": "the daemon, before answering a file-scoped java_diagnostics call, ensures JDT LS has validated the queried document so its publishDiagnostics is available on both freshly-imported and already-imported workspaces",
+      "verification": "npm run test:integration -- test/integration/diagnostics-open.integration.spec.ts",
+      "context": {
+        "touches": [
+          "src/cli.ts"
+        ],
+        "note": "Reproduced gap: pristine Maven fixture -> java_diagnostics reported (initial m2e import build publishes); same fixture after import (.project/.classpath present) -> not-reported across 4 calls over ~11s; wipe metadata -> reported again. Root cause: src/cli.ts acquire/ensureHandshake never sends textDocument/didOpen, and JDT LS only publishes diagnostics for unopened files during the initial import build, which does not re-run on an already-imported workspace. test/integration/diagnostics.integration.spec.ts opens the document via openDocument() before expecting reported; the daemon-side wiring for that is what no feature owns (feat-tool-diagnostics scoped it out)."
+      },
+      "falsifier": "a daemon that leaves java_diagnostics answering not-reported for a file on an already-imported workspace because it never opened the document (no textDocument/didOpen before the answer) [INV-DIAG-4]",
+      "dependencies": [
+        "feat-tool-diagnostics"
+      ],
+      "status": "active",
+      "readyForCheck": true,
+      "evidence": [
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "cmd": "npm run test:integration -- test/integration/diagnostics-open.integration.spec.ts",
+          "result": "1 fail: phase 2 asserted 'reported' but got 'not-reported' for a file on an already-imported workspace (daemon never sent textDocument/didOpen)"
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/diagnostics-open.integration.spec.ts",
+          "result": "1 pass: java_diagnostics returns 'reported' with the deliberate 'Type mismatch: cannot convert from String to int' error after the daemon opens the queried document"
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "npm test",
+          "result": "159/159 unit tests pass — no regression from the cli.ts didOpen wiring"
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "npm run test:integration",
+          "result": "250/250 integration tests pass (full suite, includes the new diagnostics-open test) — no regression"
+        }
+      ],
+      "checkerNotes": "DESIGN RESOLVED 2026-08-29 (design-facilitator + human 'gommi'): Option A — daemon sends textDocument/didOpen for the queried document before a file-scoped java_diagnostics answer, and waits (bounded by the call deadline) for its publishDiagnostics. INV-DIAG-4 added to harness/docs/design/tool-surface.md; src/tools/diagnostics.ts keeps its never-sends-an-LSP-request invariant. Rejected: B (readiness gate waits for diagnostics — muddies INV-READY-2), C (watcher opens all files — O(files) didOpen). design-approval.json updated.\n\n",
+      "attempts": 0,
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "595393425792244ea8173f38983b632d75d49d955057a4f1a717091c07d759d3",
+        "claimRefs": [
+          "INV-DIAG-4"
+        ],
+        "changedPaths": [
+          "src/cli.ts",
+          "test/integration/diagnostics-open.integration.spec.ts"
+        ],
+        "runs": [
+          {
+            "cmd": "npm run test:integration -- test/integration/diagnostics-open.integration.spec.ts",
+            "exit": 0,
+            "result": "1/1 pass — phase 2 (fresh daemon against an already-imported workspace) answers 'reported' with the deliberate 'Type mismatch: cannot convert from String to int' error."
+          },
+          {
+            "cmd": "npm run test:integration -- test/integration/diagnostics-open.integration.spec.ts   [red run, before the didOpen wiring]",
+            "exit": 1,
+            "result": "1/1 fail — phase 2 answered 'not-reported' (asserted 'reported'), pinning the delete-didOpen mutant."
+          },
+          {
+            "cmd": "npm test",
+            "exit": 0,
+            "result": "159/159 unit tests pass — no regression from the cli.ts didOpen wiring."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: one file-scoped query per call; the didOpen+wait is serial within a single call and shares no new mutable state beyond the existing diagnostics cache.",
+          "realBoundary": "covered",
+          "discrimination": "Deleting the didOpen call in openForDiagnostics IS the red run (phase 2 answered not-reported), so the open itself is pinned by the red->green contrast. The bounded wait is the weaker pin: a mutant that fires didOpen and returns before the publish arrives flakes rather than deterministically fails, because the publish and the cache read race — recorded in residualUnknowns rather than claimed covered."
+        },
+        "residualUnknowns": [
+          "The bounded wait is not deterministically pinned: a mutant that opens the document but skips the wait passes whenever JDT LS happens to publish before the cache read. The red run pins that the open must exist, not that the wait must block."
+        ]
       }
     }
   ]

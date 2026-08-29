@@ -95,6 +95,7 @@ and require an explicit per-call `apply: true`.
 | `INV-DIAG-1` | `diagnostics-cache` | `java_diagnostics` always returns the most recent `publishDiagnostics` payload for the requested URI, or an explicit "not reported yet" marker — an empty list never stands in for "not computed" | query before and after the first publish for a file |
 | `INV-DIAG-2` | `diagnostics-cache` | A later `publishDiagnostics` for a URI always fully replaces the earlier one; problems are never accumulated across publishes | publish a diagnostic then publish an empty list; assert the cache is empty |
 | `INV-DIAG-3` | `diagnostics-cache` | Diagnostics are always attributed to the workspace whose instance published them; a URI is never served from another workspace's cache | spike-B fixture: two workspaces, same relative path |
+| `INV-DIAG-4` | `daemon` | A file-scoped `java_diagnostics` answer is produced from a document the daemon opened for validation (`textDocument/didOpen`) and waited on for its `publishDiagnostics` within the call deadline — "not reported yet" then means only "validation still in flight at the deadline", never "the daemon never asked JDT LS to validate it" | call `java_diagnostics` for a file on an already-imported workspace (no fresh m2e import); assert `reported`, not `not-reported` |
 
 `INV-TOOL-6` is **additive** rather than a rewrite of `INV-TOOL-1`: `feat-prove-navigation-tools`
 already derived a falsifier from `INV-TOOL-1`'s exact wording, and editing that wording would
@@ -104,6 +105,13 @@ a position for `INV-TOOL-1` to range over.
 
 `INV-DIAG-2` exists because the LSP publish model is replace-not-append, and an accumulating cache
 would report problems the compiler already considers fixed — the mirror image of the spike C failure.
+
+`INV-DIAG-4` exists because spike B's "diagnostics arrive for never-opened files" is true only on the
+**initial** m2e import build: measured against a fixture that already carries `.project`/`.classpath`,
+JDT LS does not re-run that build, so `publishDiagnostics` never arrives and `java_diagnostics` answers
+`not-reported` forever for a file the daemon never opened. The daemon (composition root, `src/cli.ts`)
+therefore opens the queried document before a file-scoped `java_diagnostics` answer — a side effect on
+the wiring layer, not on `diagnostics.ts`, which keeps its "never sends an LSP request" invariant.
 
 ## Build order and where the risk is
 

@@ -1,15 +1,17 @@
 {
   "schema": "design-approval/1",
-  "designDigest": "3d68e0857fbfac45",
+  "designDigest": "7cd41bd9c96d3711",
   "status": "approved",
-  "approvedBy": "truong.hn.1994@gmail.com",
-  "approvedAt": "2026-08-21",
+  "approvedBy": "gommi",
+  "approvedAt": "2026-08-29",
   "decisions": [
-    "Option R accepted: project-router derives the workspace root from the call path alone — the outermost enclosing ancestor pom.xml that declares <modules> (the reactor root), or the nearest ancestor pom.xml when no reactor encloses the path. INV-ROUTE-1's wording is corrected to state this exception explicitly, closing the drift the checker found between the literal 'nearest ancestor pom.xml' text and the already-accepted one-JDT-LS-process-per-reactor architecture (DECISIONS.md:182-184) that the implementation and 5-case oracle already implement and test.",
-    "Option N (nearest POM for every path, including inside a declared reactor) rejected: it would give sibling modules separate workspace identities, contradicting the accepted reactor-level process architecture and multiplying the measured 434-952 MB idle-instance memory floor per extra workspace — no cited objective in the accepted design supports module-level independence over the reactor-level model.",
-    "feat-project-router and feat-prove-routing: no re-implementation needed — the existing behavior and 5-condition oracle (TCON-ROUTE-0001..0005) already match Option R exactly; this was a specification-wording fix, not a behavior change. feature-planner may now clear the NEEDS DESIGN markers and let both features proceed to done."
+    "Option A accepted (didOpen on-query, scoped to java_diagnostics): the daemon composition root (src/cli.ts) sends textDocument/didOpen for the queried document before a file-scoped java_diagnostics answer and waits for its publishDiagnostics within the call deadline. Adds INV-DIAG-4 to harness/docs/design/tool-surface.md; src/tools/diagnostics.ts keeps its 'never sends an LSP request' invariant (the didOpen is a daemon-side wiring side effect, not a tool-layer request).",
+    "Option B (readiness gate additionally waits for diagnostics) rejected: it mixes a per-file concern (publishDiagnostics for one URI) into a per-workspace gate and muddies INV-READY-2 (readiness decided by semantic probe, never by status).",
+    "Option C (file-sync-watcher opens every Java file on watch) rejected: O(files) didOpen on startup, memory/time cost, overkill for single-file queries.",
+    "Prior decision (Option R, project-router reactor-root resolution, approvedBy truong.hn.1994@gmail.com on 2026-08-21) remains in force and is recorded in DECISIONS.md."
   ],
   "acceptedRisks": [
-    "<modules> tag detection is validated only against the current fixture tree, not an independent Maven-model parser — an atypical multi-module layout (e.g. non-standard aggregator patterns) could be misclassified. Flagged in the design's own premortem as a bounded future spike, not blocking this cut."
+    "didOpen -> publishDiagnostics is asynchronous: if the publish does not arrive by the call deadline, java_diagnostics still answers 'not-reported' (an honest fallback under INV-DIAG-1), never a hang — the bounded wait respects the per-call deadline budget (X-001).",
+    "<modules> tag detection is validated only against the current fixture tree, not an independent Maven-model parser — an atypical multi-module layout could be misclassified (carried over from the 2026-08-21 approval)."
   ]
 }
