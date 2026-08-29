@@ -34,6 +34,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 ## Next
 
 1. Checker reviews `feat-008` (`readyForCheck: true`); `node harness/loop/route.mjs` names the node.
+2. `feat-010` (Cluster access policy) recorded `NEEDS DESIGN:` in `checkerNotes` (status left `not-started`, `readyForCheck` false): the X-007 security model is approved but the concrete RBAC verbs/resources and NetworkPolicy selectors/ports — including whether OpenSearch is in-cluster or external — are not in `harness/docs/`, so the maker did not invent cluster-security facts. Route to `design-facilitator`.
 
 ## Known Issues / Risks
 
