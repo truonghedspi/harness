@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-29-dispatch-pre-step-gate",
+      "summary": "loop/dispatch.mjs gains --check (prove the runtime is driveable without dispatching); the orchestrator blocks on a broken dispatcher instead of silently playing every role.",
+      "why": "In a dogfooding session all three runtimes failed (kiro not logged in, codex sandboxed, claude quota), and the orchestrator silently became planner/designer/maker/checker — destroying generator/evaluator separation (Lesson 13). DSH's agent/pre-step gate rejects before a turn is spent; the harness had no equivalent.",
+      "targetImpact": "dispatch.mjs --check runs the existing runtime selection plus auth/config checks without a dispatch and exits 0/1. The orchestrator runs it before falling back to script dispatch and blocks (reports and stops) when broken. No other tool or state file changes.",
+      "paths": ["loop/dispatch.mjs", "prompts/orchestrator.md", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh loop/dispatch.mjs (additive --check flag) and merge the orchestrator prompt's blocker sentence, preserving project-specific presentation."],
+      "verification": ["bash harness-loop/scripts/demo.sh: --check reports dispatch broken (exit 1) with no auth; orchestrator prompt blocks on a broken dispatcher", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-29-harness-local-config",
       "summary": "env/local.json becomes a schema'd machine-local runtime config with a runMode knob (native-spawn | script-dispatch), read/written through a new tools/harness-config.mjs; the orchestrator reports and persists the mode.",
       "why": "The repository owner wanted a durable (not per-session) default for the orchestrator's dispatch mode. The harness already had a gitignored env/local.json for machine config (written by environment.mjs) but no structured read/write path. Session-handoff is per-session; a durable default belongs in a config file, and a config the model hand-edits is one it can silently corrupt, so it is tool-mediated.",

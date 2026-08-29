@@ -421,6 +421,9 @@ numbered options and a recommendation. `run-loop.mjs` and `dispatch.mjs` remain 
 adapter for headless/CI or a session without native spawning. Its dispatch mode is a machine-level
 default held in `env/local.json` (`node tools/harness-config.mjs get runMode`), which it reports
 and can change on request — switching modes changes *how* the node runs, never *which* node runs.
+A broken dispatcher is a blocker, not a reason to play every role: `node loop/dispatch.mjs --check`
+proves the runtime is driveable before a turn is spent, and the orchestrator stops and reports
+rather than silently dropping generator/evaluator separation.
 
 Its safety is two mechanical constraints, not two sentences of good intent:
 

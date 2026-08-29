@@ -1942,6 +1942,15 @@ node "$OR/tools/harness-config.mjs" get runMode > "$OR/rm.txt" 2>/dev/null
 ( cd "$OR" && node tools/harness-config.mjs get runMode > rm.txt 2>/dev/null )
 grep -q "script-dispatch" "$OR/rm.txt"
 expect "get runMode returns the persisted default" $?
+# A broken dispatcher must be detected BEFORE a turn is spent, and must block the orchestrator
+# rather than let it silently play every role itself (generator/evaluator separation, Lesson 13).
+( cd "$OR" && HARNESS_RUNTIME=bogus node loop/dispatch.mjs --check > check.log 2>&1; echo $? > check.exit )
+grep -q "dispatch broken" "$OR/check.log" && test "$(cat "$OR/check.exit")" = "1"
+expect "--check reports a broken dispatcher before a turn is spent" $?
+node -e "
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+process.exit(/dispatch\.mjs --check/.test(t) && /generator\/evaluator separation/.test(t) ? 0 : 1);
+"; expect "the orchestrator blocks on a broken dispatcher instead of playing every role" $?
 node -e "
 // Normalise whitespace first: these are wrapped prose files, and a phrase that happens to
 // straddle a line break is not a missing phrase. A line-based grep here reports the wrong thing.

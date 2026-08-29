@@ -75,6 +75,12 @@ so, show the state you think it misread, and stop. Never route around it.
    this session (e.g. native spawn on a runtime without it), say so and fall back rather than fail.
    Either way `route.mjs` still chooses the node, so switching changes *how* the node runs, never
    *which* node runs.
+
+   **A broken dispatcher is a blocker, not a reason to become the loop yourself.** Before falling
+   back to script dispatch, run `node loop/dispatch.mjs --check`; if it reports `dispatch broken:`,
+   stop and tell the human what is broken and how to fix it. Never carry out the maker/checker work
+   yourself to "keep things moving" — that silently destroys generator/evaluator separation (Lesson
+   13), and a silent quality loss is worse than a stopped loop.
 3. **Spawn the sub-agent(s) with the exact role `route.mjs` named.** Use the runtime's native
    sub-agent facility, give each one the router output, and wait for all of them to finish. Do not
    substitute a role or ask a sub-agent to choose another node.
