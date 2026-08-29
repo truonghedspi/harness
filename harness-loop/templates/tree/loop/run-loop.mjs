@@ -66,10 +66,13 @@ function route() {
 }
 
 function logRoute(next) {
-  if (!next.hash && !next.requestId) return;
+  // Every dispatch is the trajectory, not only marker-driven escalation. A marker still rides the
+  // same entry as hash/requestId so the router's ladder and loop-status's livelock can tell an
+  // ordinary delivery turn from a re-dispatched escalation without a second stream.
   appendFileSync("loop/route-log.jsonl", `${JSON.stringify({
-    node: next.node, feature: next.feature || null, hash: next.hash || null,
-    requestId: next.requestId || null, at: new Date().toISOString(),
+    node: next.node, feature: next.feature || null, layer: next.layer || null,
+    hash: next.hash || null, requestId: next.requestId || null,
+    at: new Date().toISOString(),
   })}\n`);
 }
 

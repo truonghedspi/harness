@@ -51,6 +51,10 @@ so, show the state you think it misread, and stop. Never route around it.
    `node loop/run-loop.mjs 1`; that adapter exists for headless, CI and runtimes without in-session
    spawning.
 
+   **If a spawn or dispatch fails, read `docs/reference/runtimes.md` before diagnosing** — it maps
+   each runtime's transport (kiro native `subagent` vs ACP through `run-loop.mjs`, Claude/Codex CLI
+   adapters) so you can tell a missing facility from a broken dispatch without guessing.
+
    **The one exception is `mode: slice-fanout`** — see the next section. It is the router's word,
    not your judgement: if the router did not print that mode, spawn one child.
 4. **Show what changed and how far the workflow has moved.** After every sub-agent return — and

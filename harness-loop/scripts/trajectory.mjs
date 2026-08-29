@@ -97,8 +97,10 @@ function collect() {
     if (!j || (!j.at && !j.ts)) continue;
     records.push({
       ts: j.ts || j.at, source: "route", actor: String(j.node || "router"),
-      event: "route", feature: j.feature || null,
-      detail: j.hash || j.requestId ? `marker ${String(j.hash || j.requestId).slice(0, 12)}` : null,
+      event: "route", feature: j.feature || null, layer: j.layer || null,
+      detail: j.hash || j.requestId
+        ? `marker ${String(j.hash || j.requestId).slice(0, 12)}`
+        : (j.why ? String(j.why).slice(0, 160) : null),
     });
   }
 

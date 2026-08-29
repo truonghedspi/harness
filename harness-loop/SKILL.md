@@ -571,7 +571,8 @@ as a bug, which quietly destroys trust in every other number on the screen.
 the router's next move, and waits. `--headless` is for CI and cron; with no TTY it falls back to
 headless and says so. From a second terminal, `node tools/loop-status.mjs --watch` shows the
 in-flight node and its elapsed time, features in flight, open escalations, the dispatch trail, and
-a livelock warning when the same node hits the same feature four times running. The reasoning and
+a livelock warning when the same marker-driven escalation is re-dispatched four times running (an
+ordinary maker checkpoint on one active feature is not one). The reasoning and
 the three-rung ladder: [references/human-attention.md](references/human-attention.md).
 After the fact, `node tools/trajectory.mjs` replays the recorded run as one time-ordered ledger —
 marker routes, decision-path events and redacted tool activity with timing — the CLI analogue of the

@@ -1548,6 +1548,14 @@ test "$(grep -c -- '--agent maker' "$BATCH/runtime.log")" = "1" -a "$(grep -c --
   && grep -q 'only when the whole feature-level.*behavior' "$SCRIPTS/../templates/tree/loop/maker-prompt.md" \
   && grep -q 'counts failed review cycles, not maker checkpoints' "$SCRIPTS/../templates/tree/loop/checker-prompt.md"
 expect "partial maker checkpoints do not dispatch the final checker" $?
+# route-log is the trajectory, not only the marker ledger: an ordinary (marker-free) maker dispatch
+# must still land there with its layer, so a run can be replayed end to end.
+node -e "
+const fs=require('fs'), lines=fs.readFileSync('$BATCH/loop/route-log.jsonl','utf8').split('\n').filter(Boolean);
+const last=JSON.parse(lines[lines.length-1]);
+process.exit(last.node==='maker' && !last.hash && !last.requestId && last.layer==='implementation' ? 0 : 1);
+"
+expect "the dispatcher logs every route — not only marker-driven ones — with its layer" $?
 # A maker can still set readyForCheck too early. Admission classifies that as mechanically
 # incomplete, skips checker, and does not spend the semantic attempts budget.
 cp "$SCRIPTS/../templates/tree/tools/review-contract.mjs" "$BATCH/tools-review-contract.mjs"
@@ -1815,9 +1823,17 @@ d.features[0].status='done'; fs.writeFileSync(p,JSON.stringify(d,null,2));
 node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -q "progress  1/3 done (33%)   2 remaining"
 expect "the live view shows canonical done/total/percent/remaining progress after state changes" $?
 mkdir -p "$LS/loop"
+# An ordinary maker checkpoint on one active feature is the normal shape (WIP=1), not a livelock —
+# only a repeated marker-driven escalation is. Both must land in the same stream, distinguished by
+# the marker, or a full dispatch trail and a correct livelock warning cannot coexist.
+for i in 1 2 3 4; do echo '{"node":"maker","feature":"feat-x","layer":"implementation"}' >> "$LS/loop/route-log.jsonl"; done
+node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" > "$LS/status-nolivelock.txt" 2>/dev/null
+if grep -q "livelock" "$LS/status-nolivelock.txt"; then NL=1; else NL=0; fi
+expect "four ordinary dispatches on one feature are checkpoints, not a livelock" $NL
 for i in 1 2 3 4; do echo '{"node":"design-facilitator","feature":"feat-x","hash":"abc"}' >> "$LS/loop/route-log.jsonl"; done
-node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" 2>/dev/null | grep -q "livelock"
-expect "four identical dispatches in a row are called a livelock, in the view a human is already reading" $?
+node "$SCRIPTS/../scripts/loop-status.mjs" --target "$LS" > "$LS/status-livelock.txt" 2>/dev/null
+grep -q "livelock" "$LS/status-livelock.txt"
+expect "four identical marker dispatches are called a livelock" $?
 node -e "
 const fs=require('fs');
 fs.writeFileSync('$LS/loop/current.json', JSON.stringify({node:'maker',feature:'feat-x',iteration:2,startedAt:Date.now()-90000}));
@@ -1898,6 +1914,12 @@ const out=JSON.parse(execFileSync('node',['tools/agent-context.mjs','orchestrato
 const t=out.hookSpecificOutput.additionalContext;
 process.exit(/presenting-and-proposing/.test(t) && !/MISSING/.test(t) ? 0 : 1);
 "; expect "and it is injected at spawn, so the orchestrator starts holding it" $?
+# The orchestrator must be able to self-diagnose a failed spawn/dispatch without paying to carry
+# the full runtime mapping every session: it points at runtimes.md and reads it only on failure.
+node -e "
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+process.exit(/docs\/reference\/runtimes\.md/.test(t) && /before diagnosing/.test(t) ? 0 : 1);
+"; expect "the orchestrator points at the runtime mapping for on-demand spawn/dispatch diagnosis" $?
 node -e "
 // Normalise whitespace first: these are wrapped prose files, and a phrase that happens to
 // straddle a line break is not a missing phrase. A line-based grep here reports the wrong thing.
@@ -3471,14 +3493,19 @@ cat > "$TJ/trace/trace.jsonl" <<'TJ1'
 {"ts":"2026-01-02T10:00:20.000Z","actor":"checker","event":"verdict","feature":"feat-a","detail":"APPROVE: works"}
 TJ1
 printf '%s\n' '{"schema":"tool-event/1","ts":"2026-01-02T10:00:10.000Z","actor":"maker","feature":"feat-a","tool":"shell","class":"shell","success":true,"durationMs":150}' > "$TJ/trace/tool-events.jsonl"
-printf '%s\n' '{"node":"design-facilitator","feature":"feat-a","hash":"abc123def456","at":"2026-01-02T09:59:00.000Z"}' > "$TJ/loop/route-log.jsonl"
+printf '%s\n' '{"node":"design-facilitator","feature":"feat-a","hash":"abc123def456","at":"2026-01-02T09:59:00.000Z"}' '{"node":"maker","feature":"feat-a","layer":"implementation","why":"feat-a is eligible","at":"2026-01-02T10:00:15.000Z"}' > "$TJ/loop/route-log.jsonl"
 node "$TJ/tools/trajectory.mjs" --target "$TJ" --all --json > "$TJ/traj.json"
 node -e "
 const j=require('$TJ/traj.json');
-process.exit(j.length===4 && j[0].source==='route' && j[1].actor==='init' &&
-  j[2].source==='tool' && j[2].durationMs===150 && j[3].event==='verdict' ? 0 : 1);
+process.exit(j.length===5 && j[0].source==='route' && j[1].actor==='init' &&
+  j[2].source==='tool' && j[2].durationMs===150 &&
+  j[3].source==='route' && j[3].layer==='implementation' && /eligible/.test(j[3].detail) &&
+  j[4].event==='verdict' ? 0 : 1);
 "
 expect "it merges the route, decision-path and tool streams into one time-ordered trajectory" $?
+node "$TJ/tools/trajectory.mjs" --target "$TJ" --all > "$TJ/ledger.txt" 2>/dev/null
+grep -q "feat-a is eligible" "$TJ/ledger.txt"
+expect "a marker-free route renders its router reason, not just a blank row" $?
 node "$TJ/tools/trajectory.mjs" --target "$TJ" --all > "$TJ/ledger.txt" 2>/dev/null
 grep -q "⊢ shell" "$TJ/ledger.txt" && grep -q "APPROVE: works" "$TJ/ledger.txt" \
   && grep -q "marker abc123def456" "$TJ/ledger.txt"
@@ -3487,7 +3514,7 @@ node "$TJ/tools/trajectory.mjs" --target "$TJ" --record 3 --all > "$TJ/record.tx
 grep -q '"durationMs": 150' "$TJ/record.txt"
 expect "--record is the inspector: full JSON of the Nth record" $?
 node "$TJ/tools/trajectory.mjs" --target "$TJ" --actor maker --all --json > "$TJ/maker.json"
-node -e "const j=require('$TJ/maker.json');process.exit(j.length===1 && j[0].actor==='maker'?0:1)"
+node -e "const j=require('$TJ/maker.json');process.exit(j.length===2 && j.every(r=>r.actor==='maker')?0:1)"
 expect "--actor filters the trajectory to one role" $?
 node "$TJ/tools/trajectory.mjs" --target "$TJ" --summary --all > "$TJ/summary.txt" 2>/dev/null
 grep -q "checker/verdict" "$TJ/summary.txt"

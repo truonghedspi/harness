@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-29-full-dispatch-trail-orchestrator-runtimes",
+      "summary": "loop/route-log.jsonl now logs every dispatch (node, layer, marker when present) instead of only marker-driven routes; the orchestrator prompt points at docs/reference/runtimes.md for on-demand spawn/dispatch diagnosis.",
+      "why": "The trajectory could not replay an ordinary maker/checker dispatch — route-log only recorded marker escalation, so a run's decision trail was partial. Separately, the orchestrator could run both spawn and dispatch but could not self-diagnose a failed spawn/dispatch. Auto-loading the runtime mapping was rejected because it pushed the orchestrator over its context budget; the prompt now points at runtimes.md to be read only on failure.",
+      "targetImpact": "route-log.jsonl grows by one line per dispatch (node + layer + optional marker). loop-status now reads only marker rows for the livelock warning, because an ordinary maker checkpoint on one active feature is the normal shape, not a livelock; its 'dispatched' trail now shows every dispatch. trajectory.mjs renders a marker-free route's router reason (why) instead of a blank row. The orchestrator reads docs/reference/runtimes.md on demand when a spawn/dispatch fails.",
+      "paths": ["loop/run-loop.mjs", "tools/loop-status.mjs", "tools/trajectory.mjs", "prompts/orchestrator.md", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh loop/run-loop.mjs, tools/loop-status.mjs and tools/trajectory.mjs together so the full dispatch trail, marker-aware livelock and the trajectory's why-rendering cannot drift.", "Merge the orchestrator prompt's runtimes.md pointer, preserving project-specific orchestration instructions; no manifest or regeneration change."],
+      "verification": ["bash harness-loop/scripts/demo.sh: ordinary dispatch logged with layer; marker-aware livelock; trajectory renders a non-marker route's why; orchestrator prompt points at runtimes.md without pushing it over budget", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-28-trajectory-ledger",
       "summary": "New tools/trajectory.mjs replays the loop's recorded run as one chronological, turn-aware ledger — marker routes, decision-path events and redacted tool activity with timing — with --record/--summary/--json, the CLI analogue of the deepseek-harness Trajectory tab.",
       "why": "The harness already recorded a run across trace/trace.jsonl, trace/tool-events.jsonl and loop/route-log.jsonl, but no view merged them into the order the run actually happened. loop-status answers 'now', timeline answers 'how feature_list.json got here', run-report aggregates insights; none replayed the trajectory itself. The repository owner asked for a trajectory feature like deepseek-harness.",
