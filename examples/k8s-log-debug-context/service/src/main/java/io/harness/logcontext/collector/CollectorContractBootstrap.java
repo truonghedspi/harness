@@ -76,7 +76,7 @@ public final class CollectorContractBootstrap {
                 "docker", "run", "--rm", "--name", containerName,
                 "--network", "host",
                 "-v", fixture.getParent().toAbsolutePath() + ":/fixtures:ro",
-                "-v", CONFIG_PATH.toAbsolutePath() + ":/etc/otelcol/config.yaml:ro",
+                "-v", CONFIG_PATH.toAbsolutePath() + ":/etc/otelcol-contrib/config.yaml:ro",
                 "-e", "INGEST_ENDPOINT=" + config.ingestEndpoint(),
                 CONTRACT_IMAGE);
 

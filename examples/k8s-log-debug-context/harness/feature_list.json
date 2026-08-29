@@ -824,7 +824,7 @@
       "kind": "prove",
       "behavior": "A collector pipeline contract sends each representative opted-in container log as one compatible enriched schemaVersion 1 UTF-8 JSON object per ingress request and excludes non-opted-in records",
       "verification": "./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify",
-      "falsifier": "Static YAML passes while the Collector wraps records in an incompatible batch envelope, emits a wrong-typed or incomplete v1 object, loses Kubernetes or test metadata, or forwards an excluded pod [INV-SCOPE-1] [INV-META-1] [INV-SCHEMA-1]",
+      "falsifier": "Static YAML passes while the OTLP-decode adapter fails to unwrap each admitted log record into exactly one schemaVersion-1 v1 object before IngestService.ingest(String), emits a wrong-typed or incomplete v1 object, loses Kubernetes or test metadata across the OTLP transport, or forwards an excluded pod [INV-OTLP-1] [INV-OTLP-2] [INV-SCOPE-1] [INV-META-1] [INV-SCHEMA-1]",
       "conditions": [
         "TCON-COLLECTOR-0001",
         "TCON-COLLECTOR-0002",
@@ -833,10 +833,11 @@
       ],
       "context": {
         "touches": [
+          "service/src/main/java/io/harness/logcontext/ingest/OtlpLogDecoder.java",
           "service/src/test/java/io/harness/logcontext/contract/CollectorIngestContractIT.java",
           "service/src/test/resources/collector/pod-logs.json"
         ],
-        "note": "Execute the real collector config against a capture ingress endpoint; assert one UTF-8 JSON object per request matches the approved v1 types and can be submitted through IngestService.ingest(String)."
+        "note": "Execute the real collector config against a capture ingress endpoint and decode the OTLP payload through the new public OtlpLogDecoder seam (OtlpLogDecoder.decode(byte[]) -> List<String>, shared by production and the oracle): the adapter unwraps resourceLogs -> scopeLogs -> logRecords into exactly one schemaVersion-1 v1 object per admitted record before IngestService.ingest(String), rejects malformed or non-log OTLP, and the ingest HTTP handler calls IngestService.ingest(String) once per decoded record. Assert each decoded record matches the approved v1 types and no excluded record crosses; the no-resourceLogs assertion moves to the post-decode boundary, and the transform must map each v1 field into OTLP body/attributes for INV-OTLP-2 round-trip fidelity (harness/docs/design/collector-ingress-mechanism.md)."
       },
       "dependencies": [
         "feat-008"
@@ -851,7 +852,7 @@
           "result": "Tests run: 4, failures: 4, errors: 0. All four validated conditions compile and load their fixtures, then fail because the required public collector contract io.harness.logcontext.collector.CollectorContractConfig is absent. This is the expected pre-implementation red, not a compile or fixture failure."
         }
       ],
-      "checkerNotes": "NEEDS DESIGN: How does the pinned stock otel/opentelemetry-collector-contrib:0.159.0 emit one raw UTF-8 schemaVersion-1 JSON object per HTTP ingress request, given otlphttp wraps records in the resourceLogs envelope and the approved docs name only the wire shape, never a mechanism?\n\nThe approved contract (harness/docs/design/log-debug-context.md 'Serialized ingress v1' and collector-contract-launch.md) requires one JSON object per ingress request with no batch envelope; feat-009's oracle asserts no resourceLogs and no \"body\":[. Stock OTel Collector Contrib has no raw-JSON one-object-per-request HTTP exporter, and the current collector/otel-collector.yaml uses otlphttp (OTLP envelope). DECISIONS.md 2026-08-27 'Docker/OCI selected' pins the unmodified stock image (no custom/fork exporter), and no approved artifact names an exporter/processor/transform or a capture-endpoint contract that unwraps OTLP. Choosing custom-exporter vs ingest-side OTLP-decode changes the digest-bound image/launcher or the wire contract, so it needs design-facilitator + owner approval before feat-009 can proceed.",
+      "checkerNotes": "RESOLVED DESIGN (digest 2576534ef71a6361): Option A ingest-side OTLP decode. MAKER DIAGNOSIS (collector never actually ran in feat-008 — static test only): (1) FIXED — CollectorContractBootstrap mounted the config at /etc/otelcol/config.yaml but the contrib image reads /etc/otelcol-contrib/config.yaml, so it ran the DEFAULT config (no filelog); (2) BROKEN — otel-collector.yaml filter/transform use flat OTTL paths (kubernetes.namespace, kubernetes.labels.debug.logs/enabled) but filelog json_parser emits NESTED maps (kubernetes -> Map), so the filter admits all rows and the transform drops identity fields; nested-map OTTL access (attributes[\"kubernetes\"][\"namespace\"]) needs syntax verification against the running image; (3) BROKEN — --network host + 127.0.0.1 ingest endpoint does not reach the host capture server under Colima VM networking; (4) TODO — implement OtlpLogDecoder.decode(byte[])->List<String> and make CollectorIngestContractIT decode captured OTLP before asserting.",
       "attempts": 0,
       "maxAttempts": 3
     },
