@@ -3607,6 +3607,21 @@ node -e "const r=require('$MC/after.json');process.exit(r.node==='maker'&&r.feat
 expect "once the prove test has a mutant-checked run, the build feature becomes eligible" $?
 
 echo ""
+step 64 "baseline gate runs once per session, not per iteration"
+BS="$WORK/baseline-once"; mkdir -p "$BS/loop" "$BS/bin" "$BS/tools"
+cp "$SCRIPTS/../templates/tree/loop/run-loop.mjs" "$BS/loop/run-loop.mjs"
+cp "$SCRIPTS/../templates/tree/loop/dispatch.mjs" "$BS/loop/dispatch.mjs"
+cp "$SCRIPTS/../templates/tree/tools/kiro-acp-dispatch.mjs" "$BS/tools/kiro-acp-dispatch.mjs"
+printf '%s\n' '#!/usr/bin/env node' 'process.stdout.write(JSON.stringify({node:"maker",kind:"agent",layer:"implementation",why:"incomplete feature"}));' > "$BS/loop/route.mjs"
+printf '%s\n' '#!/usr/bin/env node' 'import { appendFileSync } from "node:fs";' 'appendFileSync("init-count.txt", "1\n");' 'process.exit(0);' > "$BS/init.mjs"
+printf '%s\n' '{"features":[{"id":"feat-partial","status":"active","readyForCheck":false,"checkerNotes":"","attempts":0,"maxAttempts":3}]}' > "$BS/feature_list.json"
+cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$BS/bin/kiro-cli"
+chmod +x "$BS/bin/kiro-cli"
+( cd "$BS" && PATH="$BS/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BS/runtime.log" node loop/run-loop.mjs 2 --headless > "$BS/run.log" 2>&1 )
+test "$(wc -l < "$BS/init-count.txt" | tr -d ' ')" = "1" && grep -q "reused" "$BS/run.log"
+expect "a green baseline holds for the whole session, so init.mjs runs once not per iteration" $?
+
+echo ""
 if [ "$FAIL" = "0" ]; then
   echo "ALL DEMO STEPS PASSED — harness-loop lifecycle proven end-to-end at $T"
 else

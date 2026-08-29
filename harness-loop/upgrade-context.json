@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-29-baseline-once-per-session",
+      "summary": "run-loop.mjs runs the baseline gate once per session (re-running only while red to confirm a repair), instead of every iteration.",
+      "why": "The baseline (init.mjs) ran every iteration — ~35 times a day on the dogfooding project — and on a target whose init.mjs downloads a real fixture (8-11 min) that dominates wall-clock. The baseline is a START gate (Lesson 6), not a per-iteration regression suite; the environment it checks does not change between iterations, and the full feature replay already runs once at the end of the session.",
+      "targetImpact": "run-loop.mjs reuses a green baseline-state for subsequent iterations and re-runs only while red. The post-checker baseline re-run and the end-of-session feature replay are unchanged, so regression coverage is retained where it belongs.",
+      "paths": ["loop/run-loop.mjs", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh loop/run-loop.mjs; the change is local to the dispatch loop and does not touch feature state or prompts."],
+      "verification": ["bash harness-loop/scripts/demo.sh step 64 proves init.mjs runs once for two iterations and the reuse line is logged", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-29-mutant-check-before-implement",
       "summary": "A prove feature's test must record a `mutant: true` red run (proof it discriminates against a wrong implementation) before the build feature that depends on it is eligible for the maker.",
       "why": "A test written and green does not prove it discriminates: feat-diag-open-on-query shipped the wrong mechanism and the checker caught it only after a full implement cycle. DSH's testing rule ('introduce the regression, watch red') does the mutant-check as a gate, not a post-hoc checker discovery.",

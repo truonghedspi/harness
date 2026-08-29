@@ -246,7 +246,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    code). Both follow `skills/test-design/SKILL.md`, scaffolded into the target. Why this is
    structural rather than advisory: [references/test-authoring.md](references/test-authoring.md).
 8. **Get the baseline green.** Run `./init.sh` (or `node init.mjs` anywhere, `init.cmd` on Windows) in the target. If red, that is the only work until
-   it is green (Lesson 6/9). A loop on a red baseline just amplifies failure.
+   it is green (Lesson 6/9). A loop on a red baseline just amplifies failure. The loop runs this
+   gate once per session (re-running only while red to confirm a repair) — the full feature replay
+   still runs once at the end, so per-iteration wall-clock is not bought with lost regression
+   coverage.
 9. **Prove coverage:**
 
    ```bash

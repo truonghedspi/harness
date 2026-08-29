@@ -164,9 +164,19 @@ async function main() {
   const runtime = selectRuntime();
   console.log(`runtime: ${runtime}`);
   let baselineChecked = false;
+  let baselineState = null;
   for (let iteration = 1; iteration <= iterations; iteration++) {
     if (allSettled()) return 0;
-    recordBaseline();
+    // The baseline is a START gate (Lesson 6), not a per-iteration regression suite. A green
+    // baseline holds for the whole session: the environment it checks does not change between
+    // iterations, and the maker's changes are verified by the feature's own `verification`, not by
+    // the baseline. Re-run it only while it is red, to confirm a repair landed; the full
+    // feature replay still runs once at the end of the session.
+    if (!baselineState || baselineState.status === "red") {
+      baselineState = recordBaseline();
+    } else {
+      console.log(`baseline: ${baselineState.status} (reused ${baselineState.evidenceDigest})`);
+    }
     const next = route();
     logRoute(next);
     console.log(`=== iteration ${iteration}/${iterations} — route → ${next.node} [layer: ${next.layer}] ===`);
@@ -196,7 +206,7 @@ async function main() {
       if (code !== 0) return code;
     }
     if (next.node === "checker") {
-      recordBaseline();
+      baselineState = recordBaseline();
       baselineChecked = true;
     }
     if (attended && !await checkpoint(iteration, next.node)) return 0;
