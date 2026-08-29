@@ -1,19 +1,16 @@
 {
   "schema": "design-approval/1",
-  "designDigest": "1ad9eae6fce91ef3",
+  "designDigest": "0808bfb955ba1f0d",
   "status": "approved",
   "approvedBy": "gommi",
   "approvedAt": "2026-08-29",
   "decisions": [
-    "Option A accepted (didOpen on-query, scoped to java_diagnostics): the daemon composition root (src/cli.ts) sends textDocument/didOpen for the queried document before a file-scoped java_diagnostics answer and waits for its publishDiagnostics within the call deadline. src/tools/diagnostics.ts keeps its 'never sends an LSP request' invariant (the didOpen is a daemon-side wiring side effect, not a tool-layer request).",
-    "Option B (readiness gate additionally waits for diagnostics) rejected: it mixes a per-file concern (publishDiagnostics for one URI) into a per-workspace gate and muddies INV-READY-2 (readiness decided by semantic probe, never by status).",
-    "Option C (file-sync-watcher opens every Java file on watch) rejected: O(files) didOpen on startup, memory/time cost, overkill for single-file queries.",
-    "Revision (checker REJECT addressed): INV-DIAG-4 reworded to pin the bounded wait for publishDiagnostics as the load-bearing mechanism, with textDocument/didOpen as a trigger/optimisation. Checker mutant evidence: deleting only the didOpen while keeping the wait still passed the verification, so the wait — not the didOpen — is what the falsifier must name. Falsifier reworded to name the no-wait mutant.",
-    "Prior decision (Option R, project-router reactor-root resolution, approvedBy truong.hn.1994@gmail.com on 2026-08-21) remains in force and is recorded in DECISIONS.md."
+    "Option A accepted (Gradle routing in project-router): settings.gradle/settings.gradle.kts = multi-project root (analogous to the Maven reactor); build.gradle/build.gradle.kts = project (analogous to the nearest pom.xml). Precedence in a mixed tree, outermost-first: settings.gradle root > Maven reactor pom > nearest build.gradle > nearest pom. Adds INV-ROUTE-4 to harness/docs/design/runtime-model.md as additive (INV-ROUTE-1/-2/-3 stay Maven-specific for their done oracles).",
+    "Option B (build.gradle only, ignore settings.gradle) rejected: mis-routes multi-project Gradle builds — each subproject (e.g. aeron-client, aeron-archive) would become a separate workspace, losing cross-module resolution that buildship needs the settings.gradle root for.",
+    "Prior decisions (Option A didOpen/wait + INV-DIAG-4 reword; Option R project-router Maven reactor-root) remain in force and are recorded above / in DECISIONS.md."
   ],
   "acceptedRisks": [
-    "publishDiagnostics may not arrive by the call deadline: java_diagnostics then still answers 'not-reported' (an honest fallback under INV-DIAG-1), never a hang — the bounded wait respects the per-call deadline budget (X-001).",
-    "didOpen is kept as a speed trigger but is not independently falsified by the oracle: its only observable effect is making the publish arrive sooner, which the wait already tolerates.",
-    "<modules> tag detection is validated only against the current fixture tree, not an independent Maven-model parser — an atypical multi-module layout could be misclassified (carried over from the 2026-08-21 approval)."
+    "Gradle root detection is validated against the settings.gradle/build.gradle marker layout (including the real aeron repo), not against a Gradle-model parser — an atypical layout (e.g. settings.gradle.kts with non-standard include) could be misclassified, same class of risk as the Maven <modules> detection.",
+    "The mixed Maven+Gradle tree precedence is specified by rule, not exercised by a real mixed-build fixture — rare in practice, documented as an accepted risk."
   ]
 }

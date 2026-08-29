@@ -251,7 +251,7 @@
           "result": "post-approval replay after design approval 3d68e0857fbfac45 (Option R): 5/5 passed unchanged (TCON-ROUTE-0001..0005), no source edit made; src/workspace/project-router.ts already picks the outermost <modules>-bearing ancestor pom.xml (reactor root) and falls back to the nearest ancestor pom.xml, matching the corrected INV-ROUTE-1 exactly"
         }
       ],
-      "checkerNotes": "FOLLOW-UP: the `<modules>` reactor test in `src/workspace/project-router.ts` is load-bearing in the code but is falsified by no condition in TP-ROUTE-0001. Checker mutant probe (scratch, deleted): replacing `mavenRoots.findLast(({ isReactor }) => isReactor)?.directory ?? mavenRoots[0]?.directory` with `mavenRoots[mavenRoots.length - 1]?.directory` — i.e. deleting the reactor check entirely and always taking the outermost ancestor pom.xml — keeps all 5 conditions green (5 pass / 0 fail). Cause: no fixture nests a pom.xml under a NON-reactor ancestor pom.xml, so the corrected INV-ROUTE-1 fallback clause ('if none encloses the path, use the nearest ancestor pom.xml') is never discriminated from 'outermost ancestor pom.xml'. TCON-ROUTE-0001 declares technique `decision_table` (row per combination) but has no row for the ancestor-pom-without-<modules> combination. The oracle layer should add that row (parent-only root pom with <packaging>pom</packaging> and no <modules>, an independent child project with its own pom beneath it: the child path must resolve to the CHILD, not the root). This sharpens the risk the human already accepted in design-approval 3d68e0857fbfac45 — that approval says <modules> detection 'is validated only against the current fixture tree', but the probe shows the current fixture tree validates it not at all. Non-blocking for this claim: the feature's own recorded falsifiers are both genuinely falsified.\n\nCHECKER VERDICT 2026-08-21 (attempt 2/3) — APPROVE. Independent replay of `npm run test:integration -- test/integration/project-router.integration.spec.ts`: 5/5 pass (TCON-ROUTE-0001..0005), 171 ms, no hang risk. Mutant probe in harness/trace/scratch (deleted after use) killed every cited defect: always-nearest-ancestor 1p/4f; sticky last-resolved cache 2p/3f [falsifier 1]; empty success for unmanaged path 4p/1f and error not naming the path 4p/1f [falsifier 2]; reactor-only with no nearest-ancestor fallback 2p/3f. TCON-ROUTE-0004's reference model is a hardcoded fixture path->root map, not a re-derivation of the implementation's walk, so no R-T3 tautology.\n\nPrior NEEDS DESIGN (contract contradiction, checker memory `routing-contract-contradiction.md`) is genuinely closed, verified against the sources rather than the maker's summary: harness/docs/design/runtime-model.md:40 now reads 'use the outermost enclosing ancestor `pom.xml` that declares `<modules>`; if none encloses the path, use the nearest ancestor `pom.xml`', A-006 (harness/docs/assumptions.md:29) states the same exception, and harness/docs/design/architecture.md:10-40 records Option R with Option N's rejection. That wording matches src/workspace/project-router.ts:37-43 line for line and matches TCON-ROUTE-0001's outer-reactor-root assertion — invariant, behavior sentence and oracle now agree, which is exactly what the prior rejection required. Note for the record: design-approval.json's digest 3d68e0857fbfac45 cannot be recomputed by any tool in harness/tools, and harness/loop/approval-gate.mjs crashes resolving 'tools/review-digest.mjs' (missing the harness/ prefix), so the approval's binding to a doc revision rests on prose; the alignment above was therefore checked by reading, not by checksum.",
+      "checkerNotes": "FOLLOW-UP: project-router chỉ nhận diện pom.xml (Maven-only) nên mọi project Gradle (settings.gradle / build.gradle / build.gradle.kts) — như repo aeron — trả 'unroutable: No Maven workspace contains path'. JDT LS vốn Java-generic (buildship có sẵn trong dist vendored, đã smoke-test boot OK trên aeron); chỉ router thiếu nhận diện marker Gradle. Thuộc planner.\n\nFOLLOW-UP: the `<modules>` reactor test in `src/workspace/project-router.ts` is load-bearing in the code but is falsified by no condition in TP-ROUTE-0001. Checker mutant probe (scratch, deleted): replacing `mavenRoots.findLast(({ isReactor }) => isReactor)?.directory ?? mavenRoots[0]?.directory` with `mavenRoots[mavenRoots.length - 1]?.directory` — i.e. deleting the reactor check entirely and always taking the outermost ancestor pom.xml — keeps all 5 conditions green (5 pass / 0 fail). Cause: no fixture nests a pom.xml under a NON-reactor ancestor pom.xml, so the corrected INV-ROUTE-1 fallback clause ('if none encloses the path, use the nearest ancestor pom.xml') is never discriminated from 'outermost ancestor pom.xml'. TCON-ROUTE-0001 declares technique `decision_table` (row per combination) but has no row for the ancestor-pom-without-<modules> combination. The oracle layer should add that row (parent-only root pom with <packaging>pom</packaging> and no <modules>, an independent child project with its own pom beneath it: the child path must resolve to the CHILD, not the root). This sharpens the risk the human already accepted in design-approval 3d68e0857fbfac45 — that approval says <modules> detection 'is validated only against the current fixture tree', but the probe shows the current fixture tree validates it not at all. Non-blocking for this claim: the feature's own recorded falsifiers are both genuinely falsified.\n\nCHECKER VERDICT 2026-08-21 (attempt 2/3) — APPROVE. Independent replay of `npm run test:integration -- test/integration/project-router.integration.spec.ts`: 5/5 pass (TCON-ROUTE-0001..0005), 171 ms, no hang risk. Mutant probe in harness/trace/scratch (deleted after use) killed every cited defect: always-nearest-ancestor 1p/4f; sticky last-resolved cache 2p/3f [falsifier 1]; empty success for unmanaged path 4p/1f and error not naming the path 4p/1f [falsifier 2]; reactor-only with no nearest-ancestor fallback 2p/3f. TCON-ROUTE-0004's reference model is a hardcoded fixture path->root map, not a re-derivation of the implementation's walk, so no R-T3 tautology.\n\nPrior NEEDS DESIGN (contract contradiction, checker memory `routing-contract-contradiction.md`) is genuinely closed, verified against the sources rather than the maker's summary: harness/docs/design/runtime-model.md:40 now reads 'use the outermost enclosing ancestor `pom.xml` that declares `<modules>`; if none encloses the path, use the nearest ancestor `pom.xml`', A-006 (harness/docs/assumptions.md:29) states the same exception, and harness/docs/design/architecture.md:10-40 records Option R with Option N's rejection. That wording matches src/workspace/project-router.ts:37-43 line for line and matches TCON-ROUTE-0001's outer-reactor-root assertion — invariant, behavior sentence and oracle now agree, which is exactly what the prior rejection required. Note for the record: design-approval.json's digest 3d68e0857fbfac45 cannot be recomputed by any tool in harness/tools, and harness/loop/approval-gate.mjs crashes resolving 'tools/review-digest.mjs' (missing the harness/ prefix), so the approval's binding to a doc revision rests on prose; the alignment above was therefore checked by reading, not by checksum.",
       "attempts": 2,
       "maxAttempts": 3
     },
@@ -3157,6 +3157,103 @@
         "basis": "declared-contract",
         "reproduction": "npm run test:integration -- test/integration/diagnostics-open.integration.spec.ts reproduced green (1/1). No-wait mutant (wait loop removed from openForDiagnostics, didOpen kept) turned it red with 'must be reported, not not-reported' — the reworded falsifier is pinned. The delete-didOpen mutant (wait kept) still passes, which is accepted as a declared optimisation, not the load-bearing half (design-approval acceptedRisks).",
         "exitCriterion": "the falsifier's named wrong implementation (read the cache immediately without waiting) was applied and the verification went red; reverting restored green."
+      }
+    },
+    {
+      "id": "feat-gradle-routing",
+      "name": "project-router recognizes Gradle projects",
+      "kind": "build",
+      "behavior": "resolveWorkspace recognizes Gradle project markers (settings.gradle / settings.gradle.kts as the multi-project root, build.gradle / build.gradle.kts as the project) the same way it recognizes pom.xml, so a file under a Gradle project routes to its root instead of 'unroutable: No Maven workspace contains path'",
+      "verification": "npm run test:integration -- test/integration/project-router-gradle.integration.spec.ts",
+      "context": {
+        "touches": [
+          "src/workspace/project-router.ts"
+        ],
+        "note": "Gap: project-router.ts only walks up looking for pom.xml, so any Gradle project (e.g. the aeron repo, Gradle 9.6.1) returns 'unroutable'. JDT LS is already Java-generic (buildship plugins present in the vendored dist; smoke-tested booting OK against aeron). Only the router's root-detection is Maven-specific. The existing file-sync-watcher also refreshes config only on pom.xml change (INV-SYNC-3) — a Gradle analog (build.gradle/settings.gradle) is likely in scope but secondary."
+      },
+      "falsifier": "a router that still returns 'No Maven workspace contains path' for a file under a Gradle project — settings.gradle/settings.gradle.kts (multi-project root) or build.gradle/build.gradle.kts (project) present, no pom.xml [INV-ROUTE-4]",
+      "dependencies": [
+        "feat-project-router"
+      ],
+      "status": "done",
+      "readyForCheck": false,
+      "evidence": [
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "cmd": "npm run test:integration -- test/integration/project-router-gradle.integration.spec.ts",
+          "result": "4 fail (TCON-ROUTE-GRADLE-0001..0004): resolveWorkspace returned 'No Maven workspace contains path' for every Gradle file (single-project, multi-project settings.gradle, Kotlin-DSL, nested settings.gradle)"
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/project-router-gradle.integration.spec.ts",
+          "result": "5/5 pass — Gradle files route to their build.gradle / outermost settings.gradle root"
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+          "result": "7/7 pass — existing Maven routing oracle unchanged (INV-ROUTE-1/-2/-3)"
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "npm test",
+          "result": "159/159 unit tests pass — no regression"
+        }
+      ],
+      "checkerNotes": "APPROVE (checker, 2026-08-29). INV-ROUTE-4 (Gradle routing) is on record and approved. Independent replay: verification green (5/5); mutant probe (delete the Gradle branch, keep Maven-only precedence) turned it red on all four Gradle cases. Real-target smoke: resolveWorkspace on aeron/aeron-client/.../ClientConductor.java now returns the aeron settings.gradle root (not 'unroutable'). Maven oracle unchanged (7/7), unit 159/159. Mixed Maven+Gradle precedence is a documented rule not exercised by a mixed fixture — accepted risk in design-approval.\n\nDESIGN RESOLVED 2026-08-29 (design-facilitator + human 'gommi'): Option A — settings.gradle/settings.gradle.kts = multi-project root (analogous to the Maven reactor); build.gradle/build.gradle.kts = project (analogous to nearest pom.xml). Precedence in a mixed tree (outermost-first): settings.gradle root > Maven reactor pom > nearest build.gradle > nearest pom. INV-ROUTE-4 added to harness/docs/design/runtime-model.md (additive; INV-ROUTE-1/-2/-3 stay Maven-specific for their done oracles). Rejected: B (build.gradle only — mis-routes multi-project builds like aeron).\n\nNEEDS DESIGN: how does project-router recognize Gradle roots, and how does the precedence interact with the existing Maven logic? Candidates: (a) settings.gradle/settings.gradle.kts = multi-project root (analogous to the Maven reactor), build.gradle/build.gradle.kts = project (analogous to nearest pom.xml); (b) build.gradle only, ignoring settings.gradle. Also: precedence when a tree mixes pom.xml and build.gradle, and whether INV-ROUTE-1 must be reworded (it currently names pom.xml/<modules> literally) or a new INV-ROUTE-N added. The design-facilitator must settle the root markers, precedence, and the invariant wording before a falsifier can be written.",
+      "attempts": 0,
+      "maxAttempts": 3,
+      "reviewPacket": {
+        "contractDigest": "a4ba4419f2f17cd419f480047fa6b6b33f5403e98acadf72db2a83bfd44726e3",
+        "claimRefs": [
+          "INV-ROUTE-4"
+        ],
+        "changedPaths": [
+          "src/workspace/project-router.ts",
+          "test/integration/project-router-gradle.integration.spec.ts"
+        ],
+        "runs": [
+          {
+            "cmd": "npm run test:integration -- test/integration/project-router-gradle.integration.spec.ts",
+            "exit": 0,
+            "result": "5/5 pass — Gradle (build.gradle, settings.gradle, Kotlin-DSL, nested settings.gradle) routes; no-marker still errors"
+          },
+          {
+            "cmd": "npm run test:integration -- test/integration/project-router-gradle.integration.spec.ts   [red run, before Gradle detection]",
+            "exit": 1,
+            "result": "4 fail — Gradle files returned 'No Maven workspace contains path', pinning the delete-Gradle-branch mutant"
+          },
+          {
+            "cmd": "npm run test:integration -- test/integration/project-router.integration.spec.ts",
+            "exit": 0,
+            "result": "7/7 pass — Maven routing oracle (INV-ROUTE-1/-2/-3) unchanged"
+          },
+          {
+            "cmd": "npm test",
+            "exit": 0,
+            "result": "159/159 unit tests pass"
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: resolveWorkspace is a pure function of its path argument; no shared state, no cache.",
+          "realBoundary": "covered",
+          "discrimination": "Deleting the Gradle collection (gradleRoots/gradleProjects) restores the red run: resolveWorkspace returns 'No Maven or Gradle workspace contains path' for Gradle files. The settings.gradle-root precedence is pinned by TCON-ROUTE-GRADLE-0002/0004 (a subproject file routes to the OUTERMOST settings.gradle, never the subproject's own build.gradle). The mixed Maven+Gradle precedence is a documented rule, not a tested fixture — see residualUnknowns."
+        },
+        "residualUnknowns": [
+          "The mixed Maven+Gradle precedence (settings.gradle root > reactor pom > nearest build.gradle > nearest pom) is specified by rule but not exercised by a real mixed-build fixture — recorded as an accepted risk in design-approval."
+        ]
+      },
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "reproduction": "npm run test:integration -- test/integration/project-router-gradle.integration.spec.ts reproduced green (5/5). Mutant probe (Gradle branch deleted from the precedence) turned it red with 'No Maven or Gradle workspace contains path' on all four Gradle cases — the falsifier is pinned. The Maven oracle (project-router.integration.spec.ts) stays 7/7.",
+        "exitCriterion": "the falsifier's named wrong implementation (router still Maven-only) was applied and the verification went red; reverting restored green."
       }
     }
   ]

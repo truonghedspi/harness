@@ -5,6 +5,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
+- **2026-08-29 — feat-gradle-routing (DONE, checker approve):** project-router giờ nhận diện Gradle (settings.gradle/.kts = gốc multi-project, build.gradle/.kts = project) bên cạnh Maven — INV-ROUTE-4 (additive). Router giờ định tuyến được repo aeron (Gradle 9.6.1): smoke-test real file aeron-client/.../ClientConductor.java → root aeron. 5 ca oracle mới (TCON-ROUTE-GRADLE-0001..0005), mutant xóa nhánh Gradle → đỏ. Full suite 255/255.
+
 - **2026-08-29 — feat-diag-open-on-query (DONE, checker approve):** INV-DIAG-4 sau một lượt REJECT được viết lại để ghim cái "chờ có giới hạn" (bounded wait for publishDiagnostics) làm phần chịu lực, còn textDocument/didOpen là trigger/tối ưu. Checker mutant: xóa wait (giữ didOpen) → đỏ "not-reported"; xóa didOpen (giữ wait) → vẫn xanh (chấp nhận là tối ưu, ghi acceptedRisks). Router giờ lại "exit" — 37/37 done.
 
 - **2026-08-29 — feat-diag-open-on-query (build, readyForCheck):** đóng gap INV-DIAG-4 — daemon (src/cli.ts) giờ gửi textDocument/didOpen cho document được hỏi trước khi java_diagnostics trả lời và chờ publish có giới hạn (DIAG_OPEN_WAIT_MS=10s), nên file trên workspace đã import (.project/.classpath có sẵn) trả "reported" thay vì "not-reported" vĩnh viễn. Test mới test/integration/diagnostics-open.integration.spec.ts (2 pha daemon, red→green); npm test 159/159, npm run test:integration 250/250. Design: Option A (didOpen on-query), approvedBy "gommi", INV-DIAG-4 + design-approval.json cập nhật.
