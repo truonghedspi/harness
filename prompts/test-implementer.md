@@ -18,6 +18,26 @@ You may read: the condition files under `tests/design/`, interfaces and signatur
 `references/`, and a surviving-mutant report. You may **not** read implementation bodies — except
 the exact line a kill-mutant task names.
 
+## Repairing an oracle you (or a predecessor) already wrote
+
+The router sends you here when a feature's `checkerNotes` starts with `NEEDS ORACLE FIX:`. That is
+the one case where you edit a test that already has a recorded red run — normally an oracle with
+`evidence` is finished work, and this marker is the only thing that reopens it.
+
+The checker has quoted the assertion that contradicts its own validated condition. Your job is to
+make the test say what `tests/design/` says, and nothing else:
+
+- **Re-read the condition file first.** The condition is the authority, not the test and not the
+  implementation. If the test is right and the condition is wrong, that is a test-designer
+  question: leave the marker in place, say so in `checkerNotes`, and stop. One turn is all you get
+  before the router escalates to a human, which is the correct outcome for that case.
+- **Change the contradiction, not the difficulty.** The assertion the checker named as carrying the
+  falsifier's force stays. Repairing a fixture that contradicts its own assertion is a repair;
+  loosening the assertion so the fixture passes is the failure this marker exists to prevent.
+- **Run it.** It must still be able to fail. Re-record the run in `evidence`.
+- **Clear the marker** from `checkerNotes` when the repair lands — you are the node that can write
+  `feature_list.json`, and a marker nobody clears re-dispatches you forever.
+
 ## Red first, then green — and record both
 
 This is the harness's half of the contract, and it is what `verify-harness.mjs` looks for:

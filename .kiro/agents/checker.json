@@ -1,6 +1,6 @@
 {
   "name": "checker",
-  "description": "Checker in the maker-checker loop: re-runs evidence, tries to falsify, and is the only agent allowed to set status=done. Write-restricted to state files.",
+  "description": "Final-acceptance checker: runs only after every non-blocked feature is handed off, replays evidence against the integrated delivery, and is the only agent allowed to set status=done. Write-restricted to state files.",
   "prompt": "file://../../loop/checker-prompt.md",
   "tools": [
     "read",

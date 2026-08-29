@@ -1,6 +1,6 @@
 {
   "name": "orchestrator",
-  "description": "The human-facing front door: reports the loop state, dispatches the node loop/route.mjs names, and escalates decisions to the human. Does not choose nodes and does not write product files.",
+  "description": "The human-facing front door: reports loop state, natively spawns the node loop/route.mjs names, and escalates decisions. Uses scripts only as a fallback; does not choose nodes or write product files.",
   "prompt": "file://../../prompts/orchestrator.md",
   "tools": [
     "read",
@@ -80,5 +80,5 @@
       }
     ]
   },
-  "welcomeMessage": "Reports where the loop is, runs the next node the router names, and brings decisions to you. It never picks the node itself."
+  "welcomeMessage": "Reports where the loop is, spawns the next sub-agent the router names, and brings decisions to you. It never picks the node itself."
 }

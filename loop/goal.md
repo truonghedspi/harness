@@ -17,15 +17,20 @@ Keep this repository a working consumer of its own harness: every feature is ind
 
 ## Iteration contract (maker)
 
-One iteration = advance exactly ONE feature by one step (implement + verify + record evidence),
-or repair a red baseline. Nothing else. The maker may set `readyForCheck: true` but never
+One iteration = advance exactly ONE feature by one bounded step (implement + verify + record
+evidence), or repair a red baseline. Nothing else. Partial progress is a checkpoint:
+`readyForCheck` stays false and the router returns the same active feature to the maker. The maker
+sets `readyForCheck: true` only when the complete feature behavior is green, but never sets
 `status: done`.
 
 ## Gates (checker)
 
-`done` requires checker approval. The checker's job is to falsify, not confirm: re-run the
-recorded evidence, exercise the highest test level the change touches, and reject anything that
-doesn't reproduce.
+`done` requires checker approval. `readyForCheck: true` means the feature has been handed off and
+may unblock dependent implementation, but is not accepted. `run-loop.mjs` dispatches the checker
+only after every non-blocked open feature has a complete handoff. The checker then judges the
+integrated delivery as one final batch. A rejection clears that feature's handoff and returns it to
+the maker; another checker session is allowed only after every remaining feature is handed off
+again. Each rejected final-review cycle, not each maker checkpoint, consumes `attempts`.
 
 ## Stop conditions (end the loop, write session-handoff.md, escalate)
 

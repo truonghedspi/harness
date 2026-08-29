@@ -8,7 +8,7 @@
   "agents": [
     {
       "name": "orchestrator",
-      "description": "The human-facing front door: reports the loop state, dispatches the node loop/route.mjs names, and escalates decisions to the human. Does not choose nodes and does not write product files.",
+      "description": "The human-facing front door: reports loop state, natively spawns the node loop/route.mjs names, and escalates decisions. Uses scripts only as a fallback; does not choose nodes or write product files.",
       "prompt": "prompts/orchestrator.md",
       "tools": [
         "read",
@@ -43,11 +43,11 @@
         "kiro": "claude-sonnet-4",
         "codex": "gpt-5.6-sol"
       },
-      "welcomeMessage": "Reports where the loop is, runs the next node the router names, and brings decisions to you. It never picks the node itself."
+      "welcomeMessage": "Reports where the loop is, spawns the next sub-agent the router names, and brings decisions to you. It never picks the node itself."
     },
     {
       "name": "checker",
-      "description": "Checker in the maker-checker loop: re-runs evidence, tries to falsify, and is the only agent allowed to set status=done. Write-restricted to state files.",
+      "description": "Final-acceptance checker: runs only after every non-blocked feature is handed off, replays evidence against the integrated delivery, and is the only agent allowed to set status=done. Write-restricted to state files.",
       "prompt": "loop/checker-prompt.md",
       "tools": [
         "read",
@@ -216,7 +216,8 @@
         "*"
       ],
       "mcp": true,
-      "writes": null,
+      "sliceConfined": true,
+  "writes": null,
       "resources": [
         "AGENTS.md",
         "docs/constraints.md",
