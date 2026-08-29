@@ -21,3 +21,5 @@ dist/
 *.tsbuildinfo
 npm-debug.log*
 .cache/
+# JDT LS distribution vendored locally (64 MB, reproducible via the provisioner) — not source.
+jdtls/

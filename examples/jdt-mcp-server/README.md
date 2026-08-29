@@ -204,13 +204,19 @@ của tool, mặc định 200) — không phải tham số mà MCP caller truy�
 # 1. Cài dependencies (chỉ @types/node + typescript cho dev)
 npm install
 
-# 2. Trỏ JDT LS đã cài sẵn (bỏ qua download lần đầu)
-export JDTLS_HOME=/path/to/jdtls   # thư mục chứa plugins/org.eclipse.jdt.ls.core_*.jar
-export JAVA_HOME=/path/to/jdk21    # JDK ≥ 21
+# 2a. Dùng bản JDT LS đã vendored sẵn trong project (không cần mạng)
+export JDTLS_HOME="$PWD/jdtls"
+# 2b. Hoặc trỏ tới bản đã cài nơi khác
+# export JDTLS_HOME=/path/to/jdtls   # thư mục chứa plugins/org.eclipse.jdt.ls.core_*.jar
+export JAVA_HOME=/path/to/jdk21      # JDK ≥ 21
 
 # 3. Chạy server (stdio MCP)
 npm start
 ```
+
+Bản JDT LS đã tải sẵn nằm ở `./jdtls/` (64 MB, gitignored). Nếu chưa có (clone mới), chạy
+`node harness/init.mjs` một lần để tải + kiểm checksum vào `.cache/`, rồi copy sang `jdtls/` — hoặc
+cứ để trống `JDTLS_HOME` để server tự tải lần đầu chạy.
 
 Server in `jdt-mcp-server ready (role=daemon, socket=...)` ra stderr; client nói MCP qua stdin/stdout.
 Để nối vào Claude Code / MCP client, thêm vào cấu hình MCP:
