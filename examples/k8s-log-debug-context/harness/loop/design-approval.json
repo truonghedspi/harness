@@ -1,15 +1,14 @@
 {
   "schema": "design-approval/1",
-  "designDigest": "2576534ef71a6361",
+  "designDigest": "d5592323f9cf6ddd",
   "status": "approved",
   "approvedBy": "project owner",
-  "approvedAt": "2026-08-28",
+  "approvedAt": "2026-08-29",
   "decisions": [
     "Use the recommended node-level OpenTelemetry Collector pipeline with sidecar fallback for inaccessible sources.",
     "Bound MCP queries to 15 minutes, 200 records, 256 KiB, and five seconds without pagination.",
     "Authenticate cluster-internal Streamable HTTP with Kubernetes ServiceAccount JWT and NetworkPolicy.",
-    "Require schemaVersion 1, allow additive compatibility, and reject unsupported major versions."
-    ,
+    "Require schemaVersion 1, allow additive compatibility, and reject unsupported major versions.",
     "Make schema compatibility independently observable through INV-SCHEMA-1 at the ingest-to-index seam.",
     "Make JWT authorization outcomes observable through INV-AUTH-1 and the exact MCP tool surface through INV-TOOLS-1.",
     "Define the serialized JSON v1 ingress contract and IngestService/IndexPort observable seam for independent oracle implementation.",
@@ -18,7 +17,8 @@
     "Run CollectorContractBootstrap with Docker/OCI, read-only fixtures, health-based readiness, deadline-bounded forced cleanup, and the owner-approved OpenTelemetry Collector Contrib 0.159.0 immutable multi-platform digest.",
     "Use the approved post-enrichment UTF-8 JSONL source contract for the hermetic collector oracle; leave real Kubernetes API enrichment to the Level-3 journey.",
     "Use OpenSearch ISM policy log-debug-retention-v1 with daily log-debug-v1-YYYY.MM.dd indexes, a matching index template, and idempotent bootstrap as the real seven-day retention mechanism.",
-    "Adopt Option A for the collector→ingest wire contract: the collector emits OTLP on the wire (the pinned stock image's only HTTP egress) and a new OTLP-decode adapter at the ingest boundary unwraps each admitted log record into exactly one schemaVersion-1 object before IngestService.ingest(String), rather than the collector emitting bare v1 JSON, which the stock image cannot do."
+    "Adopt Option A for the collector→ingest wire contract: the collector emits OTLP on the wire (the pinned stock image's only HTTP egress) and a new OTLP-decode adapter at the ingest boundary unwraps each admitted log record into exactly one schemaVersion-1 object before IngestService.ingest(String), rather than the collector emitting bare v1 JSON, which the stock image cannot do.",
+    "Encode the minimal nonprod cluster-access policy for feat-010: upstream-default collector ClusterRole, one shared `-service` ServiceAccount with no Kubernetes RBAC, offline ServiceAccountIssuer OIDC JWT validation (no TokenReview), OpenSearch location as a config knob, one default-deny-ingress NetworkPolicy, and the MCP→OpenSearch edge (no MCP→ingest edge)."
   ],
   "acceptedRisks": [
     {
@@ -28,6 +28,14 @@
     {
       "concern": "The v1 'one JSON object, no envelope' guarantee no longer holds at the collector's egress — the collector emits OTLP, so the no-envelope assertion relocates to the ingest (post-decode) boundary.",
       "reason": "The owner accepted the relocation because the pinned stock image's only HTTP egress is OTLP (it cannot emit bare v1 JSON), and the OTLP-decode adapter preserves the guarantee exactly where the ingest invariants operate — one schemaVersion-1 object per IngestService.ingest(String) call."
+    },
+    {
+      "concern": "The service's egress is left default-allowed for nonprod, so a compromised service pod could reach arbitrary cluster endpoints.",
+      "reason": "The owner accepted default-allowed egress for the nonprod environment, consistent with the stated framing that this tool does not need strict security; the OpenSearch inCluster config knob is the promotion tripwire."
+    },
+    {
+      "concern": "The chart maps resource.attributes[\"k8s.workload.name\"], but the pinned v0.159.0 k8sattributes processor emits no such attribute, so the workload v1 field would be blank at the journey.",
+      "reason": "The owner accepted deferring the concrete-owner-attribute mapping fix (e.g. k8s.deployment.name / k8s.replicaset.name) to the feature-planner for routing to feat-008's chart or a follow-up."
     }
   ]
 }

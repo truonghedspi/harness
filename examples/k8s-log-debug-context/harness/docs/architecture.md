@@ -24,7 +24,11 @@ ServiceAccount JWTs and publishes exactly `search_logs` and `get_failure_context
 `McpServiceBootstrap.start(McpHttpServerConfig, IndexPort, ServiceAccountJwtValidator)` starts the
 Streamable HTTP boundary and returns its bound endpoint; tests use loopback port `0` plus capturing
 dependencies. The detailed boundaries and invariants are in `docs/design/log-debug-context.md`;
-owner-confirmed constraints are in `docs/assumptions.md`.
+owner-confirmed constraints are in `docs/assumptions.md`. The concrete cluster-security facts —
+collector RBAC verbs/resources, the single `-service` ServiceAccount with no Kubernetes RBAC, offline
+ServiceAccountIssuer OIDC JWT validation, the OpenSearch-location config knob, and the one
+default-deny-ingress NetworkPolicy with the three edges (collector→ingest, service→OpenSearch via
+IndexPort, callers→MCP) — are in `docs/design/cluster-access-policy.md`.
 
 ## How is it organized?
 

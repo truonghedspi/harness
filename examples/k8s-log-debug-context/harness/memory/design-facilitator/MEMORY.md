@@ -18,3 +18,4 @@ in another language stay as they are — this governs what gets written from now
 - [Schema policy seam](schema-policy-needs-observable-seam.md) — Compatibility needs an observable invariant.
 - [MCP policy needs two seams](mcp-policy-needs-auth-and-surface-seams.md) — JWT admission and a closed tool set need distinct invariants.
 - [Collector egress is OTLP-only](collector-egress-is-otlp-only.md) — The v1 "one JSON object" contract and the unmodified-stock-image decision are mutually unsatisfiable at the collector egress.
+- [k8sattributes emits no workload.name](k8sattributes-emits-no-workload-name.md) — The pinned processor emits concrete per-owner names, never `k8s.workload.name`; the chart maps a field that is never produced.
