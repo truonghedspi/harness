@@ -931,12 +931,73 @@
         "feat-006",
         "feat-008"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "",
-      "checkerNotes": "RESOLVED DESIGN: owner-approved digest d5592323f9cf6ddd — minimal nonprod access policy (upstream-default collector ClusterRole, shared -service SA with no K8s RBAC, offline OIDC JWT, OpenSearch config knob, one default-deny-ingress NetworkPolicy, MCP→OpenSearch edge).\n\nFull contract: harness/docs/design/cluster-access-policy.md. rbac.yaml: upstream-default collector ClusterRole (core pods/namespaces/nodes; apps replicasets/deployments/statefulsets/daemonsets; batch jobs; extensions replicasets — all get/list/watch) + one ClusterRoleBinding, and a new {{ .Release.Name }}-service ServiceAccount with no Kubernetes RBAC. networkpolicy.yaml: one default-deny-ingress policy on the service pod (app.kubernetes.io/component: service) admitting cluster-internal TCP 8080. MCP validates ServiceAccount JWTs offline via ServiceAccountIssuer OIDC discovery (no TokenReview). OpenSearch location is a config knob (opensearch.endpoint / opensearch.inCluster); egress default-allowed for nonprod. Edge: MCP→OpenSearch only.",
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "cmd": "./mvnw -q -Dtest=ClusterAccessPolicyTest test",
+          "result": "Tests run: 4, Failures: 4, Errors: 0, exit 1. Broad policy rejected on all four assertions: wildcard apiGroup, -service SA bound, mcp-component selector (MCP→ingest edge), service pod not selected. No compile error."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "green",
+          "cmd": "./mvnw -q -Dtest=ClusterAccessPolicyTest test",
+          "result": "Tests run: 4, Failures: 0, Errors: 0, Skipped: 0 (BUILD SUCCESS)."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "cmd": "falsification probe: append a second ingress port TCP 9200 to networkpolicy.yaml, then ./mvnw -q -Dtest=ClusterAccessPolicyTest test",
+          "result": "Tests run: 4, Failures: 1, exit 1 — 'the policy must admit TCP 8080 ONLY': expected [TCP/8080] but was [TCP/8080, TCP/9200]. Restored byte-identical (diff empty)."
+        }
+      ],
+      "reviewPacket": {
+        "contractDigest": "bab664adeecb2be8742d3c82860b69b99db8328d33e92687260f8f1200647ce0",
+        "claimRefs": [
+          "X-007",
+          "INV-READ-1",
+          "INV-AUTH-1",
+          "A-007"
+        ],
+        "changedPaths": [
+          "charts/log-debug-context/templates/rbac.yaml",
+          "charts/log-debug-context/templates/networkpolicy.yaml",
+          "service/src/test/java/io/harness/logcontext/deploy/ClusterAccessPolicyTest.java"
+        ],
+        "runs": [
+          {
+            "cmd": "./mvnw -q -Dtest=ClusterAccessPolicyTest test",
+            "exit": 0,
+            "result": "Tests run: 4, Failures: 0, Errors: 0, Skipped: 0 (BUILD SUCCESS)."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "not-applicable: a static policy oracle reads files and starts no runtime, so no external resource is allocated",
+          "errorPath": "covered",
+          "concurrency": "not-applicable: each test method parses immutable files with no shared mutable state",
+          "realBoundary": "covered",
+          "discrimination": "The test renders and parses the real rbac.yaml/networkpolicy.yaml and its four methods each pin one mechanism: a '*' verb/resource fails the wildcard check; a -service SA in any binding subject fails the no-RBAC check; a podSelector other than component service, a policyTypes other than [Ingress], an egress key, an ipBlock source, or any ingress port beyond TCP 8080 fails the default-deny-ingress check; and any mcp/ingest component value fails the no-MCP-to-ingest check. The falsification probe (adding a second TCP 9200 port -> red, restored) proves the '8080 only' assertion, not just '8080 present'."
+        },
+        "residualUnknowns": [
+          "The -collector ServiceAccount is referenced by collector-daemonset.yaml:31 but not defined anywhere in the chart; feat-010's rbac.yaml binds the ClusterRole to -collector by name, so the binding is dangling until that SA is materialized (a feat-008 follow-up or feat-011's deploy).",
+          "OpenSearch location stays a config knob (opensearch.endpoint / opensearch.inCluster) with no values.yaml in this repo; egress is default-allowed, so the service→OpenSearch edge and issuer OIDC discovery are unenforced at the network layer by design (nonprod).",
+          "MCP authentication (ServiceAccount JWT validation) is enforced at the application layer by feat-007, not by these chart objects; the NetworkPolicy only narrows the surface to cluster-internal TCP 8080."
+        ]
+      },
+      "checkerNotes": "FOLLOW-UP: the {{ .Release.Name }}-collector ServiceAccount is referenced (collector-daemonset.yaml:31 serviceAccountName; rbac.yaml ClusterRoleBinding subject) but never DEFINED by any chart template — design cluster-access-policy.md:80 says -collector 'exists (collector-daemonset.yaml:31)' yet that line is a reference, not a definition, so the binding is dangling and the collector DaemonSet pod fails admission until that SA is materialized. Route to the planner: assign the -collector SA definition (feat-008 amendment / feat-010 amendment / feat-011 deploy) before the Level-3 journey installs the chart.\n\nAPPROVE (feat-010 policy claim): the cluster-access policy artifacts are correct per owner-approved digest d5592323f9cf6ddd. rbac.yaml = upstream-default collector ClusterRole (core pods/namespaces/nodes; apps replicasets/deployments/statefulsets/daemonsets; batch jobs; extensions replicasets — all get/list/watch, no '*' verbs/resources) + one ClusterRoleBinding to -collector + a -service ServiceAccount with no K8s RBAC. networkpolicy.yaml = one default-deny-ingress policy on the service pod (component: service) admitting cluster-internal TCP 8080 only, egress default-allowed. No MCP→ingest edge: McpQueryService reads via IndexPort (OpenSearchLogIndex), never IngestService. The test reads the REAL templates (Files.readString of the chart paths) and renders/parses them — not a substitute copy. The dangling -collector SA is a deploy-surface gap outside feat-010's declared scope, not a policy-correctness defect.",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": null,
+        "counterexample": null,
+        "reproduction": "./mvnw -q -Dtest=ClusterAccessPolicyTest test -> exit 0, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.032 s (BUILD SUCCESS) under Homebrew OpenJDK 21; baseline ./mvnw -q test -> exit 0.",
+        "observed": "Test renders and parses the REAL chart templates (Files.readString of charts/log-debug-context/templates/rbac.yaml and networkpolicy.yaml) with literal expected sets from the upstream v0.159.0 k8sattributesprocessor RBAC section + owner-approved design, not derived from the code. Four methods each pin a mechanism: no '*' apiGroup/resource/verb and exact {pods,namespaces,nodes,replicasets,deployments,statefulsets,daemonsets,jobs} x {get,list,watch}; -service SA defined exactly once and named by no binding (collector binding targets -collector only); exactly one NetworkPolicy with policyTypes == [Ingress], podSelector component == service, no egress key, no ipBlock, ingress ports == {TCP/8080}; no 'mcp'/'ingest' string (single service surface). Code confirms no MCP->ingest edge: McpQueryService depends on IndexPort (OpenSearchLogIndex), never IngestService. Maker's recorded falsification probe (append TCP 9200 -> 4 runs, 1 failure, 'TCP 8080 ONLY') plus the assertion structure confirm the falsifier has force.",
+        "exitCriterion": "4/4 green under the recorded command against the real templates; a broad grant, -service RBAC, non-deny-ingress, extra port, or mcp/ingest-surface wrong implementation each fails an assertion; baseline ./mvnw -q test stays green. Static file-parsing test, no runtime, no timeout concern."
+      }
     },
     {
       "id": "feat-011",

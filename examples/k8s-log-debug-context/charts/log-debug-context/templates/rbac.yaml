@@ -1,0 +1,46 @@
+# Cluster access policy (feat-010) — minimal nonprod RBAC.
+#
+# X-007 model: server-side credentials, no backend exposure to callers. The collector's
+# k8sattributes processor reads pod metadata and owner kinds; this is the upstream-documented
+# default ClusterRole (opentelemetry-collector-contrib v0.159.0, processor/k8sattributesprocessor
+# README "RBAC" section) — the stock rule set, NOT a hand-trimmed least-privilege set. It reads
+# cluster-scoped namespaces/nodes, so it is a ClusterRole, not a namespaced Role.
+#
+# The {{ .Release.Name }}-service ServiceAccount below holds OpenSearch credentials (server-side)
+# and validates ServiceAccount JWTs offline (ServiceAccountIssuer OIDC discovery, no TokenReview),
+# so it needs NO Kubernetes RBAC: no Role/RoleBinding/ClusterRole/ClusterRoleBinding names it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-collector
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets", "deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-collector
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-collector
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-collector
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-service

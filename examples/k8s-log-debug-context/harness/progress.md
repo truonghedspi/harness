@@ -5,8 +5,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-29 (maker, feat-008 REJECT fixed — `readyForCheck: true`, attempts 1/3)
-- **Active feature:** feat-008 Collector preflight and opt-in deployment — `readyForCheck: true` (FIXED: policy test now asserts opt-in/enrichment/schemaVersion-1/egress on the chart ConfigMap too)
+- **Last updated:** 2026-08-29 (checker, feat-010 Cluster access policy APPROVED — `status: done`)
+- **Active feature:** none — feat-010 `done`; feat-011 (journey) is next but still blocked on the deployable chart (the `-collector` ServiceAccount is referenced yet undefined, and no `Chart.yaml`/Service/Deployment templates exist)
 - **Latest commit:** 1302959 k8s-log-debug-context: feat-006 MCP query service + feat-007 wire/auth contract done
 - **Baseline (`env -u JAVA_HOME node harness/init.mjs`):** green — init.mjs now selects Homebrew OpenJDK 21 itself (BaselineTest Tests run: 1, Failures: 0)
 - **OpenSearch:** 2.19.1 live at `http://localhost:9200`, ISM plugin present
@@ -26,15 +26,16 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 - [x] `feat-004` OpenSearch log index adapter — checker APPROVE (2 tests green, mutant-red discriminated)
 - [x] `feat-012` Reproducible JDK 21 baseline selection — checker APPROVE (`env -u JAVA_HOME node harness/init.mjs` exit 0, Homebrew OpenJDK 21 auto-selected for `./mvnw` only)
 - [x] `feat-005` OpenSearch storage contract — checker APPROVE (7 tests green against live OpenSearch 2.19.1; 90s `@Timeout` added)
+- [x] `feat-010` Cluster access policy — checker APPROVE (4/4 static policy tests green against the real `rbac.yaml`/`networkpolicy.yaml`; no `*` verbs/resources, `-service` SA has no K8s RBAC, one default-deny-ingress NetworkPolicy admitting only cluster-internal TCP 8080, no MCP→ingest edge). FOLLOW-UP to planner: the `-collector` ServiceAccount is referenced (daemonset + ClusterRoleBinding) but never defined by any template.
 
 ## In Progress
 
-- [x] `feat-008` Collector preflight and opt-in deployment — `readyForCheck: true` (maker fixed the REJECT). `CollectorDeploymentPolicyTest` now asserts opt-in/enrichment/schemaVersion-1/egress against BOTH `collector/otel-collector.yaml` and the chart's embedded ConfigMap. Falsification probe (sed `debug.logs/enabled`→`debug.logs/disabled` in the chart) → test red (1 failure, exit 1), restored byte-identical. Single-source-of-truth rejected as impractical (chart ConfigMap legitimately differs: `/var/log/pods` receiver + `k8sattributes` + `resource.attributes` vs the hermetic fixture's `kubernetes.*`); the two copies carry the same markers and the test rejects drift.
+- (none)
 
 ## Next
 
-1. Checker reviews `feat-008` (`readyForCheck: true`); `node harness/loop/route.mjs` names the node.
-2. `feat-010` (Cluster access policy) recorded `NEEDS DESIGN:` in `checkerNotes` (status left `not-started`, `readyForCheck` false): the X-007 security model is approved but the concrete RBAC verbs/resources and NetworkPolicy selectors/ports — including whether OpenSearch is in-cluster or external — are not in `harness/docs/`, so the maker did not invent cluster-security facts. Route to `design-facilitator`.
+1. Planner routes feat-010's `FOLLOW-UP`: define the `{{ .Release.Name }}-collector` ServiceAccount in a chart template (it is referenced by `collector-daemonset.yaml:31` and `rbac.yaml`'s ClusterRoleBinding but never defined; design `cluster-access-policy.md:80` falsely cites it as "exists").
+2. `feat-011` (Kubernetes journey) and `feat-013` remain `not-started`.
 
 ## Known Issues / Risks
 
@@ -45,9 +46,10 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Notes for Next Session
 
-feat-001..007 and feat-012 are `done`. The Maven Enforcer `[21,22)` gate makes a wrong-JDK pass
+feat-001..010 and feat-012 are `done`. The Maven Enforcer `[21,22)` gate makes a wrong-JDK pass
 impossible (it goes red), and `harness/init.mjs` now selects Homebrew OpenJDK 21 itself (feat-012,
-done), so no manual `JAVA_HOME` export is needed. feat-008 is `readyForCheck: true` (6/6 deployment
-policy tests green); the checker rules next. Two feat-008 seams are deferred downstream: the journey
-fixture's opt-in label (`log-context.harness.dev/enabled`) differs from the digest-bound `debug.logs/enabled`,
-and the stock OTel Collector has no raw-JSON exporter, so feat-009 must reconcile the wire envelope.
+done), so no manual `JAVA_HOME` export is needed. feat-010 shipped with one FOLLOW-UP for the planner:
+the `-collector` ServiceAccount is referenced (daemonset + ClusterRoleBinding) but never defined — the
+collector DaemonSet pod fails admission without it, so it must land before feat-011's journey installs
+the chart. The deployable chart (Chart.yaml, service Deployment, `-ingest`/`-mcp` Services, ServiceAccounts)
+is still absent and is feat-011's unimplemented product boundary.

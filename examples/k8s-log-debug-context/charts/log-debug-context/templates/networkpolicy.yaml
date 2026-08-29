@@ -1,0 +1,27 @@
+# Ingress-only NetworkPolicy (feat-010) — default-deny ingress for the service pod.
+#
+# X-007: MCP is cluster-internal and authenticated. This policy default-DENIES all ingress to the
+# one ingest+MCP service pod and admits ONLY cluster-internal pods on TCP 8080 (the collector's
+# ingest POST and MCP callers' Streamable HTTP share the one surface). Authentication is still
+# enforced at the application layer (INV-AUTH-1); this policy only narrows the network surface.
+#
+# Egress is left default-allowed (nonprod): the service's MCP→OpenSearch edge and its offline
+# ServiceAccountIssuer OIDC discovery both egress freely. OpenSearch location is a config knob
+# (opensearch.endpoint / opensearch.inCluster), not a hard-coded policy fact, so no egress rule is
+# emitted here.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-service-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: log-debug-context
+      app.kubernetes.io/component: service
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
