@@ -3083,8 +3083,8 @@
       "dependencies": [
         "feat-tool-diagnostics"
       ],
-      "status": "active",
-      "readyForCheck": true,
+      "status": "in-progress",
+      "readyForCheck": false,
       "evidence": [
         {
           "date": "2026-08-29",
@@ -3111,8 +3111,8 @@
           "result": "250/250 integration tests pass (full suite, includes the new diagnostics-open test) — no regression"
         }
       ],
-      "checkerNotes": "DESIGN RESOLVED 2026-08-29 (design-facilitator + human 'gommi'): Option A — daemon sends textDocument/didOpen for the queried document before a file-scoped java_diagnostics answer, and waits (bounded by the call deadline) for its publishDiagnostics. INV-DIAG-4 added to harness/docs/design/tool-surface.md; src/tools/diagnostics.ts keeps its never-sends-an-LSP-request invariant. Rejected: B (readiness gate waits for diagnostics — muddies INV-READY-2), C (watcher opens all files — O(files) didOpen). design-approval.json updated.\n\n",
-      "attempts": 0,
+      "checkerNotes": "REJECT (checker, 2026-08-29, attempt 1/3). The behavior is implemented and the recorded verification is green, but the verification does NOT fail on the falsifier's wrong implementation. Falsifier names 'never opened the document'; I deleted exactly the textDocument/didOpen call in openForDiagnostics and re-ran the verification twice — both 1/1 pass, and the run finished in ~6.3s (the wait returned early, so a publish arrived without didOpen). A wait-only warm-fixture probe also returned 'reported' at t=+2.2s. Root cause: phase 1 is SIGKILL'd, so phase 2's JDT LS finds an unclean data directory and re-imports/re-publishes on its own — the wait alone masks the missing didOpen.\n\nTwo ways out (maker owns the test, design-facilitator owns the invariant if the mechanism is genuinely the wait):\n(a) sharpen the test: shut phase 1 down so its data directory is clean (so phase 2 re-imports as a no-op and never re-publishes without didOpen), then the delete-didOpen mutant must go red;\n(b) if the wait is the real load-bearing mechanism (evidence suggests it may be — the pre-fix regression was java_diagnostics reading the cache before the delayed re-import publish arrived), reword INV-DIAG-4 to pin 'waits for the publishDiagnostics within the deadline' rather than 'opened for validation', and rewrite the falsifier to name a no-wait mutant. That reword is a design change (design-facilitator), not something the maker settles inline.\n\nDESIGN RESOLVED 2026-08-29 (design-facilitator + human 'gommi'): Option A — daemon sends textDocument/didOpen for the queried document before a file-scoped java_diagnostics answer, and waits (bounded by the call deadline) for its publishDiagnostics. INV-DIAG-4 added to harness/docs/design/tool-surface.md; src/tools/diagnostics.ts keeps its never-sends-an-LSP-request invariant. Rejected: B (readiness gate waits for diagnostics — muddies INV-READY-2), C (watcher opens all files — O(files) didOpen). design-approval.json updated.\n\n",
+      "attempts": 1,
       "maxAttempts": 3,
       "reviewPacket": {
         "contractDigest": "595393425792244ea8173f38983b632d75d49d955057a4f1a717091c07d759d3",
@@ -3151,6 +3151,15 @@
         "residualUnknowns": [
           "The bounded wait is not deterministically pinned: a mutant that opens the document but skips the wait passes whenever JDT LS happens to publish before the cache read. The red run pins that the open must exist, not that the wait must block."
         ]
+      },
+      "checkerVerdict": {
+        "status": "reject",
+        "basis": "novel-counterexample",
+        "violatedRef": "INV-DIAG-4",
+        "counterexample": "A daemon that waits for the publish but never opens the document (textDocument/didOpen deleted) still passes the verification. The bounded wait alone suffices in the two-phase fixture, because phase 1's SIGKILL leaves the JDT LS data directory in a state where phase 2's fresh JDT LS re-imports and re-publishes on its own — so the falsifier's didOpen mechanism is not what the test discriminates.",
+        "reproduction": "Mutant probe: removed client.notify('textDocument/didOpen', ...) from openForDiagnostics (src/cli.ts), re-ran `npm run test:integration -- test/integration/diagnostics-open.integration.spec.ts` twice — 1/1 pass both times (duration ~6.3s, so the wait returned early rather than spinning the full 10s). A warm-fixture probe (`.cache/demo-maven`, wait-only) also returned 'reported' with the type error at t=+2.2s.",
+        "observed": "The suite stays green (reported) under the delete-didOpen mutant.",
+        "exitCriterion": "The verification must go red when the didOpen call is deleted while the bounded wait remains. Either sharpen the test so phase 2's re-import is a true no-op that does not re-publish (graceful phase-1 shutdown, or a fixture whose data directory is already warm), or reword INV-DIAG-4 to pin the wait as the load-bearing mechanism and name a wait-only mutant in the falsifier."
       }
     }
   ]
