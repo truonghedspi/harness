@@ -857,7 +857,7 @@
           "result": "Tests run: 4, Failures: 0, Errors: 0, Skipped: 0 (3.016s) against the live pinned collector image: filelog reads the JSONL fixture, the inverted opt-in filter admits exactly the 2 eligible rows, the transform flattens nested kubernetes/attributes into v1, otlphttp sends gzip OTLP, and OtlpLogDecoder unwraps it into one v1 object per record."
         }
       ],
-      "checkerNotes": "FOLLOW-UP: the chart ConfigMap opt-in filter is inverted — collector-daemonset.yaml line 134 uses `resource.attributes[\"k8s.pod.labels.debug.logs/enabled\"] == \"true\"`, and the filter processor drops where the condition is true, so the live DaemonSet would DROP opted-in pods and ADMIT non-opted-in logs (X-003 inverted). The hermetic collector/otel-collector.yaml correctly uses `!= \"true\"` (empirically proven: the oracle admits exactly the 2 opted-in rows). feat-008’s CollectorDeploymentPolicyTest only asserts `contains(\"debug.logs/enabled\") && contains(\"\\\"true\\\"\")` (line 124), which passes on BOTH `==` and `!=`, so it never caught the direction. The chart transform also still reads test.run_id from body and never maps message→body, diverging from the hermetic v1 mapping.\n\nAPPROVE (feat-009 claim): the hermetic collector→ingest contract is verified — ./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify reproduces green (Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, 2.965s) against the real pinned collector (docker-run otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc, byte-equal to collector/contract-image.lock; no fake fallback — awaitReady() throws if health never responds). Opt-in filter admits exactly the 2 eligible rows and excludes the 2 non-opted-in rows; generated-distinct (8 seeds) + single-field-mutation (8 one-hot mutations) round-trip each v1 diagnostic field through OtlpLogDecoder → IngestService.ingest → NormalizedLogRecord, so a hardcoded or field-dropping decoder goes red. @Timeout(90s) present. Baseline ./mvnw -q test → exit 0 (CollectorDeploymentPolicyTest 6/0/0/0, feat-008 no regression). Option A owner-approved (design-approval.json digest 2576534ef71a6361).",
+      "checkerNotes": "RESOLVED FOLLOW-UP: chart ConfigMap filter direction is now feat-013.\n\nAPPROVE (feat-009 claim): the hermetic collector→ingest contract is verified — ./mvnw -q -Poracle-test -Dtest=CollectorIngestContractIT verify reproduces green (Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, 2.965s) against the real pinned collector (docker-run otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc, byte-equal to collector/contract-image.lock; no fake fallback — awaitReady() throws if health never responds). Opt-in filter admits exactly the 2 eligible rows and excludes the 2 non-opted-in rows; generated-distinct (8 seeds) + single-field-mutation (8 one-hot mutations) round-trip each v1 diagnostic field through OtlpLogDecoder → IngestService.ingest → NormalizedLogRecord, so a hardcoded or field-dropping decoder goes red. @Timeout(90s) present. Baseline ./mvnw -q test → exit 0 (CollectorDeploymentPolicyTest 6/0/0/0, feat-008 no regression). Option A owner-approved (design-approval.json digest 2576534ef71a6361).",
       "attempts": 0,
       "maxAttempts": 3,
       "reviewPacket": {
@@ -973,6 +973,30 @@
       "status": "not-started",
       "readyForCheck": false,
       "evidence": "2026-08-27 red — `tests/k8s/run-journey.sh` exited 1 with `JOURNEY_ASSERTION_FAILED: deployment chart is absent: .../charts/log-debug-context`. The complete bounded Level-3 oracle and both Kubernetes fixtures exist; the missing deployable chart is the intended unimplemented product boundary, not a test syntax or fixture error. `bash -n tests/k8s/run-journey.sh` passed first.",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-013",
+      "name": "Chart opt-in filter direction and v1 transform",
+      "kind": "build",
+      "behavior": "The Helm DaemonSet ConfigMap drops non-opted-in workloads (drop-where-true with != semantics) and flattens identity fields exactly like the hermetic collector config, and the deployment policy test asserts the filter direction rather than only its presence",
+      "verification": "./mvnw -q -Dtest=CollectorDeploymentPolicyTest test",
+      "falsifier": "The chart filter uses == (admit) semantics so the live DaemonSet drops opted-in pods and admits non-opted-in logs, or the chart transform diverges from the hermetic v1 mapping (message not in body, test.run_id read from body) [X-003] [INV-SCOPE-1] [INV-META-1]",
+      "context": {
+        "touches": [
+          "charts/log-debug-context/templates/collector-daemonset.yaml",
+          "service/src/test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java"
+        ],
+        "note": "The OTel filter processor drops where its condition is true; the chart ConfigMap must use != for the opt-in predicates (mirror collector/otel-collector.yaml), flatten kubernetes/attributes nested maps, and map message into the OTLP body. Strengthen the static test to assert the != direction, not just the marker presence."
+      },
+      "dependencies": [
+        "feat-008"
+      ],
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": "",
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3

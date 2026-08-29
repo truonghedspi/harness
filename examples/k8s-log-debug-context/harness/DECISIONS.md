@@ -8,6 +8,23 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-29 — Chart opt-in filter direction is new scope (feat-013), not a re-open
+
+- **Decision:** feat-009's checker found the chart ConfigMap opt-in filter inverted (`==` instead of
+  `!=`, and the OTel filter processor drops where its condition is true), so the live DaemonSet would
+  drop opted-in pods and admit non-opted-in logs. Turn it into a new build feature `feat-013`
+  (`dependencies: [feat-008]`) rather than re-open the done `feat-008`.
+- **Reason:** `done` is terminal. The chart's filter-direction bug and its transform divergence from
+  the hermetic v1 mapping are a separate, well-scoped fix: mirror `collector/otel-collector.yaml` and
+  strengthen `CollectorDeploymentPolicyTest` to assert the direction (`!=`), not just marker presence.
+- **Rejected alternative:** Re-open feat-008 (violates done-is-terminal); discard (the live chart
+  would admit non-opted-in logs — X-003 inverted).
+- **Constraint it satisfies:** X-003 (opt-in scope), INV-SCOPE-1, INV-META-1.
+- **Affected:** `feature_list.json`, `charts/log-debug-context/templates/collector-daemonset.yaml`,
+  `service/src/test/java/io/harness/logcontext/deploy/CollectorDeploymentPolicyTest.java`.
+
+---
+
 ## 2026-08-28 — JDK 21 startup selection is baseline scope, not a product build
 
 - **Decision:** Turn feat-001's FOLLOW-UP into one baseline feature `feat-012` (no `kind`,
