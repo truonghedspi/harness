@@ -3521,6 +3521,35 @@ grep -q "checker/verdict" "$TJ/summary.txt"
 expect "--summary counts records by actor and event" $?
 
 echo ""
+step 62 "trace-insights.mjs: trace logs surface harness/workflow/skill optimization options"
+TI="$WORK/trace-insights"; rm -rf "$TI"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$TI" --name "TraceIns" --purpose "optimize from trace" >/dev/null
+test -f "$TI/tools/trace-insights.mjs"; expect "every scaffold ships the trace optimization miner" $?
+mkdir -p "$TI/trace" "$TI/loop"
+cat > "$TI/trace/trace.jsonl" <<'TI1'
+{"ts":"2026-01-02T10:00:00.000Z","actor":"checker","event":"verdict","feature":"feat-a","detail":"REJECT: behavior X not covered by the oracle"}
+{"ts":"2026-01-02T10:01:00.000Z","actor":"checker","event":"verdict","feature":"feat-b","detail":"REJECT: same missing real-boundary check"}
+TI1
+printf '%s\n' '{"schema":"tool-event/1","ts":"2026-01-02T10:00:30.000Z","actor":"maker","feature":"feat-a","tool":"shell","class":"shell","success":true,"runtime":"codex","coverage":"shell-incomplete"}' '{"schema":"tool-event/1","ts":"2026-01-02T10:01:30.000Z","actor":"maker","feature":"feat-b","tool":"shell","class":"shell","success":true,"runtime":"codex","coverage":"shell-incomplete"}' > "$TI/trace/tool-events.jsonl"
+printf '%s\n' '{"node":"design-facilitator","feature":"feat-a","hash":"aaa111","at":"2026-01-02T09:00:00.000Z"}' '{"node":"feature-planner","feature":"feat-a","hash":"bbb222","at":"2026-01-02T09:30:00.000Z"}' > "$TI/loop/route-log.jsonl"
+node -e "const fs=require('fs'),p='$TI/feature_list.json',j=JSON.parse(fs.readFileSync(p));j.features[0].attempts=3;j.features[0].maxAttempts=3;fs.writeFileSync(p,JSON.stringify(j,null,2))"
+node "$TI/tools/trace-insights.mjs" --target "$TI" --json > "$TI/insights.json"
+node -e "
+const j=require('$TI/insights.json');
+const ids=j.map(f=>f.id);
+process.exit(ids.includes('reject-promotion') && ids.includes('telemetry-coverage') &&
+  ids.includes('dispatch-friction') && ids.includes('marker-churn') &&
+  j.some(f=>f.layer==='workflow') && j.some(f=>f.layer==='harness') ? 0 : 1);
+"
+expect "it detects recurring rejects, blind telemetry, dispatch friction and marker churn, each with a layer" $?
+node "$TI/tools/trace-insights.mjs" --target "$TI" > "$TI/insights.txt" 2>/dev/null
+grep -q "promotion candidates" "$TI/insights.txt" && grep -q "\[harness\]" "$TI/insights.txt"
+expect "each option carries a concrete remedy naming what to change" $?
+node "$TI/tools/trace-insights.mjs" --target "$TI" --layer workflow --json > "$TI/wf.json"
+node -e "const j=require('$TI/wf.json');process.exit(j.length>=1 && j.every(f=>f.layer==='workflow')?0:1)"
+expect "--layer filters options to one layer" $?
+
+echo ""
 if [ "$FAIL" = "0" ]; then
   echo "ALL DEMO STEPS PASSED — harness-loop lifecycle proven end-to-end at $T"
 else

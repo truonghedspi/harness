@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-29-trace-insights",
+      "summary": "New tools/trace-insights.mjs mines the loop's recorded trace for harness/workflow/skill optimization options — recurring rejects, blind telemetry, dispatch friction, rediscovery, marker churn — each with a layer, trace evidence and a concrete remedy.",
+      "why": "verify-harness finds layer=harness defects statically and run-report surfaces project-level insights, but nothing read the loop's own runtime behavior back as what to change in the harness/workflow/skill. The repository owner asked for trace-driven optimization options.",
+      "targetImpact": "Additive read-only tool under tools/. No existing tool, prompt or state file changes behavior. Fresh and upgraded targets both receive it via setup's copy list and the upgrade grep over that list.",
+      "paths": ["tools/trace-insights.mjs", "docs/reference/graph.md"],
+      "mergeActions": ["Copy tools/trace-insights.mjs into the target; it reads trace/trace.jsonl, trace/tool-events.jsonl, loop/route-log.jsonl and feature_list.json and writes nothing.", "Refresh docs/reference/graph.md's node table row.", "Preserve target-specific graph additions."],
+      "verification": ["bash harness-loop/scripts/demo.sh step 62 proves the tool ships and detects recurring rejects, blind telemetry, dispatch friction and marker churn with layer + remedy", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-29-full-dispatch-trail-orchestrator-runtimes",
       "summary": "loop/route-log.jsonl now logs every dispatch (node, layer, marker when present) instead of only marker-driven routes; the orchestrator prompt points at docs/reference/runtimes.md for on-demand spawn/dispatch diagnosis.",
       "why": "The trajectory could not replay an ordinary maker/checker dispatch — route-log only recorded marker escalation, so a run's decision trail was partial. Separately, the orchestrator could run both spawn and dispatch but could not self-diagnose a failed spawn/dispatch. Auto-loading the runtime mapping was rejected because it pushed the orchestrator over its context budget; the prompt now points at runtimes.md to be read only on failure.",

@@ -114,6 +114,12 @@ was fixed*, not because the one target was patched around:
    An issue closes only when `--reverify` shows it no longer reproduces on a real target. A
    resolved issue seen again is flagged `regressed`, not silently reopened.
 
+   The **dynamic** counterpart to verify's static gates is `node tools/trace-insights.mjs`: it mines
+   the recorded run for optimization options — recurring checker rejects worth promoting into a
+   mechanical gate, blind read/search telemetry, dispatch friction, rediscovery, marker churn — each
+   tagged `layer: harness|workflow|skill` with a remedy. Same "route the fix to the right place"
+   division, fed by runtime evidence instead of file inspection.
+
 `scripts/harness-loop.sh --target DIR [--setup] [--runner kiro|none]` drives all three phases as
 one meta-loop: verify, split findings by layer, dispatch the `harness-improver` agent for
 harness-layer findings and the project's own maker/checker loop for project-layer ones, verify
