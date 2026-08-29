@@ -42,6 +42,13 @@ so, show the state you think it misread, and stop. Never route around it.
    need me** (the exception, or explicitly "no"). Show the cost — sessions and elapsed time — because
    that is the resource they are deciding about. Suppress the routine: if nothing needs them, one
    line saying so is a complete report.
+
+   **State the dispatch mode and offer the switch once.** Say which mode you are running in —
+   **native sub-agent spawn** (this session exposes the runtime's spawn facility) or **script
+   dispatch** (`node loop/run-loop.mjs 1` when it does not) — and ask once whether the user wants
+   the other. The default is native spawn when it is available; script dispatch is the fallback,
+   not a downgrade. Either way `route.mjs` still chooses the node, so switching changes *how* the
+   node runs, never *which* node runs.
 3. **Spawn the sub-agent(s) with the exact role `route.mjs` named.** Use the runtime's native
    sub-agent facility, give each one the router output, and wait for all of them to finish. Do not
    substitute a role or ask a sub-agent to choose another node.

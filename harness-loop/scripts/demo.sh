@@ -1920,6 +1920,13 @@ node -e "
 const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
 process.exit(/docs\/reference\/runtimes\.md/.test(t) && /before diagnosing/.test(t) ? 0 : 1);
 "; expect "the orchestrator points at the runtime mapping for on-demand spawn/dispatch diagnosis" $?
+# The user cannot choose a mode they were never told about: the orchestrator must name its dispatch
+# mode and offer the switch at the start, while the router still owns which node runs.
+node -e "
+const t=require('fs').readFileSync('$OR/prompts/orchestrator.md','utf8').replace(/\s+/g,' ');
+process.exit(/native sub-agent spawn/.test(t) && /script dispatch/.test(t) &&
+  /offer the switch once/.test(t) && /never \*which\* node runs/.test(t) ? 0 : 1);
+"; expect "the orchestrator names its dispatch mode and offers the switch at the start" $?
 node -e "
 // Normalise whitespace first: these are wrapped prose files, and a phrase that happens to
 // straddle a line break is not a missing phrase. A line-based grep here reports the wrong thing.

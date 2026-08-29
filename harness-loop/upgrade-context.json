@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-29-orchestrator-mode-report",
+      "summary": "The orchestrator now states its dispatch mode (native sub-agent spawn vs script dispatch) and offers to switch once at the start of a session.",
+      "why": "The user cannot choose between the two dispatch modes they were never told about. The repository owner asked the orchestrator to report which mode it is running and ask whether the user wants the other at the start.",
+      "targetImpact": "Prompt-only. The orchestrator's opening report names the mode up front and offers the switch; route.mjs still owns which node runs, so switching changes how, never which.",
+      "paths": ["prompts/orchestrator.md"],
+      "mergeActions": ["Merge the mode-report sentence into a customized orchestrator prompt, preserving project-specific presentation wording."],
+      "verification": ["bash harness-loop/scripts/demo.sh asserts the orchestrator names its mode and offers the switch", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-29-trace-insights",
       "summary": "New tools/trace-insights.mjs mines the loop's recorded trace for harness/workflow/skill optimization options — recurring rejects, blind telemetry, dispatch friction, rediscovery, marker churn — each with a layer, trace evidence and a concrete remedy.",
       "why": "verify-harness finds layer=harness defects statically and run-report surfaces project-level insights, but nothing read the loop's own runtime behavior back as what to change in the harness/workflow/skill. The repository owner asked for trace-driven optimization options.",
