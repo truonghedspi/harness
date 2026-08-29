@@ -64,7 +64,14 @@ This is the harness's half of the contract, and it is what `verify-harness.mjs` 
    assertion, not a compile error or a missing fixture. A test that has only ever been seen green
    is not known to test anything.
 2. Record that red run in the feature's `evidence` field: the command and how it failed.
-3. Only then does the maker implement. When it goes green, the evidence carries both halves.
+3. **Prove it discriminates (mutant-check) before the maker touches it.** Write the smallest wrong
+   implementation the `falsifier` names — a stub that returns the wrong value, a function that
+   ignores its input. Run the test against it: it must stay **red** for the right reason. Record
+   that run in `evidence` with `"mutant": true`. A test that also passes against the wrong
+   implementation is not finished — it would let the maker ship the mutant and the checker catch it
+   only after a full implement cycle. Tighten it now.
+4. Only then does the maker implement. When it goes green, the evidence carries all three halves —
+   the red, the mutant-red, and the green.
 
 If the test passes the first time you run it, the behaviour already exists — say so and stop. Do
 not quietly keep a test that could never have failed.

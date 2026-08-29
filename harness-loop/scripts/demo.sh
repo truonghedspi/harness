@@ -840,7 +840,14 @@ const d=JSON.parse(fs.readFileSync(p,'utf8'));
 d.features.find(f=>f.id==='feat-p').evidence='wrote the test; ran it, FAILED (exit 1) as expected';
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(route_node)" = "maker" ]; expect "only once the oracle exists does the build feature become eligible" $?
+[ "$(route_node)" = "test-implementer" ]; expect "a written test still routes to test-implementer until it is mutant-checked" $?
+node -e "
+const fs=require('fs'); const p='$TO/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features.find(f=>f.id==='feat-p').evidence=[{run:'red'},{run:'red',mutant:true}];
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+[ "$(route_node)" = "maker" ]; expect "only once the oracle exists AND is mutant-checked does the build feature become eligible" $?
 # Level 3 is proof, not construction — the node that owns it belongs to the test band, and the
 # routing layer is what tells a reader (and the run-loop log) which band a node is in.
 node -e "
@@ -3579,6 +3586,25 @@ expect "each option carries a concrete remedy naming what to change" $?
 node "$TI/tools/trace-insights.mjs" --target "$TI" --layer workflow --json > "$TI/wf.json"
 node -e "const j=require('$TI/wf.json');process.exit(j.length>=1 && j.every(f=>f.layer==='workflow')?0:1)"
 expect "--layer filters options to one layer" $?
+
+echo ""
+step 63 "mutant-check before implement: an unproven oracle blocks the maker"
+MC="$WORK/mutant-check"; rm -rf "$MC"; mkdir -p "$MC/loop" "$MC/.kiro/agents"
+cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$MC/loop/route.mjs"
+printf '%s\n' '{}' > "$MC/.kiro/agents/test-implementer.json"
+cat > "$MC/feature_list.json" <<'MCJ'
+{"features":[
+ {"id":"prove-a","kind":"prove","status":"active","falsifier":"returns the wrong value","dependencies":["build-a"],"evidence":[{"run":"red"}],"checkerNotes":""},
+ {"id":"build-a","kind":"build","status":"not-started","falsifier":"build wrong","dependencies":[],"evidence":[],"checkerNotes":""}
+]}
+MCJ
+( cd "$MC" && node loop/route.mjs --json > before.json 2>/dev/null )
+node -e "const r=require('$MC/before.json');process.exit(r.node!=='maker'?0:1)"
+expect "a build feature whose prove test has no mutant-checked run is not eligible for the maker" $?
+node -e "const fs=require('fs'),p='$MC/feature_list.json',j=JSON.parse(fs.readFileSync(p));j.features[0].evidence.push({run:'red',mutant:true});fs.writeFileSync(p,JSON.stringify(j,null,2))"
+( cd "$MC" && node loop/route.mjs --json > after.json 2>/dev/null )
+node -e "const r=require('$MC/after.json');process.exit(r.node==='maker'&&r.feature==='build-a'?0:1)"
+expect "once the prove test has a mutant-checked run, the build feature becomes eligible" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

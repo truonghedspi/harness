@@ -31,7 +31,7 @@ harness/cli.mjs` when contained). A contained layout's thin root `AGENTS.md` onl
 | `design-facilitator` | agent | components, cited claims, assumption registry, **observable seam + invariants per component**, at least two options with an argument map each, a self-applied critique (Key Assumptions Check, premortem, Devil's Advocacy), and a `## Feature impact` table (its only way to hand scope work over — it may not write `feature_list.json`). **Never writes `status: approved`** — only a human does, to `loop/design-approval.json` | `requirement.md`, `docs/**` | `docs/design/**`, `architecture.md`, `assumptions.md`, `spikes/**`, `loop/design-approval.json` (drafted, human dictates the verdict fields) |
 | `feature-planner` | agent | cut the design into a build/prove DAG and materialize bounded, digest-bound context packets where discovery found a non-obvious implementation seam | requirement, human-approved design (`loop/design-approval.json` matching digest) | `feature_list.json`, `loop/context-packets/**`, `goal.md`, `constraints.md`, checker report |
 | `test-designer` | agent | spec → test conditions; **never reads implementation** | spec, interfaces | `tests/design/**`, `feature_list.json` (`falsifier`) |
-| `test-implementer` | agent | conditions → failing test code (red first) | conditions, interfaces | test sources |
+| `test-implementer` | agent | conditions → failing test code (red first), then a mutant-checked red run proving it discriminates | conditions, interfaces | test sources |
 | `maker` | agent | advance exactly one feature by one step; publish a digest-bound `reviewPacket` only for a complete claim. Runs in one of three modes — **lead** (may cut the step into parallel slices), **slice worker** (`$HARNESS_SLICE` set: one disjoint file set, no questions, no state writes), **integrator** (`mode: integrate`: runs the feature verification once and owns the claim) | `feature_list.digest.md`, docs, its slice brief | source, `feature_list.json`, `progress.md`; a slice worker writes only its own paths |
 | `tools/work-split.mjs` | code | admit or refuse a parallel maker iteration: slices pairwise disjoint by glob **and** by working tree, no slice reaching single-writer state, every brief self-contained, fan-in running the feature's own verification. Also generates the worker brief and records slice transitions | `loop/work-split/<feat>.json`, feature contract digest, the working tree | `loop/work-split/<feat>.json` validation receipt + slice status, `loop/work-split-log.jsonl` |
 | `tools/review-contract.mjs` | code | validate each maker handoff before the final acceptance batch; classify missing data as `SUBMISSION_INCOMPLETE`, never REJECT | stable feature contract + `reviewPacket` | exit code + JSON admission report |
@@ -148,9 +148,11 @@ if an open feature has no falsifier       → test-designer
 if a prove feature lacks its own linked
    validated conditions                    → test-designer [never borrow another feature's oracle]
 if a prove feature has a falsifier
-   but no recorded test run               → test-implementer
+   but no recorded test run,
+   or a test with no mutant-checked run     → test-implementer  [write it, then prove it discriminates]
 if a build feature's prove feature
-   has no test yet                        → NOT eligible (the maker would write it)
+   has no test yet, or no mutant-checked
+   test (a `mutant: true` red run)          → NOT eligible (the maker would write/trust an unproven oracle)
 if feature.verification touches k8s       → k8s-integration-tester  [integration]
 if a validated work split has a failed
    slice                                  → maker  [mode: slice-repair]  (re-cut before more parallel work)

@@ -2,6 +2,15 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-29-mutant-check-before-implement",
+      "summary": "A prove feature's test must record a `mutant: true` red run (proof it discriminates against a wrong implementation) before the build feature that depends on it is eligible for the maker.",
+      "why": "A test written and green does not prove it discriminates: feat-diag-open-on-query shipped the wrong mechanism and the checker caught it only after a full implement cycle. DSH's testing rule ('introduce the regression, watch red') does the mutant-check as a gate, not a post-hoc checker discovery.",
+      "targetImpact": "route.mjs: the test-implementer rule now also fires for a written-but-unmutant-checked test, and the maker rule blocks a build feature whose prove test has no mutant-checked run. test-implementer prompt adds the mandatory mutant-check step; maker prompt notes it; feature_list.json documents the `mutant: true` evidence marker.",
+      "paths": ["loop/route.mjs", "prompts/test-implementer.md", "loop/maker-prompt.md", "feature_list.json", "docs/reference/graph.md"],
+      "mergeActions": ["Refresh loop/route.mjs and the two prompts together so the mutant-check gate and its instructions cannot drift.", "Existing prove features without a mutant-checked run will route back to test-implementer once — record `mutant: true` red runs, don't fabricate them."],
+      "verification": ["bash harness-loop/scripts/demo.sh step 63 proves a build feature is ineligible without a mutant-checked prove test and becomes eligible with one", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-29-dispatch-pre-step-gate",
       "summary": "loop/dispatch.mjs gains --check (prove the runtime is driveable without dispatching); the orchestrator blocks on a broken dispatcher instead of silently playing every role.",
       "why": "In a dogfooding session all three runtimes failed (kiro not logged in, codex sandboxed, claude quota), and the orchestrator silently became planner/designer/maker/checker — destroying generator/evaluator separation (Lesson 13). DSH's agent/pre-step gate rejects before a turn is spent; the harness had no equivalent.",

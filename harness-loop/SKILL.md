@@ -237,7 +237,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    feature is designed by an agent that has not read the implementation — and `loop/route.mjs`
    enforces it as an *ordering*: a build feature is not eligible until its prove feature has a
    recorded red run, because a prompt saying "don't rewrite the test" cannot hold when there is no
-   test to not rewrite. Run `test-designer`
+   test to not rewrite. The red run must be **mutant-checked** (`mutant: true` in `evidence`):
+   `test-implementer` writes the smallest wrong implementation the `falsifier` names and proves the
+   test stays red against it, before the maker implements — a green test that would also pass a
+   wrong implementation is an oracle that has not been proven to discriminate. Run `test-designer`
    (spec → conditions under `tests/design/`, plus each feature's `falsifier`: the wrong
    implementation its verification catches) and then `test-implementer` (conditions → failing test
    code). Both follow `skills/test-design/SKILL.md`, scaffolded into the target. Why this is

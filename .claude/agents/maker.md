@@ -89,6 +89,9 @@ Every slice landed. You are one agent, deliberately — this is the fan-in.
    - a feature already `in-progress`/`active`, else
    - the first `not-started` feature whose dependencies are `done` or have a complete
      `readyForCheck: true` handoff. A handoff unlocks delivery order; it is not checker approval.
+     A `build` feature is only eligible once its `prove` dependency's test has a `mutant: true` red
+     run — proof the oracle discriminates. The router already enforces this; if it says a feature
+     is not eligible, that is the reason, not an invitation to implement anyway.
 
    If its `context.packet` is loaded automatically and reported `consumed`, treat its fresh facts
    as established and read the injected `mustRead` sources. Do not reopen every cited design file

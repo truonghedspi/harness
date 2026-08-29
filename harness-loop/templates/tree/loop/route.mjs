@@ -457,10 +457,13 @@ const RULES = [
   },
   {
     node: "test-implementer", kind: "agent", layer: "oracle",
-    when: "a prove feature has a falsifier and validated conditions but no test written",
+    when: "a prove feature has a falsifier and validated conditions but no written, mutant-checked test",
     // The edge that was missing: test-designer fills the falsifier, its own rule stops matching,
     // and control fell straight through to the maker — which then wrote the test it was supposed
-    // to be judged by. The oracle has to EXIST, not merely be specified.
+    // to be judged by. The oracle has to EXIST, not merely be specified. It also has to be PROVEN
+    // to discriminate: a written test with no `mutant: true` red run is a test that might pass a
+    // wrong implementation, and the checker is the one who pays for that after a full implement
+    // cycle (feat-diag-open-on-query).
     match: () => {
       if (!hasAgent("test-implementer")) return null;
       // A falsifier alone is not enough to implement from — the validated conditions are the input,
@@ -471,9 +474,11 @@ const RULES = [
       // test anyway. Without this exclusion a feature blocked for a real reason (e.g. waiting on a
       // not-started dependency) kept matching every iteration: found live on examples/jdt-mcp-server,
       // where the same feature was re-dispatched 19 times before this fix.
+      const notWritten = (x) => !String(x.evidence || "").trim();
+      const notMutantChecked = (x) => !(Array.isArray(x.evidence) && x.evidence.some((e) => e && e.mutant === true));
       const f = open.find((x) => x.kind === "prove" && featureConditionsComplete(x) && String(x.falsifier || "").trim() &&
-        !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
-      return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
+        (notWritten(x) || notMutantChecked(x)) && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
+      return f ? { why: `${f.id} has a falsifier but no ${notWritten(f) ? "test" : "mutant-checked test"} yet — the oracle is specified, not proven`, feature: f.id } : null;
     },
   },
   {
@@ -562,14 +567,18 @@ const RULES = [
       // Information asymmetry is only real if it is an ORDERING: a build feature whose prove
       // feature has no test written yet is not eligible, because the maker would write that test.
       // A prompt saying "don't rewrite the test" cannot hold when there is no test to not rewrite.
-      // A BLOCKED prove feature must not count here: it is not "test not written yet", it is a
-      // human-owned decision, and counting it made an unrelated build feature wait on it forever
-      // (same incident as test-implementer's rule above, found live on examples/jdt-mcp-server).
-      const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim() && status(p) !== "blocked")
-        .flatMap((p) => p.dependencies || []));
+      // Same for a test that has never been proven to discriminate: a written-but-unmutant-checked
+      // oracle lets the maker ship a mutant and the checker catches it only after a full implement
+      // cycle (feat-diag-open-on-query). A BLOCKED prove feature must not count here: it is not
+      // "test not ready yet", it is a human-owned decision, and counting it made an unrelated
+      // build feature wait on it forever (same incident, found live on examples/jdt-mcp-server).
+      const notWritten = (p) => !String(p.evidence || "").trim();
+      const notMutantChecked = (p) => !(Array.isArray(p.evidence) && p.evidence.some((e) => e && e.mutant === true));
+      const unproven = new Set(features.filter((p) => p.kind === "prove" && status(p) !== "blocked" &&
+        (notWritten(p) || notMutantChecked(p))).flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) => x.readyForCheck !== true &&
         !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(x)) && status(x) !== "blocked" &&
-        !(x.kind === "build" && unwritten.has(x.id) && hasAgent("test-implementer")) &&
+        !(x.kind === "build" && unproven.has(x.id) && hasAgent("test-implementer")) &&
         (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
       return eligible.length ? { why: `${eligible.length} feature(s) eligible; next is ${eligible[0].id}`, feature: eligible[0].id } : null;
     },
