@@ -56,7 +56,7 @@ harness/cli.mjs` when contained). A contained layout's thin root `AGENTS.md` onl
 | the human, between iterations | human | attended mode: `run-loop.mjs` pauses after every iteration and waits. This is the **default**; `--headless` is what you graduate to | the diff, `loop-status.mjs` | continue / stop |
 | `verify-harness` | code | replay claimed evidence without replacing semantic acceptance | `feature_list.json`, repo | `trace/verify-report.json` |
 | `checker` | agent | final acceptance after every non-blocked open feature is handed off; falsify the integrated delivery; sole workflow owner of `done` | all handoffs, `feature_list.json`, evidence | `feature_list.json`, `progress.md` (state files only) |
-| `k8s-integration-tester` | agent | Level 3 proof across a real service boundary (+ the cluster lifecycle it needs) | chart, `docs/testing-standards.md`, `feature_list.json`, MCP `k8s-readonly` | chart, tests, `feature_list.json` |
+| `k8s-integration-tester` | agent | Level 3 proof across a real service boundary; init/app logs are captured per container before release-first cleanup; approved exceptional recovery pins either legacy context/owner/RBAC identity or a live stuck-release identity | chart, `docs/testing-standards.md`, `feature_list.json`, MCP `k8s-readonly` | chart, tests, `feature_list.json` |
 | `skills/business-journey` | capability | Level 4 public command-to-outcome journeys: isolation, business readiness, distributed oracle, fault/idempotency proof and redacted metrics | requirement, service registry, environment/oracles | executable scenario artifacts and deterministic check |
 | `skills/quality-strategy` | capability | living Capability–Attribute risk and orthogonal scope/size classification; rejects uncovered material risk and unsafe large-test scheduling | requirements, components, human risk decisions, oracle artifacts | `test-risk.json` and deterministic findings |
 | user-scope `human-presenter` | capability | lightweight pre-delivery audit for every substantive human-facing message; routes intent, provenance, uncertainty, language and the smallest useful representation without becoming a workflow node | the current agent's established claims and reader task | clearer user-facing answer; no project state |
@@ -124,7 +124,7 @@ tests it there.
 | `loop/design-approval.json` | **the human** (dictated in a `design-facilitator` session; the facilitator may never write `status: approved` itself) | `route.mjs`, feature-planner, test-designer, maker, checker | approval is bound to the current design digest; a changed design — even one line — invalidates the old approval automatically, no expiry step needed |
 | `agents.generated.json` | `gen-agents.mjs` | next generator run, upgrade audit | generated-path ownership receipt; partial runtime generation preserves other runtimes, retired paths are removed without touching unmanaged agents |
 | `env/local.json` | `environment.mjs --capture` (machine facts) and `harness-config.mjs set` (`runMode`), each merging around the other's fields | `orchestrator` (via `harness-config.mjs get runMode`), `harness-setup`, k8s tester | machine-local and gitignored; two writers, disjoint keys — `environment.mjs` owns `java`/`maven`/`kubernetes`/`utilities`/`apiKeys`, `harness-config.mjs` owns `runMode` |
-| `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image` | `services-check.mjs`, `context-plan.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; rule entries retain original pointer, scope, collection digest and provenance |
+| `services.manifest.json` | `collect-services.mjs`, then **the human** for `health`/`dependsOn`/`image`/environment `values` | `services-check.mjs`, `context-plan.mjs`, `k8s-test-env.sh --services`, `docs/services.md` | the collector never overwrites a human's answer with a guess; explicit values files select environment overrides without changing chart defaults; rule entries retain original pointer, scope, collection digest and provenance |
 | `business-environment.json`, `business-oracles/**` | current agent + `human-interview`, then test-designer/implementer via business-journey capability | capability checker, quality-strategy checker, k8s integration tester, checker | public seams and business facts are project-owned; environment lifecycle stays with k8s-test-env |
 | `test-risk.json` | human risk owner + quality-strategy capability | feature planner, test designer, quality-strategy checker | consequence/likelihood/detectability are human judgements; components and oracle links are mechanically checked |
 | `docs/services.md` | `setup-harness-loop.mjs --integration` | design-facilitator, planner, k8s tester | **generated** — edit the registry and re-run, never the doc |
@@ -153,7 +153,8 @@ if a prove feature has a falsifier
 if a build feature's prove feature
    has no test yet, or no mutant-checked
    test (a `mutant: true` red run)          → NOT eligible (the maker would write/trust an unproven oracle)
-if feature.verification touches k8s       → k8s-integration-tester  [integration]
+if feature.verification invokes Kubernetes
+  tooling or a `tests/k8s/` journey       → k8s-integration-tester  [integration]
 if a validated work split has a failed
    slice                                  → maker  [mode: slice-repair]  (re-cut before more parallel work)
 if a validated work split has slices left → maker × N in parallel  [mode: slice-fanout]

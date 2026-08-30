@@ -153,6 +153,10 @@ const notes = (f) => String(f.checkerNotes || "").trim();
 const marker = (f) => notes(f).split("\n")[0].trim();
 const status = (f) => String(f.status || f.state || "");
 const open = features.filter((f) => !["done", "passing"].includes(status(f)));
+// A complete maker handoff is enough to unblock downstream implementation. Semantic acceptance
+// is deliberately deferred until every remaining feature has been handed off, so the checker
+// reviews the integrated delivery once instead of becoming an inner-loop hop after each feature.
+const handedOff = (f) => ["done", "passing"].includes(status(f)) || f?.readyForCheck === true;
 // A parallel maker iteration, if one has been planned and admitted (tools/work-split.mjs). The
 // router reads the plan's own validation receipt rather than re-deriving disjointness here: the
 // router is pure and cheap by contract, and disjointness needs the working tree. The receipt is
@@ -174,7 +178,8 @@ const workSplit = (f) => {
 };
 // Only a feature the maker could pick anyway may drive a fan-out: a marker or a blocked status
 // outranks the split, exactly as it outranks a serial maker turn.
-const splitEligible = () => open.filter((f) => !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(f)) && status(f) !== "blocked");
+const splitEligible = () => open.filter((f) => f.readyForCheck !== true &&
+  !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(f)) && status(f) !== "blocked");
 
 const designDigest = () => {
   const parts = [];
@@ -452,10 +457,13 @@ const RULES = [
   },
   {
     node: "test-implementer", kind: "agent", layer: "oracle",
-    when: "a prove feature has a falsifier and validated conditions but no test written",
+    when: "a prove feature has a falsifier and validated conditions but no written, mutant-checked test",
     // The edge that was missing: test-designer fills the falsifier, its own rule stops matching,
     // and control fell straight through to the maker — which then wrote the test it was supposed
-    // to be judged by. The oracle has to EXIST, not merely be specified.
+    // to be judged by. The oracle has to EXIST, not merely be specified. It also has to be PROVEN
+    // to discriminate: a written test with no `mutant: true` red run is a test that might pass a
+    // wrong implementation, and the checker is the one who pays for that after a full implement
+    // cycle (feat-diag-open-on-query).
     match: () => {
       if (!hasAgent("test-implementer")) return null;
       // A falsifier alone is not enough to implement from — the validated conditions are the input,
@@ -466,9 +474,23 @@ const RULES = [
       // test anyway. Without this exclusion a feature blocked for a real reason (e.g. waiting on a
       // not-started dependency) kept matching every iteration: found live on examples/jdt-mcp-server,
       // where the same feature was re-dispatched 19 times before this fix.
+      const notWritten = (x) => !String(x.evidence || "").trim();
+      const notMutantChecked = (x) => !(Array.isArray(x.evidence) && x.evidence.some((e) => e && e.mutant === true));
       const f = open.find((x) => x.kind === "prove" && featureConditionsComplete(x) && String(x.falsifier || "").trim() &&
-        !String(x.evidence || "").trim() && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
-      return f ? { why: `${f.id} has a falsifier but no test yet — the oracle is specified, not written`, feature: f.id } : null;
+        (notWritten(x) || notMutantChecked(x)) && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
+      return f ? { why: `${f.id} has a falsifier but no ${notWritten(f) ? "test" : "mutant-checked test"} yet — the oracle is specified, not proven`, feature: f.id } : null;
+    },
+  },
+  {
+    // Acceptance is a delivery boundary, not an inner-loop hop. All spec, design,
+    // decomposition and oracle routes above this rule must be exhausted first.
+    node: "checker", kind: "agent", layer: "final-acceptance",
+    when: "every non-blocked open feature has a complete handoff — run one final acceptance batch",
+    match: () => {
+      const reviewable = open.filter((f) => status(f) !== "blocked");
+      if (!reviewable.length || !reviewable.every((f) => f.readyForCheck === true)) return null;
+      return { why: `all ${reviewable.length} remaining feature(s) are handed off; final acceptance now judges the integrated delivery`,
+        features: reviewable.map((f) => f.id) };
     },
   },
   {
@@ -482,8 +504,8 @@ const RULES = [
     when: "the feature's verification deploys to a real cluster",
     match: () => {
       if (!hasAgent("k8s-integration-tester")) return null;
-      const f = open.find((x) => /k8s-test-env|kubectl|helm |namespace/i.test(String(x.verification || "")) &&
-        (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
+      const f = open.find((x) => x.readyForCheck !== true && /k8s-test-env|kubectl|helm |(?:^|\/)tests\/k8s\//i.test(String(x.verification || "")) &&
+        (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
       return f ? { why: `${f.id} verifies against a real cluster — cluster lifecycle knowledge the maker does not carry`, feature: f.id } : null;
     },
   },
@@ -540,20 +562,24 @@ const RULES = [
   },
   {
     node: "maker", kind: "agent", layer: "implementation",
-    when: "a feature is eligible: dependencies done, no blocking marker, within its attempts budget",
+    when: "a feature is eligible: dependencies done or handed off, no blocking marker, within its attempts budget",
     match: () => {
       // Information asymmetry is only real if it is an ORDERING: a build feature whose prove
       // feature has no test written yet is not eligible, because the maker would write that test.
       // A prompt saying "don't rewrite the test" cannot hold when there is no test to not rewrite.
-      // A BLOCKED prove feature must not count here: it is not "test not written yet", it is a
-      // human-owned decision, and counting it made an unrelated build feature wait on it forever
-      // (same incident as test-implementer's rule above, found live on examples/jdt-mcp-server).
-      const unwritten = new Set(features.filter((p) => p.kind === "prove" && !String(p.evidence || "").trim() && status(p) !== "blocked")
-        .flatMap((p) => p.dependencies || []));
-      const eligible = open.filter((x) =>
+      // Same for a test that has never been proven to discriminate: a written-but-unmutant-checked
+      // oracle lets the maker ship a mutant and the checker catches it only after a full implement
+      // cycle (feat-diag-open-on-query). A BLOCKED prove feature must not count here: it is not
+      // "test not ready yet", it is a human-owned decision, and counting it made an unrelated
+      // build feature wait on it forever (same incident, found live on examples/jdt-mcp-server).
+      const notWritten = (p) => !String(p.evidence || "").trim();
+      const notMutantChecked = (p) => !(Array.isArray(p.evidence) && p.evidence.some((e) => e && e.mutant === true));
+      const unproven = new Set(features.filter((p) => p.kind === "prove" && status(p) !== "blocked" &&
+        (notWritten(p) || notMutantChecked(p))).flatMap((p) => p.dependencies || []));
+      const eligible = open.filter((x) => x.readyForCheck !== true &&
         !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(x)) && status(x) !== "blocked" &&
-        !(x.kind === "build" && unwritten.has(x.id) && hasAgent("test-implementer")) &&
-        (x.dependencies || []).every((d) => ["done", "passing"].includes(status(features.find((y) => y.id === d) || {}))));
+        !(x.kind === "build" && unproven.has(x.id) && hasAgent("test-implementer")) &&
+        (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
       return eligible.length ? { why: `${eligible.length} feature(s) eligible; next is ${eligible[0].id}`, feature: eligible[0].id } : null;
     },
   },
@@ -614,7 +640,7 @@ function damFor(feature) {
     if (status(dep) === "blocked") {
       return { id, chain, reason: marker(dep) || "blocked with no reason recorded" };
     }
-    if (["done", "passing"].includes(status(dep))) continue;
+    if (handedOff(dep)) continue;
     for (const next of dep.dependencies || []) queue.push({ id: next, path: [...chain, id] });
   }
   return null;

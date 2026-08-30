@@ -75,7 +75,11 @@ function collect() {
   const log = (read(P("loop", "route-log.jsonl")) || "").split("\n").filter(Boolean)
     .map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
   out.dispatched = log.slice(-6);
-  const tail = log.slice(-4);
+  // A livelock is the same ESCALATION re-dispatched, not a maker checkpointing the same active
+  // feature (WIP=1 makes that the normal shape). Only marker-driven routes — the ones carrying a
+  // hash/requestId — are escalation re-dispatches; ordinary delivery turns are not counted here.
+  const markers = log.filter((e) => e.hash || e.requestId);
+  const tail = markers.slice(-4);
   out.repeating = tail.length === 4 && tail.every((e) => e.node === tail[0].node && e.feature === tail[0].feature);
 
   // Uncommitted work: what the agents have written that no commit has captured yet.

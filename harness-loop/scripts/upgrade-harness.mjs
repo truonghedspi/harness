@@ -95,6 +95,13 @@ for (const m of (read(S("scripts", "setup-harness-loop.mjs")) || "")
 for (const f of filesUnder(S("templates", "tree", "tools"))) {
   refresh.push([`templates/tree/tools/${f}`, `tools/${f}`]);
 }
+// Optional Kubernetes tooling is installed only for targets that already opted into the K8s
+// layer. Refresh it there too: cluster-lifecycle fixes are unsafe to leave stranded in a template.
+if (existsSync(T("prompts/k8s-integration-tester.md")) || existsSync(T("tools/k8s-test-env.sh"))) {
+  for (const f of filesUnder(S("templates", "k8s", "tools"))) {
+    refresh.push([`templates/k8s/tools/${f}`, `tools/${f}`]);
+  }
+}
 // Loop machinery. NOT the prompts beside them — those are customised per project.
 for (const f of ["route.mjs", "run-loop.mjs", "run-loop.sh", "run-loop.cmd", "dispatch.mjs", "dispatch.sh", "dispatch.cmd", "approval-gate.mjs"]) {
   if (existsSync(S("templates", "tree", "loop", f))) refresh.push([`templates/tree/loop/${f}`, `loop/${f}`]);

@@ -6,6 +6,9 @@
 # Usage:
 #   tools/k8s-test-env.sh <chart-path> [--release NAME] [--keep-on-failure] -- <test-command...>
 #   tools/k8s-test-env.sh --services services.manifest.json [--only a,b] [--keep-on-failure] -- <cmd...>
+#   tools/k8s-test-env.sh recover-orphan <chart-path> --release NAME --namespace OLD_NAMESPACE
+#     --context CONTEXT --resource clusterrole/NAME [--resource clusterrolebinding/NAME]
+#   tools/k8s-test-env.sh cleanup-stuck-release --release NAME --namespace NAMESPACE --context CONTEXT
 #   tools/k8s-test-env.sh list-stale [--older-than 24h]
 #   tools/k8s-test-env.sh --help
 #
@@ -31,6 +34,7 @@ cd "$ROOT"
 : "${DEPLOY_TIMEOUT_S:=300}"     # helm upgrade --install --wait budget, per service
 : "${HEALTH_TIMEOUT_S:=120}"     # budget for a service's own health command, per service
 : "${TEST_TIMEOUT_S:=600}"       # budget for the test command itself
+: "${RECOVERY_TIMEOUT_S:=120}"   # budget for each legacy-orphan recovery operation
 : "${NAMESPACE_PREFIX:=test}"
 : "${REPORT_ROOT:=trace/k8s-test}"
 KEEP_ON_FAILURE=0
@@ -40,22 +44,38 @@ usage() {
 Usage:
   k8s-test-env.sh <chart-path> [--release NAME] [--keep-on-failure] -- <test-command...>
   k8s-test-env.sh --services services.manifest.json [--only a,b] [--keep-on-failure] -- <cmd...>
+  k8s-test-env.sh recover-orphan <chart-path> --release NAME --namespace OLD_NAMESPACE
+    --context CONTEXT --resource clusterrole/NAME [--resource clusterrolebinding/NAME]
+  k8s-test-env.sh cleanup-stuck-release --release NAME --namespace NAMESPACE --context CONTEXT
   k8s-test-env.sh list-stale [--older-than 24h]
   k8s-test-env.sh --help
 
 Env overrides: DEPLOY_TIMEOUT_S (300), HEALTH_TIMEOUT_S (120), TEST_TIMEOUT_S (600),
-NAMESPACE_PREFIX (test), REPORT_ROOT (trace/k8s-test).
+RECOVERY_TIMEOUT_S (120), NAMESPACE_PREFIX (test), REPORT_ROOT (trace/k8s-test).
 
-Multi-service mode reads the registry written by tools/collect-services.mjs. It uses three
+Multi-service mode reads the registry written by tools/collect-services.mjs. It uses four
 fields the collector deliberately leaves for a human:
   chart      required to deploy the service at all; a service without one is skipped, loudly
   dependsOn  install order. null means "no stated dependencies", which is taken at face value
   health     a shell command proving the service is SERVING, run with $NAMESPACE and $RELEASE
              exported and retried until HEALTH_TIMEOUT_S. null means readiness is unverified,
              and the run says so rather than quietly treating Running as healthy
+  values     optional array of explicit Helm values files, used for bounded environment-specific
+             overrides without changing the chart's defaults
 
 Every namespace this script creates is labelled harness-loop-test=true and annotated
 created-at=<UTC ISO8601> so `list-stale` (and any cluster-side reaper) can find leftovers.
+
+recover-orphan is an exceptional repair for a Helm release whose namespace and release record
+were deleted before cluster-scoped resources. It refuses to act unless the current context,
+deleted disposable namespace prefix, release annotations, Helm ownership label, and explicit
+ClusterRole/ClusterRoleBinding allowlist all match. It adopts through the same chart identity,
+then uses bounded Helm uninstall; it never deletes the named RBAC objects directly.
+
+cleanup-stuck-release is an exceptional repair for an interrupted teardown whose labelled
+disposable namespace and Helm release record still exist with status uninstalling. It pins the
+current context and exact identities, retries bounded Helm uninstall, deletes the namespace with
+a bounded wait, and verifies both are absent.
 EOF
 }
 
@@ -79,6 +99,214 @@ run_with_timeout() {
   done
   wait "$pid"
 }
+
+# --- finish one precisely identified interrupted teardown -----------------------------------
+if [ "${1:-}" = "cleanup-stuck-release" ]; then
+  shift
+  STUCK_RELEASE=""
+  STUCK_NAMESPACE=""
+  STUCK_CONTEXT=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --release) STUCK_RELEASE="${2:-}"; shift 2 ;;
+      --namespace) STUCK_NAMESPACE="${2:-}"; shift 2 ;;
+      --context) STUCK_CONTEXT="${2:-}"; shift 2 ;;
+      *) echo "unknown cleanup-stuck-release option: $1" >&2; exit 2 ;;
+    esac
+  done
+  [ -n "$STUCK_RELEASE" ] && [ -n "$STUCK_NAMESPACE" ] && [ -n "$STUCK_CONTEXT" ] || {
+    echo "error: cleanup-stuck-release requires --release, --namespace, and --context" >&2; exit 2;
+  }
+  case "$STUCK_NAMESPACE" in
+    "$NAMESPACE_PREFIX"-*) ;;
+    *) echo "error: cleanup namespace must begin ${NAMESPACE_PREFIX}-" >&2; exit 2 ;;
+  esac
+  case "$STUCK_NAMESPACE" in
+    default|kube-*|kubernetes-*) echo "error: refusing protected namespace identity: $STUCK_NAMESPACE" >&2; exit 2 ;;
+  esac
+  for bin in kubectl helm node; do
+    command -v "$bin" >/dev/null 2>&1 || { echo "error: $bin not found on PATH" >&2; exit 2; }
+  done
+  ACTUAL_CONTEXT="$(kubectl config current-context 2>/dev/null || true)"
+  [ "$ACTUAL_CONTEXT" = "$STUCK_CONTEXT" ] || {
+    echo "error: current context '$ACTUAL_CONTEXT' does not match approved cleanup context '$STUCK_CONTEXT'" >&2
+    exit 2
+  }
+  STUCK_NAMESPACE_IDENTITY="$(run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$STUCK_CONTEXT" \
+    get namespace "$STUCK_NAMESPACE" -o jsonpath='{.metadata.name}{"|"}{.metadata.labels.harness-loop-test}{"|"}{.status.phase}')" || {
+    echo "error: cleanup namespace does not exist or cannot be read: $STUCK_NAMESPACE" >&2; exit 2;
+  }
+  [ "$STUCK_NAMESPACE_IDENTITY" = "$STUCK_NAMESPACE|true|Active" ] || {
+    echo "error: cleanup namespace identity mismatch; expected $STUCK_NAMESPACE|true|Active" >&2; exit 2;
+  }
+  STUCK_STATUS="$(run_with_timeout "$RECOVERY_TIMEOUT_S" helm status "$STUCK_RELEASE" \
+    --namespace "$STUCK_NAMESPACE" --kube-context "$STUCK_CONTEXT" -o json | \
+    node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{try{process.stdout.write(JSON.parse(s).info.status)}catch{process.exit(2)}})')" || {
+    echo "error: cleanup release does not exist or cannot be read: $STUCK_RELEASE" >&2; exit 2;
+  }
+  [ "$STUCK_STATUS" = "uninstalling" ] || {
+    echo "error: cleanup release must be uninstalling, found: $STUCK_STATUS" >&2; exit 2;
+  }
+
+  log "validated interrupted teardown: release=$STUCK_RELEASE namespace=$STUCK_NAMESPACE context=$STUCK_CONTEXT status=$STUCK_STATUS"
+  run_with_timeout "$RECOVERY_TIMEOUT_S" helm uninstall "$STUCK_RELEASE" \
+    --namespace "$STUCK_NAMESPACE" --kube-context "$STUCK_CONTEXT" \
+    --wait --timeout "${RECOVERY_TIMEOUT_S}s" >/dev/null || {
+    echo "error: bounded Helm uninstall retry failed" >&2; exit 1;
+  }
+  run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$STUCK_CONTEXT" delete namespace \
+    "$STUCK_NAMESPACE" --wait=true --timeout="${RECOVERY_TIMEOUT_S}s" >/dev/null || {
+    echo "error: cleanup namespace deletion did not complete" >&2; exit 1;
+  }
+  STUCK_NAMESPACE_AFTER="$(run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$STUCK_CONTEXT" \
+    get namespace "$STUCK_NAMESPACE" --ignore-not-found -o name)" || exit 1
+  [ -z "$STUCK_NAMESPACE_AFTER" ] || {
+    echo "error: cleanup namespace still exists: $STUCK_NAMESPACE" >&2; exit 1;
+  }
+  if run_with_timeout "$RECOVERY_TIMEOUT_S" helm status "$STUCK_RELEASE" \
+    --namespace "$STUCK_NAMESPACE" --kube-context "$STUCK_CONTEXT" >/dev/null 2>&1; then
+    echo "error: cleanup release still exists: $STUCK_RELEASE" >&2; exit 1
+  fi
+  log "interrupted teardown complete; verified release and namespace absent"
+  exit 0
+fi
+
+# --- recover one precisely identified pre-fix Helm orphan -----------------------------------
+# Normal teardown must remain the only routine path. This mode exists solely for legacy state
+# whose release Secret vanished with a namespace-first cleanup: validate before creating anything,
+# let Helm adopt its own annotated objects, then let Helm remove them.
+if [ "${1:-}" = "recover-orphan" ]; then
+  shift
+  RECOVERY_CHART="${1:-}"
+  [ -n "$RECOVERY_CHART" ] || { echo "error: recover-orphan requires a chart path" >&2; exit 2; }
+  shift
+  RECOVERY_RELEASE=""
+  RECOVERY_NAMESPACE=""
+  RECOVERY_CONTEXT=""
+  RECOVERY_RESOURCES=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --release) RECOVERY_RELEASE="${2:-}"; shift 2 ;;
+      --namespace) RECOVERY_NAMESPACE="${2:-}"; shift 2 ;;
+      --context) RECOVERY_CONTEXT="${2:-}"; shift 2 ;;
+      --resource) RECOVERY_RESOURCES+=("${2:-}"); shift 2 ;;
+      *) echo "unknown recover-orphan option: $1" >&2; exit 2 ;;
+    esac
+  done
+  [ -d "$RECOVERY_CHART" ] && [ -f "$RECOVERY_CHART/Chart.yaml" ] || {
+    echo "error: recovery chart is not a Helm chart: $RECOVERY_CHART" >&2; exit 2;
+  }
+  [ -n "$RECOVERY_RELEASE" ] && [ -n "$RECOVERY_NAMESPACE" ] && [ -n "$RECOVERY_CONTEXT" ] || {
+    echo "error: recover-orphan requires --release, --namespace, and --context" >&2; exit 2;
+  }
+  [ ${#RECOVERY_RESOURCES[@]} -gt 0 ] && [ ${#RECOVERY_RESOURCES[@]} -le 8 ] || {
+    echo "error: recover-orphan requires 1..8 explicit --resource entries" >&2; exit 2;
+  }
+  case "$RECOVERY_NAMESPACE" in
+    "$NAMESPACE_PREFIX"-*) ;;
+    *) echo "error: recovery namespace must begin ${NAMESPACE_PREFIX}-" >&2; exit 2 ;;
+  esac
+  case "$RECOVERY_NAMESPACE" in
+    default|kube-*|kubernetes-*) echo "error: refusing protected namespace identity: $RECOVERY_NAMESPACE" >&2; exit 2 ;;
+  esac
+  for bin in kubectl helm; do
+    command -v "$bin" >/dev/null 2>&1 || { echo "error: $bin not found on PATH" >&2; exit 2; }
+  done
+  ACTUAL_CONTEXT="$(kubectl config current-context 2>/dev/null || true)"
+  [ "$ACTUAL_CONTEXT" = "$RECOVERY_CONTEXT" ] || {
+    echo "error: current context '$ACTUAL_CONTEXT' does not match approved recovery context '$RECOVERY_CONTEXT'" >&2
+    exit 2
+  }
+  EXISTING_NAMESPACE="$(run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" \
+    get namespace "$RECOVERY_NAMESPACE" --ignore-not-found -o name)" || {
+    echo "error: could not verify recovery namespace absence" >&2; exit 2;
+  }
+  [ -z "$EXISTING_NAMESPACE" ] || {
+    echo "error: recovery namespace already exists; refusing to adopt into live state: $RECOVERY_NAMESPACE" >&2
+    exit 2
+  }
+
+  for resource in "${RECOVERY_RESOURCES[@]}"; do
+    case "$resource" in
+      clusterrole/*|clusterrolebinding/*) ;;
+      *) echo "error: recovery resource is not an allowed cluster-scoped RBAC kind: $resource" >&2; exit 2 ;;
+    esac
+    RECOVERY_OWNER="$(run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" \
+      get "$resource" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}{"|"}{.metadata.annotations.meta\.helm\.sh/release-name}{"|"}{.metadata.annotations.meta\.helm\.sh/release-namespace}')" || {
+      echo "error: recovery resource does not exist or cannot be read: $resource" >&2; exit 2;
+    }
+    [ "$RECOVERY_OWNER" = "Helm|$RECOVERY_RELEASE|$RECOVERY_NAMESPACE" ] || {
+      echo "error: ownership mismatch for $resource; expected Helm|$RECOVERY_RELEASE|$RECOVERY_NAMESPACE" >&2
+      exit 2
+    }
+  done
+
+  RECOVERY_NAMESPACE_CREATED=0
+  RECOVERY_RELEASE_ACTIVE=0
+  recovery_cleanup() {
+    local code="${1:-1}"
+    if [ "$RECOVERY_NAMESPACE_CREATED" = "1" ]; then
+      if [ "$RECOVERY_RELEASE_ACTIVE" = "1" ]; then
+        run_with_timeout "$RECOVERY_TIMEOUT_S" helm uninstall "$RECOVERY_RELEASE" \
+          --namespace "$RECOVERY_NAMESPACE" --kube-context "$RECOVERY_CONTEXT" \
+          --wait --timeout "${RECOVERY_TIMEOUT_S}s" >/dev/null 2>&1 || true
+      fi
+      run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" delete namespace \
+        "$RECOVERY_NAMESPACE" --wait=true --timeout="${RECOVERY_TIMEOUT_S}s" >/dev/null 2>&1 || true
+    fi
+    return "$code"
+  }
+  trap 'code=$?; recovery_cleanup "$code"; exit "$code"' EXIT
+
+  log "validated legacy orphan: release=$RECOVERY_RELEASE namespace=$RECOVERY_NAMESPACE context=$RECOVERY_CONTEXT resources=${RECOVERY_RESOURCES[*]}"
+  run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" create namespace "$RECOVERY_NAMESPACE" >/dev/null || {
+    echo "error: could not recreate recovery namespace" >&2; exit 1;
+  }
+  RECOVERY_NAMESPACE_CREATED=1
+  run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" label namespace \
+    "$RECOVERY_NAMESPACE" harness-loop-test=true --overwrite >/dev/null || exit 1
+  run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" annotate namespace \
+    "$RECOVERY_NAMESPACE" "created-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "harness-loop-recovery=$RECOVERY_RELEASE" --overwrite >/dev/null || exit 1
+
+  # No --wait: recovery adopts ownership metadata, not workload readiness. Every command still has
+  # a hard deadline, and the uninstall below is the only operation allowed to remove the RBAC.
+  RECOVERY_RELEASE_ACTIVE=1
+  run_with_timeout "$RECOVERY_TIMEOUT_S" helm upgrade --install "$RECOVERY_RELEASE" "$RECOVERY_CHART" \
+    --namespace "$RECOVERY_NAMESPACE" --kube-context "$RECOVERY_CONTEXT" \
+    --timeout "${RECOVERY_TIMEOUT_S}s" || {
+    echo "error: Helm could not adopt the validated orphan" >&2; exit 1;
+  }
+  run_with_timeout "$RECOVERY_TIMEOUT_S" helm uninstall "$RECOVERY_RELEASE" \
+    --namespace "$RECOVERY_NAMESPACE" --kube-context "$RECOVERY_CONTEXT" \
+    --wait --timeout "${RECOVERY_TIMEOUT_S}s" >/dev/null || {
+    echo "error: bounded Helm uninstall failed after adoption" >&2; exit 1;
+  }
+  RECOVERY_RELEASE_ACTIVE=0
+  run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" delete namespace \
+    "$RECOVERY_NAMESPACE" --wait=true --timeout="${RECOVERY_TIMEOUT_S}s" >/dev/null || {
+    echo "error: recovery namespace deletion did not complete" >&2; exit 1;
+  }
+  RECOVERY_NAMESPACE_CREATED=0
+
+  for resource in "${RECOVERY_RESOURCES[@]}"; do
+    RECOVERY_RESOURCE_AFTER="$(run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" \
+      get "$resource" --ignore-not-found -o name)" || {
+      echo "error: could not verify recovered resource absence: $resource" >&2; exit 1;
+    }
+    [ -z "$RECOVERY_RESOURCE_AFTER" ] || {
+      echo "error: recovered resource still exists after Helm uninstall: $resource" >&2; exit 1;
+    }
+  done
+  RECOVERY_NAMESPACE_AFTER="$(run_with_timeout "$RECOVERY_TIMEOUT_S" kubectl --context "$RECOVERY_CONTEXT" \
+    get namespace "$RECOVERY_NAMESPACE" --ignore-not-found -o name)" || exit 1
+  [ -z "$RECOVERY_NAMESPACE_AFTER" ] || {
+    echo "error: recovery namespace still exists after cleanup: $RECOVERY_NAMESPACE" >&2; exit 1;
+  }
+  trap - EXIT
+  log "legacy orphan recovery complete; verified resources and namespace absent"
+  exit 0
+fi
 
 # --- list-stale ---------------------------------------------------------------------------
 if [ "${1:-}" = "list-stale" ]; then
@@ -200,14 +428,19 @@ if [ -n "$MANIFEST" ]; then
     for (const id of order) {
       const s = byId.get(id);
       const health = typeof s.health === "string" ? s.health : (s.health && s.health.command) || "";
-      process.stdout.write([id, s.chart || "", health, (s.dependsOn || []).join(",")].join("\u001f") + "\n");
+      const values = s.values == null ? [] : s.values;
+      if (!Array.isArray(values) || values.some(v => typeof v !== "string" || !/^[A-Za-z0-9._\/-]+$/.test(v))) {
+        console.error(`${id}: values must be an array of relative file paths`);
+        process.exit(2);
+      }
+      process.stdout.write([id, s.chart || "", health, (s.dependsOn || []).join(","), values.join(",")].join("\u001f") + "\n");
     }
   ' "$MANIFEST" "$ONLY" > "$PLAN_FILE"; then
     exit 2
   fi
 else
   [ -d "$CHART_PATH" ] || { echo "error: chart path not found: $CHART_PATH" >&2; exit 2; }
-  printf '%s\037%s\037%s\037%s\n' "$RELEASE_NAME" "$CHART_PATH" "" "" > "$PLAN_FILE"
+  printf '%s\037%s\037%s\037%s\037%s\n' "$RELEASE_NAME" "$CHART_PATH" "" "" "" > "$PLAN_FILE"
 fi
 
 PLAN_COUNT=$(grep -c . "$PLAN_FILE" || true)
@@ -227,6 +460,7 @@ log "namespace: $NAMESPACE   services: $PLAN_COUNT   report: $REPORT_DIR"
 EXIT_CODE=0
 DEPLOYED=0
 INSTALLED=""          # ids installed so far, in order
+ATTEMPTED_RELEASES="" # release ids, newest first; failed installs can still own cluster-scoped resources
 FAILED_ID=""          # the service that broke the run, if any
 FAILED_DEPS=""
 
@@ -234,12 +468,22 @@ dump_diagnostics() {
   log "collecting diagnostics into $REPORT_DIR (before any teardown)"
   kubectl get all -n "$NAMESPACE" -o wide > "$REPORT_DIR/resources.txt" 2>&1 || true
   kubectl get events -n "$NAMESPACE" --sort-by=.lastTimestamp > "$REPORT_DIR/events.txt" 2>&1 || true
-  local pod
+  local pod container
   for pod in $(kubectl get pods -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-    kubectl logs -n "$NAMESPACE" "$pod" --all-containers --tail=500 \
-      > "$REPORT_DIR/logs-${pod}.txt" 2>&1 || true
-    kubectl logs -n "$NAMESPACE" "$pod" --all-containers --tail=500 --previous \
-      > "$REPORT_DIR/logs-${pod}-previous.txt" 2>/dev/null || true
+    for container in $(kubectl get pod -n "$NAMESPACE" "$pod" \
+      -o jsonpath='{.spec.initContainers[*].name}' 2>/dev/null); do
+      kubectl logs -n "$NAMESPACE" "$pod" -c "$container" --tail=500 \
+        > "$REPORT_DIR/logs-${pod}-init-${container}.txt" 2>&1 || true
+      kubectl logs -n "$NAMESPACE" "$pod" -c "$container" --tail=500 --previous \
+        > "$REPORT_DIR/logs-${pod}-init-${container}-previous.txt" 2>&1 || true
+    done
+    for container in $(kubectl get pod -n "$NAMESPACE" "$pod" \
+      -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
+      kubectl logs -n "$NAMESPACE" "$pod" -c "$container" --tail=500 \
+        > "$REPORT_DIR/logs-${pod}-container-${container}.txt" 2>&1 || true
+      kubectl logs -n "$NAMESPACE" "$pod" -c "$container" --tail=500 --previous \
+        > "$REPORT_DIR/logs-${pod}-container-${container}-previous.txt" 2>&1 || true
+    done
   done
   write_reading_order
   log "diagnostics: $(ls "$REPORT_DIR" | wc -l | tr -d ' ') file(s) — READ-THIS-FIRST.txt gives the order"
@@ -295,10 +539,15 @@ cleanup() {
     log "  when done: kubectl delete namespace $NAMESPACE"
     return
   fi
-  # Deleting the namespace takes every release in it, whatever state each one reached. That is why
-  # one namespace per run: partial bring-up has no separate teardown path to get wrong.
+  # Namespace deletion does not remove a Helm chart's cluster-scoped resources. Uninstall every
+  # attempted release first — including a failed `upgrade --install`, which can still own RBAC.
   if [ "$DEPLOYED" = "1" ]; then
     log "tearing down namespace $NAMESPACE (${INSTALLED:-no} release(s) installed)"
+    local release
+    for release in $ATTEMPTED_RELEASES; do
+      log "uninstalling Helm release $release before namespace teardown"
+      helm uninstall "$release" -n "$NAMESPACE" --wait --timeout "${DEPLOY_TIMEOUT_S}s" >/dev/null 2>&1 || true
+    done
   fi
   kubectl delete namespace "$NAMESPACE" --wait=false >/dev/null 2>&1 || true
 }
@@ -344,7 +593,7 @@ fi
 kubectl label namespace "$NAMESPACE" harness-loop-test=true --overwrite >/dev/null
 kubectl annotate namespace "$NAMESPACE" "created-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" --overwrite >/dev/null
 
-while IFS=$'\037' read -r ID CHART HEALTH DEPS; do
+while IFS=$'\037' read -r ID CHART HEALTH DEPS VALUES; do
   [ -n "$ID" ] || continue
   if [ -z "$CHART" ]; then
     log "! $ID has no chart in the registry — skipped. A service in the plan that cannot be deployed"
@@ -357,9 +606,28 @@ while IFS=$'\037' read -r ID CHART HEALTH DEPS; do
     dump_diagnostics
     exit 1
   fi
-  log "deploying $ID: helm upgrade --install $ID $CHART -n $NAMESPACE --wait --timeout ${DEPLOY_TIMEOUT_S}s"
+  HELM_VALUE_ARGS=()
+  if [ -n "$VALUES" ]; then
+    IFS=',' read -r -a VALUE_FILES <<< "$VALUES"
+    for value_file in "${VALUE_FILES[@]}"; do
+      if [ ! -f "$value_file" ]; then
+        log "! $ID: Helm values file does not exist: $value_file"
+        FAILED_ID="$ID"; FAILED_DEPS="$DEPS"
+        dump_diagnostics
+        exit 1
+      fi
+      HELM_VALUE_ARGS+=(--values "$value_file")
+    done
+  fi
+  log "deploying $ID: helm upgrade --install $ID $CHART ${HELM_VALUE_ARGS[*]:-} -n $NAMESPACE --wait --timeout ${DEPLOY_TIMEOUT_S}s"
+  ATTEMPTED_RELEASES="$ID ${ATTEMPTED_RELEASES:-}"
   DEPLOYED=1   # partially applied resources may exist from here on
-  if ! helm upgrade --install "$ID" "$CHART" -n "$NAMESPACE" --wait --timeout "${DEPLOY_TIMEOUT_S}s"; then
+  if [ "${#HELM_VALUE_ARGS[@]}" -gt 0 ]; then
+    helm upgrade --install "$ID" "$CHART" "${HELM_VALUE_ARGS[@]}" -n "$NAMESPACE" --wait --timeout "${DEPLOY_TIMEOUT_S}s"
+  else
+    helm upgrade --install "$ID" "$CHART" -n "$NAMESPACE" --wait --timeout "${DEPLOY_TIMEOUT_S}s"
+  fi
+  if [ "$?" -ne 0 ]; then
     log "deploy failed or timed out: $ID"
     FAILED_ID="$ID"; FAILED_DEPS="$DEPS"
     dump_diagnostics

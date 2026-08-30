@@ -51,7 +51,7 @@ flowchart TD
     GATES -- no --> FIX["layer:project → fix the target\nlayer:harness → fix the SKILL"]
     FIX --> GATES
     GATES -- yes --> LOOP["node loop/run-loop.mjs N\nrouted by loop/route.mjs"]
-    LOOP --> K8S{"verification crosses a real\nservice boundary?"}
+    LOOP --> K8S{"verification invokes Kubernetes tooling\nor a tests/k8s/ journey?"}
     K8S -- yes --> KT["k8s-integration-tester\nLAYER: integration (Level 3)\nsame test-authoring rules;\nreads the code, so its independence\nis the boundary, not blindness"]
     KT --> BJ{"business outcome spans\nmultiple deployed services?"}
     BJ -- yes --> BJC["business-journey capability (Level 4)\npublic driver · per-run isolation\nconvergence + fault/idempotency oracle\nredacted journey metrics"]
@@ -153,14 +153,20 @@ flowchart TD
     S0 -- no, local minikube/kind --> S0a["start it myself\n(host-level op, not a K8s API write)"]
     S0 -- no, shared/remote --> S0b["report the connection error\nand stop — not my cluster to provision"]
     S0a --> S1
-    S0 -- yes --> S1["Step 1-2: read testing-standards.md Level 3,\npoint k8s-test-env.sh at the real chart"]
+    S0 -- yes --> S1["Step 1-2: read testing-standards.md Level 3,\npoint k8s-test-env.sh at the real chart\n+ explicit manifest values files"]
     S1 --> S2["Step 3: write a real test exercising\nthe deployed Service over the network"]
     S2 --> S3["Step 4: run it —\ntools/k8s-test-env.sh chart -- test-cmd"]
-    S3 --> S4{"passed?"}
-    S4 -- no --> S5["Step 5: diagnose — dumped events/logs\nfirst, then read-only k8s-readonly MCP"]
+    S3 --> SR{"interrupted teardown left an exact\nlabelled namespace + uninstalling release?"}
+    SR -- yes, human approved exact identity --> SRS["script cleanup-stuck-release:\npin context + live identity\nretry uninstall → delete namespace → verify absent"]
+    SRS --> S3
+    SR -- no --> LR{"blocked by pre-fix Helm orphan?"}
+    LR -- yes, human approved exact identity --> LRR["script recover-orphan:\npin context + annotations + RBAC allowlist\nadopt → uninstall → verify absent"]
+    LRR --> S3
+    LR -- no --> S4{"passed?"}
+    S4 -- no --> S5["Step 5: diagnose — events, then separate\ninit/app container logs, then read-only MCP"]
     S5 --> S2
     S4 -- yes --> S6["Step 6: wire the confirmed command into\ntesting-standards.md's Level 3"]
-    S6 --> S7["Step 7: stop the local cluster again\n(if local) — don't starve the JVM/other suites"]
+    S6 --> S7["Step 7: uninstall every attempted release,\ndelete the namespace, then stop the local cluster\n(if local) — don't starve the JVM/other suites"]
     S7 --> S8["complete journey: record evidence, readyForCheck=true\npartial checkpoint: leave false; checker is not dispatched"]
 ```
 

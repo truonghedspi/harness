@@ -9,6 +9,7 @@
 # Fallback: for log sources unavailable from the node (a private file, or a cluster that denies
 # host-log access) the per-pod sidecar collector path remains the explicit documented fallback
 # (A-006). Do NOT broaden host access here to reach those sources.
+{{- if .Values.collector.node.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -43,13 +44,21 @@ spec:
                 echo "PREFLIGHT_FAILED: node-log path /var/log/pods is absent" >&2
                 exit 1
               fi
-              if ! find /var/log/pods -name '*.log' -readable -print -quit | grep -q .; then
+              readable_log=""
+              for candidate in $(find /var/log/pods -type f -name '*.log' -print 2>/dev/null || true); do
+                if head -c 1 "$candidate" >/dev/null 2>&1; then
+                  readable_log="$candidate"
+                  break
+                fi
+              done
+              if [ -z "$readable_log" ]; then
                 echo "PREFLIGHT_FAILED: node-log access denied or no readable pod logs under /var/log/pods" >&2
                 exit 1
               fi
               echo "preflight: node-log access OK"
           securityContext:
             runAsNonRoot: true
+            runAsUser: 65532
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
           volumeMounts:
@@ -93,6 +102,7 @@ spec:
         - name: otel-config
           configMap:
             name: {{ .Release.Name }}-collector
+{{- end }}
 ---
 # In-cluster collector pipeline. It reads real pod stdout/stderr from the node, enriches identity
 # and labels via the Kubernetes API, applies the SAME opt-in filter and schemaVersion-1 mapping as

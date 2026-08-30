@@ -1,0 +1,8 @@
+# A-009: explicit local-minikube journey override. The chart default remains the node collector.
+collector:
+  node:
+    enabled: false
+journey:
+  enabled: true
+  sidecar:
+    enabled: true

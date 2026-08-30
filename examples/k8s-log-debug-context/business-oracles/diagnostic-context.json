@@ -1,0 +1,33 @@
+{
+  "schema": "journey-oracle/1",
+  "id": "JRN-DIAGNOSTIC-CONTEXT",
+  "requirement": "feat-011 / INV-JOURNEY-1",
+  "publicInput": {
+    "protocol": "container stdout",
+    "operation": "emit opted-in correlated log",
+    "correlationField": "test.run_id"
+  },
+  "observations": [
+    {
+      "boundary": "authenticated MCP Streamable HTTP",
+      "operation": "get_failure_context",
+      "correlationField": "test.run_id"
+    },
+    {
+      "boundary": "authenticated MCP Streamable HTTP",
+      "operation": "search_logs",
+      "correlationField": "namespace/workload/time-window"
+    }
+  ],
+  "invariants": [
+    "target marker and Kubernetes identity converge through MCP",
+    "message and attribute secrets are redacted before indexing",
+    "decoy run never crosses exact correlation",
+    "responses stay within X-006 record, byte, interval, and deadline budgets"
+  ],
+  "deadlineMs": 120000,
+  "diagnostics": [
+    "namespace events",
+    "collector and service logs captured before teardown"
+  ]
+}

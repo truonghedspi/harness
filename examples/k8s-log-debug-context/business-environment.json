@@ -1,0 +1,38 @@
+{
+  "schema": "business-environment/1",
+  "isolation": {
+    "mode": "namespace-per-run",
+    "runIdEnv": "HARNESS_RUN_ID",
+    "derivedResources": [
+      "namespace-${HARNESS_RUN_ID}",
+      "target-${HARNESS_RUN_ID}",
+      "decoy-${HARNESS_RUN_ID}"
+    ]
+  },
+  "readiness": {
+    "serviceRegistry": "services.manifest.json",
+    "businessConditions": [
+      "the explicitly selected collector path is Ready (DaemonSet by default; A-009 sidecar only for the local journey)",
+      "authenticated MCP endpoint serves inside the isolated namespace"
+    ]
+  },
+  "seed": {
+    "command": "tests/k8s/run-journey.sh --inside-environment",
+    "publicBoundary": true
+  },
+  "cleanup": {
+    "command": "harness/tools/k8s-test-env.sh cleanup trap",
+    "idempotent": true
+  },
+  "telemetry": {
+    "metrics": [
+      "deploymentDuration",
+      "readinessDuration",
+      "scenarioDuration",
+      "eventWaitDuration",
+      "retryCount",
+      "diagnosticsCollected"
+    ],
+    "payloads": "redacted"
+  }
+}

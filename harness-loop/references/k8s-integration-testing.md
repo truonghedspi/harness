@@ -35,7 +35,7 @@ helm upgrade --install <release> <chart> -n <namespace> --create-namespace --wai
                                               ↓
                                               dump events + logs regardless of test result
                                               ↓
-                                              helm uninstall + delete namespace (always, via trap)
+                                              uninstall every attempted Helm release, then delete namespace (always, via trap)
 ```
 
 ### Why namespace-per-run, on a SHARED cluster
@@ -52,9 +52,12 @@ Role/RoleBinding scoping (below) keeps one run from ever seeing another's resour
 The single most common mistake in this kind of script: tearing the environment down first, then
 discovering the test output doesn't say WHY it failed. `kubectl get events` and pod logs are only
 available while the namespace exists. `k8s-test-env.sh` always dumps
-`kubectl get events --sort-by=.lastTimestamp` and the logs of every non-Ready pod into a report
-directory *before* the teardown trap runs — this is what "the agent gets fast feedback" actually
-means in practice: the failure signal has to survive past the moment the environment disappears.
+`kubectl get events --sort-by=.lastTimestamp` and each pod's init-container and app-container logs
+into separate files *before* the teardown trap runs. Per-container capture is deliberate: a waiting
+app container must not make one aggregate log request discard the stderr of the failed init
+container that explains why the pod never started. This is what "the agent gets fast feedback"
+actually means in practice: the failure signal has to survive past the moment the environment
+disappears.
 
 ### Bounded timeouts throughout
 
@@ -128,6 +131,42 @@ still leak a namespace. Two safety nets:
 2. `k8s-test-env.sh list-stale` (see the script's own `--help`) lists namespaces with that label
    older than a threshold, for a human to review before deleting by hand if no automated reaper
    exists yet.
+
+### Recovering a legacy cluster-scoped Helm orphan
+
+Release-first teardown prevents new orphans, but it cannot repair a ClusterRole or
+ClusterRoleBinding left by an older namespace-first run after the release Secret disappeared.
+Do not delete such RBAC by hand. With explicit human approval, use the exceptional script-owned
+mode and name every identity it is allowed to touch:
+
+```bash
+NAMESPACE_PREFIX=test tools/k8s-test-env.sh recover-orphan charts/my-service \
+  --release my-service --namespace test-old-run --context approved-context \
+  --resource clusterrole/my-service --resource clusterrolebinding/my-service
+```
+
+The mode requires the namespace to be absent and match `NAMESPACE_PREFIX`; admits only an explicit
+1–8 item ClusterRole/ClusterRoleBinding allowlist; validates each object's Helm owner label and
+release name/namespace annotations; and pins the current kube context. Only then does it recreate
+that labelled namespace, adopt through the same chart/release identity, run bounded Helm uninstall,
+remove the namespace, and verify every named object is absent. Any mismatch stops before mutation.
+
+### Recovering an interrupted uninstalling release
+
+An interrupted teardown can leave a different shape: the labelled disposable namespace still
+exists and its exact Helm release is stuck `uninstalling`. With explicit human approval for those
+identities, use the separate exact-identity command:
+
+```bash
+NAMESPACE_PREFIX=test tools/k8s-test-env.sh cleanup-stuck-release \
+  --release my-service --namespace test-old-run --context approved-context
+```
+
+It refuses a wrong current context, a namespace outside the prefix/protected-name rules, any
+namespace not exactly `harness-loop-test=true|Active`, or a Helm release whose status is not
+`uninstalling`. Only after those reads succeed does it retry bounded Helm uninstall, delete the
+namespace with a bounded wait, and independently confirm both release and namespace are absent.
+This is an exceptional repair, not a normal teardown or a substitute for a cluster reaper.
 
 ## Local minikube/kind competes for RAM with heavy test suites — found via real use
 

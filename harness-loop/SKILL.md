@@ -137,6 +137,10 @@ regression test for the skill itself. See
 [references/harness-improvement-loop.md](references/harness-improvement-loop.md) for the full
 layer-classification contract and event-log schema.
 
+Kubernetes journey features route to `k8s-integration-tester` when their verification invokes
+cluster tooling or names a `tests/k8s/` journey; the exact routing contract is in
+[references/graph.md](references/graph.md).
+
 Visual walkthrough (end-to-end flow including where the opt-in `k8s-integration-tester` fits, the
 maker/checker generator-evaluator sequence, that agent's own K8s deploy/test/diagnose cycle, and
 the self-improvement loop) lives in
@@ -400,7 +404,8 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   `docs/services.md` from the registry and seeding `feat-registry`, whose verification
   (`tools/services-check.mjs`) stays **red** while any deployable service lacks a chart, an image, a
   health command or an explicit `dependsOn`; `tools/k8s-test-env.sh --services <manifest>` brings the
-  set up in `dependsOn` order and ranks the diagnostics when one of them does not come up
+  set up in `dependsOn` order, applies only explicitly listed per-service `values` files, and ranks
+  the diagnostics when one of them does not come up
 - Target is a Kubernetes-deployed microservice and Docker isn't available for Level 3 testing:
   [references/k8s-integration-testing.md](references/k8s-integration-testing.md) — a
   namespace-per-run Helm deploy/test/collect-diagnostics/teardown script
@@ -417,6 +422,14 @@ For a fresh project, or once the onboarder has surveyed an existing one:
   can diagnose a failed deploy without holding write access to a shared cluster. Integration
   targets also receive `skills/business-journey/`: Level 4 public command-to-outcome flows with
   per-run isolation, distributed convergence/fault oracles, optional Cucumber and redacted metrics.
+  If a pre-fix namespace-first teardown left annotated cluster RBAC with no release record, the
+  same script has an exceptional human-approved `recover-orphan` mode that pins the kube context,
+  release, deleted disposable namespace, and explicit RBAC allowlist before Helm adopts/uninstalls.
+  If interruption instead leaves the exact labelled namespace and Helm release `uninstalling`, its
+  separately human-approved `cleanup-stuck-release` mode pins context and live identity, retries
+  bounded Helm uninstall, and independently verifies both release and namespace absent.
+  Failure diagnostics preserve init and app container logs separately, so a waiting container
+  cannot suppress the failed container's evidence before teardown.
 
 ## The front door
 

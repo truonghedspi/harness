@@ -1,0 +1,23 @@
+{
+  "schema": "services-manifest/1",
+  "services": [
+    {
+      "id": "log-debug-context",
+      "path": ".",
+      "kind": "service",
+      "build": "./mvnw -q -DskipTests package",
+      "image": "log-debug-context:feat-011",
+      "start": null,
+      "health": "code=$(kubectl -n \"$NAMESPACE\" exec journey-mcp-client -- curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}' http://log-debug-context-mcp:8080/mcp 2>/dev/null) && [ \"$code\" = 401 ]",
+      "ports": [8080],
+      "replicas": 1,
+      "dependsOn": [],
+      "chart": "../charts/log-debug-context",
+      "values": ["../charts/log-debug-context/values-local-minikube-sidecar.yaml"],
+      "rules": {
+        "ownRules": "AGENTS.md",
+        "scope": ["charts/**", "service/**", "tests/k8s/**"]
+      }
+    }
+  ]
+}

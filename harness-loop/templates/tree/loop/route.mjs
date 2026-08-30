@@ -504,7 +504,7 @@ const RULES = [
     when: "the feature's verification deploys to a real cluster",
     match: () => {
       if (!hasAgent("k8s-integration-tester")) return null;
-      const f = open.find((x) => x.readyForCheck !== true && /k8s-test-env|kubectl|helm |namespace/i.test(String(x.verification || "")) &&
+      const f = open.find((x) => x.readyForCheck !== true && /k8s-test-env|kubectl|helm |(?:^|\/)tests\/k8s\//i.test(String(x.verification || "")) &&
         (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
       return f ? { why: `${f.id} verifies against a real cluster — cluster lifecycle knowledge the maker does not carry`, feature: f.id } : null;
     },

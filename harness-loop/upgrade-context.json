@@ -2,6 +2,69 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-08-30-k8s-empty-values",
+      "summary": "k8s-test-env.sh accepts registry services with no Helm values override while still applying explicit values to those that have them.",
+      "why": "HI-083: the values-array support initialized an empty Bash array, then expanded ${HELM_VALUE_ARGS[*]} under set -u while logging a service with no values. Mixed registries therefore failed before the first Helm install, even though the no-values case is the normal default.",
+      "targetImpact": "Opted-in Kubernetes targets retain explicit per-service --values arguments but no longer fail on services that omit values. Deployment order, health gates, and chart defaults are unchanged.",
+      "paths": ["tools/k8s-test-env.sh"],
+      "mergeActions": ["Refresh the Kubernetes environment tool; retain target-specific service manifests and chart values files."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves a mixed registry deploys services without values and applies --values only to the opted-in service", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-08-30-k8s-stuck-release-cleanup",
+      "summary": "k8s-test-env.sh can finish one precisely identified interrupted Helm teardown whose labelled namespace and release are stuck uninstalling.",
+      "why": "HI-084: an interrupted teardown can leave an Active harness-labelled namespace with its only Helm release permanently uninstalling. Normal isolated runs must not reuse it, and recover-orphan correctly refuses it because the namespace still exists, so no bounded script-owned recovery path remained.",
+      "targetImpact": "Opted-in Kubernetes targets gain the exceptional cleanup-stuck-release command. It refuses mutation unless the current context, disposable namespace prefix, harness-loop-test=true/Active identity, release identity, and uninstalling status agree; only then it retries bounded Helm uninstall, deletes the namespace, and verifies both identities are absent. Normal deploy/test teardown is unchanged.",
+      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Refresh the Kubernetes environment tool and all three K8s workflow references together.", "Use cleanup-stuck-release only with explicit human approval of the exact local/disposable context, release, and namespace; never broaden it into a prefix sweep or direct cluster-resource deletion."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves a wrong context is rejected without mutation and the exact uninstalling release is uninstalled, its namespace deleted, and both identities independently absent", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-08-29-k8s-per-container-diagnostics",
+      "summary": "k8s-test-env.sh captures init and app container logs independently before teardown.",
+      "why": "HI-082: kubectl logs --all-containers failed on a waiting app container and discarded the failed node-log-preflight init container stderr, leaving the cluster-access assumption unclassifiable after correct cleanup.",
+      "targetImpact": "Kubernetes targets receive separate current/previous diagnostic files for every init and app container. Deployment, test, and cleanup behavior is unchanged; reports gain more precise filenames and retain one container's evidence when another log read fails.",
+      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Refresh the Kubernetes environment tool and workflow references together.", "Preserve project-specific deployment/test commands; only replace aggregate --all-containers diagnostics with per-container enumeration and files."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves a waiting app container cannot mask a failed init container's stderr", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-08-29-k8s-legacy-orphan-recovery",
+      "summary": "k8s-test-env.sh can recover a precisely identified pre-fix cluster-scoped Helm RBAC orphan through bounded Helm adoption and uninstall.",
+      "why": "HI-081: release-first cleanup prevents new leaks but cannot recover ClusterRole/ClusterRoleBinding objects whose annotated namespace and Helm release record were already deleted by the old namespace-first teardown.",
+      "targetImpact": "Opted-in Kubernetes targets gain an exceptional recover-orphan command. It refuses mutation unless the current context, absent disposable namespace prefix, release annotations, Helm ownership label, chart, and explicit 1–8 item RBAC allowlist agree; normal deploy/test behavior is unchanged.",
+      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Refresh the Kubernetes tool and workflow references together.", "Use recover-orphan only with an explicit human-approved kube context, release, deleted namespace, chart, and ClusterRole/ClusterRoleBinding allowlist; never substitute direct kubectl deletion."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves an annotation mismatch is red without mutation and an exact match is adopted, uninstalled, and verified absent", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-08-29-upgrade-k8s-tooling",
+      "summary": "upgrade-harness.mjs refreshes optional Kubernetes tools for targets that already opted into the K8s layer.",
+      "why": "HI-080: a target received the release-cleanup ledger entry but its existing tools/k8s-test-env.sh stayed on the unsafe namespace-only teardown because the upgrader scanned only templates/tree/tools/.",
+      "targetImpact": "Targets containing the K8s integration prompt or existing k8s-test-env.sh receive refreshed templates/k8s/tools/**. Non-Kubernetes targets remain unchanged.",
+      "paths": ["scripts/upgrade-harness.mjs"],
+      "mergeActions": ["Run the canonical upgrader from the target; it refreshes opted-in Kubernetes tooling without enabling the K8s layer for other targets."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves an old opted-in contained target regains tools/k8s-test-env.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-08-29-k8s-release-cleanup",
+      "summary": "k8s-test-env.sh uninstalls every attempted Helm release before deleting its isolated namespace.",
+      "why": "HI-079: deleting a namespace did not remove Helm-managed ClusterRole and ClusterRoleBinding objects. A failed first install left ownership annotations pointing at the deleted namespace, so the next isolated run failed before workload creation.",
+      "targetImpact": "Kubernetes test teardown now calls bounded Helm uninstall for successful and failed attempted releases before namespace deletion. `--keep-on-failure` still deliberately preserves the environment for inspection.",
+      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Refresh tools/k8s-test-env.sh and the three K8s workflow references together.", "Do not remove leaked cluster-scoped resources by hand; re-run the repaired bounded environment script against the affected release."],
+      "verification": ["bash harness-loop/scripts/demo.sh proves a failed install uninstalls attempted releases and a second isolated run has no inherited cluster-scoped state", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-08-29-route-k8s-script-path",
+      "summary": "route.mjs recognizes tests/k8s/ verification scripts as Kubernetes integration work and dispatches k8s-integration-tester.",
+      "why": "HI-077: feat-011 verified via tests/k8s/run-journey.sh but route.mjs only recognized literal k8s-test-env, kubectl, helm, or namespace text. It sent the feature to maker, whose required specialist handoff made the work unroutable.",
+      "targetImpact": "Open features whose verification names a tests/k8s/ journey now route to k8s-integration-tester when that optional agent is installed. Existing helm, kubectl, and k8s-test-env classifications are unchanged.",
+      "paths": ["loop/route.mjs", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
+      "mergeActions": ["Refresh loop/route.mjs and the two workflow references together.", "Do not alter feature state; re-run route.mjs so an affected journey is dispatched to the specialist."],
+      "verification": ["bash harness-loop/scripts/demo.sh asserts tests/k8s/run-journey.sh routes to k8s-integration-tester", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-08-29-baseline-once-per-session",
       "summary": "run-loop.mjs runs the baseline gate once per session (re-running only while red to confirm a repair), instead of every iteration.",
       "why": "The baseline (init.mjs) ran every iteration — ~35 times a day on the dogfooding project — and on a target whose init.mjs downloads a real fixture (8-11 min) that dominates wall-clock. The baseline is a START gate (Lesson 6), not a per-iteration regression suite; the environment it checks does not change between iterations, and the full feature replay already runs once at the end of the session.",
@@ -618,6 +681,15 @@
       "paths": ["docs/reference/agent-memory.md", "memory/*/MEMORY.md"],
       "mergeActions": ["Refresh docs/reference/agent-memory.md; it is skill-owned.", "Add the one-paragraph rule to each memory/<agent>/MEMORY.md header — those files are project content, so copy the paragraph rather than overwriting the file, and leave every existing index line untouched."],
       "verification": ["grep -c 'in English' memory/maker/MEMORY.md", "node tools/memory-consolidate.mjs --target . reports no new finding class — this change adds no gate"]
+    },
+    {
+      "id": "HUC-2026-08-29-k8s-manifest-values",
+      "summary": "Multi-service Kubernetes runs may select explicit per-service Helm values files without changing chart defaults.",
+      "why": "HI-083: feat-011 needed a sidecar only in the disposable local-minikube journey after node-log access proved false, but k8s-test-env.sh could deploy only the chart defaults.",
+      "targetImpact": "A service manifest may add a values array of relative file paths. The runner validates the shape and existence of every path and passes each as helm --values. Manifests without values are unchanged.",
+      "paths": ["tools/k8s-test-env.sh", "references/multi-service.md", "references/graph.md", "references/workflow-diagram.md", "SKILL.md"],
+      "mergeActions": ["Refresh the optional K8s test-environment script from the canonical template.", "Keep chart defaults intact; add values only to services whose test environment needs an explicit override."],
+      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
     }
   ]
 }

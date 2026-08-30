@@ -14,3 +14,4 @@ in another language stay as they are — this governs what gets written from now
 
 <!-- - [Title](slug.md) — one-line hook -->
 - [Wire seam first](serialized-contract-needs-wire-seam.md) — Require approved payload fields and API before a serialized oracle.
+- [Mutate the public journey response](mutate-public-journey-response.md) — Prove discrimination without claiming a live Level-3 pass.

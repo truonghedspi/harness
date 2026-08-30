@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.harness.logcontext.ingest.IndexPort;
+import io.harness.logcontext.ingest.IngestResult;
+import io.harness.logcontext.ingest.IngestService;
+import io.harness.logcontext.ingest.OtlpLogDecoder;
 import io.harness.logcontext.ingest.NormalizedLogRecord;
 import io.harness.logcontext.mcp.McpQueryService.ToolResult;
 import io.harness.logcontext.query.CorrelationResolver;
@@ -45,6 +48,13 @@ public final class McpServiceBootstrap {
 
   public static RunningMcpServer start(
       McpHttpServerConfig config, IndexPort indexPort, ServiceAccountJwtValidator jwtValidator) {
+    return start(config, indexPort, jwtValidator, null);
+  }
+
+  /** Starts MCP and, when supplied, the OTLP/HTTP ingest adapter on the same protected pod port. */
+  public static RunningMcpServer start(
+      McpHttpServerConfig config, IndexPort indexPort, ServiceAccountJwtValidator jwtValidator,
+      IngestService ingestService) {
     Objects.requireNonNull(config, "config");
     Objects.requireNonNull(indexPort, "indexPort");
     Objects.requireNonNull(jwtValidator, "jwtValidator");
@@ -53,10 +63,41 @@ public final class McpServiceBootstrap {
     try {
       HttpServer server = HttpServer.create(bind, 0);
       server.createContext("/", exchange -> handle(exchange, queryService, jwtValidator));
+      if (ingestService != null) {
+        OtlpLogDecoder decoder = new OtlpLogDecoder();
+        server.createContext("/ingest/v1/logs", exchange -> handleIngest(exchange, decoder, ingestService));
+        server.createContext("/health", exchange -> {
+          try {
+            respond(exchange, "GET".equalsIgnoreCase(exchange.getRequestMethod()) ? 200 : 405,
+                "{\"status\":\"up\"}");
+          } finally {
+            exchange.close();
+          }
+        });
+      }
       server.start();
       return new HttpRunningMcpServer(server);
     } catch (IOException error) {
       throw new UncheckedIOException("cannot bind MCP HTTP boundary", error);
+    }
+  }
+
+  private static void handleIngest(HttpExchange exchange, OtlpLogDecoder decoder,
+      IngestService ingestService) throws IOException {
+    try {
+      if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+        respond(exchange, 405, "{\"error\":\"method not allowed\"}");
+        return;
+      }
+      int accepted = 0;
+      for (String record : decoder.decode(exchange.getRequestBody().readAllBytes())) {
+        if (ingestService.ingest(record) instanceof IngestResult.Accepted) accepted++;
+      }
+      respond(exchange, 200, "{\"partialSuccess\":{},\"accepted\":" + accepted + "}");
+    } catch (IllegalArgumentException invalid) {
+      respond(exchange, 400, "{\"error\":\"invalid OTLP log request\"}");
+    } finally {
+      exchange.close();
     }
   }
 

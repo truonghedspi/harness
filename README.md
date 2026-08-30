@@ -37,7 +37,8 @@ This repository holds the agent-harness assets for the team:
   context and redacted API-key presence live under local-only `harness/env/`.
   Kubernetes-deployed microservice without Docker access: an opt-in
   `harness-loop/templates/k8s/tools/k8s-test-env.sh` does namespace-per-run Helm
-  deploy/test/collect-diagnostics/teardown for Level 3 testing, and the opt-in
+  deploy/test/collect-diagnostics/teardown for Level 3 testing; its exceptional `recover-orphan`
+  mode identity-validates and Helm-uninstalls pre-fix cluster-scoped RBAC. The opt-in
   `k8s-integration-tester` agent (`templates/k8s/.kiro/agents/k8s-integration-tester.json`) fills
   in the chart, writes and runs the real cross-service tests, and diagnoses failures via read-only
   cluster access — see `harness-loop/references/k8s-integration-testing.md`.

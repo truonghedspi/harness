@@ -1,0 +1,178 @@
+{{- if .Values.journey.enabled }}
+{{- if .Values.journey.sidecar.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-journey-sidecar
+data:
+  config.yaml: |
+    receivers:
+      filelog:
+        include: ["/var/log/journey/*.log"]
+        include_file_name: false
+        include_file_path: false
+        start_at: beginning
+        operators:
+          - type: json_parser
+    processors:
+      transform:
+        log_statements:
+          - context: log
+            statements:
+              - 'set(body, attributes["message"])'
+              - 'set(attributes["schemaVersion"], 1)'
+              - 'set(attributes["observedAt"], attributes["observedAt"])'
+              - 'set(attributes["namespace"], "${env:POD_NAMESPACE}")'
+              - 'set(attributes["pod"], "${env:POD_NAME}")'
+              - 'set(attributes["container"], "emitter")'
+              - 'set(attributes["workload"], "journey-log-emitter")'
+              - 'set(attributes["source"], "stdout")'
+              - 'set(attributes["environment"], "test")'
+              - 'set(attributes["optIn"], true)'
+              - 'set(attributes["test.run_id"], attributes["attributes"]["test.run_id"])'
+    exporters:
+      otlphttp:
+        endpoint: ${env:INGEST_ENDPOINT}
+        encoding: json
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+    service:
+      extensions: [health_check]
+      pipelines:
+        logs:
+          receivers: [filelog]
+          processors: [transform]
+          exporters: [otlphttp]
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: journey-log-emitter
+  labels:
+    app.kubernetes.io/name: journey-log-emitter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: journey-log-emitter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: journey-log-emitter
+        debug.logs/enabled: "true"
+        environment: test
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: emitter
+          image: busybox:1.36.1
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command: ["sh", "-ceu"]
+          args:
+            - |
+              emit() { printf '%s\n' "$1" | tee -a /var/log/journey/emitter.log; }
+              observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              emit "{\"observedAt\":\"$observed_at\",\"message\":\"target-marker-$POD_NAMESPACE password=message-secret-$POD_NAMESPACE\",\"attributes\":{\"test.run_id\":\"target-$POD_NAMESPACE\",\"api_key\":\"attribute-secret-$POD_NAMESPACE\"}}"
+              emit "{\"observedAt\":\"$observed_at\",\"message\":\"decoy-marker-$POD_NAMESPACE\",\"attributes\":{\"test.run_id\":\"decoy-$POD_NAMESPACE\"}}"
+              i=1
+              while [ "$i" -le 220 ]; do
+                emit "{\"observedAt\":\"$observed_at\",\"message\":\"target-marker-$POD_NAMESPACE budget-$i\",\"attributes\":{\"test.run_id\":\"target-$POD_NAMESPACE\"}}"
+                i=$((i + 1))
+              done
+              sleep 3600
+          {{- if .Values.journey.sidecar.enabled }}
+          volumeMounts:
+            - name: journey-log
+              mountPath: /var/log/journey
+        - name: log-collector-sidecar
+          image: "otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc"
+          args: ["--config=/etc/otelcol/config.yaml"]
+          env:
+            - name: INGEST_ENDPOINT
+              value: "http://{{ .Release.Name }}-ingest:8080/ingest"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 13133
+          volumeMounts:
+            - name: journey-log
+              mountPath: /var/log/journey
+              readOnly: true
+            - name: journey-sidecar-config
+              mountPath: /etc/otelcol
+              readOnly: true
+      volumes:
+        - name: journey-log
+          emptyDir: {}
+        - name: journey-sidecar-config
+          configMap:
+            name: {{ .Release.Name }}-journey-sidecar
+          {{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: journey-mcp-client
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: journey-mcp-only
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: journey-mcp-client
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: service
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: journey-mcp-client
+  labels:
+    app.kubernetes.io/name: journey-mcp-client
+spec:
+  serviceAccountName: journey-mcp-client
+  automountServiceAccountToken: true
+  restartPolicy: Never
+  containers:
+    - name: client
+      image: curlimages/curl:8.12.1
+      command: ["sh", "-c", "sleep 3600"]
+{{- end }}

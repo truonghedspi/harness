@@ -8,6 +8,35 @@ One entry per decision. Newest first.
 
 ---
 
+## 2026-08-30 — Apply the reviewed Kubernetes harness upgrade
+
+- **Decision:** Apply the canonical Kubernetes harness upgrade that refreshes
+  `tools/k8s-test-env.sh`, `docs/reference/graph.md`, and
+  `docs/reference/multi-service.md`.
+- **Why:** The project owner answered “apply this upgrade” after reviewing the dry-run surface.
+  The runner refresh is required to remove the `set -u` empty-values failure; the reference files
+  are skill-owned machinery that must describe the same recovery behavior as the installed tool.
+- **Scope:** The local Kubernetes test harness only. Product code, chart values, service registry,
+  and project-specific prompts are not overwritten.
+- **Provenance:** Human approval in this conversation on 2026-08-30; dry run
+  `node harness-loop/scripts/upgrade-harness.mjs --target examples/k8s-log-debug-context --dry-run --json`.
+- **Open follow-up:** Re-run the target verification and resolve HI-083 only if its old runner no
+  longer reproduces.
+
+---
+
+## 2026-08-29 — Deployment ownership stays inside feat-011
+
+- **Decision:** Reconcile feat-013's workload-source follow-up by requiring feat-011's journey
+  emitter to be Deployment-owned; do not add a separate build feature.
+- **Why:** The v1 contract requires a non-blank workload and the chart deliberately maps
+  `k8s.deployment.name`. The existing feat-011 prove feature already owns
+  `tests/k8s/fixtures/log-emitter.yaml` and the live collector journey that can discriminate an
+  empty workload. Changing the fixture from a bare Pod to a Deployment is inseparable from that
+  proof and adds no independently demonstrable product seam.
+
+---
+
 ## 2026-08-29 — Chart opt-in filter direction is new scope (feat-013), not a re-open
 
 - **Decision:** feat-009's checker found the chart ConfigMap opt-in filter inverted (`==` instead of

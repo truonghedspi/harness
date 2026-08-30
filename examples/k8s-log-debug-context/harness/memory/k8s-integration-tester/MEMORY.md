@@ -14,3 +14,6 @@ addressed to whichever agent reads it next, not to this project's readers. Entri
 in another language stay as they are — this governs what gets written from now on.
 
 <!-- - [Title](slug.md) — one-line hook -->
+- [Init-container logs can be masked](init-container-logs-can-be-masked.md) — aggregate logs lost A-006 preflight stderr when the main container was waiting
+- [BusyBox find lacks readable](busybox-find-lacks-readable.md) — use an actual file-open probe instead of GNU `find -readable` in minimal init images
+- [Minikube JWKS requires ServiceAccount auth](minikube-jwks-requires-serviceaccount-auth.md) — anonymous issuer discovery returned 403; refresh keys with the rotated projected token through the built-in binding

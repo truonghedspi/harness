@@ -62,6 +62,7 @@ services.manifest.json          # the registry — one entry per SERVICE, not pe
 | `replicas` | 1, or a cluster shape | no — a deployment fact |
 | `dependsOn` | other service ids that must be healthy first | no — a topology fact |
 | `chart` | Helm chart path, if one exists | yes |
+| `values` | optional Helm values-file paths for explicit environment overrides | no — an environment fact |
 | `rules` | original path, applicability scope, collection digest and provenance for service rules | yes |
 
 The split down the "discoverable?" column is the same one this harness already runs on: what can be
@@ -157,6 +158,7 @@ Built. `--services services.manifest.json [--only a,b]` reads the registry and i
 | topological install order | a cycle is a **hard error naming the cycle**, before anything is deployed. Picking an order arbitrarily produces a failure whose cause is the manifest, not the code |
 | `--only api` pulls in `db`, `cache` | asking for a service means asking for what it needs; a partial plan fails in the least informative way possible |
 | `health`, not `--wait` | Helm's `--wait` knows only about readiness probes. A chart without one reports ready as soon as the container starts. Where the registry states a health command it is retried to a budget; **where it does not, the run prints `readiness UNVERIFIED`** rather than inventing a check |
+| explicit `values` files | environment-specific topology stays opt-in; the runner validates each manifest path and passes it as `helm --values` instead of changing chart defaults |
 | ranked diagnostics | `READ-THIS-FIRST.txt` orders the dump: failing service, then its dependencies, then events. Five services down otherwise produce five walls of logs |
 | namespace teardown on every path | one namespace per run, so partial bring-up has no separate teardown path to get wrong |
 

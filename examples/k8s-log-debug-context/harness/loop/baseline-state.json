@@ -1,0 +1,8 @@
+{
+  "schema": "baseline-state/1",
+  "status": "green",
+  "evidenceDigest": "0d1ec5a62d8fef2a",
+  "exitCode": 0,
+  "checkedAt": "2026-08-30T02:35:35.513Z",
+  "tail": "=== Harness init: Kubernetes Log Debug Context ===\n=== Maven verification ===\n=== Baseline green ===\n\nNext: read harness/feature_list.json, pick ONE eligible feature, advance it, re-verify before 'done'.\n"
+}

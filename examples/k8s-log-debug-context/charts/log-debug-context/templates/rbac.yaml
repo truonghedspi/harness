@@ -43,4 +43,9 @@ roleRef:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: {{ .Release.Name }}-collector
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: {{ .Release.Name }}-service

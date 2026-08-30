@@ -24,11 +24,13 @@ service boundary requires all three.
 - Scope: the interaction **between microservices** exercised the way they actually call each
   other — service-to-service HTTP/gRPC, published/consumed events and messages, and the
   **contracts** on those boundaries (request/response schema, event shape, error semantics).
-- Command: `[microservice integration / contract test command — e.g. contract tests, a compose
-  spin-up of the involved services, or a cross-service flow test]`. If Docker isn't available but
-  Kubernetes + Helm are, see `harness/docs/reference/k8s-integration-testing.md` (copied in when adopting the harness-loop k8s template) for a
-  namespace-per-run Helm deploy/test/teardown script (`harness/tools/k8s-test-env.sh`) instead of
-  Testcontainers/Compose.
+- Command: `DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240
+  NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test
+  harness/tools/k8s-test-env.sh --services ../services.manifest.json --
+  ../tests/k8s/run-journey.sh --inside-environment` (run from the project root). The script creates
+  one labelled namespace, installs the chart with its explicit local-minikube values file, gates
+  serving health, runs the public MCP journey, captures diagnostics, then tears down the release
+  and namespace within bounded deadlines.
 - Required for: any change that touches a service boundary — a changed endpoint, a new event, a
   modified payload. This is the level that catches "each service passes its own tests but they
   don't agree on the wire." Never skip it to save time; a passing per-service suite on a broken

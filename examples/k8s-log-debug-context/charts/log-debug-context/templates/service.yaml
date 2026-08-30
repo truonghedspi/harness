@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels: &serviceLabels
+      app.kubernetes.io/name: log-debug-context
+      app.kubernetes.io/component: service
+  template:
+    metadata:
+      labels: *serviceLabels
+    spec:
+      serviceAccountName: {{ .Release.Name }}-service
+      automountServiceAccountToken: true
+      containers:
+        - name: service
+          image: {{ .Values.service.image | quote }}
+          imagePullPolicy: {{ .Values.service.imagePullPolicy }}
+          env:
+            - {name: OPENSEARCH_URL, value: {{ .Values.opensearch.endpoint | quote }}}
+            - {name: KUBERNETES_ISSUER, value: {{ .Values.service.issuer | quote }}}
+            - {name: KUBERNETES_JWKS_URI, value: {{ .Values.service.jwksUri | quote }}}
+            - {name: MCP_AUDIENCE, value: {{ .Values.service.audience | quote }}}
+            - name: REDACTION_LITERALS
+              value: {{ join "\n" .Values.redaction.values | quote }}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 3
+            timeoutSeconds: 2
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ .Release.Name }}-ingest}
+spec:
+  selector: {app.kubernetes.io/name: log-debug-context, app.kubernetes.io/component: service}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ .Release.Name }}-mcp}
+spec:
+  selector: {app.kubernetes.io/name: log-debug-context, app.kubernetes.io/component: service}
+  ports: [{name: http, port: 8080, targetPort: http}]
+{{- if .Values.opensearch.inCluster }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: {{ .Release.Name }}-opensearch}
+spec:
+  serviceName: {{ .Release.Name }}-opensearch
+  replicas: 1
+  selector:
+    matchLabels: &opensearchLabels
+      app.kubernetes.io/name: log-debug-context-opensearch
+      app.kubernetes.io/component: opensearch
+  template:
+    metadata:
+      labels: *opensearchLabels
+    spec:
+      containers:
+        - name: opensearch
+          image: {{ .Values.opensearch.image | quote }}
+          env:
+            - {name: discovery.type, value: single-node}
+            - {name: DISABLE_SECURITY_PLUGIN, value: "true"}
+            - {name: DISABLE_INSTALL_DEMO_CONFIG, value: "true"}
+            - {name: OPENSEARCH_JAVA_OPTS, value: "-Xms256m -Xmx256m"}
+          ports: [{name: http, containerPort: 9200}]
+          readinessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests: {memory: 512Mi, cpu: 100m}
+            limits: {memory: 768Mi}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ .Release.Name }}-opensearch}
+spec:
+  selector: {app.kubernetes.io/name: log-debug-context-opensearch, app.kubernetes.io/component: opensearch}
+  ports: [{name: http, port: 9200, targetPort: http}]
+{{- end }}

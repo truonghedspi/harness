@@ -1,0 +1,25 @@
+journey:
+  enabled: true
+  sidecar:
+    enabled: false
+
+collector:
+  node:
+    enabled: true
+
+redaction:
+  values:
+    - message-secret-
+    - attribute-secret-
+
+opensearch:
+  endpoint: "http://log-debug-context-opensearch:9200"
+  inCluster: true
+  image: "opensearchproject/opensearch:2.19.1"
+
+service:
+  image: "log-debug-context:feat-011"
+  imagePullPolicy: Never
+  audience: "log-debug-context"
+  issuer: "https://kubernetes.default.svc.cluster.local"
+  jwksUri: "https://kubernetes.default.svc/openid/v1/jwks"

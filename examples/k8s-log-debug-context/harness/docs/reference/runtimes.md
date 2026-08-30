@@ -38,11 +38,19 @@ broken `file://` URI. `verify-harness.mjs` reports `agent-generated-stale`.
 | lifecycle tracing | `hooks.agentSpawn` / `stop` | `hooks.SubagentStart` / `SubagentStop` | `hooks.SessionStart` / `Stop` |
 | welcome message | `welcomeMessage` | no field — first line of the body | no field — first line of the instructions |
 | MCP config | `.kiro/settings/mcp.json` | `.mcp.json` | `[mcp_servers.x]` in `.codex/config.toml` |
-| headless invocation | `kiro-cli chat --agent X --no-interactive --trust-all-tools` | `claude -p "…" --agent X --dangerously-skip-permissions` | **no `--agent` flag exists** — `node tools/codex-dispatch.mjs X "…"` |
+| automated invocation | `node tools/kiro-acp-dispatch.mjs X "…"` → `kiro-cli acp --agent X --trust-all-tools` | `claude -p "…" --agent X --dangerously-skip-permissions` | **no `--agent` flag exists** — `node tools/codex-dispatch.mjs X "…"` |
 | native in-session sub-agent spawn | built-in `subagent` tool — verified, see below | the Agent/Task tool | not established in this repo; no citation found, treat as unverified rather than assumed |
 
 `loop/run-loop.mjs` picks the runtime from `HARNESS_RUNTIME`, or detects it from which agent
 directory exists and which CLI is installed, and routes everything through one `dispatch()`.
+
+For Kiro, dispatch is an ACP client: it initializes protocol `2025-08-22`, creates one session in
+the project cwd, sends one `session/prompt`, streams agent message chunks, and accepts only an
+`end_turn`. It deliberately advertises no client-side filesystem or terminal capability because
+Kiro's own tools enforce the custom agent configuration. `--headless` still describes whether the
+*loop* pauses for a human between turns; it no longer selects Kiro's `chat --no-interactive`
+transport. Claude and Codex retain their CLI adapters until they expose an equivalent calibrated
+ACP endpoint.
 
 **kiro-cli's native spawn, verified 2026-08-18** (`https://kiro.dev/docs/custom-agents/subagents/`,
 `https://kiro.dev/docs/reference/built-in-tools/`) — this is the mechanism `prompts/orchestrator.md`
@@ -62,7 +70,7 @@ means by "the runtime's native sub-agent facility" for kiro specifically:
   on the router's live, per-turn output, which a static allowlist cannot express.
 - Spawned sub-agents run **in-process** within the same kiro-cli session, in parallel, each with its
   own isolated context; the main agent waits for all to finish before continuing — genuinely distinct
-  from the `kiro-cli chat --agent X` row above, which starts a separate process/session.
+  from the ACP dispatch row above, which creates a separate process/session for one routed turn.
 
 ## The two places kiro and Claude Code genuinely differ
 

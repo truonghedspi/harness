@@ -1341,6 +1341,13 @@ expect "K8s memory passes through the same substitution path" $?
 test -f "$K8T/.claude/agents/k8s-integration-tester.md" -a -f "$K8T/.kiro/agents/k8s-integration-tester.json"
 expect "the optional agent appears in BOTH runtimes, from the prompt file's presence alone" $?
 node -e "
+const fs=require('fs'); const p='$K8T/feature_list.json';
+const d=JSON.parse(fs.readFileSync(p,'utf8'));
+d.features=[{id:'feat-k',name:'journey',behavior:'b',verification:'tests/k8s/run-journey.sh',falsifier:'a broken deployed journey',dependencies:[],status:'not-started',readyForCheck:false,evidence:'',checkerNotes:'',attempts:0,maxAttempts:3}];
+fs.writeFileSync(p, JSON.stringify(d,null,2));
+"
+[ "$(cd "$K8T" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))')" = "k8s-integration-tester" ]; expect "a tests/k8s journey routes to the Kubernetes integration tester, not maker" $?
+node -e "
 const a=require('$K8T/.mcp.json').mcpServers, b=require('$K8T/.kiro/settings/mcp.json').mcpServers;
 const ka=Object.keys(a).sort().join(','), kb=Object.keys(b).sort().join(',');
 process.exit(ka===kb && ka==='k8s-readonly' && a['k8s-readonly'].type==='stdio' ? 0 : 1);
@@ -1365,11 +1372,13 @@ process.exit(f && /k8s-readonly \(missing from claude\)/.test(f.evidence||'') ? 
 "; expect "an MCP server present for some runtimes and not others is caught, naming which — same agent, two verdicts" $?
 
 step 36 "multi-service k8s: dependsOn order, health that is not 'Running', ranked diagnostics"
-MS="$WORK/multi-svc"; rm -rf "$MS"; mkdir -p "$MS/tools" "$MS/charts/api" "$MS/charts/db" "$MS/charts/cache" "$MS/stub"
+MS="$WORK/multi-svc"; rm -rf "$MS"; mkdir -p "$MS/tools" "$MS/charts/api" "$MS/charts/db" "$MS/charts/cache" "$MS/stub" "$MS/values"
 cp "$SCRIPTS/../templates/k8s/tools/k8s-test-env.sh" "$MS/tools/"; chmod +x "$MS/tools/k8s-test-env.sh"
+printf 'apiVersion: v2\nname: api\nversion: 0.1.0\n' > "$MS/charts/api/Chart.yaml"
+printf 'journey:\n  sidecar:\n    enabled: true\n' > "$MS/values/api-sidecar.yaml"
 cat > "$MS/services.manifest.json" <<'JSON'
 {"services":[
- {"id":"api","kind":"service","chart":"charts/api","dependsOn":["db","cache"],"health":"true"},
+ {"id":"api","kind":"service","chart":"charts/api","values":["values/api-sidecar.yaml"],"dependsOn":["db","cache"],"health":"true"},
  {"id":"db","kind":"service","chart":"charts/db","dependsOn":[],"health":"true"},
  {"id":"cache","kind":"service","chart":"charts/cache","dependsOn":["db"],"health":null},
  {"id":"shared","kind":"library","chart":null,"dependsOn":[],"health":null}
@@ -1379,32 +1388,99 @@ JSON
 # real Kubernetes to be wrong — and a demo that silently skips without one proves nothing.
 cat > "$MS/stub/kubectl" <<'EOF'
 #!/usr/bin/env bash
+if [ "${1:-}" = "--context" ]; then shift 2; fi
 case "$1 $2" in
-  "get pods") echo "" ;;
+  "config current-context") echo "${STUB_CONTEXT:-demo-context}" ;;
+  "get namespace")
+    if [ -n "${STUCK_NAMESPACE_FILE:-}" ] && [ -e "$STUCK_NAMESPACE_FILE" ]; then
+      case " $* " in *" jsonpath="*) echo "$3|true|Active" ;; *) echo "namespace/$3" ;; esac
+    elif [ -n "${RECOVERY_NAMESPACE_FILE:-}" ] && [ -e "$RECOVERY_NAMESPACE_FILE" ]; then
+      echo "namespace/$3"
+    fi
+    ;;
+  "get clusterrole/"*|"get clusterrolebinding/"*)
+    if [ -z "${CLUSTER_SCOPED_MARKER:-}" ] || [ ! -e "$CLUSTER_SCOPED_MARKER" ]; then
+      case " $* " in *" --ignore-not-found "*) exit 0 ;; *) exit 1 ;; esac
+    fi
+    case " $* " in
+      *" -o jsonpath="*) echo "Helm|${ORPHAN_RELEASE:-api}|${ORPHAN_NAMESPACE:-legacy-old}" ;;
+    esac
+    ;;
+  "create namespace") touch "$RECOVERY_NAMESPACE_FILE" ;;
+  "label namespace") echo "$3 harness-loop-test=true" >> "$RECOVERY_LABEL_FILE" ;;
+  "annotate namespace") echo "$3 harness-loop-recovery=${ORPHAN_RELEASE:-api}" >> "$RECOVERY_LABEL_FILE" ;;
+  "delete namespace") rm -f "${RECOVERY_NAMESPACE_FILE:-}" "${STUCK_NAMESPACE_FILE:-}" ;;
+  "get pods")
+    if [ "${DIAGNOSTIC_POD_MODE:-}" = "1" ]; then
+      case " $* " in
+        *".metadata.name"*) echo "api-pod" ;;
+      esac
+    fi
+    ;;
+  "get pod")
+    if [ "${DIAGNOSTIC_POD_MODE:-}" = "1" ]; then
+      case " $* " in
+        *".spec.initContainers"*) echo "node-log-preflight" ;;
+        *".spec.containers"*) echo "otel-collector" ;;
+      esac
+    fi
+    ;;
+  "logs -n")
+    case " $* " in
+      *" --all-containers "*) echo "container otel-collector is waiting" >&2; exit 1 ;;
+      *" -c node-log-preflight "*) echo "A006_NODE_LOG_ACCESS_DENIED" ;;
+      *" -c otel-collector "*) echo "container otel-collector is waiting" >&2; exit 1 ;;
+    esac
+    ;;
   *) : ;;
 esac
 exit 0
 EOF
 cat > "$MS/stub/helm" <<'EOF'
 #!/usr/bin/env bash
-# helm upgrade --install <release> <chart> ...
-echo "$3" >> "$ORDER_FILE"
-[ "$3" = "${HELM_FAIL_ON:-}" ] && exit 1
+# Helm releases can own resources outside their namespace. This marker makes a leaked
+# ClusterRole observable without needing a real cluster in the harness demo.
+case "$1" in
+  status)
+    if [ -n "${STUCK_RELEASE_FILE:-}" ] && [ -e "$STUCK_RELEASE_FILE" ]; then
+      case " $* " in *" -o json "*) printf '{"info":{"status":"%s"}}\n' "${STUCK_RELEASE_STATUS:-uninstalling}" ;; *) echo "${STUCK_RELEASE_STATUS:-uninstalling}" ;; esac
+    else
+      exit 1
+    fi
+    ;;
+  upgrade)
+    echo "$3" >> "$ORDER_FILE"
+    printf '%s\n' "$*" >> "${HELM_ARGS_FILE:-/dev/null}"
+    touch "$CLUSTER_SCOPED_MARKER"
+    [ "$3" = "${HELM_FAIL_ON:-}" ] && exit 1
+    ;;
+  uninstall)
+    echo "$2" >> "$UNINSTALL_FILE"
+    rm -f "$CLUSTER_SCOPED_MARKER"
+    rm -f "${STUCK_RELEASE_FILE:-}"
+    ;;
+esac
 exit 0
 EOF
 chmod +x "$MS/stub/kubectl" "$MS/stub/helm"
-ORDER="$MS/order.txt"; : > "$ORDER"
-( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" bash tools/k8s-test-env.sh --services services.manifest.json -- true ) >"$MS/run1.log" 2>&1
+ORDER="$MS/order.txt"; UNINSTALL="$MS/uninstall.txt"; HELM_ARGS="$MS/helm-args.txt"; CLUSTER_MARKER="$MS/cluster-scoped-rbac"; : > "$ORDER"; : > "$UNINSTALL"; : > "$HELM_ARGS"
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" HELM_ARGS_FILE="$HELM_ARGS" CLUSTER_SCOPED_MARKER="$CLUSTER_MARKER" bash tools/k8s-test-env.sh --services services.manifest.json -- true ) >"$MS/run1.log" 2>&1
 test "$(tr '\n' ' ' < "$ORDER")" = "db cache api "
 expect "installs in dependsOn order — db, then cache, then the api that needs both" $?
 grep -q "cache: no health command in the registry — readiness UNVERIFIED" "$MS/run1.log"
 expect "a service with no health command is reported unverified, not assumed healthy because helm --wait returned" $?
 grep -q "environment up: db, cache, api" "$MS/run1.log"; expect "the test command runs only once every service is up" $?
+grep -q 'upgrade --install api charts/api --values values/api-sidecar.yaml' "$HELM_ARGS"
+expect "a service can opt into an environment-specific Helm values file without changing chart defaults" $?
 # Now fail the last service and check the report ranks by likely cause, not by pod name.
-: > "$ORDER"
-( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" HELM_FAIL_ON=api bash tools/k8s-test-env.sh \
+: > "$ORDER"; : > "$UNINSTALL"
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" CLUSTER_SCOPED_MARKER="$CLUSTER_MARKER" \
+    HELM_FAIL_ON=api DIAGNOSTIC_POD_MODE=1 bash tools/k8s-test-env.sh \
     --services services.manifest.json --keep-on-failure -- true ) >"$MS/run2.log" 2>&1
 RPT="$(ls -d "$MS"/trace/k8s-test/*/ 2>/dev/null | tail -1)"
+grep -q "A006_NODE_LOG_ACCESS_DENIED" "$RPT/logs-api-pod-init-node-log-preflight.txt" \
+  && grep -q "otel-collector is waiting" "$RPT/logs-api-pod-container-otel-collector.txt"
+expect "init and app containers are logged independently, so one unreadable container cannot mask another" $?
 node -e "
 const m=require('${RPT}journey-metrics.json');
 process.exit(m.schema==='business-journey-telemetry/1' && Number.isFinite(m.deploymentDurationMs) &&
@@ -1417,6 +1493,63 @@ const iApi=t.indexOf('logs-api'), iDb=t.indexOf('logs-db'), iCache=t.indexOf('lo
 // of logs and only this ordering turns them into a diagnosis
 process.exit(iApi>=0 && iDb>iApi && iCache>iApi && /Failed at: api/.test(t) ? 0 : 1);
 "; expect "on failure the report ranks the failing service first, then its dependencies" $?
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" CLUSTER_SCOPED_MARKER="$CLUSTER_MARKER" HELM_FAIL_ON=api bash tools/k8s-test-env.sh \
+    --services services.manifest.json -- true ) >"$MS/run2-cleanup.log" 2>&1
+test "$(tr '\n' ' ' < "$UNINSTALL")" = "api cache db " -a ! -e "$CLUSTER_MARKER"
+expect "a failed Helm install uninstalls every attempted release and removes cluster-scoped state before retry" $?
+: > "$ORDER"
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" CLUSTER_SCOPED_MARKER="$CLUSTER_MARKER" bash tools/k8s-test-env.sh --services services.manifest.json -- true ) >"$MS/run2-retry.log" 2>&1
+test "$(tr '\n' ' ' < "$ORDER")" = "db cache api " -a ! -e "$CLUSTER_MARKER"
+expect "a second isolated run succeeds after cleanup rather than inheriting Helm ownership" $?
+
+# Legacy state predating release-first cleanup has no Helm release Secret left to uninstall. The
+# exceptional recovery mode must reject a mismatched annotation before mutation, then adopt and
+# uninstall only the exact allowlisted RBAC through the original chart/release identity.
+RECOVERY_NS_MARKER="$MS/recovery-namespace"; RECOVERY_LABELS="$MS/recovery-labels.txt"; : > "$RECOVERY_LABELS"
+touch "$CLUSTER_MARKER"; : > "$UNINSTALL"
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" \
+    CLUSTER_SCOPED_MARKER="$CLUSTER_MARKER" RECOVERY_NAMESPACE_FILE="$RECOVERY_NS_MARKER" \
+    RECOVERY_LABEL_FILE="$RECOVERY_LABELS" STUB_CONTEXT=demo-context ORPHAN_RELEASE=api \
+    ORPHAN_NAMESPACE=legacy-old NAMESPACE_PREFIX=legacy RECOVERY_TIMEOUT_S=2 \
+    bash tools/k8s-test-env.sh recover-orphan charts/api --release api --namespace legacy-wrong \
+      --context demo-context --resource clusterrole/api --resource clusterrolebinding/api ) >"$MS/recovery-red.log" 2>&1
+RECOVERY_RED=$?
+test "$RECOVERY_RED" = "2" -a -e "$CLUSTER_MARKER" -a ! -e "$RECOVERY_NS_MARKER" && grep -q 'ownership mismatch' "$MS/recovery-red.log"
+expect "legacy Helm recovery stays red on an annotation mismatch and mutates nothing" $?
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" \
+    CLUSTER_SCOPED_MARKER="$CLUSTER_MARKER" RECOVERY_NAMESPACE_FILE="$RECOVERY_NS_MARKER" \
+    RECOVERY_LABEL_FILE="$RECOVERY_LABELS" STUB_CONTEXT=demo-context ORPHAN_RELEASE=api \
+    ORPHAN_NAMESPACE=legacy-old NAMESPACE_PREFIX=legacy RECOVERY_TIMEOUT_S=2 \
+    bash tools/k8s-test-env.sh recover-orphan charts/api --release api --namespace legacy-old \
+      --context demo-context --resource clusterrole/api --resource clusterrolebinding/api ) >"$MS/recovery-green.log" 2>&1
+test ! -e "$CLUSTER_MARKER" -a ! -e "$RECOVERY_NS_MARKER" \
+  -a "$(tr '\n' ' ' < "$UNINSTALL")" = "api " \
+  -a "$(grep -c 'harness-loop-test=true\|harness-loop-recovery=api' "$RECOVERY_LABELS")" = "2"
+expect "exact legacy Helm orphan is adopted, uninstalled, verified absent, and its labelled recovery namespace removed" $?
+
+# A process can be interrupted after Helm begins uninstalling but before it can delete the
+# labelled namespace. This is distinct from a legacy RBAC orphan: both the exact namespace and
+# Helm release still exist, so recovery must refuse mismatched identity without mutation, then
+# retry Helm and prove both objects absent.
+STUCK_NS_MARKER="$MS/stuck-namespace"; STUCK_RELEASE_MARKER="$MS/stuck-release"; touch "$STUCK_NS_MARKER" "$STUCK_RELEASE_MARKER"; : > "$UNINSTALL"
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" \
+    STUCK_NAMESPACE_FILE="$STUCK_NS_MARKER" STUCK_RELEASE_FILE="$STUCK_RELEASE_MARKER" \
+    STUB_CONTEXT=demo-context NAMESPACE_PREFIX=legacy RECOVERY_TIMEOUT_S=2 \
+    bash tools/k8s-test-env.sh cleanup-stuck-release --release api --namespace legacy-stuck \
+      --context wrong-context ) >"$MS/stuck-red.log" 2>&1
+STUCK_RED=$?
+test "$STUCK_RED" = "2" -a -e "$STUCK_NS_MARKER" -a -e "$STUCK_RELEASE_MARKER" \
+  -a ! -s "$UNINSTALL" && grep -q 'does not match approved cleanup context' "$MS/stuck-red.log"
+expect "stuck-release cleanup refuses a wrong context and mutates neither the release nor namespace" $?
+( cd "$MS" && PATH="$MS/stub:$PATH" ORDER_FILE="$ORDER" UNINSTALL_FILE="$UNINSTALL" \
+    STUCK_NAMESPACE_FILE="$STUCK_NS_MARKER" STUCK_RELEASE_FILE="$STUCK_RELEASE_MARKER" \
+    STUB_CONTEXT=demo-context NAMESPACE_PREFIX=legacy RECOVERY_TIMEOUT_S=2 \
+    bash tools/k8s-test-env.sh cleanup-stuck-release --release api --namespace legacy-stuck \
+      --context demo-context ) >"$MS/stuck-green.log" 2>&1
+test ! -e "$STUCK_NS_MARKER" -a ! -e "$STUCK_RELEASE_MARKER" \
+  -a "$(tr '\n' ' ' < "$UNINSTALL")" = "api " \
+  -a "$(grep -c 'interrupted teardown complete' "$MS/stuck-green.log")" = "1"
+expect "exact stuck-release cleanup retries bounded Helm uninstall and verifies release and namespace absent" $?
 node -e "
 const m=require('$MS/services.manifest.json');
 process.exit(m.services.some(s=>s.kind==='library') ? 0 : 1)
@@ -3263,22 +3396,23 @@ expect "a genuinely restricted role is unaffected by that fix" $?
 
 echo ""
 step 54 "upgrading an existing target delivers the whole toolbox, and the admission seam runs from the project root"
-UG="$WORK/demo-upgrade-tools"; rm -rf "$UG"; mkdir -p "$UG" && (cd "$UG" && git init -q .)
+UG="$WORK/demo-upgrade-tools"; rm -rf "$UG"; mkdir -p "$UG/charts/svc" && (cd "$UG" && git init -q .)
+printf 'apiVersion: v2\nname: svc\nversion: 0.1.0\n' > "$UG/charts/svc/Chart.yaml"
 HARNESS_LAYOUT=contained node "$SCRIPTS/setup-harness-loop.mjs" --target "$UG" --name "Upgrade" --purpose "upgrade coverage demo" >/dev/null 2>&1
 # Simulate a target scaffolded before these tools existed. They reach a fresh scaffold through
 # setup's directory walk, so they were invisible to the upgrader's copy-list grep (HI-064) — and a
 # target that never had them ran a refreshed run-loop.mjs calling a tool that was not there.
 rm -f "$UG/harness/tools/review-contract.mjs" "$UG/harness/tools/work-split.mjs" \
-  "$UG/harness/tools/kiro-acp-dispatch.mjs"
+  "$UG/harness/tools/kiro-acp-dispatch.mjs" "$UG/harness/tools/k8s-test-env.sh"
 node "$SCRIPTS/upgrade-harness.mjs" --target "$UG" --json > "$UG/upgrade.json"
 node -e "
 const r=require('$UG/upgrade.json');
 process.exit(r.added.includes('tools/review-contract.mjs') && r.added.includes('tools/work-split.mjs') &&
-  r.added.includes('tools/kiro-acp-dispatch.mjs') ? 0 : 1);
+  r.added.includes('tools/kiro-acp-dispatch.mjs') && r.added.includes('tools/k8s-test-env.sh') ? 0 : 1);
 "
-expect "the upgrader restores templates/tree/tools/* an old target never received" $?
-[ -f "$UG/harness/tools/review-contract.mjs" ] && [ -f "$UG/harness/tools/kiro-acp-dispatch.mjs" ]
-expect "and both admission plus ACP dispatch are really on disk afterwards" $?
+expect "the upgrader restores core and opted-in Kubernetes tools an old target never received" $?
+[ -f "$UG/harness/tools/review-contract.mjs" ] && [ -f "$UG/harness/tools/kiro-acp-dispatch.mjs" ] && [ -f "$UG/harness/tools/k8s-test-env.sh" ]
+expect "and admission, ACP dispatch, and Kubernetes cleanup tooling are really on disk afterwards" $?
 # HI-065: the maker prompt tells a contained target to run this from the project root.
 ( cd "$UG" && node harness/tools/review-contract.mjs --ready > review.out 2>&1 ); RCRC=$?
 grep -q "cannot read feature_list.json" "$UG/review.out"; RCMISS=$?

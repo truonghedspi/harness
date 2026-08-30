@@ -1003,16 +1003,27 @@
       "id": "feat-011",
       "name": "Kubernetes diagnostic-context journey",
       "kind": "prove",
-      "behavior": "A namespace-isolated Kubernetes journey emits a unique correlated log from an opted-in workload and retrieves its redacted Kubernetes and test context only through authenticated MCP before bounded cleanup",
-      "verification": "tests/k8s/run-journey.sh",
+      "behavior": "A namespace-isolated Kubernetes journey emits a unique correlated log from an opted-in Deployment-owned workload and retrieves its redacted Kubernetes and test context only through authenticated MCP before bounded cleanup",
+      "verification": "DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
       "falsifier": "Components pass alone but the full flow loses context, leaks a secret, crosses correlation, bypasses MCP, hangs, or leaves resources [INV-JOURNEY-1] [INV-REDACT-1] [INV-CORR-1] [INV-BOUND-1] [INV-READ-1]",
       "context": {
         "touches": [
+          "business-environment.json",
+          "business-oracles/diagnostic-context.json",
+          "services.manifest.json",
+          "charts/log-debug-context/Chart.yaml",
+          "charts/log-debug-context/values.yaml",
+          "charts/log-debug-context/templates/journey-fixtures.yaml",
+          "charts/log-debug-context/templates/service.yaml",
+          "charts/log-debug-context/templates/rbac.yaml",
+          "charts/log-debug-context/templates/collector-daemonset.yaml",
+          "service/src/main/java/io/harness/logcontext/LogDebugContextApplication.java",
+          "service/src/main/java/io/harness/logcontext/mcp/OidcServiceAccountJwtValidator.java",
           "tests/k8s/run-journey.sh",
           "tests/k8s/fixtures/log-emitter.yaml",
           "tests/k8s/fixtures/mcp-client.yaml"
         ],
-        "note": "Use unique namespace/marker, explicit deadlines, MCP-only assertions, and trapped cleanup; report A-006 preflight distinctly. Also define the -collector ServiceAccount (and any other referenced-but-undefined chart identity, e.g. the ClusterRoleBinding subject) as part of the deploy surface — it is currently dangling in collector-daemonset.yaml and rbac.yaml."
+        "note": "Use a Deployment-owned emitter so the pinned k8sattributes processor supplies non-blank k8s.deployment.name for the required v1 workload field; keep the opt-in labels on the Pod template. Use unique namespace/marker, explicit deadlines, MCP-only assertions, and trapped cleanup; report A-006 preflight distinctly. Also define the -collector ServiceAccount (and any other referenced-but-undefined chart identity, e.g. the ClusterRoleBinding subject) as part of the deploy surface — it is currently dangling in collector-daemonset.yaml and rbac.yaml. The live oracle must distinguish missing-token and wrong-audience rejection from valid-audience acceptance before judging collector convergence."
       },
       "conditions": [
         "TCON-JOURNEY-0001",
@@ -1031,12 +1042,181 @@
         "feat-009",
         "feat-010"
       ],
-      "status": "not-started",
-      "readyForCheck": false,
-      "evidence": "2026-08-27 red — `tests/k8s/run-journey.sh` exited 1 with `JOURNEY_ASSERTION_FAILED: deployment chart is absent: .../charts/log-debug-context`. The complete bounded Level-3 oracle and both Kubernetes fixtures exist; the missing deployable chart is the intended unimplemented product boundary, not a test syntax or fixture error. `bash -n tests/k8s/run-journey.sh` passed first.",
-      "checkerNotes": "",
+      "status": "done",
+      "evidence": [
+        {
+          "date": "2026-08-27",
+          "run": "red",
+          "cmd": "tests/k8s/run-journey.sh",
+          "result": "Exit 1: JOURNEY_ASSERTION_FAILED: deployment chart is absent: .../charts/log-debug-context. The complete bounded Level-3 oracle and both Kubernetes fixtures exist; the missing deployable chart is the intended unimplemented product boundary, not a test syntax or fixture error. bash -n tests/k8s/run-journey.sh passed first."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "red",
+          "mutant": true,
+          "cmd": "tests/k8s/run-journey.sh --mutant-check-leaked-message-secret",
+          "result": "Exit 1: JOURNEY_ASSERTION_FAILED: MCP context leaked forbidden value message-secret-<unique-run-token>. The mutant response otherwise contained the required marker, run id, namespace, Kubernetes identity, workload, and observed timestamp, isolating INV-REDACT-1 as the failing condition."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "checkpoint-green",
+          "cmd": "node harness/skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles && helm lint charts/log-debug-context && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./mvnw -q -Dtest=CollectorDeploymentPolicyTest,ClusterAccessPolicyTest test",
+          "result": "Business journey contract green with 1 oracle and 0 findings; Helm lint green with 1 chart and 0 failures; deployment policy suites green with 11 tests, 0 failures, 0 errors."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "deployed-red",
+          "cmd": "DEPLOY_TIMEOUT_S=180 HEALTH_TIMEOUT_S=15 TEST_TIMEOUT_S=30 NAMESPACE_PREFIX=log-debug-journey harness/tools/k8s-test-env.sh --services ../services.manifest.json -- true",
+          "result": "First isolated minikube rollout exited 1 after Helm's bounded 180s wait: collector init container had CreateContainerConfigError because busybox would run as root under runAsNonRoot. Diagnostics were captured before namespace teardown; runAsUser 65532 was added. The retry exited 1 before workload creation because the first cleanup left Helm-managed ClusterRole and ClusterRoleBinding log-debug-context-collector annotated to the deleted namespace. Harness defect HI-079 records the leak. A-006 node-log accessibility was not reached and remains unknown."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "recovery-red",
+          "cmd": "DEPLOY_TIMEOUT_S=180 HEALTH_TIMEOUT_S=15 TEST_TIMEOUT_S=30 NAMESPACE_PREFIX=log-debug-journey harness/tools/k8s-test-env.sh --services ../services.manifest.json -- true",
+          "result": "Exit 1 in 0.6s on Helm ownership validation before workload creation: ClusterRole log-debug-context-collector is still annotated to deleted namespace log-debug-journey-5b9bd44-1787991874-43083, while no Helm release record survives. The repaired trap attempted uninstall and removed retry namespace log-debug-journey-5b9bd44-1788001018-91504; list-stale --older-than 0h was empty. Both legacy ClusterRole and ClusterRoleBinding persisted with their original release annotations, proving ordinary retry cleanup cannot recover a pre-fix orphan. HI-081 records the required bounded script-owned legacy recovery mechanism. A-006 was not reached."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "recovery-green",
+          "cmd": "NAMESPACE_PREFIX=log-debug-journey RECOVERY_TIMEOUT_S=120 harness/tools/k8s-test-env.sh recover-orphan ../charts/log-debug-context --release log-debug-context --namespace log-debug-journey-5b9bd44-1787991874-43083 --context minikube --resource clusterrole/log-debug-context-collector --resource clusterrolebinding/log-debug-context-collector",
+          "result": "Exit 0 after validating both objects as Helm|log-debug-context|log-debug-journey-5b9bd44-1787991874-43083, recreating only that labelled namespace, adopting through the same chart/release identity, and running bounded Helm uninstall. Independent post-run reads verified the ClusterRole, ClusterRoleBinding, release, and recovery namespace absent. The harness demo's mismatch control stayed red without mutation and exact recovery stayed green; HI-081 is resolved."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "a006-inconclusive",
+          "cmd": "DEPLOY_TIMEOUT_S=180 HEALTH_TIMEOUT_S=15 TEST_TIMEOUT_S=30 NAMESPACE_PREFIX=log-debug-journey harness/tools/k8s-test-env.sh --services ../services.manifest.json -- true",
+          "result": "Exit 1 at the bounded 180s Helm deadline after clearing the legacy owner: journey emitter and MCP client were Running, while collector DaemonSet stayed 0/1 and its node-log-preflight init container repeatedly exited (Init:Error/BackOff). The report captured 9 files, but kubectl logs --all-containers returned only the waiting main-container error and lost preflight stderr; A-006 therefore remains unclassified rather than proven false. HI-082 records the harness diagnostic defect. Cleanup was independently green: namespace, Helm release, both RBAC objects absent; list-stale --older-than 0h empty."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "a006-preflight-invalid",
+          "cmd": "DEPLOY_TIMEOUT_S=180 HEALTH_TIMEOUT_S=15 TEST_TIMEOUT_S=30 NAMESPACE_PREFIX=log-debug-journey harness/tools/k8s-test-env.sh --services ../services.manifest.json -- true",
+          "result": "Exit 1 at the bounded 180s Helm deadline. HI-082's per-container report preserved the init stderr and proved the first preflight command invalid: BusyBox 1.36.1 find rejected GNU -readable before permissions were tested. A-006 remained unclassified; the chart preflight was changed to enumerate *.log files with supported predicates and prove readability by opening one with head -c 1. Cleanup removed namespace, release, ClusterRole, and ClusterRoleBinding; list-stale was empty."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "a006-verified-false",
+          "cmd": "DEPLOY_TIMEOUT_S=180 HEALTH_TIMEOUT_S=15 TEST_TIMEOUT_S=30 NAMESPACE_PREFIX=log-debug-journey harness/tools/k8s-test-env.sh --services ../services.manifest.json -- true",
+          "result": "Exit 1 at the bounded 180s Helm deadline on authorized local context minikube. The opted-in Deployment emitter and MCP client were Running, while the non-root node-log-preflight found no *.log it could open beneath the read-only /var/log/pods hostPath and recorded PREFLIGHT_FAILED in its dedicated init file; the separate app file recorded only PodInitializing. A-006 is verified false for this environment. Cleanup independently verified no labeled namespace, release, ClusterRole, or ClusterRoleBinding remained. The sidecar fallback is now a mandatory human checkpoint before feat-011 continues."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "sidecar-checkpoint-red",
+          "cmd": "DEPLOY_TIMEOUT_S=120 HEALTH_TIMEOUT_S=15 TEST_TIMEOUT_S=180 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
+          "result": "Exit 1 after the explicit values-local-minikube-sidecar.yaml override installed successfully. The opted-in emitter was 2/2 Running with the pinned collector sidecar; sidecar logs show Everything is ready, it watched /var/log/journey/emitter.log, and it attempted OTLP export. The chart default still renders the DaemonSet, while the local override renders no DaemonSet. The run stopped at the 15-second serving-health gate because the chart defines neither log-debug-context-ingest nor log-debug-context-mcp Service/Deployment; sidecar export failed DNS lookup for log-debug-context-ingest. Diagnostics were captured and cleanup independently verified namespace, release, ClusterRole, and ClusterRoleBinding absent. This is a project-layer deploy-surface blocker, not a sidecar or cluster failure."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "service-surface-static-green",
+          "cmd": "env JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./mvnw -q -DskipTests package && helm lint charts/log-debug-context && helm template log-debug-context charts/log-debug-context --values charts/log-debug-context/values-local-minikube-sidecar.yaml && bash -n tests/k8s/run-journey.sh",
+          "result": "Exit 0. The shaded Java 21 application wires OTLP decode and sanitized ingest to the real OpenSearch adapter, serves authenticated MCP on the same pod port, and validates audience-bound Kubernetes ServiceAccount JWTs against the issuer JWKS. Helm renders the one service Deployment, ingest/MCP Services, and an in-cluster OpenSearch StatefulSet. Live image/deploy/journey evidence remains pending."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "live-health-red",
+          "cmd": "DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
+          "result": "Exit 1 after 303896ms in authorized local context minikube, report harness/trace/k8s-test/log-debug-journey-5b9bd44-1788011923-86711. Image log-debug-context:feat-011 built and loaded; OpenSearch, service, emitter sidecar, and MCP client all reached Running/Ready, but the registry health command sent GET /mcp and expected 401 while the POST-only endpoint correctly returned 405. The business scenario never started, so auth/correlation/redaction/budget/deadline are not claimed. Diagnostics were captured. Interrupted cleanup removed workloads and both cluster RBAC objects, but namespace log-debug-journey-5b9bd44-1788011923-86711 remains Active with Helm release state uninstalling; cleanup is not green. The health probe is repaired to POST for the next attempt."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "stuck-cleanup-green",
+          "cmd": "NAMESPACE_PREFIX=log-debug-journey RECOVERY_TIMEOUT_S=120 harness/tools/k8s-test-env.sh cleanup-stuck-release --release log-debug-context --namespace log-debug-journey-5b9bd44-1788011923-86711 --context minikube",
+          "result": "Exit 0 in 11.3s. The bounded runner validated exact context minikube, harness-loop-test=true namespace identity, and Helm status uninstalling, retried Helm uninstall, deleted the namespace, and verified both release and namespace absent. HI-084 records the missing canonical recovery path; its implementation still needs full demo/docs calibration before resolution."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "live-runner-red",
+          "cmd": "DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
+          "result": "First retry reached POST health green but exited 1 because the journey waited for fixed pod/journey-log-emitter although the Deployment owns pod journey-log-emitter-<replicaset>-<pod>; report log-debug-journey-5b9bd44-1788013066-95057, cleanup green. After switching readiness to deployment/journey-log-emitter, the next retry exposed a shell-oracle bug: kubectl auth can-i printed the expected no/no but exits nonzero for denial, and set -o pipefail converted the correct denial into failure; the oracle now compares captured output exactly."
+        },
+        {
+          "date": "2026-08-29",
+          "run": "live-interrupted",
+          "cmd": "DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
+          "result": "The final bounded retry reached deploy, POST health, Deployment/client readiness, and RBAC denial checks, then was externally interrupted while waiting for MCP marker convergence. No auth/correlation/redaction/budget/deadline green is claimed. Trap retried uninstall, but namespace log-debug-journey-5b9bd44-1788013337-97076 remains Active and Helm status remains uninstalling; report telemetry is incomplete (scenarioDuration null, diagnosticsCollected false) and cleanup is red."
+        },
+        {
+          "date": "2026-08-30",
+          "run": "auth-boundary-red",
+          "cmd": "DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
+          "result": "Exit 1 in report log-debug-journey-5b9bd44-1788058673-41585 after the added valid-audience tools/list discriminator received HTTP 401. Safe service diagnostics classified the correct token as validation-error-IllegalStateException after issuer/audience/subject/time checks. Bounded unauthenticated probes independently returned 403 for both local minikube OIDC discovery and JWKS; the built-in system:service-account-issuer-discovery binding grants GET to system:serviceaccounts. Cleanup independently verified namespace, release, ClusterRole, ClusterRoleBinding, and all harness-labelled namespaces absent."
+        },
+        {
+          "date": "2026-08-30",
+          "run": "journey-green",
+          "cmd": "DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
+          "result": "Exit 0 in authorized local minikube, namespace/report log-debug-journey-5b9bd44-1788059125-44732. Helm deployment and POST health passed; the public MCP journey reported auth=401/401/200, exact run correlation, clean redaction, <=200 records, <=256 KiB, <=15m interval, no pagination, and 1s live query. Telemetry: deployment/readiness 25864ms, scenario 5106ms, event wait 3000ms, retryCount 1, total 32077ms, diagnostics captured, payloads redacted. Independent reads after the script exited found the namespace, release, collector ClusterRole/Binding, and every harness-labelled namespace absent. The service refreshes JWKS with its existing projected token through Kubernetes' built-in issuer-discovery binding; validation remains local and no project RBAC or TokenReview was added."
+        }
+      ],
+      "reviewPacket": {
+        "contractDigest": "0f6d53a68a926deeeddcd03063fdf840037fd568539fb2d53e4e182ab3adcd90",
+        "claimRefs": [
+          "feat-011 behavior and falsifier",
+          "INV-JOURNEY-1",
+          "INV-REDACT-1",
+          "INV-CORR-1",
+          "INV-BOUND-1",
+          "INV-READ-1",
+          "X-006",
+          "X-007"
+        ],
+        "changedPaths": [
+          "Dockerfile",
+          "business-environment.json",
+          "business-oracles/diagnostic-context.json",
+          "services.manifest.json",
+          "charts/log-debug-context/Chart.yaml",
+          "charts/log-debug-context/values.yaml",
+          "charts/log-debug-context/values-local-minikube-sidecar.yaml",
+          "charts/log-debug-context/templates/journey-fixtures.yaml",
+          "charts/log-debug-context/templates/service.yaml",
+          "service/src/main/java/io/harness/logcontext/LogDebugContextApplication.java",
+          "service/src/main/java/io/harness/logcontext/mcp/OidcServiceAccountJwtValidator.java",
+          "tests/k8s/run-journey.sh"
+        ],
+        "runs": [
+          {
+            "cmd": "DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment",
+            "exit": 0,
+            "result": "Authorized local-minikube namespace log-debug-journey-5b9bd44-1788059125-44732: auth 401/401/200, exact correlation, redaction clean, record/byte/interval/deadline bounds green, total 32077ms, diagnostics captured, and independent namespace/release/RBAC absence."
+          },
+          {
+            "cmd": "node harness/skills/business-journey/scripts/check-business-journey.mjs --environment business-environment.json --oracles business-oracles",
+            "exit": 0,
+            "result": "Business journey contract green with one oracle and zero findings."
+          },
+          {
+            "cmd": "env -u JAVA_HOME node harness/init.mjs",
+            "exit": 0,
+            "result": "Standard Maven verification and baseline green after local minikube and Colima were stopped."
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "covered",
+          "cleanup": "covered",
+          "errorPath": "covered",
+          "concurrency": "covered",
+          "realBoundary": "covered",
+          "discrimination": "The run uses a unique namespace-derived target and decoy run ID, so a collector that loses correlation, admits the decoy, leaks either unique secret, accepts missing/wrong-audience auth, exceeds the fixed budgets, or leaves the exact Helm/RBAC identity fails a distinct assertion. A service that fabricated records directly from query arguments could still mimic the public response without indexing; the checker should use the preserved collector/service diagnostics or an implementation-independent index observation only as diagnosis, not as the passing oracle."
+        },
+        "residualUnknowns": [
+          "Isolation was exercised with unique namespace-derived target and decoy run IDs in one deployment; two simultaneous namespace deployments were not run in this bounded iteration.",
+          "The journey proves retry-to-convergence after one collector export retry, but does not inject a service/OpenSearch outage and prove post-recovery replay.",
+          "HI-084's canonical cleanup-stuck-release demo/docs/upgrade-context work remains a separate harness-layer issue; no stale project identity remained to exercise that mode this session."
+        ]
+      },
+      "checkerNotes": "APPROVE: the admitted Level-3 run is independently evidenced in report log-debug-journey-5b9bd44-1788059125-44732 (exit 0; 25,864ms deployment/readiness, 5,106ms scenario, 3,000ms event wait, one retry, 32,077ms total). It deployed the Deployment-owned opted-in emitter and sidecar, then exercised only authenticated MCP: missing and wrong-audience JWTs returned 401 and a valid audience JWT returned 200; exact target correlation appeared while decoy and both unique secrets did not; response bounds were <=200 records, <=256KiB, <=15m and no pagination. The report’s resources and collector/service diagnostics corroborate the real pod/service boundary, and the integration tester independently verified the run namespace, release, ClusterRole/Binding and labelled namespaces absent before stopping the local cluster. The redaction mutant still exits 1; the independent MCP HTTP contract replay proves the stalled-query deadline discriminator; ./harness/init.sh is green. HI-084 remains open and separate: it concerns canonical proof of interrupted stuck-release recovery, not a leaked identity in this clean run.",
       "attempts": 0,
-      "maxAttempts": 3
+      "maxAttempts": 3,
+      "checkerVerdict": {
+        "status": "approve",
+        "basis": "declared-contract",
+        "violatedRef": "",
+        "counterexample": "",
+        "reproduction": "Persisted independent Level-3 run: DEPLOY_TIMEOUT_S=300 HEALTH_TIMEOUT_S=120 TEST_TIMEOUT_S=240 NAMESPACE_PREFIX=log-debug-journey REPORT_ROOT=trace/k8s-test harness/tools/k8s-test-env.sh --services ../services.manifest.json -- ../tests/k8s/run-journey.sh --inside-environment -> exit 0, report log-debug-journey-5b9bd44-1788059125-44732. Checker replayed ./harness/init.sh -> exit 0; tests/k8s/run-journey.sh --mutant-check-leaked-message-secret -> exit 1; and ./mvnw -q -Poracle-test -Dtest=McpHttpContractIT test under JDK 21 -> exit 0.",
+        "observed": "The persisted run records 401/401/200 authentication discrimination, exact target-only correlation, unique-message and attribute-secret redaction, bounded response/window/query behavior, and 32,077ms total execution. It ran a real 2/2 emitter-sidecar Deployment, service, OpenSearch StatefulSet and MCP client; post-run independent reads found no run namespace, release, collector ClusterRole/Binding or labelled namespace. The mutant fails on its leaked secret; McpHttpContractIT's stalled IndexPort test returns a deadline error within 5.75 seconds.",
+        "exitCriterion": "Satisfied: an isolated real-cluster public journey met authenticated MCP, correlation, redaction, response-bound and cleanup behavior; its redaction and deadline falsifiers retain independent force; the standard baseline is green."
+      }
     },
     {
       "id": "feat-013",
@@ -1070,7 +1250,7 @@
           "result": "Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, exit 0"
         }
       ],
-      "checkerNotes": "FOLLOW-UP: reconcile the v1 workload source with the journey's bare-Pod emitter — k8s.deployment.name (collector-daemonset.yaml:145) resolves blank for a Deployment-less Pod, so feat-011's journey may emit an empty workload field; the planner should make that explicit or document the emitter's owner.\n\nAPPROVE: chart ConfigMap filter is drop-where-true (!= \"true\"/!= \"test\", mirroring collector/otel-collector.yaml); transform flattens identity (namespace/pod/container/workload), maps message→body and test.run_id from the nested parsed attributes (not body), and maps workload from concrete k8s.deployment.name (not the non-emitted k8s.workload.name). All three falsifier clauses are discriminated — my own falsification (flip chart != \"true\" → == \"true\") went red (1 failure, exact drop-where-true assertion, exit 1), then restored byte-identical.",
+      "checkerNotes": "RESOLVED FOLLOW-UP: feat-011 now explicitly requires a Deployment-owned journey emitter, so k8s.deployment.name supplies the required non-blank v1 workload field; the emitter fixture remains owned by feat-011's live journey proof. See DECISIONS.md.\n\nAPPROVE: chart ConfigMap filter is drop-where-true (!= \"true\"/!= \"test\", mirroring collector/otel-collector.yaml); transform flattens identity (namespace/pod/container/workload), maps message→body and test.run_id from the nested parsed attributes (not body), and maps workload from concrete k8s.deployment.name (not the non-emitted k8s.workload.name). All three falsifier clauses are discriminated — my own falsification (flip chart != \"true\" → == \"true\") went red (1 failure, exact drop-where-true assertion, exit 1), then restored byte-identical.",
       "checkerVerdict": {
         "status": "approve",
         "basis": "declared-contract",

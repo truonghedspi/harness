@@ -47,7 +47,7 @@ function checkRuntime(runtime) {
 }
 
 function invocation(runtime, agent, message) {
-  if (runtime === "kiro") return ["kiro-cli", ["chat", "--agent", agent, "--no-interactive", "--trust-all-tools", message]];
+  if (runtime === "kiro") return [process.execPath, [path.join(ROOT, "tools", "kiro-acp-dispatch.mjs"), agent, message]];
   if (runtime === "claude") return ["claude", ["-p", message, "--agent", agent, "--dangerously-skip-permissions"]];
   return [process.execPath, [path.join(ROOT, "tools", "codex-dispatch.mjs"), agent, message]];
 }
@@ -100,6 +100,20 @@ function sliceBrief(feature, slice) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const argv = process.argv.slice(2);
   const flag = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : null; };
+  // Health check without dispatching: prove the selected runtime can actually be driven before a
+  // run spends a turn on it. This is the pre-step gate — a broken dispatcher is a blocker, not a
+  // reason for the orchestrator to silently become every role itself (generator/evaluator, L13).
+  if (argv.includes("--check")) {
+    try {
+      const runtime = selectRuntime();
+      checkRuntime(runtime);
+      console.log(`dispatch ok: ${runtime}`);
+      process.exit(0);
+    } catch (error) {
+      console.error(`dispatch broken: ${error.message}`);
+      process.exit(1);
+    }
+  }
   const feature = flag("--feature"), slice = flag("--slice");
   const positional = argv.filter((value, index) =>
     !value.startsWith("--") && argv[index - 1] !== "--feature" && argv[index - 1] !== "--slice");

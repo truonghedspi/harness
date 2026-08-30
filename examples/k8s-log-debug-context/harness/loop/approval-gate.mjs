@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-// approval-gate.mjs — the human-in-the-loop node, placed on the one edge nobody was judging.
+// approval-gate.mjs — MANUAL human judgement before a terminal `done` claim. The autonomous loop
+// no longer auto-invokes this gate: the checker owns final acceptance and the loop does not run
+// `verify-harness --promote`. Run this by hand when a claim deserves a human hold.
 //
-// `verify-harness --promote` flips a feature to `done` when its command re-runs clean. That is the
-// right mechanical rule and the wrong place to stop: the command exiting 0 proves the test passes,
-// not that the behaviour claimed is the behaviour wanted. review-digest measured the consequence —
-// features promoted with nobody judging the claim were the largest unreviewed block in the repo.
+// `verify-harness --promote` (run manually) flips a feature to `done` when its command re-runs
+// clean. That is the right mechanical rule and the wrong place to stop: the command exiting 0 proves
+// the test passes, not that the behaviour claimed is the behaviour wanted. review-digest measured
+// the consequence — features promoted with nobody judging the claim were the largest unreviewed
+// block in the repo.
 //
-// So this gate sits BEFORE promote, and it is selective. Blocking every promotion on a human
+// So, run manually, this gate sits BEFORE promote, and it is selective. Blocking every promotion on a human
 // destroys headless autonomy and trains the human to rubber-stamp; blocking none is how a wrong
 // `done` becomes permanent. It stops only when the batch contains judgement actually owed —
 // reusing review-digest's ranking rather than inventing a second opinion of what matters.
