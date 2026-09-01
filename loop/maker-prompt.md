@@ -86,18 +86,29 @@ Every slice landed. You are one agent, deliberately — this is the fan-in.
 
 ## Lead — the normal iteration
 
-0. Read `memory/maker/MEMORY.md` first. If any line looks relevant to the feature you're about to
-   pick, open that entry file before starting — it exists specifically so you don't re-learn the
-   same lesson a second time (`docs/reference/agent-memory.md` has the why).
-   If the index has grown too large to skim, query it instead:
+0. **Parse the dispatch brief first.** If your dispatch message contains a `## Dispatch Brief`
+   JSON block, parse it — it carries the feature entry, baseline state, checker notes, diagnosis,
+   recent changes, and mustRead paths. **Do not re-read `feature_list.json` for fields the brief
+   already provides.** Read only the paths in `brief.mustRead`. If the brief is missing or
+   malformed (no JSON block, or schema is not `dispatch-brief/1`), fall back to the steps below
+   as before — read `feature_list.json`, check baseline, etc.
+
+   Then read `memory/maker/MEMORY.md`. If any line looks relevant to the feature in the brief
+   (or the feature you're about to pick), open that entry file before starting — it exists
+   specifically so you don't re-learn the same lesson a second time (`docs/reference/agent-memory.md`
+   has the why). If the index has grown too large to skim, query it instead:
    `node tools/memory-query.mjs --target . --agent maker --grep <keyword>`.
 1. Follow the Startup Workflow in `AGENTS.md`, beginning with `./init.sh`.
-2. If the baseline is red, your entire iteration is repairing it. Stop once it is green. The
-   router hands you that repair only after a diagnosis is on record for the exact failure — read
-   `loop/diagnosis/<key>.json` and repair the cause it names, not the first thing that looks wrong.
-3. Otherwise pick the single highest-priority eligible feature. `feature_list.digest.md` (loaded
-   for you) lists every feature with its status, dependencies and an **ELIGIBLE** marker; open
-   `feature_list.json` for the full entry of the one you pick:
+2. If the baseline is red (or `brief.baseline.status === "red"`), your entire iteration is
+   repairing it. Stop once it is green. The router hands you that repair only after a diagnosis
+   is on record for the exact failure — read `loop/diagnosis/<key>.json` (or `brief.diagnosis`
+   if present) and repair the cause it names, not the first thing that looks wrong.
+3. Otherwise pick the single highest-priority eligible feature. If the brief provides
+   `brief.feature`, that IS your feature — the router already selected it. Read only the full
+   entry with `node tools/feature.mjs <id>` to confirm. Without a brief, use
+   `feature_list.digest.md` (loaded for you) which lists every feature with its status,
+   dependencies and an **ELIGIBLE** marker; open `feature_list.json` for the full entry of the
+   one you pick:
    - a feature already `in-progress`/`active`, else
    - the first `not-started` feature whose dependencies are `done` or have a complete
      `readyForCheck: true` handoff. A handoff unlocks delivery order; it is not checker approval.

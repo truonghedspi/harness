@@ -2,6 +2,26 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-09-01-dispatch-brief",
+      "summary": "run-loop.mjs builds a typed JSON dispatch brief (dispatch-brief/1) before each agent dispatch, replacing the one-sentence prose headless message with structured feature state, baseline, diagnosis, checker notes, and mustRead paths.",
+      "why": "Worker agents re-explored ~11 files per dispatch to reconstruct information the loop already held. The brief eliminates that re-exploration by passing the information as validated JSON across the dispatch boundary.",
+      "targetImpact": "The brief is optional: dispatch-brief.mjs is dynamically imported and the loop falls back to the old prose message if it is missing or throws. Worker prompts now parse the brief first but degrade gracefully. No behavioral change for targets that do not adopt the file.",
+      "paths": [
+        "tools/dispatch-brief.mjs",
+        "loop/run-loop.mjs",
+        "loop/maker-prompt.md",
+        "loop/checker-prompt.md"
+      ],
+      "mergeActions": [
+        "Refresh run-loop.mjs, maker-prompt.md, checker-prompt.md; add tools/dispatch-brief.mjs if not present."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh (dynamic import fallback: brief absent in scaffold, demo still green)",
+        "node tools/dispatch-brief.mjs --json (produces valid brief from current router output)",
+        "node tools/dispatch-brief.mjs --validate <file> (validates a saved brief)"
+      ]
+    },
+    {
       "id": "HUC-2026-08-30-k8s-empty-values",
       "summary": "k8s-test-env.sh accepts registry services with no Helm values override while still applying explicit values to those that have them.",
       "why": "HI-083: the values-array support initialized an empty Bash array, then expanded ${HELM_VALUE_ARGS[*]} under set -u while logging a service with no values. Mixed registries therefore failed before the first Helm install, even though the no-values case is the normal default.",

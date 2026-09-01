@@ -9,6 +9,16 @@ import { fileURLToPath } from "node:url";
 import { decide as baselineDecision, inputsDigest } from "./baseline-cache.mjs";
 import { dispatch, selectRuntime } from "./dispatch.mjs";
 
+// Dynamic import: dispatch-brief.mjs is optional. A scaffold that has not been upgraded, or a
+// project that chose not to adopt it, must not fail on a missing file — the fallback prose message
+// is still correct, just less informative.
+let buildBrief, validateBrief, briefToMessage;
+try {
+  ({ buildBrief, validateBrief, briefToMessage } = await import("../tools/dispatch-brief.mjs"));
+} catch {
+  // dispatch-brief.mjs is not present — every dispatch will use the prose fallback.
+}
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 process.chdir(ROOT);
 const args = process.argv.slice(2);
@@ -213,10 +223,26 @@ async function main() {
     }
     if (next.kind === "agent") {
       markCurrent(next, iteration);
-      const headless = `You are running HEADLESS under node loop/run-loop.mjs — no human can answer questions, so commit directly instead of asking. The router selected you because: ${next.why}. Run exactly one iteration per your instructions and loop/goal.md. Honor every stop condition.`;
+      // Build a typed dispatch brief so the worker arrives knowing the feature state, baseline,
+      // checker notes, diagnosis, and recent changes — without re-reading feature_list.json or
+      // grepping for context (references/context-contract-research.md).
+      const PROSE_FALLBACK = `You are running HEADLESS under node loop/run-loop.mjs — no human can answer questions, so commit directly instead of asking. The router selected you because: ${next.why}. Run exactly one iteration per your instructions and loop/goal.md. Honor every stop condition.`;
+      let message;
+      if (buildBrief) {
+        try {
+          const brief = buildBrief(next, { root: ROOT });
+          validateBrief(brief);
+          message = briefToMessage(brief);
+        } catch (e) {
+          console.error(`dispatch-brief: ${e.message} — falling back to prose message`);
+          message = PROSE_FALLBACK;
+        }
+      } else {
+        message = PROSE_FALLBACK;
+      }
       const code = next.mode === "slice-fanout"
-        ? await fanOut(next, headless, runtime)
-        : await dispatch(next.node, headless, { runtime });
+        ? await fanOut(next, message, runtime)
+        : await dispatch(next.node, message, { runtime });
       markCurrent(next, iteration, true);
       if (code !== 0) return code;
     }

@@ -22,6 +22,12 @@ off again.
 The baseline was already gated this iteration (`run-loop.mjs` runs `node init.mjs` after you); only
 re-run `./init.sh` yourself if something you saw gives you a concrete reason to doubt it.
 
+**Parse the dispatch brief first.** If your dispatch message contains a `## Dispatch Brief` JSON
+block (schema `dispatch-brief/1`), parse it — it carries the baseline state, recent changes, and
+session context. The brief does NOT replace reading each feature's full entry: you must still
+open `feature_list.json` for the complete `evidence`, `checkerNotes`, and `reviewPacket` of every
+feature you check. The brief tells you WHERE the iteration is; the feature entry is WHAT you judge.
+
 `feature_list.digest.md` (loaded for you) shows every feature's status at a glance; open
 `feature_list.json` for the full entry of each one you are checking.
 
