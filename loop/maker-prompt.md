@@ -40,9 +40,12 @@ This turn is **not** a repair. Do not edit product code, tests, or `feature_list
    until one case reproduces it; take the repo's own code out of the picture and see whether it
    still happens. Two minutes of this beats an hour of confident reading.
 4. Write `loop/diagnosis/<key>.json` — the router prints the exact path, and
-   `loop/diagnosis/README.md` has the shape. `ruledOut` must name the reading your spike killed and
-   what killed it; a file with a cause and nothing ruled out is the first guess written down, and
-   the router rejects it.
+   `loop/diagnosis/README.md` has the shape. The dispatch brief also prints the exact schema when
+   `mode: diagnose`. The file MUST have `"schema": "diagnosis/1"` and `"key"` matching the router's
+   key (e.g. `feat-sync#1`). `ruledOut` must name the reading your spike killed and what killed it;
+   a file with a cause and nothing ruled out is the first guess written down, and the router rejects
+   it. Required fields: `schema`, `key`, `symptom`, `cause`, `provedBy.cmd`, `ruledOut[].hypothesis`,
+   `ruledOut[].killedBy`.
 5. `node tools/trace.mjs maker diagnosed "<key>: <cause> [<layer>]"`, commit, stop. The router
    dispatches the repair next.
 
@@ -191,7 +194,12 @@ Every slice landed. You are one agent, deliberately — this is the fan-in.
    **If a `test-designer`/`test-implementer` already authored this feature's test, do not rewrite
    it.** Make the code satisfy it. Changing the test to fit your implementation destroys the one
    thing that made it an independent oracle (`docs/reference/test-authoring.md`).
-7. Record honest evidence in the feature's `evidence` field. A feature-level review claim needs
+7. **Batch your `feature_list.json` writes.** Steps 7–9 update `evidence`, `reviewPacket`,
+   `readyForCheck`, and sometimes `verification` — all in one file. Read `feature_list.json` once,
+   prepare all fields, write once. Each read-modify-write cycle is a file read the telemetry
+   records; five cycles for five fields is waste the brief was built to eliminate.
+
+   Record honest evidence in the feature's `evidence` field. A feature-level review claim needs
    **the red run and the final green run** — as a LIST, not a paragraph:
    `[{"date":"2026-08-12","run":"red","cmd":"./mvnw -q test -Dtest=X","result":"1 failure: expected 3 got 0"},
      {"date":"2026-08-12","run":"green","cmd":"./mvnw -q test -Dtest=X","result":"1 test passed"}]`

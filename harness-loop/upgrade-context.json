@@ -2,6 +2,23 @@
   "schema": "harness-upgrade-context/1",
   "entries": [
     {
+      "id": "HUC-2026-09-01-dispatch-brief-quality",
+      "summary": "Dispatch brief truyền diagnosis schema cho maker khi mode=diagnose, cảnh báo verification command phụ thuộc tuần hoàn, và maker prompt hướng dẫn batch writes cho feature_list.json.",
+      "why": "Đo telemetry cho thấy: (1) maker viết sai diagnosis schema vì brief không truyền format cần thiết, (2) feature_list.json bị đọc 12 lần trong một iteration vì maker sửa từng field riêng lẻ, (3) verification command ghép verify-harness tạo phụ thuộc tuần hoàn không được phát hiện sớm.",
+      "targetImpact": "briefToMessage() thêm diagnosis schema block khi mode=diagnose. buildBrief() thêm warnings[] cho compound verification commands. maker-prompt.md step 7 hướng dẫn batch writes. Không breaking change.",
+      "paths": [
+        "tools/dispatch-brief.mjs",
+        "loop/maker-prompt.md"
+      ],
+      "mergeActions": [
+        "Refresh tools/dispatch-brief.mjs và loop/maker-prompt.md."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node -e \"import('./tools/dispatch-brief.mjs').then(m => { const msg = m.briefToMessage({schema:'dispatch-brief/1',node:'maker',why:'t',mode:'diagnose',baseline:{status:'green'}}); console.log(msg.includes('diagnosis/1') ? 'PASS' : 'FAIL') })\""
+      ]
+    },
+    {
       "id": "HUC-2026-09-01-dispatch-brief",
       "summary": "run-loop.mjs builds a typed JSON dispatch brief (dispatch-brief/1) before each agent dispatch, replacing the one-sentence prose headless message with structured feature state, baseline, diagnosis, checker notes, and mustRead paths.",
       "why": "Worker agents re-explored ~11 files per dispatch to reconstruct information the loop already held. The brief eliminates that re-exploration by passing the information as validated JSON across the dispatch boundary.",

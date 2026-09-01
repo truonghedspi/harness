@@ -174,6 +174,25 @@ function mustReadPaths(routerOutput, root) {
   return paths.slice(0, MAX_MUST_READ);
 }
 
+function verificationWarnings(routerOutput, root) {
+  const warnings = [];
+  const featureId = routerOutput.feature;
+  if (!featureId) return warnings;
+  const fl = readJSON(path.join(root, "feature_list.json"));
+  if (!fl) return warnings;
+  const f = (fl.features || []).find((x) => x.id === featureId);
+  if (!f?.verification) return warnings;
+  const cmd = String(f.verification);
+  if (/verify-harness/.test(cmd) && /&&/.test(cmd)) {
+    warnings.push(
+      `verification command ghép verify-harness với lệnh khác qua &&. ` +
+      `verify-harness kiểm tra trạng thái toàn repo (bao gồm chính feature này), ` +
+      `có thể tạo phụ thuộc tuần hoàn. Cân nhắc tách thành lệnh chỉ kiểm tra behavior của feature.`
+    );
+  }
+  return warnings;
+}
+
 export function buildBrief(routerOutput, { root = process.cwd() } = {}) {
   const brief = {
     schema: SCHEMA_VERSION,
@@ -187,6 +206,7 @@ export function buildBrief(routerOutput, { root = process.cwd() } = {}) {
     recentChanges: recentChanges(root),
     mustRead: mustReadPaths(routerOutput, root),
     sessionContext: sessionContext(root),
+    warnings: verificationWarnings(routerOutput, root),
   };
 
   // Enforce byte budget — shed least-important fields first
@@ -203,6 +223,7 @@ export function buildBrief(routerOutput, { root = process.cwd() } = {}) {
     brief.feature.evidence = brief.feature.evidence.slice(-1);
     json = JSON.stringify(brief);
   }
+  if (!brief.warnings?.length) delete brief.warnings;
 
   return brief;
 }
@@ -225,6 +246,32 @@ export function briefToMessage(brief, { headless = true } = {}) {
     "state, checker notes, diagnosis, and recent changes — do not re-read feature_list.json for " +
     "these fields. Read only the paths in `mustRead`, then proceed with your instructions and " +
     "loop/goal.md. Honor every stop condition.");
+
+  if (brief.mode === "diagnose") {
+    lines.push("");
+    lines.push("### Diagnosis schema");
+    lines.push("Write `loop/diagnosis/<key>.json` where `<key>` is from the router path above. " +
+      "The file MUST match schema `diagnosis/1` — the router rejects anything else. Required fields:");
+    lines.push("```json");
+    lines.push(JSON.stringify({
+      schema: "diagnosis/1",
+      key: "<featureId>#<attempts>",
+      symptom: "<what was observed — the failure output, not your interpretation>",
+      cause: "<the one explanation that survived>",
+      layer: "<project | harness | host | external>",
+      provedBy: { cmd: "<the spike command you ran>", exit: "<exit code>", result: "<output>" },
+      ruledOut: [{ hypothesis: "<competing explanation>", killedBy: "<what disproved it>" }],
+    }, null, 2));
+    lines.push("```");
+    lines.push("`ruledOut` must have at least one entry. See `loop/diagnosis/README.md` for details.");
+  }
+
+  if (brief.warnings?.length) {
+    lines.push("");
+    lines.push("### Warnings");
+    for (const w of brief.warnings) lines.push(`- ${w}`);
+  }
+
   return lines.join("\n");
 }
 
