@@ -1,190 +1,25 @@
-# Workflow diagrams
+# Workflow diagrams — the map
 
-Visual companions to the "Lifecycle: create → verify → improve" and "Setup workflow" sections of
-`SKILL.md`. Nothing here is new information — each diagram is a picture of a process already
-described in prose elsewhere in this skill; read the linked section for the reasoning, use the
-diagram to get oriented fast or to hand to someone who hasn't read the prose yet.
+Visual companions to `SKILL.md`. Nothing in these files is new information: each diagram is a
+picture of a process already described in prose elsewhere in this skill. Read the linked section
+for the reasoning; use the diagram to get oriented fast, or to hand to someone who has not read the
+prose yet.
 
-## 1. End-to-end: requirement → DONE
+Three workflows, split because they have three different readers and three different moments:
 
-One pass through Floor 1 (harness) then Floor 2 (loop), matching `SKILL.md`'s Setup workflow.
-The **layer** labels are the ones `loop/route.mjs` returns — a rollback goes back to the layer the
-defect came from, not one step back (`graph.md`).
+| Workflow | Covers | Read it when |
+|---|---|---|
+| [workflow-onboarding.md](workflow-onboarding.md) | Floor 1: a requirement or an existing repo → a green harness. Adoption, scaffolding, the human interview, multi-service init, the gates | you are standing a harness up, or adopting one into a repo that already has history |
+| [workflow-development.md](workflow-development.md) | Floor 2: a green harness → DONE. Design, decomposition, oracle, implementation, the per-iteration sequence, the K8s specialization | you are running the loop, or trying to work out why the router picked what it picked |
+| [workflow-improvement.md](workflow-improvement.md) | The loop that repairs the **skill**: three signal producers, one ranked backlog, and a closing rule nothing can fake | a gate, a trace or a person says the harness itself is wrong |
 
-```mermaid
-flowchart TD
-    HC["root/harness\nstate · tools · prompts · docs\ninstallation checksum"] -. "one interface: harness/cli.mjs" .-> O
-    KS["Kiro global steering\nalways-loaded activation bridges"] -. "read applicable user skill" .-> HP
-    HP["user-scope human-presenter\nreader task · provenance · uncertainty\nsmallest useful representation"] -. "audits substantive human-facing output\nwithout becoming a workflow node" .-> A
-    A["User requirement"] --> O["orchestrator\nroute → native spawn one named sub-agent\nafter every change: done/total/%/remaining\nscript fallback for headless/CI"]
-    O --> ADOPT{"Existing repo\nwith history?"}
-    ADOPT -- yes --> EH{"existing harness\nmachinery?"}
-    EH -- no --> ON["harness-onboarder\nsurvey → ask → scaffold →\nadoption-baseline --record"]
-    EH -- yes --> HU["harness-upgrade skill\ndry-run → ownership plan → human merge\n→ regenerate → verify"]
-    HU --> HI
-    ADOPT -- no --> B["setup-harness-loop.mjs"]
-    ON --> HI
-    B --> HI["current agent + human-interview\nLAYER: spec\nfind evidence → ask → receipt\nno context switch"]
-    KS -. "only on a human-owned gap" .-> HI
-    IIR["init-integration-project\ncheap inventory → evidence-rich\ntyped questions"] --> HR{"human answers complete\nand digest-current?"}
-    HR -- no --> IIR
-    HR -- yes --> IIF["finalize-integration-init\nvalidate → registry + environment\n+ journey oracle + risk portfolio"]
-    IIF --> B
-    B --> CP
-    CS["collect-services\nwide inventory + rule provenance"] --> CP["context-plan\nactive feature touches → scoped rules"]
-    CP --> AC["agent-context\nload scoped rules + fresh feature packet\n+ mustRead originals + receipt"]
-    AC -. scoped context at dispatch .-> DS
-    AC -. scoped context at dispatch .-> MK
-    MK -. "PostToolUse (redacted)" .-> TEL["tool-events.jsonl\ndirect reads/searches ≠ shell inference"]
-    TEL --> RR["run-report\nduplicate reads · packet rediscovery\n+ coverage declaration"]
-    HI --> DS["design-facilitator\nLAYER: design\ncomponents · cited claims · live assumptions\n(HTML examples excluded)\n+ observable seam & invariants per component\n+ self-applied critique, never a verdict"]
-    CK -- "APPROVE + FOLLOW-UP" --> FP
-    DS --> DA{"human writes\nloop/design-approval.json\nmatching the design digest?"}
-    DA -- no --> DS
-    DA -- yes --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
-    IIF --> QS["quality-strategy\nCapability–Attribute risk → oracle\nscope ≠ execution size"]
-    QS --> FP
-    FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]
-    TD --> TI["test-implementer\nconditions → FAILING test\nred observed and recorded"]
-    TI --> MK["maker\nLAYER: implementation\nmakes the existing oracle pass"]
-    MK --> GATES{"init.sh green ·\ncheck-coverage 13/13 ·\nverify-harness 0 blockers"}
-    GATES -- no --> FIX["layer:project → fix the target\nlayer:harness → fix the SKILL"]
-    FIX --> GATES
-    GATES -- yes --> LOOP["node loop/run-loop.mjs N\nrouted by loop/route.mjs"]
-    LOOP --> K8S{"verification invokes Kubernetes tooling\nor a tests/k8s/ journey?"}
-    K8S -- yes --> KT["k8s-integration-tester\nLAYER: integration (Level 3)\nsame test-authoring rules;\nreads the code, so its independence\nis the boundary, not blindness"]
-    KT --> BJ{"business outcome spans\nmultiple deployed services?"}
-    BJ -- yes --> BJC["business-journey capability (Level 4)\npublic driver · per-run isolation\nconvergence + fault/idempotency oracle\nredacted journey metrics"]
-    BJC --> STOP
-    BJ -- no --> STOP
-    K8S -- no --> STOP{"loop/goal.md\nstop condition met?"}
-    STOP -- no --> LOOP
-    STOP -- yes --> I["DONE"]
-    classDef oracle fill:#eef7ee,stroke:#4a7
-    class TD,TI,KT oracle
-```
+## Keeping these current
 
-**Why the oracle sits between decomposition and implementation, and why half of it moved up into
-design.** The same agent writing the code and the test can be wrong in both directions and still go
-green. The defence is that the oracle's author has not read the implementation — which only holds
-if the test exists *first*, so `route.mjs` refuses to make a build feature eligible until its prove
-feature has a recorded red run.
+A diagram that lags the code is worse than no diagram: it is read as authoritative.
+`node scripts/check-workflow-diagram.mjs` is the mechanical check —
+it reads `agents.manifest.json` and `loop/route.mjs --rules` and fails when a real node, layer or
+named file is missing from every diagram. `verify-harness.mjs` runs it as the `workflow-diagram`
+gate, so the picture cannot silently fall behind the routing table it claims to draw.
 
-But *case-level* test design needs a unit and an interface, which do not exist before decomposition,
-while *"how would we know this works"* — the observable seam and the invariants — is a property of
-the design itself. A component whose behaviour can only be seen by reaching inside it is a boundary
-defect, and discovering that at test-writing time forces the choice between a bad test and a
-redesign; the bad test always wins. So the design-facilitator states seam + invariants, the planner derives
-each `falsifier` from them, and the test-designer builds cases on top
-([test-authoring.md](test-authoring.md)).
-
-Measured symptom of the version without this: on the dogfood project **every** unfinished feature
-was missing its `falsifier` — not because the planner was lazy, but because nobody upstream had
-produced an invariant to derive one from.
-
-## 2. Inside one loop iteration — generator/evaluator separation (Lesson 9/13)
-
-The maker never grades itself; only the checker (re-running evidence independently) may set
-`status: done`. The separation is also temporal: makers finish and hand off the whole delivery
-before the checker runs one final acceptance batch. See `references/loop-engineering.md`'s
-"Generator/evaluator separation" section for why.
-
-One iteration may be several makers at once, over disjoint file sets inside one feature — but never
-several *features*, and never a parallel test run. `references/graph.md` states the fan-out and
-fan-in rules; the short version is that the verification is what makes a claim, and a claim is made
-once, by one agent.
-
-```mermaid
-sequenceDiagram
-    participant RL as run-loop.mjs
-    participant M as maker agent
-    participant FS as feature_list.json (disk)
-    participant C as checker agent
-
-    RL->>RL: all features done/blocked-with-reason?<br/>→ exit early, no LLM session spawned
-    RL->>M: ACP initialize → session/new → session/prompt<br/>(kiro-cli acp --agent maker)
-    M->>FS: pick first not-started feature<br/>whose dependencies are done or handed off<br/>(skip NEEDS RE-PLAN and k8s-specialized ones)
-    alt the step has 2+ independent file sets
-        M->>FS: write loop/work-split/<feat>.json, then stop
-        RL->>FS: tools/work-split.mjs validate —<br/>slices disjoint? briefs self-contained?<br/>fan-in runs the feature verification?
-        RL->>M: mode slice-fanout: one maker per slice,<br/>each confined to its paths by guard-write.mjs
-        RL->>M: mode integrate: ONE maker runs the tests<br/>(the verification never fans out)
-    else one file set
-        M->>M: implement one bounded step, run the<br/>most relevant verification for real
-    end
-    alt feature-level behavior is incomplete
-        M->>FS: checkpoint evidence/progress,<br/>readyForCheck=false
-        RL->>RL: next iteration routes the<br/>active feature to maker
-    else complete behavior + green verification + complete evidence
-        M->>FS: reviewPacket + readyForCheck=true<br/>(cannot write status=done)
-        RL->>RL: continue delivery while any<br/>non-blocked open feature is not handed off
-        alt every remaining feature handed off
-        RL->>FS: review-contract.mjs --ready<br/>admits the complete final batch
-        RL->>C: one final ACP session/prompt<br/>(kiro-cli acp --agent checker)
-        C->>FS: review every readyForCheck feature<br/>as one integrated delivery
-        C->>C: semantic review — behavior actually met,<br/>no scope bleed; falsify, don't confirm
-        alt claim survives
-            C->>FS: status=done
-        else evidence fails or scope drifted
-            C->>FS: attempts += 1; status=in-progress<br/>+ checkerNotes (or blocked at maxAttempts)
-        else feature itself is mis-cut
-            C->>FS: checkerNotes = "NEEDS RE-PLAN: ..."<br/>→ routes to feature-planner, not the maker
-        end
-        end
-    end
-    RL->>FS: record baseline-state.json<br/>with outcome + evidence digest
-    alt baseline red and new
-        RL->>M: bounded baseline repair turn
-    else same red digest after repair
-        RL->>H: stop — needs human
-    end
-```
-
-## 3. `k8s-integration-tester`'s own workflow (opt-in, `templates/k8s/`)
-
-A specialized maker for K8s Level-3 features — same "cannot set status=done" rule as the maker in
-diagram 2, plus one extra boundary: it diagnoses, `tools/k8s-test-env.sh` is the only thing that
-ever deploys or tears down. See `references/k8s-integration-testing.md` for the full reasoning,
-including the resource-contention and kubeconfig-wipe gotchas this diagram's Step 0/7 exist for.
-
-```mermaid
-flowchart TD
-    S0{"Step 0: kubectl cluster-info\nreachable?"}
-    S0 -- no, local minikube/kind --> S0a["start it myself\n(host-level op, not a K8s API write)"]
-    S0 -- no, shared/remote --> S0b["report the connection error\nand stop — not my cluster to provision"]
-    S0a --> S1
-    S0 -- yes --> S1["Step 1-2: read testing-standards.md Level 3,\npoint k8s-test-env.sh at the real chart\n+ explicit manifest values files"]
-    S1 --> S2["Step 3: write a real test exercising\nthe deployed Service over the network"]
-    S2 --> S3["Step 4: run it —\ntools/k8s-test-env.sh chart -- test-cmd"]
-    S3 --> SR{"interrupted teardown left an exact\nlabelled namespace + uninstalling release?"}
-    SR -- yes, human approved exact identity --> SRS["script cleanup-stuck-release:\npin context + live identity\nretry uninstall → delete namespace → verify absent"]
-    SRS --> S3
-    SR -- no --> LR{"blocked by pre-fix Helm orphan?"}
-    LR -- yes, human approved exact identity --> LRR["script recover-orphan:\npin context + annotations + RBAC allowlist\nadopt → uninstall → verify absent"]
-    LRR --> S3
-    LR -- no --> S4{"passed?"}
-    S4 -- no --> S5["Step 5: diagnose — events, then separate\ninit/app container logs, then read-only MCP"]
-    S5 --> S2
-    S4 -- yes --> S6["Step 6: wire the confirmed command into\ntesting-standards.md's Level 3"]
-    S6 --> S7["Step 7: uninstall every attempted release,\ndelete the namespace, then stop the local cluster\n(if local) — don't starve the JVM/other suites"]
-    S7 --> S8["complete journey: record evidence, readyForCheck=true\npartial checkpoint: leave false; checker is not dispatched"]
-```
-
-## 4. The self-improvement loop (`harness-loop.sh`) — fixes the skill, not just the target
-
-Runs alongside the project loop; every finding is routed by `layer`, and closing an issue
-requires a real re-verify, never a claim. See `references/harness-improvement-loop.md` for the
-full layer-classification contract this diagram implements.
-
-```mermaid
-flowchart TD
-    V["verify-harness.mjs"] --> S{"green\n(0 blockers)?"}
-    S -- yes --> Done["harness ready —\nstart/continue the project loop"]
-    S -- no --> Sig{"canonical state seen before?\nfindings + evidence + features + workspace"}
-    Sig -- yes --> Stop["STOP — escalate to a human\n(no-op or A-B-A cycle)"]
-    Sig -- no --> L{"finding layer?"}
-    L -- harness --> HI["harness-issue.mjs import → issueId\nimprove-harness.mjs --id issueId\ndispatch one immutable repair objective\nfix templates/tree/** or scripts/*.mjs"]
-    L -- project --> PJ["dispatch node loop/run-loop.mjs 1\nfix lands in the target repo"]
-    HI --> V
-    PJ --> V
-```
+What the checker cannot see is whether an *arrow* is still right. That stays a human's job, and the
+cheapest moment to do it is the same commit that changed the workflow.

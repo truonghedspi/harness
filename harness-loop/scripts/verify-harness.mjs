@@ -1294,6 +1294,38 @@ function gateGraph() {
   }
 }
 
+// The workflow diagrams live in the SKILL, not in a scaffolded target, so this gate is opt-in on
+// their presence: a project has none and gets no finding. Where they do exist, the check is
+// content-based — every agent, router node and rollback layer the code can produce must appear in
+// some diagram. That is deliberately a different question from `graph-stale` above, which compares
+// mtimes and therefore fires after any checkout that rewrites both files in the same second.
+function gateWorkflowDiagram() {
+  const dir = P("harness-loop", "references");
+  const checker = P("harness-loop", "scripts", "check-workflow-diagram.mjs");
+  if (!exists(checker) || !exists(path.join(dir, "workflow-diagram.md"))) return;
+  const run = spawnSync(process.execPath, [checker, "--dir", dir, "--json"],
+    { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  let report = null;
+  try { report = JSON.parse(run.stdout); } catch { /* below */ }
+  if (!report) {
+    add({
+      gate: "docs", id: "workflow-diagram-uncheckable", layer: "harness", severity: "warn",
+      symptom: "check-workflow-diagram.mjs produced no report — the diagrams are unverified this run",
+      remedy: "run node harness-loop/scripts/check-workflow-diagram.mjs by hand and fix what it reports",
+      evidence: (run.stderr || "").slice(0, 300),
+    });
+    return;
+  }
+  if (report.green) return;
+  add({
+    gate: "docs", id: "workflow-diagram-stale", layer: "harness", severity: "warn",
+    count: report.findings.length,
+    symptom: `${report.findings.length} agent/node/layer name(s) the code produces appear in no workflow diagram`,
+    remedy: "add each to the diagram it belongs in (references/workflow-*.md). A diagram that lags the code is worse than none: it is read as authoritative and the reader cannot tell",
+    evidence: report.findings.map((f) => `${f.kind}:${f.name}`).join(", ").slice(0, 300),
+  });
+}
+
 // A project that deploys with Helm and verifies nothing against a cluster is not "not using k8s" —
 // it is untested where it actually runs. Opt-in on the chart: no chart, no finding.
 function gateK8s() {
@@ -1844,6 +1876,7 @@ gateRules();
 
 gateGenerated();
 gateGraph();
+gateWorkflowDiagram();
 gateK8s();
 gatePromptVars();
 gateVendor();

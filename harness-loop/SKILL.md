@@ -143,9 +143,14 @@ cluster tooling or names a `tests/k8s/` journey; the exact routing contract is i
 
 Visual walkthrough (end-to-end flow including where the opt-in `k8s-integration-tester` fits, the
 maker/checker generator-evaluator sequence, that agent's own K8s deploy/test/diagnose cycle, and
-the self-improvement loop) lives in
-[references/workflow-diagram.md](references/workflow-diagram.md) — read it alongside this section
-and "Setup workflow" below rather than re-deriving the shape from prose alone.
+the self-improvement loop) is split by reader:
+[onboarding](references/workflow-onboarding.md) (a requirement or an existing repo → a green
+harness), [development](references/workflow-development.md) (a green harness → DONE), and
+[improvement](references/workflow-improvement.md) (the loop that repairs the skill).
+[references/workflow-diagram.md](references/workflow-diagram.md) is the map over all three. Read the
+one you are in alongside this section and "Setup workflow" below rather than re-deriving the shape
+from prose alone. `node scripts/check-workflow-diagram.mjs` is what keeps them current: it fails
+when an agent, a router node or a rollback layer the code can produce is drawn in none of them.
 
 ## Adopting an EXISTING project
 
@@ -327,8 +332,10 @@ For a fresh project, or once the onboarder has surveyed an existing one:
 
 ## When to read references
 
-- A picture instead of prose — end-to-end flow, the maker/checker sequence, the self-improvement
-  loop: [references/workflow-diagram.md](references/workflow-diagram.md)
+- A picture instead of prose — [onboarding](references/workflow-onboarding.md),
+  [development](references/workflow-development.md) (end-to-end flow + the maker/checker sequence +
+  the K8s path), [improvement](references/workflow-improvement.md), mapped by
+  [references/workflow-diagram.md](references/workflow-diagram.md)
 - The full per-lesson check contract: [references/13-lesson-coverage.md](references/13-lesson-coverage.md)
 - Lesson 13 in depth (six primitives, `/goal` vs `/loop`, generator/evaluator separation, four
   silent costs, maturity ladder): [references/loop-engineering.md](references/loop-engineering.md)
@@ -658,6 +665,8 @@ After setup, the target project should contain:
       project writes `loop/baseline-cache.json`
 - [ ] `loop/diagnosis/` — the recorded root cause a repair turn is routed against
 - [ ] `tools/trace-insights.mjs` — the dynamic signal source; `--report` feeds the skill's backlog
+- [ ] `scripts/check-workflow-diagram.mjs` — skill-side gate: the diagrams may not fall behind the
+      routing table (run by `verify-harness.mjs` as `workflow-diagram-stale`)
 - [ ] `progress.md` + `DECISIONS.md` — external state
 - [ ] `session-handoff.md` — lifecycle handoff
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`

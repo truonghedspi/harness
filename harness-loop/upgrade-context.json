@@ -1321,6 +1321,29 @@
         "bash harness-loop/scripts/demo.sh",
         "node harness-loop/scripts/check-upgrade-context.mjs --target ."
       ]
+    },
+    {
+      "id": "HUC-2026-09-01-workflow-diagram-split",
+      "summary": "The workflow diagrams are split into onboarding, development and improvement, and a content-based gate fails when any of them falls behind the routing table.",
+      "why": "One file mixed three audiences and three moments, and nothing checked it. The existing graph-stale gate compares mtimes: it fires after any git checkout that rewrites two files in the same second, and stays silent when a rule really changes. Measured drift the new gate found on the shipped file: harness-setup was an agent nobody had drawn, and final-acceptance and baseline were rollback layers the router returns that no diagram named.",
+      "targetImpact": "references/workflow-diagram.md keeps its filename and becomes a map linking workflow-onboarding.md (Floor 1: requirement or existing repo to a green harness), workflow-development.md (Floor 2: green harness to DONE, including the per-iteration sequence and the K8s path) and workflow-improvement.md (the three-producer backlog and its closing rule). scripts/check-workflow-diagram.mjs reads agents.manifest.json and loop/route.mjs --rules and requires every agent, router node and rollback layer to appear inside a mermaid fence \u2014 prose does not count, and layers are matched through the LAYER: convention. verify-harness.mjs runs it as the docs-gate workflow-diagram-stale, opt-in on the diagrams being present, so scaffolded targets are unaffected.",
+      "paths": [
+        "references/workflow-diagram.md",
+        "references/workflow-onboarding.md",
+        "references/workflow-development.md",
+        "references/workflow-improvement.md",
+        "scripts/check-workflow-diagram.mjs",
+        "scripts/verify-harness.mjs",
+        "SKILL.md"
+      ],
+      "mergeActions": [
+        "The diagrams live in the skill and are not scaffolded \u2014 no target file changes.",
+        "Run node harness-loop/scripts/check-workflow-diagram.mjs after any change to route.mjs's rules or agents.manifest.json."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-workflow-diagram.mjs"
+      ]
     }
   ]
 }

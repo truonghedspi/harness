@@ -4030,6 +4030,67 @@ const f=j.features[0];
 process.exit(/harness issue HI-/.test(f.checkerNotes) && /templates\/tree|scripts/.test(f.falsifier) ? 0 : 1);
 "; expect "the routed feature carries its provenance and names the wrong fix — patching the target, not the skill" $?
 
+step 70 "workflow diagrams: split by audience, and mechanically unable to fall behind the router"
+# A diagram that lags the code is worse than none: it is read as authoritative and the reader
+# cannot tell. The existing graph-stale gate compares mtimes, which fires after any checkout that
+# rewrites both files in one second and stays silent when a rule changes. This one reads content.
+WD="$WORK/workflow-diagrams"; rm -rf "$WD"; mkdir -p "$WD"
+REFS="$SCRIPTS/../references"
+test -f "$REFS/workflow-onboarding.md" -a -f "$REFS/workflow-development.md" \
+  -a -f "$REFS/workflow-improvement.md" -a -f "$REFS/workflow-diagram.md"
+expect "three workflows plus a map, each with its own reader and moment" $?
+node -e "
+const fs=require('fs');
+const map=fs.readFileSync('$REFS/workflow-diagram.md','utf8');
+// The map keeps the filename everything else already cites (knowledge-layout Pattern A) and must
+// link every part, or a split loses the content it saved.
+process.exit(/workflow-onboarding\.md/.test(map) && /workflow-development\.md/.test(map) &&
+             /workflow-improvement\.md/.test(map) ? 0 : 1);
+"; expect "the map keeps its filename and links every workflow it was split into" $?
+node "$SCRIPTS/check-workflow-diagram.mjs" --dir "$REFS" > "$WD/current.log" 2>&1
+expect "the shipped diagrams name every agent, router node and rollback layer the code can produce" $?
+# The load-bearing property: it must FAIL on real drift. This fixture reproduces the drift the
+# skill's own diagram actually carried before the split — harness-setup shipped but never drawn,
+# and final-acceptance a layer the router returns that no diagram ever named.
+cat > "$WD/workflow-drifted.md" <<'WDX'
+# A workflow diagram missing two things the code really produces
+
+```mermaid
+flowchart TD
+    A["User requirement"] --> O["orchestrator"]
+    O --> ON["harness-onboarder"]
+    ON --> DS["design-facilitator\nLAYER: design"]
+    DS --> FP["feature-planner\nLAYER: decomposition"]
+    FP --> TD["test-designer\nLAYER: oracle"]
+    TD --> TI["test-implementer\nLAYER: oracle"]
+    TI --> MK["maker\nLAYER: implementation"]
+    MK --> DG["maker mode diagnose\nLAYER: diagnosis"]
+    DG --> BG["baseline gate\nLAYER: baseline"]
+    BG --> KT["k8s-integration-tester\nLAYER: integration"]
+    KT --> CK["checker"]
+```
+WDX
+node "$SCRIPTS/check-workflow-diagram.mjs" --dir "$WD" --json > "$WD/old.json" 2>&1
+node -e "
+const j=require('$WD/old.json');
+const names=j.findings.map(f=>f.kind+':'+f.name);
+process.exit(!j.green && names.includes('agent:harness-setup') && names.includes('layer:final-acceptance') ? 0 : 1);
+"; expect "an agent that ships undrawn and a layer the router returns unnamed both fail the gate" $?
+# Prose is not a drawing. A name mentioned in a sentence must not satisfy the gate, or the check
+# passes on a repo whose diagrams were deleted and replaced with a paragraph about them.
+mkdir -p "$WD/prose"
+{ echo "# workflow-prose"; echo ""; echo "This project uses maker, checker, harness-setup and every LAYER: there is."; } > "$WD/prose/workflow-prose.md"
+node "$SCRIPTS/check-workflow-diagram.mjs" --dir "$WD/prose" > /dev/null 2>&1
+test "$?" = "1"
+expect "a file that only talks about the nodes does not count as drawing them" $?
+node -e "
+const fs=require('fs');
+const dev=fs.readFileSync('$REFS/workflow-development.md','utf8');
+const mermaid=[...dev.matchAll(/\`\`\`mermaid\n([\s\S]*?)\`\`\`/g)].map(m=>m[1]).join('\n');
+// The diagnose turn is a routing edge, not a note: it has to be IN the picture.
+process.exit(/LAYER: diagnosis/.test(mermaid) && /LAYER: baseline/.test(mermaid) ? 0 : 1);
+"; expect "the newest routing edges are drawn inside the mermaid, not described beside it" $?
+
 echo ""
 if [ "$FAIL" = "0" ]; then
   echo "ALL DEMO STEPS PASSED — harness-loop lifecycle proven end-to-end at $T"
