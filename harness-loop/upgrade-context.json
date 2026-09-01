@@ -6,161 +6,342 @@
       "summary": "k8s-test-env.sh accepts registry services with no Helm values override while still applying explicit values to those that have them.",
       "why": "HI-083: the values-array support initialized an empty Bash array, then expanded ${HELM_VALUE_ARGS[*]} under set -u while logging a service with no values. Mixed registries therefore failed before the first Helm install, even though the no-values case is the normal default.",
       "targetImpact": "Opted-in Kubernetes targets retain explicit per-service --values arguments but no longer fail on services that omit values. Deployment order, health gates, and chart defaults are unchanged.",
-      "paths": ["tools/k8s-test-env.sh"],
-      "mergeActions": ["Refresh the Kubernetes environment tool; retain target-specific service manifests and chart values files."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves a mixed registry deploys services without values and applies --values only to the opted-in service", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/k8s-test-env.sh"
+      ],
+      "mergeActions": [
+        "Refresh the Kubernetes environment tool; retain target-specific service manifests and chart values files."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves a mixed registry deploys services without values and applies --values only to the opted-in service",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-30-k8s-stuck-release-cleanup",
       "summary": "k8s-test-env.sh can finish one precisely identified interrupted Helm teardown whose labelled namespace and release are stuck uninstalling.",
       "why": "HI-084: an interrupted teardown can leave an Active harness-labelled namespace with its only Helm release permanently uninstalling. Normal isolated runs must not reuse it, and recover-orphan correctly refuses it because the namespace still exists, so no bounded script-owned recovery path remained.",
       "targetImpact": "Opted-in Kubernetes targets gain the exceptional cleanup-stuck-release command. It refuses mutation unless the current context, disposable namespace prefix, harness-loop-test=true/Active identity, release identity, and uninstalling status agree; only then it retries bounded Helm uninstall, deletes the namespace, and verifies both identities are absent. Normal deploy/test teardown is unchanged.",
-      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Refresh the Kubernetes environment tool and all three K8s workflow references together.", "Use cleanup-stuck-release only with explicit human approval of the exact local/disposable context, release, and namespace; never broaden it into a prefix sweep or direct cluster-resource deletion."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves a wrong context is rejected without mutation and the exact uninstalling release is uninstalled, its namespace deleted, and both identities independently absent", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/k8s-test-env.sh",
+        "docs/reference/k8s-integration-testing.md",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Refresh the Kubernetes environment tool and all three K8s workflow references together.",
+        "Use cleanup-stuck-release only with explicit human approval of the exact local/disposable context, release, and namespace; never broaden it into a prefix sweep or direct cluster-resource deletion."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves a wrong context is rejected without mutation and the exact uninstalling release is uninstalled, its namespace deleted, and both identities independently absent",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-k8s-per-container-diagnostics",
       "summary": "k8s-test-env.sh captures init and app container logs independently before teardown.",
       "why": "HI-082: kubectl logs --all-containers failed on a waiting app container and discarded the failed node-log-preflight init container stderr, leaving the cluster-access assumption unclassifiable after correct cleanup.",
       "targetImpact": "Kubernetes targets receive separate current/previous diagnostic files for every init and app container. Deployment, test, and cleanup behavior is unchanged; reports gain more precise filenames and retain one container's evidence when another log read fails.",
-      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Refresh the Kubernetes environment tool and workflow references together.", "Preserve project-specific deployment/test commands; only replace aggregate --all-containers diagnostics with per-container enumeration and files."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves a waiting app container cannot mask a failed init container's stderr", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/k8s-test-env.sh",
+        "docs/reference/k8s-integration-testing.md",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Refresh the Kubernetes environment tool and workflow references together.",
+        "Preserve project-specific deployment/test commands; only replace aggregate --all-containers diagnostics with per-container enumeration and files."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves a waiting app container cannot mask a failed init container's stderr",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-k8s-legacy-orphan-recovery",
       "summary": "k8s-test-env.sh can recover a precisely identified pre-fix cluster-scoped Helm RBAC orphan through bounded Helm adoption and uninstall.",
       "why": "HI-081: release-first cleanup prevents new leaks but cannot recover ClusterRole/ClusterRoleBinding objects whose annotated namespace and Helm release record were already deleted by the old namespace-first teardown.",
-      "targetImpact": "Opted-in Kubernetes targets gain an exceptional recover-orphan command. It refuses mutation unless the current context, absent disposable namespace prefix, release annotations, Helm ownership label, chart, and explicit 1–8 item RBAC allowlist agree; normal deploy/test behavior is unchanged.",
-      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Refresh the Kubernetes tool and workflow references together.", "Use recover-orphan only with an explicit human-approved kube context, release, deleted namespace, chart, and ClusterRole/ClusterRoleBinding allowlist; never substitute direct kubectl deletion."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves an annotation mismatch is red without mutation and an exact match is adopted, uninstalled, and verified absent", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "targetImpact": "Opted-in Kubernetes targets gain an exceptional recover-orphan command. It refuses mutation unless the current context, absent disposable namespace prefix, release annotations, Helm ownership label, chart, and explicit 1\u20138 item RBAC allowlist agree; normal deploy/test behavior is unchanged.",
+      "paths": [
+        "tools/k8s-test-env.sh",
+        "docs/reference/k8s-integration-testing.md",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Refresh the Kubernetes tool and workflow references together.",
+        "Use recover-orphan only with an explicit human-approved kube context, release, deleted namespace, chart, and ClusterRole/ClusterRoleBinding allowlist; never substitute direct kubectl deletion."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves an annotation mismatch is red without mutation and an exact match is adopted, uninstalled, and verified absent",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-upgrade-k8s-tooling",
       "summary": "upgrade-harness.mjs refreshes optional Kubernetes tools for targets that already opted into the K8s layer.",
       "why": "HI-080: a target received the release-cleanup ledger entry but its existing tools/k8s-test-env.sh stayed on the unsafe namespace-only teardown because the upgrader scanned only templates/tree/tools/.",
       "targetImpact": "Targets containing the K8s integration prompt or existing k8s-test-env.sh receive refreshed templates/k8s/tools/**. Non-Kubernetes targets remain unchanged.",
-      "paths": ["scripts/upgrade-harness.mjs"],
-      "mergeActions": ["Run the canonical upgrader from the target; it refreshes opted-in Kubernetes tooling without enabling the K8s layer for other targets."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves an old opted-in contained target regains tools/k8s-test-env.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "scripts/upgrade-harness.mjs"
+      ],
+      "mergeActions": [
+        "Run the canonical upgrader from the target; it refreshes opted-in Kubernetes tooling without enabling the K8s layer for other targets."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves an old opted-in contained target regains tools/k8s-test-env.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-k8s-release-cleanup",
       "summary": "k8s-test-env.sh uninstalls every attempted Helm release before deleting its isolated namespace.",
       "why": "HI-079: deleting a namespace did not remove Helm-managed ClusterRole and ClusterRoleBinding objects. A failed first install left ownership annotations pointing at the deleted namespace, so the next isolated run failed before workload creation.",
       "targetImpact": "Kubernetes test teardown now calls bounded Helm uninstall for successful and failed attempted releases before namespace deletion. `--keep-on-failure` still deliberately preserves the environment for inspection.",
-      "paths": ["tools/k8s-test-env.sh", "docs/reference/k8s-integration-testing.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Refresh tools/k8s-test-env.sh and the three K8s workflow references together.", "Do not remove leaked cluster-scoped resources by hand; re-run the repaired bounded environment script against the affected release."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves a failed install uninstalls attempted releases and a second isolated run has no inherited cluster-scoped state", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/k8s-test-env.sh",
+        "docs/reference/k8s-integration-testing.md",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Refresh tools/k8s-test-env.sh and the three K8s workflow references together.",
+        "Do not remove leaked cluster-scoped resources by hand; re-run the repaired bounded environment script against the affected release."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves a failed install uninstalls attempted releases and a second isolated run has no inherited cluster-scoped state",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-route-k8s-script-path",
       "summary": "route.mjs recognizes tests/k8s/ verification scripts as Kubernetes integration work and dispatches k8s-integration-tester.",
       "why": "HI-077: feat-011 verified via tests/k8s/run-journey.sh but route.mjs only recognized literal k8s-test-env, kubectl, helm, or namespace text. It sent the feature to maker, whose required specialist handoff made the work unroutable.",
       "targetImpact": "Open features whose verification names a tests/k8s/ journey now route to k8s-integration-tester when that optional agent is installed. Existing helm, kubectl, and k8s-test-env classifications are unchanged.",
-      "paths": ["loop/route.mjs", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Refresh loop/route.mjs and the two workflow references together.", "Do not alter feature state; re-run route.mjs so an affected journey is dispatched to the specialist."],
-      "verification": ["bash harness-loop/scripts/demo.sh asserts tests/k8s/run-journey.sh routes to k8s-integration-tester", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "loop/route.mjs",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/route.mjs and the two workflow references together.",
+        "Do not alter feature state; re-run route.mjs so an affected journey is dispatched to the specialist."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh asserts tests/k8s/run-journey.sh routes to k8s-integration-tester",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-baseline-once-per-session",
       "summary": "run-loop.mjs runs the baseline gate once per session (re-running only while red to confirm a repair), instead of every iteration.",
-      "why": "The baseline (init.mjs) ran every iteration — ~35 times a day on the dogfooding project — and on a target whose init.mjs downloads a real fixture (8-11 min) that dominates wall-clock. The baseline is a START gate (Lesson 6), not a per-iteration regression suite; the environment it checks does not change between iterations, and the full feature replay already runs once at the end of the session.",
+      "why": "The baseline (init.mjs) ran every iteration \u2014 ~35 times a day on the dogfooding project \u2014 and on a target whose init.mjs downloads a real fixture (8-11 min) that dominates wall-clock. The baseline is a START gate (Lesson 6), not a per-iteration regression suite; the environment it checks does not change between iterations, and the full feature replay already runs once at the end of the session.",
       "targetImpact": "run-loop.mjs reuses a green baseline-state for subsequent iterations and re-runs only while red. The post-checker baseline re-run and the end-of-session feature replay are unchanged, so regression coverage is retained where it belongs.",
-      "paths": ["loop/run-loop.mjs", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh loop/run-loop.mjs; the change is local to the dispatch loop and does not touch feature state or prompts."],
-      "verification": ["bash harness-loop/scripts/demo.sh step 64 proves init.mjs runs once for two iterations and the reuse line is logged", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "loop/run-loop.mjs",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/run-loop.mjs; the change is local to the dispatch loop and does not touch feature state or prompts."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh step 64 proves init.mjs runs once for two iterations and the reuse line is logged",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-mutant-check-before-implement",
       "summary": "A prove feature's test must record a `mutant: true` red run (proof it discriminates against a wrong implementation) before the build feature that depends on it is eligible for the maker.",
       "why": "A test written and green does not prove it discriminates: feat-diag-open-on-query shipped the wrong mechanism and the checker caught it only after a full implement cycle. DSH's testing rule ('introduce the regression, watch red') does the mutant-check as a gate, not a post-hoc checker discovery.",
       "targetImpact": "route.mjs: the test-implementer rule now also fires for a written-but-unmutant-checked test, and the maker rule blocks a build feature whose prove test has no mutant-checked run. test-implementer prompt adds the mandatory mutant-check step; maker prompt notes it; feature_list.json documents the `mutant: true` evidence marker.",
-      "paths": ["loop/route.mjs", "prompts/test-implementer.md", "loop/maker-prompt.md", "feature_list.json", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh loop/route.mjs and the two prompts together so the mutant-check gate and its instructions cannot drift.", "Existing prove features without a mutant-checked run will route back to test-implementer once — record `mutant: true` red runs, don't fabricate them."],
-      "verification": ["bash harness-loop/scripts/demo.sh step 63 proves a build feature is ineligible without a mutant-checked prove test and becomes eligible with one", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "loop/route.mjs",
+        "prompts/test-implementer.md",
+        "loop/maker-prompt.md",
+        "feature_list.json",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/route.mjs and the two prompts together so the mutant-check gate and its instructions cannot drift.",
+        "Existing prove features without a mutant-checked run will route back to test-implementer once \u2014 record `mutant: true` red runs, don't fabricate them."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh step 63 proves a build feature is ineligible without a mutant-checked prove test and becomes eligible with one",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-dispatch-pre-step-gate",
       "summary": "loop/dispatch.mjs gains --check (prove the runtime is driveable without dispatching); the orchestrator blocks on a broken dispatcher instead of silently playing every role.",
-      "why": "In a dogfooding session all three runtimes failed (kiro not logged in, codex sandboxed, claude quota), and the orchestrator silently became planner/designer/maker/checker — destroying generator/evaluator separation (Lesson 13). DSH's agent/pre-step gate rejects before a turn is spent; the harness had no equivalent.",
+      "why": "In a dogfooding session all three runtimes failed (kiro not logged in, codex sandboxed, claude quota), and the orchestrator silently became planner/designer/maker/checker \u2014 destroying generator/evaluator separation (Lesson 13). DSH's agent/pre-step gate rejects before a turn is spent; the harness had no equivalent.",
       "targetImpact": "dispatch.mjs --check runs the existing runtime selection plus auth/config checks without a dispatch and exits 0/1. The orchestrator runs it before falling back to script dispatch and blocks (reports and stops) when broken. No other tool or state file changes.",
-      "paths": ["loop/dispatch.mjs", "prompts/orchestrator.md", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh loop/dispatch.mjs (additive --check flag) and merge the orchestrator prompt's blocker sentence, preserving project-specific presentation."],
-      "verification": ["bash harness-loop/scripts/demo.sh: --check reports dispatch broken (exit 1) with no auth; orchestrator prompt blocks on a broken dispatcher", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "loop/dispatch.mjs",
+        "prompts/orchestrator.md",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/dispatch.mjs (additive --check flag) and merge the orchestrator prompt's blocker sentence, preserving project-specific presentation."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh: --check reports dispatch broken (exit 1) with no auth; orchestrator prompt blocks on a broken dispatcher",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-harness-local-config",
       "summary": "env/local.json becomes a schema'd machine-local runtime config with a runMode knob (native-spawn | script-dispatch), read/written through a new tools/harness-config.mjs; the orchestrator reports and persists the mode.",
       "why": "The repository owner wanted a durable (not per-session) default for the orchestrator's dispatch mode. The harness already had a gitignored env/local.json for machine config (written by environment.mjs) but no structured read/write path. Session-handoff is per-session; a durable default belongs in a config file, and a config the model hand-edits is one it can silently corrupt, so it is tool-mediated.",
       "targetImpact": "New tools/harness-config.mjs (get/set, merging around environment.mjs's captured fields so the two never clobber). env/local.json gains runMode beside the environment capture. The orchestrator reads it at start, reports the mode, and persists a switch. No other tool or state file changes.",
-      "paths": ["tools/harness-config.mjs", "env/local.json", "prompts/orchestrator.md", "docs/reference/graph.md"],
-      "mergeActions": ["Copy tools/harness-config.mjs into the target.", "Merge the orchestrator prompt's config read/set sentence, preserving project-specific presentation.", "Keep any existing env/local.json fields; environment.mjs and harness-config.mjs own disjoint keys."],
-      "verification": ["bash harness-loop/scripts/demo.sh: harness-config ships; set runMode preserves environment-captured fields; get returns the persisted default; orchestrator prompt reads/persists runMode", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/harness-config.mjs",
+        "env/local.json",
+        "prompts/orchestrator.md",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Copy tools/harness-config.mjs into the target.",
+        "Merge the orchestrator prompt's config read/set sentence, preserving project-specific presentation.",
+        "Keep any existing env/local.json fields; environment.mjs and harness-config.mjs own disjoint keys."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh: harness-config ships; set runMode preserves environment-captured fields; get returns the persisted default; orchestrator prompt reads/persists runMode",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-orchestrator-mode-report",
       "summary": "The orchestrator now states its dispatch mode (native sub-agent spawn vs script dispatch) and offers to switch once at the start of a session.",
       "why": "The user cannot choose between the two dispatch modes they were never told about. The repository owner asked the orchestrator to report which mode it is running and ask whether the user wants the other at the start.",
       "targetImpact": "Prompt-only. The orchestrator's opening report names the mode up front and offers the switch; route.mjs still owns which node runs, so switching changes how, never which.",
-      "paths": ["prompts/orchestrator.md"],
-      "mergeActions": ["Merge the mode-report sentence into a customized orchestrator prompt, preserving project-specific presentation wording."],
-      "verification": ["bash harness-loop/scripts/demo.sh asserts the orchestrator names its mode and offers the switch", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "prompts/orchestrator.md"
+      ],
+      "mergeActions": [
+        "Merge the mode-report sentence into a customized orchestrator prompt, preserving project-specific presentation wording."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh asserts the orchestrator names its mode and offers the switch",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-trace-insights",
-      "summary": "New tools/trace-insights.mjs mines the loop's recorded trace for harness/workflow/skill optimization options — recurring rejects, blind telemetry, dispatch friction, rediscovery, marker churn — each with a layer, trace evidence and a concrete remedy.",
+      "summary": "New tools/trace-insights.mjs mines the loop's recorded trace for harness/workflow/skill optimization options \u2014 recurring rejects, blind telemetry, dispatch friction, rediscovery, marker churn \u2014 each with a layer, trace evidence and a concrete remedy.",
       "why": "verify-harness finds layer=harness defects statically and run-report surfaces project-level insights, but nothing read the loop's own runtime behavior back as what to change in the harness/workflow/skill. The repository owner asked for trace-driven optimization options.",
       "targetImpact": "Additive read-only tool under tools/. No existing tool, prompt or state file changes behavior. Fresh and upgraded targets both receive it via setup's copy list and the upgrade grep over that list.",
-      "paths": ["tools/trace-insights.mjs", "docs/reference/graph.md"],
-      "mergeActions": ["Copy tools/trace-insights.mjs into the target; it reads trace/trace.jsonl, trace/tool-events.jsonl, loop/route-log.jsonl and feature_list.json and writes nothing.", "Refresh docs/reference/graph.md's node table row.", "Preserve target-specific graph additions."],
-      "verification": ["bash harness-loop/scripts/demo.sh step 62 proves the tool ships and detects recurring rejects, blind telemetry, dispatch friction and marker churn with layer + remedy", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/trace-insights.mjs",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Copy tools/trace-insights.mjs into the target; it reads trace/trace.jsonl, trace/tool-events.jsonl, loop/route-log.jsonl and feature_list.json and writes nothing.",
+        "Refresh docs/reference/graph.md's node table row.",
+        "Preserve target-specific graph additions."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh step 62 proves the tool ships and detects recurring rejects, blind telemetry, dispatch friction and marker churn with layer + remedy",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-29-full-dispatch-trail-orchestrator-runtimes",
       "summary": "loop/route-log.jsonl now logs every dispatch (node, layer, marker when present) instead of only marker-driven routes; the orchestrator prompt points at docs/reference/runtimes.md for on-demand spawn/dispatch diagnosis.",
-      "why": "The trajectory could not replay an ordinary maker/checker dispatch — route-log only recorded marker escalation, so a run's decision trail was partial. Separately, the orchestrator could run both spawn and dispatch but could not self-diagnose a failed spawn/dispatch. Auto-loading the runtime mapping was rejected because it pushed the orchestrator over its context budget; the prompt now points at runtimes.md to be read only on failure.",
+      "why": "The trajectory could not replay an ordinary maker/checker dispatch \u2014 route-log only recorded marker escalation, so a run's decision trail was partial. Separately, the orchestrator could run both spawn and dispatch but could not self-diagnose a failed spawn/dispatch. Auto-loading the runtime mapping was rejected because it pushed the orchestrator over its context budget; the prompt now points at runtimes.md to be read only on failure.",
       "targetImpact": "route-log.jsonl grows by one line per dispatch (node + layer + optional marker). loop-status now reads only marker rows for the livelock warning, because an ordinary maker checkpoint on one active feature is the normal shape, not a livelock; its 'dispatched' trail now shows every dispatch. trajectory.mjs renders a marker-free route's router reason (why) instead of a blank row. The orchestrator reads docs/reference/runtimes.md on demand when a spawn/dispatch fails.",
-      "paths": ["loop/run-loop.mjs", "tools/loop-status.mjs", "tools/trajectory.mjs", "prompts/orchestrator.md", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh loop/run-loop.mjs, tools/loop-status.mjs and tools/trajectory.mjs together so the full dispatch trail, marker-aware livelock and the trajectory's why-rendering cannot drift.", "Merge the orchestrator prompt's runtimes.md pointer, preserving project-specific orchestration instructions; no manifest or regeneration change."],
-      "verification": ["bash harness-loop/scripts/demo.sh: ordinary dispatch logged with layer; marker-aware livelock; trajectory renders a non-marker route's why; orchestrator prompt points at runtimes.md without pushing it over budget", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "loop/run-loop.mjs",
+        "tools/loop-status.mjs",
+        "tools/trajectory.mjs",
+        "prompts/orchestrator.md",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/run-loop.mjs, tools/loop-status.mjs and tools/trajectory.mjs together so the full dispatch trail, marker-aware livelock and the trajectory's why-rendering cannot drift.",
+        "Merge the orchestrator prompt's runtimes.md pointer, preserving project-specific orchestration instructions; no manifest or regeneration change."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh: ordinary dispatch logged with layer; marker-aware livelock; trajectory renders a non-marker route's why; orchestrator prompt points at runtimes.md without pushing it over budget",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-28-trajectory-ledger",
-      "summary": "New tools/trajectory.mjs replays the loop's recorded run as one chronological, turn-aware ledger — marker routes, decision-path events and redacted tool activity with timing — with --record/--summary/--json, the CLI analogue of the deepseek-harness Trajectory tab.",
+      "summary": "New tools/trajectory.mjs replays the loop's recorded run as one chronological, turn-aware ledger \u2014 marker routes, decision-path events and redacted tool activity with timing \u2014 with --record/--summary/--json, the CLI analogue of the deepseek-harness Trajectory tab.",
       "why": "The harness already recorded a run across trace/trace.jsonl, trace/tool-events.jsonl and loop/route-log.jsonl, but no view merged them into the order the run actually happened. loop-status answers 'now', timeline answers 'how feature_list.json got here', run-report aggregates insights; none replayed the trajectory itself. The repository owner asked for a trajectory feature like deepseek-harness.",
       "targetImpact": "Additive: a new read-only tool under tools/. No existing tool, prompt or state file changes behavior. Fresh and upgraded targets both receive it via setup's copy list and the upgrade grep over that list.",
-      "paths": ["tools/trajectory.mjs", "docs/reference/graph.md"],
-      "mergeActions": ["Copy tools/trajectory.mjs into the target; it reads trace/trace.jsonl, trace/tool-events.jsonl and loop/route-log.jsonl and writes nothing.", "Refresh docs/reference/graph.md's node table and shared-state rows (trajectory.mjs is a read-only reader of trace/** and route-log.jsonl).", "Preserve target-specific graph additions."],
-      "verification": ["bash harness-loop/scripts/demo.sh step 61 proves the tool ships and merges the three streams in time order", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/trajectory.mjs",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Copy tools/trajectory.mjs into the target; it reads trace/trace.jsonl, trace/tool-events.jsonl and loop/route-log.jsonl and writes nothing.",
+        "Refresh docs/reference/graph.md's node table and shared-state rows (trajectory.mjs is a read-only reader of trace/** and route-log.jsonl).",
+        "Preserve target-specific graph additions."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh step 61 proves the tool ships and merges the three streams in time order",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     },
     {
       "id": "HUC-2026-08-28-check-upgrade-context-scope",
       "summary": "The upgrade-context producer gate now scopes 'relevant' to target-shipping paths (templates/, references/, scripts/) instead of the whole harness-loop/ tree, so operator-side skill assets no longer demand a ledger entry.",
-      "why": "The gate's blanket harness-loop/ prefix false-flagged operator-side commits as ledger omissions — most recently 26c0551fd447, the pr-description user skill, which changed only SKILL.md and user-skills/pr-description/**. Neither is ever shipped to a target, so there was no upgrade context to produce, and the gate had no remediation path short of rewriting history.",
+      "why": "The gate's blanket harness-loop/ prefix false-flagged operator-side commits as ledger omissions \u2014 most recently 26c0551fd447, the pr-description user skill, which changed only SKILL.md and user-skills/pr-description/**. Neither is ever shipped to a target, so there was no upgrade context to produce, and the gate had no remediation path short of rewriting history.",
       "targetImpact": "None for scaffolded/upgraded targets: this is the harness repo's own producer-side gate. Operator-side changes (user-skills/, SKILL.md, prompts/, onboarding-skills/, metadata, README) no longer demand a ledger entry; target-shipping changes (templates/, references/, scripts/) still do.",
-      "paths": ["scripts/check-upgrade-context.mjs"],
-      "mergeActions": ["Refresh scripts/check-upgrade-context.mjs in the harness repo only; no target file changes."],
-      "verification": ["node harness-loop/scripts/check-upgrade-context.mjs --target . reports green", "bash harness-loop/scripts/demo.sh still asserts a target-shipping change without the ledger is red and that updating the ledger clears it"]
+      "paths": [
+        "scripts/check-upgrade-context.mjs"
+      ],
+      "mergeActions": [
+        "Refresh scripts/check-upgrade-context.mjs in the harness repo only; no target file changes."
+      ],
+      "verification": [
+        "node harness-loop/scripts/check-upgrade-context.mjs --target . reports green",
+        "bash harness-loop/scripts/demo.sh still asserts a target-shipping change without the ledger is red and that updating the ledger clears it"
+      ]
     },
     {
       "id": "HUC-2026-08-28-final-acceptance-checker",
       "summary": "Checker moved from per-feature inner-loop review to one final acceptance batch after the complete delivery is handed off.",
       "why": "The repository owner explicitly requested that checker check only the last step after everything has been handed over. Per-feature checker hops interrupted delivery order and judged features before downstream integration existed.",
       "targetImpact": "readyForCheck now means a complete handoff that unlocks dependent implementation, not acceptance. The router dispatches checker only when every non-blocked open feature is readyForCheck. Rejection clears the affected handoff and delivery resumes; another checker turn waits for a complete batch again. run-loop no longer mechanically promotes claims before checker.",
-      "paths": ["loop/route.mjs", "loop/run-loop.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/goal.md", "AGENTS.md", "feature_list.json", "agents.manifest.json", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Refresh route.mjs and run-loop.mjs together so handoff-aware dependency eligibility and final checker routing cannot drift.", "Merge project-specific maker/checker prompts while preserving the final-batch timing contract.", "Regenerate runtime agents from agents.manifest.json after prompt changes.", "Preserve project feature state; existing readyForCheck claims become delivery handoffs and will be reviewed together once the remaining work is handed off."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves a handed-off dependency unlocks downstream maker work without checker and that checker routes only after every open feature is handed off", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "paths": [
+        "loop/route.mjs",
+        "loop/run-loop.mjs",
+        "loop/maker-prompt.md",
+        "loop/checker-prompt.md",
+        "loop/goal.md",
+        "AGENTS.md",
+        "feature_list.json",
+        "agents.manifest.json",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Refresh route.mjs and run-loop.mjs together so handoff-aware dependency eligibility and final checker routing cannot drift.",
+        "Merge project-specific maker/checker prompts while preserving the final-batch timing contract.",
+        "Regenerate runtime agents from agents.manifest.json after prompt changes.",
+        "Preserve project feature state; existing readyForCheck claims become delivery handoffs and will be reviewed together once the remaining work is handed off."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves a handed-off dependency unlocks downstream maker work without checker and that checker routes only after every open feature is handed off",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ],
       "humanDecision": {
         "questionId": "checker-final-acceptance-only",
         "question": "Should checker run only as the final step after all work is handed off?",
-        "answer": "tôi muốn đổi workflow, checker chỉ check bước cuối cùng sau khi mọi thứ được bàn giao",
+        "answer": "t\u00f4i mu\u1ed1n \u0111\u1ed5i workflow, checker ch\u1ec9 check b\u01b0\u1edbc cu\u1ed1i c\u00f9ng sau khi m\u1ecdi th\u1ee9 \u0111\u01b0\u1ee3c b\u00e0n giao",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-28",
-        "scope": ["default and upgraded project workflow"],
-        "basis": [{"kind":"human","pointer":"active thread goal on 2026-08-28"}],
+        "scope": [
+          "default and upgraded project workflow"
+        ],
+        "basis": [
+          {
+            "kind": "human",
+            "pointer": "active thread goal on 2026-08-28"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -170,17 +351,42 @@
       "summary": "Fresh and upgraded targets drive Kiro agent turns through ACP instead of headless chat invocation.",
       "why": "HI-075: loop/dispatch.mjs still treated an agent turn as a terminal command (`kiro-cli chat --no-interactive`) even though Kiro exposes a stable programmatic boundary through `kiro-cli acp`. The repository owner explicitly requested ACP for harness upgrades.",
       "targetImpact": "Kiro dispatch now starts `kiro-cli acp --agent <role> --trust-all-tools`, performs initialize/session-new/session-prompt over newline-delimited JSON-RPC, streams agent message chunks and accepts only end_turn. The loop's `--headless` flag remains as a human-supervision switch for CI/cron; it no longer means Kiro headless transport. Claude and Codex dispatch are unchanged.",
-      "paths": ["tools/kiro-acp-dispatch.mjs", "loop/dispatch.mjs", "docs/reference/runtimes.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md", "docs/reference/human-attention.md"],
-      "mergeActions": ["Refresh loop/dispatch.mjs and install the new skill-owned tools/kiro-acp-dispatch.mjs together; dispatch points at that file immediately.", "Keep project prompts and agent configs; the ACP process still selects the same generated Kiro role with --agent.", "Do not translate --headless into a transport choice: it controls only between-iteration checkpoints."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves initialize -> session/new -> session/prompt against a fake ACP backend, rejects runtime refusal text, and restores the ACP client into a target that predates it", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "paths": [
+        "tools/kiro-acp-dispatch.mjs",
+        "loop/dispatch.mjs",
+        "docs/reference/runtimes.md",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md",
+        "docs/reference/human-attention.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/dispatch.mjs and install the new skill-owned tools/kiro-acp-dispatch.mjs together; dispatch points at that file immediately.",
+        "Keep project prompts and agent configs; the ACP process still selects the same generated Kiro role with --agent.",
+        "Do not translate --headless into a transport choice: it controls only between-iteration checkpoints."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves initialize -> session/new -> session/prompt against a fake ACP backend, rejects runtime refusal text, and restores the ACP client into a target that predates it",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ],
       "humanDecision": {
         "questionId": "kiro-acp-instead-of-headless",
         "question": "Should harness upgrades use ACP instead of Kiro headless chat?",
-        "answer": "tôi muốn upgrade dùng harness dùng acp thay vì headless",
+        "answer": "t\u00f4i mu\u1ed1n upgrade d\u00f9ng harness d\u00f9ng acp thay v\u00ec headless",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-28",
-        "scope": ["default and upgraded Kiro loop dispatch"],
-        "basis": [{"kind":"observation","pointer":"HI-075: templates/tree/loop/dispatch.mjs used chat --no-interactive"},{"kind":"human","pointer":"active thread goal on 2026-08-28"}],
+        "scope": [
+          "default and upgraded Kiro loop dispatch"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "HI-075: templates/tree/loop/dispatch.mjs used chat --no-interactive"
+          },
+          {
+            "kind": "human",
+            "pointer": "active thread goal on 2026-08-28"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -190,17 +396,36 @@
       "summary": "The authoritative workflow graph now defines paths relative to the detected harness root instead of assuming every target uses the contained harness/ layout.",
       "why": "HI-054: flat layout is the default, but graph.md told flat targets that every path was relative to a contained harness/ home, sending readers toward paths that did not exist.",
       "targetImpact": "Documentation only. Flat and contained targets receive one layout-neutral graph whose opening scope names both possible harness roots; workflow behavior is unchanged.",
-      "paths": ["docs/reference/graph.md"],
-      "mergeActions": ["Refresh docs/reference/graph.md as skill-owned documentation.", "Preserve target-specific graph additions, but retain the layout-neutral harness-root definition."],
-      "verification": ["bash harness-loop/scripts/demo.sh proves both a flat scaffold and a contained scaffold receive the correct scope wording", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "paths": [
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh docs/reference/graph.md as skill-owned documentation.",
+        "Preserve target-specific graph additions, but retain the layout-neutral harness-root definition."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh proves both a flat scaffold and a contained scaffold receive the correct scope wording",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ],
       "humanDecision": {
         "questionId": "layout-neutral-authoritative-graph",
         "question": "Should the default graph describe both supported target layouts rather than assume contained layout?",
         "answer": "repository owner instructed the existing harness work to continue",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-27",
-        "scope": ["default scaffold workflow documentation"],
-        "basis": [{"kind":"observation","pointer":"HI-054: flat target graph described the nonexistent contained harness/ home"},{"kind":"human","pointer":"chat instruction to continue on 2026-08-27"}],
+        "scope": [
+          "default scaffold workflow documentation"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "HI-054: flat target graph described the nonexistent contained harness/ home"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat instruction to continue on 2026-08-27"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -210,17 +435,35 @@
       "summary": "Feature-owned oracle routing compares linked TCON artifact ids, while invariant coverage remains checked through requirement citations.",
       "why": "HI-073: the first feature-owned routing implementation compared TCON ids to INV requirement citations and left every prove feature stuck at test-designer.",
       "targetImpact": "Targets with feature.conditions arrays can reach test-implementer once the named condition artifacts exist.",
-      "paths": ["loop/route.mjs"],
-      "mergeActions": ["Refresh route.mjs; retain project-specific condition plans."],
-      "verification": ["node loop/route.mjs --json", "bash harness-loop/scripts/demo.sh"],
+      "paths": [
+        "loop/route.mjs"
+      ],
+      "mergeActions": [
+        "Refresh route.mjs; retain project-specific condition plans."
+      ],
+      "verification": [
+        "node loop/route.mjs --json",
+        "bash harness-loop/scripts/demo.sh"
+      ],
       "humanDecision": {
         "questionId": "condition-id-routing",
         "question": "Should feature-owned oracle routing validate TCON artifact ids separately from INV citations?",
         "answer": "repository owner delegated autonomous orchestration and continued the approved design",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-27",
-        "scope": ["default scaffold oracle routing"],
-        "basis": [{"kind":"observation","pointer":"k8s-log-debug-context: complete TP-COLLECTOR-0009 conditions remained unroutable"},{"kind":"human","pointer":"chat instruction to continue autonomously on 2026-08-27"}],
+        "scope": [
+          "default scaffold oracle routing"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "k8s-log-debug-context: complete TP-COLLECTOR-0009 conditions remained unroutable"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat instruction to continue autonomously on 2026-08-27"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -230,17 +473,37 @@
       "summary": "Oracle routing now requires each prove feature to link its own validated condition plan before test implementation.",
       "why": "HI-072: feat-009 was routed to test-implementer because conditions belonging to other prove features satisfied a global existence check; the missing collector oracle could not be created by any eligible node.",
       "targetImpact": "A prove feature with no complete feature-linked condition set routes to test-designer, while test-implementer only runs when that feature's own conditions are present.",
-      "paths": ["loop/route.mjs", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh route.mjs and graph.md together; preserve project-specific feature plans.", "Do not infer oracle coverage from another feature's conditions."],
-      "verification": ["node loop/route.mjs reports test-designer for a prove feature missing its own conditions", "bash harness-loop/scripts/demo.sh"],
+      "paths": [
+        "loop/route.mjs",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh route.mjs and graph.md together; preserve project-specific feature plans.",
+        "Do not infer oracle coverage from another feature's conditions."
+      ],
+      "verification": [
+        "node loop/route.mjs reports test-designer for a prove feature missing its own conditions",
+        "bash harness-loop/scripts/demo.sh"
+      ],
       "humanDecision": {
         "questionId": "feature-owned-oracle-routing",
         "question": "Should each prove feature require its own linked validated conditions before test implementation?",
         "answer": "repository owner delegated autonomous orchestration and continued the approved design",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-27",
-        "scope": ["default scaffold oracle routing"],
-        "basis": [{"kind":"observation","pointer":"examples/k8s-log-debug-context: feat-009 selected test-implementer without TP-COLLECTOR-0009"},{"kind":"human","pointer":"chat instruction to continue autonomously on 2026-08-27"}],
+        "scope": [
+          "default scaffold oracle routing"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "examples/k8s-log-debug-context: feat-009 selected test-implementer without TP-COLLECTOR-0009"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat instruction to continue autonomously on 2026-08-27"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -250,17 +513,36 @@
       "summary": "Test-case metadata accepts design invariant identifiers alongside requirement identifiers.",
       "why": "HI-067: the condition and skill schemas already accepted INV-* identifiers, but test-case.schema.json rejected them, preventing independent oracle cases from tracing design invariants.",
       "targetImpact": "Fresh and upgraded targets can emit test-case metadata for REQ-* or INV-* traceability without weakening the closed-world identifier check.",
-      "paths": ["skills/test-design/schemas/test-case.schema.json"],
-      "mergeActions": ["Refresh the vendored test-design schema from the canonical template.", "Preserve unrelated local schema modifications and retain the vendor manifest modification record."],
-      "verification": ["bash harness-loop/scripts/demo.sh", "node tools/verify-harness.mjs --target . --skip-baseline"],
+      "paths": [
+        "skills/test-design/schemas/test-case.schema.json"
+      ],
+      "mergeActions": [
+        "Refresh the vendored test-design schema from the canonical template.",
+        "Preserve unrelated local schema modifications and retain the vendor manifest modification record."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node tools/verify-harness.mjs --target . --skip-baseline"
+      ],
       "humanDecision": {
         "questionId": "test-case-invariant-traceability",
         "question": "Allow INV-* design invariants in test-case metadata alongside REQ-* requirements?",
         "answer": "repository owner delegated autonomous orchestration and continued the approved design",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-26",
-        "scope": ["vendored test-design schema"],
-        "basis": [{"kind":"observation","pointer":"examples/k8s-log-debug-context: test-implementer reported test-case.schema.json rejecting INV-*"},{"kind":"human","pointer":"chat instruction to continue autonomously on 2026-08-26"}],
+        "scope": [
+          "vendored test-design schema"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "examples/k8s-log-debug-context: test-implementer reported test-case.schema.json rejecting INV-*"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat instruction to continue autonomously on 2026-08-26"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -270,17 +552,40 @@
       "summary": "Kubernetes-layer templates now receive the same project-name, purpose, command, date, layout, and agent-file substitutions as the core scaffold.",
       "why": "HI-063: the Kubernetes copy path wrote template bytes directly, leaving {{PROJECT_NAME}} in every fresh K8s integration-tester prompt and memory file. verify-harness correctly classified the fresh-target residue as layer:harness.",
       "targetImpact": "New K8s scaffolds contain concrete project values in optional-agent files. Existing targets with untouched generated K8s files should refresh those files; customized prompts must be merged rather than overwritten.",
-      "paths": ["prompts/k8s-integration-tester.md", "memory/k8s-integration-tester/MEMORY.md", "tools/k8s-test-env.sh", "tools/mcp-k8s-readonly-wrapper.sh"],
-      "mergeActions": ["Refresh untouched Kubernetes-layer files through upgrade-harness.mjs.", "For a customized K8s prompt or memory index, replace only unresolved template tokens and preserve project-specific content.", "Regenerate runtime agents after refreshing the prompt so embedded Codex instructions and runtime adapters match."],
-      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "paths": [
+        "prompts/k8s-integration-tester.md",
+        "memory/k8s-integration-tester/MEMORY.md",
+        "tools/k8s-test-env.sh",
+        "tools/mcp-k8s-readonly-wrapper.sh"
+      ],
+      "mergeActions": [
+        "Refresh untouched Kubernetes-layer files through upgrade-harness.mjs.",
+        "For a customized K8s prompt or memory index, replace only unresolved template tokens and preserve project-specific content.",
+        "Regenerate runtime agents after refreshing the prompt so embedded Codex instructions and runtime adapters match."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ],
       "humanDecision": {
         "questionId": "k8s-template-substitution-default",
         "question": "Fix the harness template path so every future K8s scaffold receives substituted project values?",
-        "answer": "hãy sửa",
+        "answer": "h\u00e3y s\u1eeda",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-26",
-        "scope": ["default Kubernetes scaffold files"],
-        "basis": [{"kind": "observation", "pointer": "examples/k8s-log-debug-context/harness/trace/verify-report.json: HI-063"}, {"kind": "human", "pointer": "chat approval on 2026-08-26"}],
+        "scope": [
+          "default Kubernetes scaffold files"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "examples/k8s-log-debug-context/harness/trace/verify-report.json: HI-063"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat approval on 2026-08-26"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -400,8 +705,8 @@
     {
       "id": "HUC-2026-08-18-design-facilitator",
       "summary": "`designer` and `design-reviewer` are retired and merged into one `design-facilitator` agent; the auto-reject loop between them is replaced by a human-authored `loop/design-approval.json`.",
-      "why": "designer/design-reviewer could reject and re-dispatch each other with no human in the loop, and a design that changed even slightly between rounds reset the one-bounded-retry escalation counter, so rejection could cycle indefinitely — every round a paid session, and neither agent had the business context to know when a design was actually done. Full incident: docs/reference/graph.md row 11.",
-      "targetImpact": "route.mjs no longer dispatches design-reviewer or bounces a rejected design back to designer; any design revision without an approval matching its exact digest routes straight to a human, always. loop/design-review.json is no longer produced or read. A design edited after approval — even by one line — silently invalidates the approval (digest mismatch), which is intentional: there is no partial-credit 'still basically approved' state.",
+      "why": "designer/design-reviewer could reject and re-dispatch each other with no human in the loop, and a design that changed even slightly between rounds reset the one-bounded-retry escalation counter, so rejection could cycle indefinitely \u2014 every round a paid session, and neither agent had the business context to know when a design was actually done. Full incident: docs/reference/graph.md row 11.",
+      "targetImpact": "route.mjs no longer dispatches design-reviewer or bounces a rejected design back to designer; any design revision without an approval matching its exact digest routes straight to a human, always. loop/design-review.json is no longer produced or read. A design edited after approval \u2014 even by one line \u2014 silently invalidates the approval (digest mismatch), which is intentional: there is no partial-credit 'still basically approved' state.",
       "paths": [
         "prompts/design-facilitator.md",
         "prompts/designer.md",
@@ -417,10 +722,10 @@
         "AGENTS.md"
       ],
       "mergeActions": [
-        "If prompts/designer.md or prompts/design-reviewer.md were customized here, port the customization into prompts/design-facilitator.md by hand — a diff cannot merge two files into one.",
-        "Delete the now-orphaned prompts/designer.md and prompts/design-reviewer.md, and their .kiro/.claude/.codex generated files, once customizations are ported — the file-diff refresh does not remove files that no longer exist in the canonical templates, only agents.manifest.json's newAgents/retiredAgents comparison surfaces that they are gone.",
+        "If prompts/designer.md or prompts/design-reviewer.md were customized here, port the customization into prompts/design-facilitator.md by hand \u2014 a diff cannot merge two files into one.",
+        "Delete the now-orphaned prompts/designer.md and prompts/design-reviewer.md, and their .kiro/.claude/.codex generated files, once customizations are ported \u2014 the file-diff refresh does not remove files that no longer exist in the canonical templates, only agents.manifest.json's newAgents/retiredAgents comparison surfaces that they are gone.",
         "If a feature is mid-flight in the old cycle (a NEEDS DESIGN: marker already answered, or a rejected loop/design-review.json sitting unresolved), resolve it under the old contract first, or explicitly re-open it: have a human review the current docs/design/*.md and write loop/design-approval.json before continuing.",
-        "Delete any lingering loop/design-review.json — it is not read by the new routing rules and its presence is misleading.",
+        "Delete any lingering loop/design-review.json \u2014 it is not read by the new routing rules and its presence is misleading.",
         "Regenerate every runtime from agents.manifest.json after the prompt merge."
       ],
       "verification": [
@@ -432,17 +737,17 @@
     },
     {
       "id": "HUC-2026-08-19-kiro-orchestrator-subagent-scope",
-      "summary": "On kiro, orchestrator's generated config now declares the built-in `subagent` tool and a computed `toolsSettings.subagent.availableAgents` naming every other agent — enforcing 'never spawn the orchestrator itself' by config instead of prompt text alone.",
-      "why": "kiro-cli has a native in-session `subagent` tool (verified against kiro.dev's docs, not assumed) gated by `toolsSettings.subagent.availableAgents`/`.trustedAgents`, but this harness's manifest never declared either for orchestrator — so on kiro specifically, 'never spawn the orchestrator itself' (prompts/orchestrator.md, 'What you must not do') was purely prompt-only, the same unenforced-MUST-NOT gap verify-harness.mjs's `rules` gate already flags elsewhere.",
-      "targetImpact": "kiro's orchestrator.json gains `tools: [..., \"subagent\"]` and `toolsSettings.subagent.availableAgents` listing every other manifest agent (computed by gen-agents.mjs at generation time, so it never needs hand-updating when an agent is added or renamed). Claude Code and Codex are unaffected — no verified native in-session subagent mechanism is documented for them in this repo, so nothing changed there.",
+      "summary": "On kiro, orchestrator's generated config now declares the built-in `subagent` tool and a computed `toolsSettings.subagent.availableAgents` naming every other agent \u2014 enforcing 'never spawn the orchestrator itself' by config instead of prompt text alone.",
+      "why": "kiro-cli has a native in-session `subagent` tool (verified against kiro.dev's docs, not assumed) gated by `toolsSettings.subagent.availableAgents`/`.trustedAgents`, but this harness's manifest never declared either for orchestrator \u2014 so on kiro specifically, 'never spawn the orchestrator itself' (prompts/orchestrator.md, 'What you must not do') was purely prompt-only, the same unenforced-MUST-NOT gap verify-harness.mjs's `rules` gate already flags elsewhere.",
+      "targetImpact": "kiro's orchestrator.json gains `tools: [..., \"subagent\"]` and `toolsSettings.subagent.availableAgents` listing every other manifest agent (computed by gen-agents.mjs at generation time, so it never needs hand-updating when an agent is added or renamed). Claude Code and Codex are unaffected \u2014 no verified native in-session subagent mechanism is documented for them in this repo, so nothing changed there.",
       "paths": [
         "agents.manifest.json",
         "tools/gen-agents.mjs",
         "docs/reference/runtimes.md"
       ],
       "mergeActions": [
-        "Add `subagentAllExceptSelf: true` and `\"subagent\"` in `tools` to this target's own orchestrator manifest entry — do not hand-list agent names; gen-agents.mjs computes the roster.",
-        "If this target's orchestrator entry was customized (a narrower `tools` list, a hand-written `toolsSettings`), merge rather than overwrite — `subagentAllExceptSelf` only adds a `subagent` sub-key, it does not touch `toolsSettings.write`.",
+        "Add `subagentAllExceptSelf: true` and `\"subagent\"` in `tools` to this target's own orchestrator manifest entry \u2014 do not hand-list agent names; gen-agents.mjs computes the roster.",
+        "If this target's orchestrator entry was customized (a narrower `tools` list, a hand-written `toolsSettings`), merge rather than overwrite \u2014 `subagentAllExceptSelf` only adds a `subagent` sub-key, it does not touch `toolsSettings.write`.",
         "Regenerate kiro's config and confirm the roster excludes only \"orchestrator\"."
       ],
       "verification": [
@@ -454,16 +759,16 @@
     {
       "id": "HUC-2026-08-20-memory-bootstrap",
       "summary": "`memory-consolidate.mjs` gains `--bootstrap`: it mines `feature_list.json` checkerNotes and `trace/trace.jsonl` blocked/REJECT events for a reason that recurred across >=2 features and isn't already written into `memory/**`, and lists it as a candidate. Also removed the empty, orphaned `memory/context-interviewer/` template dir left over from the interviewer-agent retirement (HI-052).",
-      "why": "A project that never wrote a memory entry does not start from zero knowledge — the raw material for a lesson (a checkerNotes reason a maker/checker kept re-hitting, a blocked reason that recurred) was already sitting in state files the harness already writes. Requiring someone to notice the pattern by eye before memory got its first real entry meant the mechanism only ever got exercised on projects mature enough to have already built the habit by hand.",
-      "targetImpact": "`tools/memory-consolidate.mjs --target . --bootstrap [--json]` is a new, additive CLI surface; the existing structural report (index budget, orphans, duplicates) is unchanged and still runs without `--bootstrap`. It never writes to `memory/**` itself — same report-not-rewrite division of labor the rest of the script already uses. `memory/context-interviewer/` (template only, never scaffolded into a real project) is gone; nothing reads it.",
+      "why": "A project that never wrote a memory entry does not start from zero knowledge \u2014 the raw material for a lesson (a checkerNotes reason a maker/checker kept re-hitting, a blocked reason that recurred) was already sitting in state files the harness already writes. Requiring someone to notice the pattern by eye before memory got its first real entry meant the mechanism only ever got exercised on projects mature enough to have already built the habit by hand.",
+      "targetImpact": "`tools/memory-consolidate.mjs --target . --bootstrap [--json]` is a new, additive CLI surface; the existing structural report (index budget, orphans, duplicates) is unchanged and still runs without `--bootstrap`. It never writes to `memory/**` itself \u2014 same report-not-rewrite division of labor the rest of the script already uses. `memory/context-interviewer/` (template only, never scaffolded into a real project) is gone; nothing reads it.",
       "paths": [
         "tools/memory-consolidate.mjs",
         "docs/reference/agent-memory.md",
         "harness-loop/scripts/demo.sh"
       ],
       "mergeActions": [
-        "Copy the updated `tools/memory-consolidate.mjs` into the target as-is — it is additive (a new flag), so a local customization to the structural-report path is unaffected.",
-        "No action needed for the removed `memory/context-interviewer/` dir — it was never scaffolded into an existing target in the first place."
+        "Copy the updated `tools/memory-consolidate.mjs` into the target as-is \u2014 it is additive (a new flag), so a local customization to the structural-report path is unaffected.",
+        "No action needed for the removed `memory/context-interviewer/` dir \u2014 it was never scaffolded into an existing target in the first place."
       ],
       "verification": [
         "node tools/memory-consolidate.mjs --target . --bootstrap --json",
@@ -472,9 +777,9 @@
     },
     {
       "id": "HUC-2026-08-20-end-of-run-reflection",
-      "summary": "Every writing agent's prompt (maker, checker, feature-planner, test-designer, test-implementer, harness-setup, design-facilitator, orchestrator) now closes with an explicit, uniformly-worded Yes/No reflection gate before it stops, instead of a one-off sentence phrased differently per agent. `test-implementer` previously had no closing memory guidance at all — that gap is now closed too.",
-      "why": "`docs/reference/agent-memory.md` already named the `stop` hook's moment as 'the natural place to also prompt' this question, but the hook itself can only run a shell command (it fired `trace.mjs`'s `session-end` event and nothing else) — it cannot force an honest self-assessment. The enforceable half of that intention was always the prompt text, and it existed per-agent as loose prose an agent could skim past inside a longer numbered list, phrased slightly differently every time, which made it easy to treat as one more instruction rather than a forced branch to actually answer.",
-      "targetImpact": "Each agent prompt's memory-writing instruction is now a literal two-branch question ('did this run produce something the next run shouldn't have to rediscover? Yes -> write an entry. No -> nothing to write') instead of a single conditional sentence. The underlying trigger criteria (a non-obvious mistake, an approach that worked for a non-obvious reason, an ambiguity that was hard to call, etc.) are unchanged per agent — only the framing is uniform. No hook or tool behavior changed.",
+      "summary": "Every writing agent's prompt (maker, checker, feature-planner, test-designer, test-implementer, harness-setup, design-facilitator, orchestrator) now closes with an explicit, uniformly-worded Yes/No reflection gate before it stops, instead of a one-off sentence phrased differently per agent. `test-implementer` previously had no closing memory guidance at all \u2014 that gap is now closed too.",
+      "why": "`docs/reference/agent-memory.md` already named the `stop` hook's moment as 'the natural place to also prompt' this question, but the hook itself can only run a shell command (it fired `trace.mjs`'s `session-end` event and nothing else) \u2014 it cannot force an honest self-assessment. The enforceable half of that intention was always the prompt text, and it existed per-agent as loose prose an agent could skim past inside a longer numbered list, phrased slightly differently every time, which made it easy to treat as one more instruction rather than a forced branch to actually answer.",
+      "targetImpact": "Each agent prompt's memory-writing instruction is now a literal two-branch question ('did this run produce something the next run shouldn't have to rediscover? Yes -> write an entry. No -> nothing to write') instead of a single conditional sentence. The underlying trigger criteria (a non-obvious mistake, an approach that worked for a non-obvious reason, an ambiguity that was hard to call, etc.) are unchanged per agent \u2014 only the framing is uniform. No hook or tool behavior changed.",
       "paths": [
         "prompts/feature-planner.md",
         "prompts/test-designer.md",
@@ -486,7 +791,7 @@
         "loop/checker-prompt.md"
       ],
       "mergeActions": [
-        "If a target customized the closing memory paragraph of any of these prompts, port the customization's specific trigger criteria into the new Yes/No framing by hand — a mechanical diff would overwrite the customization.",
+        "If a target customized the closing memory paragraph of any of these prompts, port the customization's specific trigger criteria into the new Yes/No framing by hand \u2014 a mechanical diff would overwrite the customization.",
         "No tool, hook, or schema changed; this is prompt text only."
       ],
       "verification": [
@@ -498,90 +803,176 @@
       "id": "HUC-2026-08-20-constraints-terse-state-and-toolbox",
       "summary": "Two new MUST rules in docs/constraints.md: write progress.md/DECISIONS.md as short bullets not prose, and check the existing tools/*.mjs toolbox before writing a new script.",
       "why": "Observed both problems in practice: progress.md entries drifting into essay-length prose, and ad-hoc one-off scripts/inline checks duplicating tools that already exist.",
-      "targetImpact": "docs/constraints.md gains two MUST rules, auto-loaded into every writing agent. No new gate, no new script — prompt-only fix.",
-      "paths": ["docs/constraints.md"],
-      "mergeActions": ["Copy the two new bullets into the target's docs/constraints.md as-is."],
-      "verification": ["grep -c 'MUST write .progress.md' docs/constraints.md"]
+      "targetImpact": "docs/constraints.md gains two MUST rules, auto-loaded into every writing agent. No new gate, no new script \u2014 prompt-only fix.",
+      "paths": [
+        "docs/constraints.md"
+      ],
+      "mergeActions": [
+        "Copy the two new bullets into the target's docs/constraints.md as-is."
+      ],
+      "verification": [
+        "grep -c 'MUST write .progress.md' docs/constraints.md"
+      ]
     },
     {
       "id": "HUC-2026-08-20-project-root-name-heuristic",
-      "summary": "6 files (harness-cli.mjs, check-coverage.mjs, environment.mjs, init.mjs, loop/route.mjs, loop/dispatch.mjs) no longer infer 'contained layout' from directory name alone — a flat project named literally 'harness' was misdetected as contained, resolving PROJECT_ROOT one level too high.",
+      "summary": "6 files (harness-cli.mjs, check-coverage.mjs, environment.mjs, init.mjs, loop/route.mjs, loop/dispatch.mjs) no longer infer 'contained layout' from directory name alone \u2014 a flat project named literally 'harness' was misdetected as contained, resolving PROJECT_ROOT one level too high.",
       "why": "Found live running upgrade-harness.mjs against this skill's own repo (named harness, flat layout): check-coverage.mjs flipped 3 lessons to blockers because its manifest/agent checks started reading the parent of the repo instead of the repo itself.",
       "targetImpact": "The heuristic now also requires the parent directory to have its own AGENTS.md (the thin pointer a contained scaffold writes) before treating a harness-named directory as contained. Only affects targets whose own directory happens to be named 'harness'.",
-      "paths": ["harness-cli.mjs", "check-coverage.mjs", "tools/environment.mjs", "init.mjs", "loop/route.mjs", "loop/dispatch.mjs"],
-      "mergeActions": ["Copy the 6 refreshed files as-is; the fix is additive to an existing condition, not a behavior change for any target not named 'harness'."],
-      "verification": ["node check-coverage.mjs --target . --json", "bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "harness-cli.mjs",
+        "check-coverage.mjs",
+        "tools/environment.mjs",
+        "init.mjs",
+        "loop/route.mjs",
+        "loop/dispatch.mjs"
+      ],
+      "mergeActions": [
+        "Copy the 6 refreshed files as-is; the fix is additive to an existing condition, not a behavior change for any target not named 'harness'."
+      ],
+      "verification": [
+        "node check-coverage.mjs --target . --json",
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-20-check-plan-invariant-scoping",
       "summary": "check-plan.mjs's invariant-citation-missing check now only applies to a feature whose context.touches/note names the design file that declared the invariant; falsifier-orphan and invariant-uncovered stay global.",
       "why": "HI-053: on a project with multiple, temporally separate designs, adding invariants to ONE design retroactively flagged every unrelated open feature in the plan the moment it was added.",
       "targetImpact": "A feature from an unrelated subsystem no longer needs a citation just because some other docs/design/*.md elsewhere declares invariants. A feature that does cite a made-up invariant id is still caught (that check stayed global).",
-      "paths": ["skills/feature-planning/scripts/check-plan.mjs"],
-      "mergeActions": ["Copy the updated check-plan.mjs as-is; verify with skills/feature-planning/evals/run-fixtures.mjs (all 3 fixtures must still PASS)."],
-      "verification": ["node skills/feature-planning/evals/run-fixtures.mjs", "bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "skills/feature-planning/scripts/check-plan.mjs"
+      ],
+      "mergeActions": [
+        "Copy the updated check-plan.mjs as-is; verify with skills/feature-planning/evals/run-fixtures.mjs (all 3 fixtures must still PASS)."
+      ],
+      "verification": [
+        "node skills/feature-planning/evals/run-fixtures.mjs",
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-20-graph-doc-layout-neutral",
       "summary": "docs/reference/graph.md's intro no longer asserts contained harness/ layout unconditionally.",
       "why": "HI-054: flat layout is the default; a flat target's copy of graph.md described paths (harness/cli.mjs, harness/AGENTS.md) that don't exist for it.",
       "targetImpact": "The intro paragraph now names both layouts. No path in the rest of the table changed.",
-      "paths": ["docs/reference/graph.md"],
-      "mergeActions": ["Copy the updated intro paragraph; the rest of the file is unaffected."],
-      "verification": ["grep -q 'flat layout' docs/reference/graph.md"]
+      "paths": [
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Copy the updated intro paragraph; the rest of the file is unaffected."
+      ],
+      "verification": [
+        "grep -q 'flat layout' docs/reference/graph.md"
+      ]
     },
     {
       "id": "HUC-2026-08-21-approval-gate-notify",
       "summary": "approval-gate.mjs fires a best-effort OS notification the moment it writes a fresh approval request, so a headless run does not silently sit until timeout with nobody having seen it.",
       "why": "Observed live: a headless run-loop.mjs sat at an approval gate with nobody watching that terminal. A safe timeout (APPROVAL_TIMEOUT_MIN) prevents an infinite hang, but auto-rejecting on a timeout nobody saw still spends the judgement this gate exists to get.",
-      "targetImpact": "macOS uses osascript, Windows uses the built-in WinRT toast APIs (no extra module), Linux uses notify-send. HARNESS_NOTIFY=0 opts out; HARNESS_NOTIFY_CMD overrides with any `cmd title message`. A missing/broken notifier never blocks or fails the gate — it degrades to prior behavior.",
-      "paths": ["loop/approval-gate.mjs"],
-      "mergeActions": ["Copy the updated approval-gate.mjs as-is; no schema or CLI flag changed, only an additive notify() call."],
-      "verification": ["bash harness-loop/scripts/demo.sh"]
+      "targetImpact": "macOS uses osascript, Windows uses the built-in WinRT toast APIs (no extra module), Linux uses notify-send. HARNESS_NOTIFY=0 opts out; HARNESS_NOTIFY_CMD overrides with any `cmd title message`. A missing/broken notifier never blocks or fails the gate \u2014 it degrades to prior behavior.",
+      "paths": [
+        "loop/approval-gate.mjs"
+      ],
+      "mergeActions": [
+        "Copy the updated approval-gate.mjs as-is; no schema or CLI flag changed, only an additive notify() call."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-21-state-log-prose-gate",
       "summary": "New verify-harness.mjs gate state-log-prose: flags (warn) >=3 consecutive non-bulleted lines in progress.md/DECISIONS.md.",
       "why": "docs/constraints.md already requires terse bullets there; nothing mechanical checked it. A crude structural proxy (no list marker) catches the common case without claiming real verbosity judgment.",
       "targetImpact": "New warn-only finding id state-log-prose:<file>:<line>. No blocker, no schema change.",
-      "paths": ["tools/verify-harness.mjs"],
-      "mergeActions": ["Copy the updated verify-harness.mjs as-is."],
-      "verification": ["bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "tools/verify-harness.mjs"
+      ],
+      "mergeActions": [
+        "Copy the updated verify-harness.mjs as-is."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-21-route-blocked-exclusion",
       "summary": "loop/route.mjs: the test-implementer rule and maker's unwritten-set filter now exclude status=blocked prove-features.",
-      "why": "HI-056, found live on examples/jdt-mcp-server: `open` deliberately includes blocked features for visibility, but a rule that DISPATCHES action must not act on one — a blocked feature re-matched every iteration (observed 19 times) instead of staying stopped for a human.",
+      "why": "HI-056, found live on examples/jdt-mcp-server: `open` deliberately includes blocked features for visibility, but a rule that DISPATCHES action must not act on one \u2014 a blocked feature re-matched every iteration (observed 19 times) instead of staying stopped for a human.",
       "targetImpact": "A prove feature with status=blocked no longer triggers test-implementer, and no longer blocks an unrelated build feature via the unwritten-test check.",
-      "paths": ["loop/route.mjs"],
-      "mergeActions": ["If a target hand-patched this locally (as examples/jdt-mcp-server had), the canonical version now matches — copy over the local patch without re-diffing it."],
-      "verification": ["bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "loop/route.mjs"
+      ],
+      "mergeActions": [
+        "If a target hand-patched this locally (as examples/jdt-mcp-server had), the canonical version now matches \u2014 copy over the local patch without re-diffing it."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-21-promote-respects-reject",
       "summary": "verify-harness.mjs's --promote no longer promotes a feature whose checkerNotes starts with REJECT, even if its old verification command still exits 0.",
-      "why": "HI-057, found live on examples/jdt-mcp-server: checker-prompt.md sets status back to in-progress on REJECT (so the router keeps offering it to the maker), which --promote could not distinguish from 'in-progress, never checked'. feat-lsp-client was rejected for lacking a real process-boundary oracle and was silently promoted to done on the next --promote pass anyway — a core-invariant violation ('only the checker sets done').",
+      "why": "HI-057, found live on examples/jdt-mcp-server: checker-prompt.md sets status back to in-progress on REJECT (so the router keeps offering it to the maker), which --promote could not distinguish from 'in-progress, never checked'. feat-lsp-client was rejected for lacking a real process-boundary oracle and was silently promoted to done on the next --promote pass anyway \u2014 a core-invariant violation ('only the checker sets done').",
       "targetImpact": "promoteFeatures() adds one guard: skip if /^REJECT\\b/ matches checkerNotes' first line (same marker convention route.mjs already uses for NEEDS DESIGN:/NEEDS RE-PLAN:).",
-      "paths": ["tools/verify-harness.mjs"],
-      "mergeActions": ["Copy the updated verify-harness.mjs as-is.", "Audit feature_list.json for any feature with status done/passing and checkerNotes starting with REJECT — that is exactly the corruption this fix prevents going forward, but an existing target may already carry one; revert its status to in-progress by hand."],
-      "verification": ["bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "tools/verify-harness.mjs"
+      ],
+      "mergeActions": [
+        "Copy the updated verify-harness.mjs as-is.",
+        "Audit feature_list.json for any feature with status done/passing and checkerNotes starting with REJECT \u2014 that is exactly the corruption this fix prevents going forward, but an existing target may already carry one; revert its status to in-progress by hand."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-22-semantic-review-batch",
       "summary": "Maker checkpoints no longer dispatch checker; readyForCheck now means a complete feature-level behavior with green verification and complete evidence, and attempts counts rejected review cycles.",
       "why": "HI-058: run-loop.mjs unconditionally dispatched checker after every maker iteration and maker-prompt.md unconditionally set readyForCheck, so small partial advances paid for an independent review before there was a complete claim to falsify.",
       "targetImpact": "A maker may commit several bounded checkpoints on one active feature with readyForCheck=false. run-loop.mjs skips checker until a complete claim is ready. Checker increments attempts on REJECT and blocks at maxAttempts; partial maker checkpoints no longer consume that budget.",
-      "paths": ["loop/run-loop.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/goal.md", "docs/constraints.md", "feature_list.json", "prompts/k8s-integration-tester.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md", "docs/reference/feature-decomposition.md", "docs/reference/loop-engineering.md"],
-      "mergeActions": ["Refresh the listed skill-owned files.", "For existing feature rows, reinterpret attempts as prior rejected review cycles where history permits; do not mechanically retain counts known to represent maker checkpoints.", "Do not set readyForCheck on partial work; leave the active feature false until its complete behavior and verification are green."],
-      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "paths": [
+        "loop/run-loop.mjs",
+        "loop/maker-prompt.md",
+        "loop/checker-prompt.md",
+        "loop/goal.md",
+        "docs/constraints.md",
+        "feature_list.json",
+        "prompts/k8s-integration-tester.md",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md",
+        "docs/reference/feature-decomposition.md",
+        "docs/reference/loop-engineering.md"
+      ],
+      "mergeActions": [
+        "Refresh the listed skill-owned files.",
+        "For existing feature rows, reinterpret attempts as prior rejected review cycles where history permits; do not mechanically retain counts known to represent maker checkpoints.",
+        "Do not set readyForCheck on partial work; leave the active feature false until its complete behavior and verification are green."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ],
       "humanDecision": {
         "questionId": "semantic-review-batch-policy",
         "question": "Should checker run only for a semantically complete feature-level claim, with attempts counting failed reviews rather than maker checkpoints?",
-        "answer": "phê duyệt",
+        "answer": "ph\u00ea duy\u1ec7t",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-22",
-        "scope": ["default scaffold maker-checker workflow"],
-        "basis": [{"kind": "observation", "pointer": "examples/jdt-mcp-server/harness/trace/tool-events.jsonl: 104 sessions, including repeated premature/redundant dispatch"}, {"kind": "human", "pointer": "chat approval on 2026-08-22"}],
+        "scope": [
+          "default scaffold maker-checker workflow"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "examples/jdt-mcp-server/harness/trace/tool-events.jsonl: 104 sessions, including repeated premature/redundant dispatch"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat approval on 2026-08-22"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -591,17 +982,50 @@
       "summary": "PreToolUse write confinement now serializes allow/deny per runtime: Claude keeps explicit allow/deny, Codex emits neutral allow and reasoned deny; Codex dispatch calibrates both branches first.",
       "why": "HI-059: Codex CLI 0.149.0 reports `PreToolUse hook returned unsupported permissionDecision:allow`. The shared Claude/Codex serializer made every permitted tool call a failed hook even though path classification was correct.",
       "targetImpact": "Generated Codex hooks pass `--runtime codex`; tools/hook-calibrate.mjs records the installed version and proves neutral allow plus reasoned deny before every Codex dispatch. loop/dispatch.mjs rejects hook-schema warnings even when the runtime exits zero. Existing Codex targets must refresh the generated hook and the four runtime tools together.",
-      "paths": ["tools/guard-write.mjs", "tools/hook-calibrate.mjs", "tools/codex-dispatch.mjs", "tools/gen-agents.mjs", "tools/verify-harness.mjs", "loop/dispatch.mjs", ".codex/hooks.json", "docs/reference/runtimes.md", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh guard-write.mjs, hook-calibrate.mjs, codex-dispatch.mjs, verify-harness.mjs and loop/dispatch.mjs as one compatibility set.", "Regenerate .codex/hooks.json so its guard command includes `--runtime codex`.", "Run `node tools/hook-calibrate.mjs --target . --runtime codex`; do not dispatch Codex if adapter is not pass."],
-      "verification": ["bash harness-loop/scripts/demo.sh", "node tools/hook-calibrate.mjs --target . --runtime codex"],
+      "paths": [
+        "tools/guard-write.mjs",
+        "tools/hook-calibrate.mjs",
+        "tools/codex-dispatch.mjs",
+        "tools/gen-agents.mjs",
+        "tools/verify-harness.mjs",
+        "loop/dispatch.mjs",
+        ".codex/hooks.json",
+        "docs/reference/runtimes.md",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh guard-write.mjs, hook-calibrate.mjs, codex-dispatch.mjs, verify-harness.mjs and loop/dispatch.mjs as one compatibility set.",
+        "Regenerate .codex/hooks.json so its guard command includes `--runtime codex`.",
+        "Run `node tools/hook-calibrate.mjs --target . --runtime codex`; do not dispatch Codex if adapter is not pass."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node tools/hook-calibrate.mjs --target . --runtime codex"
+      ],
       "humanDecision": {
         "questionId": "runtime-hook-adapter-calibration",
         "question": "Implement runtime-specific hook adapters and live allow/deny calibration as the next harness improvement?",
-        "answer": "đồng ý thực hiện như đề xuất",
+        "answer": "\u0111\u1ed3ng \u00fd th\u1ef1c hi\u1ec7n nh\u01b0 \u0111\u1ec1 xu\u1ea5t",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-22",
-        "scope": ["default scaffold runtime hooks", "Codex dispatch acceptance"],
-        "basis": [{"kind": "observation", "pointer": "Codex CLI 0.149.0 error: unsupported permissionDecision:allow"}, {"kind": "source", "pointer": "harness-loop/scripts/guard-write.mjs shared serializer"}, {"kind": "human", "pointer": "chat approval on 2026-08-22"}],
+        "scope": [
+          "default scaffold runtime hooks",
+          "Codex dispatch acceptance"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "Codex CLI 0.149.0 error: unsupported permissionDecision:allow"
+          },
+          {
+            "kind": "source",
+            "pointer": "harness-loop/scripts/guard-write.mjs shared serializer"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat approval on 2026-08-22"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -611,17 +1035,33 @@
       "summary": "Orchestrator now shows canonical done/total/percent/remaining progress after every observed workflow change.",
       "why": "HI-060: the front door reported a diff and the next node after a worker turn, but did not require the updated absolute progress, leaving humans unable to see immediately how far the workflow had advanced.",
       "targetImpact": "tools/loop-status.mjs exposes one structured progress object and renders one progress line. The orchestrator re-runs that view after every sub-agent return or other state change and includes the snapshot even when a partial checkpoint leaves completion unchanged.",
-      "paths": ["tools/loop-status.mjs", "prompts/orchestrator.md", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh loop-status.mjs and orchestrator.md together.", "Preserve target-specific presentation wording, but retain the mandatory post-change progress line and fresh route lookup."],
-      "verification": ["bash harness-loop/scripts/demo.sh"],
+      "paths": [
+        "tools/loop-status.mjs",
+        "prompts/orchestrator.md",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh loop-status.mjs and orchestrator.md together.",
+        "Preserve target-specific presentation wording, but retain the mandatory post-change progress line and fresh route lookup."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh"
+      ],
       "humanDecision": {
         "questionId": "orchestrator-progress-after-change",
         "question": "Should orchestrator show current progress every time workflow state changes?",
-        "answer": "orchestrator cần show được progress hiện tại mỗi lần có thay đổi xem đã đi được đến đâu",
+        "answer": "orchestrator c\u1ea7n show \u0111\u01b0\u1ee3c progress hi\u1ec7n t\u1ea1i m\u1ed7i l\u1ea7n c\u00f3 thay \u0111\u1ed5i xem \u0111\u00e3 \u0111i \u0111\u01b0\u1ee3c \u0111\u1ebfn \u0111\u00e2u",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-22",
-        "scope": ["default scaffold orchestrator reporting"],
-        "basis": [{"kind": "human", "pointer": "chat request on 2026-08-22"}],
+        "scope": [
+          "default scaffold orchestrator reporting"
+        ],
+        "basis": [
+          {
+            "kind": "human",
+            "pointer": "chat request on 2026-08-22"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -631,17 +1071,50 @@
       "summary": "A typed, digest-bound reviewPacket is admitted before checker dispatch; structured checkerVerdict separates declared-contract misses from novel counterexamples.",
       "why": "HI-061, observed on examples/jdt-mcp-server: 7 of 17 recent semantic verdicts were REJECT, with avoidable repeated gaps in returned cleanup, process teardown, live collection iteration, compound redundancy and real stdout. readyForCheck carried only prose evidence, so the checker had to rediscover whether the public rubric was complete.",
       "targetImpact": "Every new readyForCheck submission must pass tools/review-contract.mjs. Missing fields produce SUBMISSION_INCOMPLETE, skip checker and leave attempts unchanged. Once a feature adopts reviewPacket, semantic reviews also record checkerVerdict; REJECT carries a violated reference, counterexample, reproduction, observation and exit criterion.",
-      "paths": ["tools/review-contract.mjs", "tools/verify-harness.mjs", "loop/run-loop.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "feature_list.json", "docs/reference/test-authoring.md", "docs/reference/loop-engineering.md", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Refresh the listed skill-owned files as one protocol change.", "Do not synthesize reviewPacket for historical done features. For the next maker submission, compute contractDigest with `node tools/review-contract.mjs <id> --json` and fill the public rubric.", "Preserve checker independence: migrate actionable prose REJECT details into checkerVerdict, but do not publish private mutant implementations before review."],
-      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."],
+      "paths": [
+        "tools/review-contract.mjs",
+        "tools/verify-harness.mjs",
+        "loop/run-loop.mjs",
+        "loop/maker-prompt.md",
+        "loop/checker-prompt.md",
+        "feature_list.json",
+        "docs/reference/test-authoring.md",
+        "docs/reference/loop-engineering.md",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Refresh the listed skill-owned files as one protocol change.",
+        "Do not synthesize reviewPacket for historical done features. For the next maker submission, compute contractDigest with `node tools/review-contract.mjs <id> --json` and fill the public rubric.",
+        "Preserve checker independence: migrate actionable prose REJECT details into checkerVerdict, but do not publish private mutant implementations before review."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ],
       "humanDecision": {
         "questionId": "typed-maker-checker-review-contract",
         "question": "Should the default harness reduce avoidable rejects with typed maker admission while preserving independent private checker probes?",
-        "answer": "ok hãy sửa harness của project gốc ~/workspace/projects/harness theo hướng cải tiến như trên",
+        "answer": "ok h\u00e3y s\u1eeda harness c\u1ee7a project g\u1ed1c ~/workspace/projects/harness theo h\u01b0\u1edbng c\u1ea3i ti\u1ebfn nh\u01b0 tr\u00ean",
         "answeredBy": "repository owner via chat",
         "answeredAt": "2026-08-23",
-        "scope": ["default scaffold maker-checker workflow"],
-        "basis": [{"kind": "observation", "pointer": "examples/jdt-mcp-server/harness/trace/trace.jsonl: 17 recent verdicts, 7 REJECT"}, {"kind": "research", "pointer": "examples/research/maker-checker-contracts-online.md"}, {"kind": "human", "pointer": "chat approval on 2026-08-23"}],
+        "scope": [
+          "default scaffold maker-checker workflow"
+        ],
+        "basis": [
+          {
+            "kind": "observation",
+            "pointer": "examples/jdt-mcp-server/harness/trace/trace.jsonl: 17 recent verdicts, 7 REJECT"
+          },
+          {
+            "kind": "research",
+            "pointer": "examples/research/maker-checker-contracts-online.md"
+          },
+          {
+            "kind": "human",
+            "pointer": "chat approval on 2026-08-23"
+          }
+        ],
         "supersedes": null,
         "openFollowUps": []
       }
@@ -649,47 +1122,144 @@
     {
       "id": "HUC-2026-08-26-parallel-maker-slices",
       "summary": "One feature's implementation step may now be built by several makers at once over disjoint file sets, with exactly one maker running the verification afterwards.",
-      "why": "WIP=1 bounds features, not files, so a step touching several independent modules was serialized for no reason — while the real hazard (two agents in one file, or two agents writing single-writer state) had no mechanical guard. tools/work-split.mjs supplies it: a plan is refused when its slices intersect by glob or on disk, when a slice reaches feature_list.json/progress.md/loop/**/memory/**, when a brief is too thin for a worker that has nobody to ask, or when the fan-in runs anything other than the feature's own verification.",
+      "why": "WIP=1 bounds features, not files, so a step touching several independent modules was serialized for no reason \u2014 while the real hazard (two agents in one file, or two agents writing single-writer state) had no mechanical guard. tools/work-split.mjs supplies it: a plan is refused when its slices intersect by glob or on disk, when a slice reaches feature_list.json/progress.md/loop/**/memory/**, when a brief is too thin for a worker that has nobody to ask, or when the fan-in runs anything other than the feature's own verification.",
       "targetImpact": "Optional capability; nothing changes for a target that never writes a plan. loop/route.mjs gains three implementation-layer rules and a mode field; the orchestrator gains one bounded exception to spawning a single child; the maker prompt gains slice-worker and integrator modes; guard-write.mjs confines a worker to its slice when HARNESS_SLICE is set; run-loop.mjs dispatches a fan-out headless (HARNESS_MAX_PARALLEL, default 4). Confinement is real only for workers started with loop/dispatch.mjs --slice on Claude Code or Codex; an in-session spawn cannot set per-child environment, and kiro has no PreToolUse hook at all.",
-      "paths": ["tools/work-split.mjs", "loop/work-split/**", "loop/route.mjs", "loop/run-loop.mjs", "loop/dispatch.mjs", "loop/maker-prompt.md", "prompts/orchestrator.md", "tools/guard-write.mjs", "tools/loop-status.mjs", "agents.manifest.json", "docs/reference/graph.md", "docs/reference/workflow-diagram.md"],
-      "mergeActions": ["Copy tools/work-split.mjs and create loop/work-split/ with its README; both are new, so no target content is at risk.", "Take the three implementation-layer rules and the mode/slices output from the canonical route.mjs; a target that customized route.mjs keeps its own rules and gains these three immediately above the plain maker rule.", "Merge the maker prompt's mode table plus its Slice worker and Integrator sections, and the orchestrator's fan-out section, preserving project-specific instructions in both.", "Add sliceConfined: true to the maker entry in agents.manifest.json and regenerate every runtime — without it Claude Code emits no PreToolUse hook for maker, so slice confinement is absent while every log line says the guard ran.", "Re-check that unrestricted roles still carry writes: null after the contained-layout rewrite (HI-062); an empty list denies every write."],
-      "verification": ["node tools/work-split.mjs validate <feat-id> refuses overlapping slices, reserved paths, thin briefs and a cheap fan-in", "HARNESS_FEATURE=<feat> HARNESS_SLICE=<slice> node tools/guard-write.mjs maker denies a path outside the slice and allows one inside", "node loop/route.mjs reports mode slice-fanout, then integrate, then slice-repair as slice status changes", "bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "tools/work-split.mjs",
+        "loop/work-split/**",
+        "loop/route.mjs",
+        "loop/run-loop.mjs",
+        "loop/dispatch.mjs",
+        "loop/maker-prompt.md",
+        "prompts/orchestrator.md",
+        "tools/guard-write.mjs",
+        "tools/loop-status.mjs",
+        "agents.manifest.json",
+        "docs/reference/graph.md",
+        "docs/reference/workflow-diagram.md"
+      ],
+      "mergeActions": [
+        "Copy tools/work-split.mjs and create loop/work-split/ with its README; both are new, so no target content is at risk.",
+        "Take the three implementation-layer rules and the mode/slices output from the canonical route.mjs; a target that customized route.mjs keeps its own rules and gains these three immediately above the plain maker rule.",
+        "Merge the maker prompt's mode table plus its Slice worker and Integrator sections, and the orchestrator's fan-out section, preserving project-specific instructions in both.",
+        "Add sliceConfined: true to the maker entry in agents.manifest.json and regenerate every runtime \u2014 without it Claude Code emits no PreToolUse hook for maker, so slice confinement is absent while every log line says the guard ran.",
+        "Re-check that unrestricted roles still carry writes: null after the contained-layout rewrite (HI-062); an empty list denies every write."
+      ],
+      "verification": [
+        "node tools/work-split.mjs validate <feat-id> refuses overlapping slices, reserved paths, thin briefs and a cheap fan-in",
+        "HARNESS_FEATURE=<feat> HARNESS_SLICE=<slice> node tools/guard-write.mjs maker denies a path outside the slice and allows one inside",
+        "node loop/route.mjs reports mode slice-fanout, then integrate, then slice-repair as slice status changes",
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-26-upgrade-delivers-template-tools",
       "summary": "upgrade-harness.mjs now delivers everything under templates/tree/tools/, and review-contract.mjs resolves feature_list.json from its own location instead of cwd.",
-      "why": "Both found by applying the parallel-maker change to examples/jdt-mcp-server. HI-064: the upgrader built its tool list by grepping setup's copy list, so template-tree tools reached a fresh scaffold through setup's directory walk and an existing target never at all — jdt had no tools/review-contract.mjs while its refreshed run-loop.mjs called it and its maker prompt required it. HI-065: review-contract.mjs read feature_list.json relative to cwd, so the exact command the maker prompt gives a contained target (run from the project root) exited 2; run-loop.mjs never saw it because it spawns with cwd already at the harness home.",
+      "why": "Both found by applying the parallel-maker change to examples/jdt-mcp-server. HI-064: the upgrader built its tool list by grepping setup's copy list, so template-tree tools reached a fresh scaffold through setup's directory walk and an existing target never at all \u2014 jdt had no tools/review-contract.mjs while its refreshed run-loop.mjs called it and its maker prompt required it. HI-065: review-contract.mjs read feature_list.json relative to cwd, so the exact command the maker prompt gives a contained target (run from the project root) exited 2; run-loop.mjs never saw it because it spawns with cwd already at the harness home.",
       "targetImpact": "An upgraded target now receives tools/review-contract.mjs and tools/work-split.mjs even if it predates them, and the admission seam runs from either the project root or the harness home. Flat layouts were never affected by HI-065.",
-      "paths": ["tools/review-contract.mjs", "tools/work-split.mjs"],
-      "mergeActions": ["Re-run node harness-loop/scripts/upgrade-harness.mjs --target DIR; both files are skill-owned machinery and are overwritten, so nothing project-specific is at risk.", "If a target still shows agents.manifest.json as drifted afterwards, that is the manifest merge, not these files."],
-      "verification": ["node harness/tools/review-contract.mjs --ready run from the project root does not report 'cannot read feature_list.json'", "node harness-loop/scripts/upgrade-harness.mjs --target DIR --dry-run reports no changed/added/drifted on a second pass", "bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "tools/review-contract.mjs",
+        "tools/work-split.mjs"
+      ],
+      "mergeActions": [
+        "Re-run node harness-loop/scripts/upgrade-harness.mjs --target DIR; both files are skill-owned machinery and are overwritten, so nothing project-specific is at risk.",
+        "If a target still shows agents.manifest.json as drifted afterwards, that is the manifest merge, not these files."
+      ],
+      "verification": [
+        "node harness/tools/review-contract.mjs --ready run from the project root does not report 'cannot read feature_list.json'",
+        "node harness-loop/scripts/upgrade-harness.mjs --target DIR --dry-run reports no changed/added/drifted on a second pass",
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-27-memory-tier-and-oracle-fix-edge",
       "summary": "Four fixes drawn from reading every memory entry across the example projects: the memory schema is now checked, memory findings are grouped, duplicate detection compares bodies rather than exact wording, a blocked dependency is named where it dams open work, the review contract asks what a wrong implementation would still pass, and a prove feature whose own oracle is wrong finally has a node allowed to fix it.",
-      "why": "HI-068: agent-memory.md documents an entry frontmatter schema that nothing enforced, so on examples/jdt-mcp-server 61 of 71 entries had none, duplicate detection silently no-opped, memory-query.mjs returned '[?]' with empty hooks, and two maker entries five features apart recorded the identical root cause — the second costing a mutant round that read as 'all mutants survived'. The same tool emitted 66 identical warnings out of 68 findings, the wall AGENTS.md calls worse than no gate. HI-069: route.mjs's test-implementer rule keys on empty evidence, so a project that authors oracles before the implementation put every prove feature permanently out of the oracle layer's reach while the maker was forbidden to touch the test and the checker could not write it — no node could fix that file. HI-070: a blocked prove feature used as a stage gate turns its maxAttempts into the whole downstream branch's budget, and the only symptom was the router saying 'none routable'. HI-071: adversarialChecks had five keys and none asked the question a green run cannot answer for itself, which is what about twenty-five checker and maker memory entries are all separately about.",
+      "why": "HI-068: agent-memory.md documents an entry frontmatter schema that nothing enforced, so on examples/jdt-mcp-server 61 of 71 entries had none, duplicate detection silently no-opped, memory-query.mjs returned '[?]' with empty hooks, and two maker entries five features apart recorded the identical root cause \u2014 the second costing a mutant round that read as 'all mutants survived'. The same tool emitted 66 identical warnings out of 68 findings, the wall AGENTS.md calls worse than no gate. HI-069: route.mjs's test-implementer rule keys on empty evidence, so a project that authors oracles before the implementation put every prove feature permanently out of the oracle layer's reach while the maker was forbidden to touch the test and the checker could not write it \u2014 no node could fix that file. HI-070: a blocked prove feature used as a stage gate turns its maxAttempts into the whole downstream branch's budget, and the only symptom was the router saying 'none routable'. HI-071: adversarialChecks had five keys and none asked the question a green run cannot answer for itself, which is what about twenty-five checker and maker memory entries are all separately about.",
       "targetImpact": "memory-consolidate.mjs and environment.mjs gain findings/fields but change no behaviour a target depends on. loop/route.mjs gains one oracle-layer rule and a dependency-walk on the none-routable fallthrough. verify-harness.mjs gains the blocked-dependency-dam warn. tools/review-contract.mjs now REQUIRES adversarialChecks.discrimination as a sentence: any reviewPacket written before this upgrade becomes SUBMISSION_INCOMPLETE until the field is added, which is maker feedback and costs no checker attempt. The three prompts gain the NEEDS ORACLE FIX: contract.",
-      "paths": ["tools/memory-consolidate.mjs", "tools/environment.mjs", "loop/route.mjs", "tools/verify-harness.mjs", "tools/review-contract.mjs", "loop/maker-prompt.md", "loop/checker-prompt.md", "prompts/test-implementer.md", "docs/reference/graph.md"],
-      "mergeActions": ["Refresh the skill-owned tools and loop/route.mjs; none of them holds project content.", "Merge the NEEDS ORACLE FIX: sections into the three prompts, preserving project-specific instructions: the checker verdict shape, the test-implementer repair rules, and the maker's never-pick list. A target that merges only some of the three gets a marker one role writes and another ignores.", "Add adversarialChecks.discrimination to any reviewPacket already on disk, as a sentence naming what a wrong implementation would still pass — 'covered' is rejected by design.", "Expect memory findings to appear on any target with real memory: missing frontmatter is pre-existing debt, not a regression, and the grouped counts are what make it readable."],
-      "verification": ["node tools/memory-consolidate.mjs --target . reports one grouped finding per class, and entry-missing-schema where entries lack frontmatter", "node loop/route.mjs on a target with a blocked dependency names the dam rather than only the stuck ids", "node tools/review-contract.mjs <feat-id> rejects a packet whose discrimination is \"covered\"", "a feature whose checkerNotes starts NEEDS ORACLE FIX: routes to test-implementer even with non-empty evidence", "bash harness-loop/scripts/demo.sh"]
+      "paths": [
+        "tools/memory-consolidate.mjs",
+        "tools/environment.mjs",
+        "loop/route.mjs",
+        "tools/verify-harness.mjs",
+        "tools/review-contract.mjs",
+        "loop/maker-prompt.md",
+        "loop/checker-prompt.md",
+        "prompts/test-implementer.md",
+        "docs/reference/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh the skill-owned tools and loop/route.mjs; none of them holds project content.",
+        "Merge the NEEDS ORACLE FIX: sections into the three prompts, preserving project-specific instructions: the checker verdict shape, the test-implementer repair rules, and the maker's never-pick list. A target that merges only some of the three gets a marker one role writes and another ignores.",
+        "Add adversarialChecks.discrimination to any reviewPacket already on disk, as a sentence naming what a wrong implementation would still pass \u2014 'covered' is rejected by design.",
+        "Expect memory findings to appear on any target with real memory: missing frontmatter is pre-existing debt, not a regression, and the grouped counts are what make it readable."
+      ],
+      "verification": [
+        "node tools/memory-consolidate.mjs --target . reports one grouped finding per class, and entry-missing-schema where entries lack frontmatter",
+        "node loop/route.mjs on a target with a blocked dependency names the dam rather than only the stuck ids",
+        "node tools/review-contract.mjs <feat-id> rejects a packet whose discrimination is \"covered\"",
+        "a feature whose checkerNotes starts NEEDS ORACLE FIX: routes to test-implementer even with non-empty evidence",
+        "bash harness-loop/scripts/demo.sh"
+      ]
     },
     {
       "id": "HUC-2026-08-27-memory-written-in-english",
       "summary": "Memory entries and index hooks are written in English, whatever language the rest of the project uses. Existing entries in another language stay as they are.",
-      "why": "Memory is not project prose: it is an operational record addressed to whichever agent runs next, in the same class as a log line or an identifier, and the reader is rarely the writer. A mixed-language index also costs the cheap skim the index exists to buy — examples/jdt-mcp-server had 43 of its index lines and 55 of its 81 entries in a second language. Deliberately a rule and not a gate: with the back catalogue frozen, a check would fire on 98 items forever with no action available, which is the wall AGENTS.md calls worse than no gate.",
+      "why": "Memory is not project prose: it is an operational record addressed to whichever agent runs next, in the same class as a log line or an identifier, and the reader is rarely the writer. A mixed-language index also costs the cheap skim the index exists to buy \u2014 examples/jdt-mcp-server had 43 of its index lines and 55 of its 81 entries in a second language. Deliberately a rule and not a gate: with the back catalogue frozen, a check would fire on 98 items forever with no action available, which is the wall AGENTS.md calls worse than no gate.",
       "targetImpact": "Documentation only. references/agent-memory.md states the rule, and every memory/<agent>/MEMORY.md template repeats it where an agent will read it before writing. No existing entry is rewritten, and nothing fails because of one.",
-      "paths": ["docs/reference/agent-memory.md", "memory/*/MEMORY.md"],
-      "mergeActions": ["Refresh docs/reference/agent-memory.md; it is skill-owned.", "Add the one-paragraph rule to each memory/<agent>/MEMORY.md header — those files are project content, so copy the paragraph rather than overwriting the file, and leave every existing index line untouched."],
-      "verification": ["grep -c 'in English' memory/maker/MEMORY.md", "node tools/memory-consolidate.mjs --target . reports no new finding class — this change adds no gate"]
+      "paths": [
+        "docs/reference/agent-memory.md",
+        "memory/*/MEMORY.md"
+      ],
+      "mergeActions": [
+        "Refresh docs/reference/agent-memory.md; it is skill-owned.",
+        "Add the one-paragraph rule to each memory/<agent>/MEMORY.md header \u2014 those files are project content, so copy the paragraph rather than overwriting the file, and leave every existing index line untouched."
+      ],
+      "verification": [
+        "grep -c 'in English' memory/maker/MEMORY.md",
+        "node tools/memory-consolidate.mjs --target . reports no new finding class \u2014 this change adds no gate"
+      ]
     },
     {
       "id": "HUC-2026-08-29-k8s-manifest-values",
       "summary": "Multi-service Kubernetes runs may select explicit per-service Helm values files without changing chart defaults.",
       "why": "HI-083: feat-011 needed a sidecar only in the disposable local-minikube journey after node-log access proved false, but k8s-test-env.sh could deploy only the chart defaults.",
       "targetImpact": "A service manifest may add a values array of relative file paths. The runner validates the shape and existence of every path and passes each as helm --values. Manifests without values are unchanged.",
-      "paths": ["tools/k8s-test-env.sh", "references/multi-service.md", "references/graph.md", "references/workflow-diagram.md", "SKILL.md"],
-      "mergeActions": ["Refresh the optional K8s test-environment script from the canonical template.", "Keep chart defaults intact; add values only to services whose test environment needs an explicit override."],
-      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+      "paths": [
+        "tools/k8s-test-env.sh",
+        "references/multi-service.md",
+        "references/graph.md",
+        "references/workflow-diagram.md",
+        "SKILL.md"
+      ],
+      "mergeActions": [
+        "Refresh the optional K8s test-environment script from the canonical template.",
+        "Keep chart defaults intact; add values only to services whose test environment needs an explicit override."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
+    },
+    {
+      "id": "HUC-2026-09-01-baseline-cache",
+      "summary": "A project whose baseline gate is genuinely expensive may reuse a recorded green across sessions instead of re-running it.",
+      "why": "The gate already runs once per session, but every NEW session re-pays it in full even when nothing it reads has changed. Measured: jdt-mcp-server's provisioner replay costs 562 s per run because the clean-cache path really downloads a JDT LS distribution.",
+      "targetImpact": "loop/baseline-cache.mjs ships with every tree and stays inert until the project writes loop/baseline-cache.json. When enabled it digests the working tree by content plus declared toolchain probes; run-loop.mjs reuses a recorded green only on an identical digest inside the age limit, and every other outcome \u2014 no policy, no git, a red baseline, a missing or differing digest, a stale run \u2014 means run. baseline-state.json gains inputsDigest, reusedAt and reuseCount; checkedAt still records when the gate actually ran.",
+      "paths": [
+        "loop/baseline-cache.mjs",
+        "loop/run-loop.mjs",
+        "references/baseline-cache.md",
+        "references/graph.md",
+        "SKILL.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/run-loop.mjs and add loop/baseline-cache.mjs from the canonical template.",
+        "Leave the cache off unless the baseline is genuinely expensive; opting in means writing loop/baseline-cache.json with the project's own root, probes and ignore paths."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     }
   ]
 }

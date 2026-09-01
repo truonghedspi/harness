@@ -1675,6 +1675,7 @@ expect "the Node loop executes without Bash and preserves its mechanical early-s
 # checker process is proof of the bug rather than an implementation detail.
 BATCH="$WORK/review-batch"; mkdir -p "$BATCH/loop" "$BATCH/bin"
 cp "$SCRIPTS/../templates/tree/loop/run-loop.mjs" "$BATCH/loop/run-loop.mjs"
+cp "$SCRIPTS/../templates/tree/loop/baseline-cache.mjs" "$BATCH/loop/baseline-cache.mjs"
 cp "$SCRIPTS/../templates/tree/loop/dispatch.mjs" "$BATCH/loop/dispatch.mjs"
 mkdir -p "$BATCH/tools"
 cp "$SCRIPTS/../templates/tree/tools/kiro-acp-dispatch.mjs" "$BATCH/tools/kiro-acp-dispatch.mjs"
@@ -3744,6 +3745,7 @@ echo ""
 step 64 "baseline gate runs once per session, not per iteration"
 BS="$WORK/baseline-once"; mkdir -p "$BS/loop" "$BS/bin" "$BS/tools"
 cp "$SCRIPTS/../templates/tree/loop/run-loop.mjs" "$BS/loop/run-loop.mjs"
+cp "$SCRIPTS/../templates/tree/loop/baseline-cache.mjs" "$BS/loop/baseline-cache.mjs"
 cp "$SCRIPTS/../templates/tree/loop/dispatch.mjs" "$BS/loop/dispatch.mjs"
 cp "$SCRIPTS/../templates/tree/tools/kiro-acp-dispatch.mjs" "$BS/tools/kiro-acp-dispatch.mjs"
 printf '%s\n' '#!/usr/bin/env node' 'process.stdout.write(JSON.stringify({node:"maker",kind:"agent",layer:"implementation",why:"incomplete feature"}));' > "$BS/loop/route.mjs"
@@ -3754,6 +3756,48 @@ chmod +x "$BS/bin/kiro-cli"
 ( cd "$BS" && PATH="$BS/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BS/runtime.log" node loop/run-loop.mjs 2 --headless > "$BS/run.log" 2>&1 )
 test "$(wc -l < "$BS/init-count.txt" | tr -d ' ')" = "1" && grep -q "reused" "$BS/run.log"
 expect "a green baseline holds for the whole session, so init.mjs runs once not per iteration" $?
+
+step 65 "baseline cache: a green gate is reused across sessions only while its inputs are identical"
+# The gate already runs once per session. This proves the other half: a NEW session re-pays it in
+# full unless the cache says nothing it reads has changed. Every wrong answer here is expensive in
+# one direction only, so the negative cases matter more than the hit.
+BC="$WORK/baseline-cache/proj"; BCOUT="$WORK/baseline-cache"; rm -rf "$WORK/baseline-cache"; mkdir -p "$BC/harness/loop" "$BC/harness/tools" "$BC/harness/bin" "$BC/src"
+( cd "$BC" && git init -q . && git config user.email demo@demo && git config user.name demo )
+for f in run-loop.mjs dispatch.mjs baseline-cache.mjs; do cp "$SCRIPTS/../templates/tree/loop/$f" "$BC/harness/loop/$f"; done
+cp "$SCRIPTS/../templates/tree/tools/kiro-acp-dispatch.mjs" "$BC/harness/tools/kiro-acp-dispatch.mjs"
+printf '%s\n' '#!/usr/bin/env node' 'process.stdout.write(JSON.stringify({node:"maker",kind:"agent",layer:"implementation",why:"incomplete feature"}));' > "$BC/harness/loop/route.mjs"
+printf '%s\n' '#!/usr/bin/env node' 'import { appendFileSync } from "node:fs";' 'appendFileSync("init-count.txt", "1\n");' 'process.exit(0);' > "$BC/harness/init.mjs"
+printf '%s\n' '{"features":[{"id":"feat-partial","status":"active","readyForCheck":false,"checkerNotes":"","attempts":0,"maxAttempts":3}]}' > "$BC/harness/feature_list.json"
+printf '%s\n' '{"schema":"baseline-cache/1","enabled":true,"maxAgeHours":24,"probes":["node -v"]}' > "$BC/harness/loop/baseline-cache.json"
+printf 'init-count.txt\n' > "$BC/.gitignore"
+echo 'hello' > "$BC/src/a.txt"
+cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$BC/harness/bin/kiro-cli"; chmod +x "$BC/harness/bin/kiro-cli"
+( cd "$BC" && git add -A && git commit -qm init )
+bc_session() { ( cd "$BC/harness" && PATH="$BC/harness/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro \
+  HARNESS_FAKE_RUNTIME_LOG=/dev/null env "$@" node loop/run-loop.mjs 1 --headless >> "$BCOUT/run.log" 2>&1 ); }
+bc_runs() { wc -l < "$BC/harness/init-count.txt" | tr -d ' '; }
+bc_session; bc_session
+test "$(bc_runs)" = "1" && grep -q "baseline: green (cached" "$BCOUT/run.log"
+expect "a second session with an identical tree reuses the recorded green instead of re-running the gate" $?
+node -e "
+const s=require('$BC/harness/loop/baseline-state.json');
+// A reuse that overwrote checkedAt would make an old verdict look fresh in every report downstream.
+process.exit(s.inputsDigest && s.reuseCount === 1 && s.reusedAt && s.reusedAt !== s.checkedAt ? 0 : 1);
+"; expect "the reuse is recorded — checkedAt still names the run that actually happened" $?
+echo 'changed' > "$BC/src/a.txt"; bc_session
+test "$(bc_runs)" = "2"; expect "editing a tracked file the gate reads invalidates the cache" $?
+echo x > "$BC/src/untracked.txt"; bc_session; rm "$BC/src/untracked.txt"
+test "$(bc_runs)" = "3"; expect "an untracked, non-ignored file counts as an input too" $?
+printf '%s\n' '#!/usr/bin/env node' 'import { appendFileSync } from "node:fs";' 'appendFileSync("init-count.txt", "1\n");' 'process.exit(1);' > "$BC/harness/init.mjs"
+bc_session; bc_session
+test "$(bc_runs)" = "5"; expect "a red baseline is never reused — only a fresh run can retire it" $?
+printf '%s\n' '#!/usr/bin/env node' 'import { appendFileSync } from "node:fs";' 'appendFileSync("init-count.txt", "1\n");' 'process.exit(0);' > "$BC/harness/init.mjs"
+bc_session; bc_session; BEFORE="$(bc_runs)"
+bc_session HARNESS_BASELINE_CACHE=0
+test "$(bc_runs)" = "$((BEFORE + 1))"; expect "HARNESS_BASELINE_CACHE=0 is a one-variable escape hatch" $?
+mv "$BC/harness/loop/baseline-cache.json" "$BCOUT/policy.json"; BEFORE="$(bc_runs)"
+bc_session; bc_session
+test "$(bc_runs)" = "$((BEFORE + 2))"; expect "with no policy file the cache is off — a project that never opted in never skips its gate" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

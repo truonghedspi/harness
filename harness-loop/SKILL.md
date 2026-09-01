@@ -253,7 +253,11 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    it is green (Lesson 6/9). A loop on a red baseline just amplifies failure. The loop runs this
    gate once per session (re-running only while red to confirm a repair) — the full feature replay
    still runs once at the end, so per-iteration wall-clock is not bought with lost regression
-   coverage.
+   coverage. If the gate is genuinely expensive — a real download, a container build — the project
+   may opt into cross-session reuse by writing `loop/baseline-cache.json`; see
+   [references/baseline-cache.md](references/baseline-cache.md). It reuses a **green** only while
+   the working tree and the declared toolchain probes are byte-identical, and every other outcome
+   means run.
 9. **Prove coverage:**
 
    ```bash
@@ -640,6 +644,8 @@ After setup, the target project should contain:
       retrying forever, a `kind` (`build`/`prove`), and a `falsifier` naming the wrong
       implementation each verification would fail on
 - [ ] `init.sh` — baseline gate running the real verification pipeline
+- [ ] `loop/baseline-cache.mjs` — opt-in cross-session reuse of a green gate; inert until the
+      project writes `loop/baseline-cache.json`
 - [ ] `progress.md` + `DECISIONS.md` — external state
 - [ ] `session-handoff.md` — lifecycle handoff
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`
