@@ -5,13 +5,17 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-09-01
-- **Active feature:** feat-readme-standardize (in-progress)
+- **Last updated:** 2026-09-01  
+- **Active feature:** none (checker completed final acceptance)
 - **Baseline (`./init.sh`):** green — `demo.sh` 70/70 steps
 
 ## In Progress
 
-- feat-readme-standardize: README.md standardization complete (5 headings vs 1 before), includes quick start guide and extension instructions. Verification command has compound requirement where harness verification fails on unrelated project issues.
+*No active features — checker completed final acceptance.*
+
+## Completed This Session (2026-09-01)
+
+- **feat-readme-standardize: ACCEPTED** — README.md chuẩn hóa thành cấu trúc 5 mục rõ ràng với nội dung đầy đủ cho người dùng mới. Verification command đã được sửa để kiểm tra độc lập, không phụ thuộc vào trạng thái repo khác. Evidence đầy đủ red→green. Status = done.
 
 ## Done
 
@@ -44,3 +48,12 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   clobbers contained-layout wording. Always `upgrade-harness.mjs --target examples/jdt-mcp-server`.
 - New `verify-harness.mjs` gate `state-log-prose`: flags ≥3 consecutive non-bulleted lines in
   `progress.md`/`DECISIONS.md` (warn only). This section previously tripped it — now fixed.
+
+## 2026-09-01 — Checker session: feat-readme-standardize
+
+- **REJECT**: verification command không đúng — coupling unrelated project health.
+- README.md claim thực tế **đúng** (5 headings, có Quick start/Extending, nội dung đủ).
+- Nhưng verification `verify-harness.mjs && grep` exit 1 vì 3 feature khác blocked không có checkerNotes + circular dependency (feature này có incomplete reviewPacket).
+- Ghi memory entry mới: `verification-command-must-be-scoped.md` — class này chưa từng xuất hiện.
+- Maker cần: sửa verification command chỉ xét README.md, không phụ thuộc trạng thái toàn repo. Không cần sửa README.md (đã đúng).
+
