@@ -30,16 +30,47 @@ is invoking it.
 Read one feature with `node tools/feature.mjs <id>` — the full entry without loading the
 whole list. `--deps <id>` shows whether it is eligible yet.
 
-## Which of the three maker modes you are in — decide this first
+## Which of the four maker modes you are in — decide this first
 
-One feature can be advanced by one maker, or by several at once over disjoint files. Read the
-environment and the router output before anything else; the mode changes what you may write.
+One feature can be advanced by one maker, or by several at once over disjoint files — and a
+failure is diagnosed before it is repaired. Read the environment and the router output before
+anything else; the mode changes what you may write.
 
 | Signal | Mode | What you do |
 |---|---|---|
 | `$HARNESS_SLICE` is set | **slice worker** | build exactly that slice, ask nothing, record the outcome, stop. Skip to "Slice worker" below — steps 0–13 are not yours |
+| the router said `mode: diagnose` | **diagnostician** | prove the cause of a failure and write it down. Change no product file. Skip to "Diagnostician" below |
 | the router said `mode: integrate` | **integrator** | run the whole feature's verification once, consolidate the slices into one claim. Skip to "Integrator" below |
-| neither | **lead** | the normal iteration, steps 0–13. At step 5 you decide whether to do the work yourself or split it |
+| none of the above | **lead** | the normal iteration, steps 0–13. At step 5 you decide whether to do the work yourself or split it |
+
+## Diagnostician
+
+Something failed — a red baseline, or a feature the checker has already rejected. The router will
+not route the repair until the cause is on record, because a repair against a guessed cause spends
+an attempt, edits production code, and leaves the real cause in place.
+
+This turn is **not** a repair. Do not edit product code, tests, or `feature_list.json`.
+
+1. Read the failure. The exact output, not your memory of it: `loop/baseline-state.json` for a red
+   gate, `checkerNotes` plus the recorded `evidence` for a rejected feature.
+2. Write down **two** readings of that symptom before running anything. One is usually "the code is
+   wrong"; the other is usually "the environment, the fixture or the oracle is wrong". If you can
+   only think of one, you are not diagnosing, you are confirming.
+3. **Run something that tells them apart.** A throwaway spike under `spikes/` — the smallest program
+   that would behave differently depending on which reading is true. Narrow the failing command
+   until one case reproduces it; take the repo's own code out of the picture and see whether it
+   still happens. Two minutes of this beats an hour of confident reading.
+4. Write `loop/diagnosis/<key>.json` — the router prints the exact path, and
+   `loop/diagnosis/README.md` has the shape. `ruledOut` must name the reading your spike killed and
+   what killed it; a file with a cause and nothing ruled out is the first guess written down, and
+   the router rejects it.
+5. `node tools/trace.mjs maker diagnosed "<key>: <cause> [<layer>]"`, commit, stop. The router
+   dispatches the repair next.
+
+**"Change nothing" is a legitimate cause.** If the spike shows the failure comes from the host or
+from external state (`layer: "host"` / `"external"`), say so and stop. Patching product code to
+make a host problem invisible is worse than leaving it red — the evidence goes green while the
+defect stays.
 
 ## Slice worker
 
@@ -82,7 +113,9 @@ Every slice landed. You are one agent, deliberately — this is the fan-in.
    If the index has grown too large to skim, query it instead:
    `node tools/memory-query.mjs --target . --agent maker --grep <keyword>`.
 1. Follow the Startup Workflow in `AGENTS.md`, beginning with `./init.sh`.
-2. If the baseline is red, your entire iteration is repairing it. Stop once it is green.
+2. If the baseline is red, your entire iteration is repairing it. Stop once it is green. The
+   router hands you that repair only after a diagnosis is on record for the exact failure — read
+   `loop/diagnosis/<key>.json` and repair the cause it names, not the first thing that looks wrong.
 3. Otherwise pick the single highest-priority eligible feature. `feature_list.digest.md` (loaded
    for you) lists every feature with its status, dependencies and an **ELIGIBLE** marker; open
    `feature_list.json` for the full entry of the one you pick:
@@ -127,6 +160,9 @@ Every slice landed. You are one agent, deliberately — this is the fan-in.
    like the first three. (See docs/constraints.md's enforcement table — `verify-harness.mjs`
    checks this budget mechanically.) `attempts` counts checker rejections, not maker checkpoints:
    do not increment it merely because you safely stopped and committed partial work.
+   Below the budget but above zero, the feature is a **repair**: the router routes a diagnose turn
+   first and the implement turn only after it, so read `loop/diagnosis/<feat-id>#<attempts>.json`
+   and start from the cause it records rather than from a fresh guess.
 5. **Decide: do this step yourself, or split it across parallel makers.** Split when the step has
    two or more file sets that can be built at the same time without either one waiting on the
    other — several modules behind one interface, a service plus its client, three adapters over the

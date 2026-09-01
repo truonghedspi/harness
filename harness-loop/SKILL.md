@@ -250,7 +250,13 @@ For a fresh project, or once the onboarder has surveyed an existing one:
    code). Both follow `skills/test-design/SKILL.md`, scaffolded into the target. Why this is
    structural rather than advisory: [references/test-authoring.md](references/test-authoring.md).
 8. **Get the baseline green.** Run `./init.sh` (or `node init.mjs` anywhere, `init.cmd` on Windows) in the target. If red, that is the only work until
-   it is green (Lesson 6/9). A loop on a red baseline just amplifies failure. The loop runs this
+   it is green (Lesson 6/9). A loop on a red baseline just amplifies failure. The router will not
+   route the repair straight away: a red gate — and any feature the checker has already rejected —
+   first gets a `mode: diagnose` turn that proves the cause and records it under `loop/diagnosis/`,
+   editing nothing. The same argument as the mutant-check, one layer up: a cause with no competing
+   explanation ruled out has not been tested, and a repair against a guessed cause spends an
+   attempt, changes production code and leaves the real cause in place. Shape and the worked
+   example: `loop/diagnosis/README.md`. The loop runs this
    gate once per session (re-running only while red to confirm a repair) — the full feature replay
    still runs once at the end, so per-iteration wall-clock is not bought with lost regression
    coverage. If the gate is genuinely expensive — a real download, a container build — the project
@@ -646,6 +652,7 @@ After setup, the target project should contain:
 - [ ] `init.sh` — baseline gate running the real verification pipeline
 - [ ] `loop/baseline-cache.mjs` — opt-in cross-session reuse of a green gate; inert until the
       project writes `loop/baseline-cache.json`
+- [ ] `loop/diagnosis/` — the recorded root cause a repair turn is routed against
 - [ ] `progress.md` + `DECISIONS.md` — external state
 - [ ] `session-handoff.md` — lifecycle handoff
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`

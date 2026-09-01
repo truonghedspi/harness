@@ -1881,7 +1881,7 @@ route_of(){ (cd "$MK" && node loop/route.mjs --json | node -e 'let s="";process.
 dispatched(){ (cd "$MK" && node loop/route.mjs --json | node -e '
   let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);
   if(j.hash||j.requestId) require("fs").appendFileSync("loop/route-log.jsonl",
-    JSON.stringify({node:j.node,feature:j.feature||null,hash:j.hash||null,requestId:j.requestId||null})+"\n");});'); }
+    JSON.stringify({node:j.node,feature:j.feature||null,mode:j.mode||null,hash:j.hash||null,requestId:j.requestId||null})+"\n");});'); }
 [ "$(route_of)" = "design-facilitator" ]; expect "a NEEDS DESIGN: marker the design-facilitator has not seen routes to it" $?
 dispatched
 # The design-facilitator answers but CANNOT clear the marker — it may not write feature_list.json.
@@ -1924,6 +1924,16 @@ node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFi
 # outside the graph; one unchanged repair attempt is the bounded ceiling.
 printf '{"schema":"baseline-state/1","status":"red","evidenceDigest":"deadbeef"}\n' > "$MK/loop/baseline-state.json"
 [ "$(route_of)" = "maker" ]; expect "a red baseline routes to a bounded maker repair turn" $?
+# That first turn is the diagnosis, not the repair (step 66). The ceiling bounds REPAIR turns, so
+# put a cause on record before counting them — otherwise the gate would eat the turn it enables.
+mkdir -p "$MK/loop/diagnosis"
+cat > "$MK/loop/diagnosis/baseline-deadbeef.json" <<'DBJ'
+{"schema":"diagnosis/1","key":"baseline:deadbeef","symptom":"init.mjs exits 1 with no test output",
+ "cause":"the verification command names a build tool the wrapper does not launch","layer":"harness",
+ "provedBy":{"cmd":"./mvnw -q -version","exit":0,"result":"Apache Maven 3.9.6"},
+ "ruledOut":[{"hypothesis":"the build itself is broken","killedBy":"./mvnw -q verify is green, so the failure is the launcher"}],
+ "at":"2026-09-01T00:00:00.000Z"}
+DBJ
 dispatched
 [ "$(route_of)" = "human" ]; expect "an unchanged red baseline escalates instead of retrying forever" $?
 printf '{"schema":"baseline-state/1","status":"green","evidenceDigest":"green"}\n' > "$MK/loop/baseline-state.json"
@@ -3798,6 +3808,75 @@ test "$(bc_runs)" = "$((BEFORE + 1))"; expect "HARNESS_BASELINE_CACHE=0 is a one
 mv "$BC/harness/loop/baseline-cache.json" "$BCOUT/policy.json"; BEFORE="$(bc_runs)"
 bc_session; bc_session
 test "$(bc_runs)" = "$((BEFORE + 2))"; expect "with no policy file the cache is off — a project that never opted in never skips its gate" $?
+
+step 66 "root cause before repair: a guessed cause cannot reach the implement turn"
+# A repair against a guessed cause spends an attempt, edits production code, and leaves the real
+# cause in place. The router splits a repair in two: prove the cause, then implement against it.
+# The negative cases carry the weight — a file that merely asserts a cause must not open the gate.
+DG="$WORK/diagnosis"; rm -rf "$DG"; mkdir -p "$DG/loop/diagnosis" "$DG/.kiro/agents"
+cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$DG/loop/route.mjs"
+printf '%s\n' '{}' > "$DG/.kiro/agents/maker.json"
+printf '%s\n' '{"schema":"baseline-state/1","status":"red","evidenceDigest":"abc123","exitCode":1,"checkedAt":"2026-09-01T00:00:00.000Z"}' > "$DG/loop/baseline-state.json"
+printf '%s\n' '{"features":[{"id":"feat-a","kind":"build","status":"active","attempts":0,"maxAttempts":3,"dependencies":[],"evidence":[],"checkerNotes":""}]}' > "$DG/feature_list.json"
+dg_route() { ( cd "$DG" && node loop/route.mjs --json 2>/dev/null ); }
+dg_route > "$DG/r1.json"
+node -e "const r=require('$DG/r1.json');process.exit(r.node==='maker'&&r.mode==='diagnose'&&r.layer==='diagnosis'?0:1)"
+expect "a red baseline routes a diagnose turn, not a repair turn" $?
+# A cause with nothing ruled out is the first guess written down: the spike has to have
+# DISCRIMINATED between two readings of the symptom, or nothing was tested.
+cat > "$DG/loop/diagnosis/baseline-abc123.json" <<'DGJ'
+{"schema":"diagnosis/1","key":"baseline:abc123","symptom":"init.mjs exits 127 on `mvn -q verify`",
+ "cause":"mvn is not on PATH","layer":"host",
+ "provedBy":{"cmd":"which mvn","exit":1,"result":"not found"},
+ "ruledOut":[],"at":"2026-09-01T00:00:00.000Z"}
+DGJ
+dg_route > "$DG/r2.json"
+node -e "const r=require('$DG/r2.json');process.exit(r.mode==='diagnose'?0:1)"
+expect "a diagnosis that rules nothing out is rejected — an untested explanation is a guess" $?
+cat > "$DG/loop/diagnosis/baseline-abc123.json" <<'DGJ'
+{"schema":"diagnosis/1","key":"baseline:abc123","symptom":"init.mjs exits 127 on `mvn -q verify`",
+ "cause":"the project ships ./mvnw and mvn is not on PATH","layer":"harness",
+ "provedBy":{"cmd":"./mvnw -q -version","exit":0,"result":"Apache Maven 3.9.6"},
+ "ruledOut":[{"hypothesis":"the build itself is broken","killedBy":"./mvnw -q verify is green, so the failure is the launcher, not the build"}],
+ "at":"2026-09-01T00:00:00.000Z"}
+DGJ
+dg_route > "$DG/r3.json"
+node -e "const r=require('$DG/r3.json');process.exit(r.node==='maker'&&!r.mode&&r.layer==='baseline'&&r.requestId==='baseline:abc123'?0:1)"
+expect "with a discriminating cause on record the repair turn is routed" $?
+# The diagnose turn is a maker dispatch too. If it spent the one bounded repair turn, the router
+# would escalate to a human immediately after diagnosing — the gate would eat the work it enables.
+printf '%s\n' '{"node":"maker","feature":null,"layer":"diagnosis","mode":"diagnose","hash":null,"requestId":"baseline:abc123","at":"2026-09-01T00:00:00.000Z"}' > "$DG/loop/route-log.jsonl"
+dg_route > "$DG/r4.json"
+node -e "const r=require('$DG/r4.json');process.exit(r.node==='maker'?0:1)"
+expect "a recorded diagnose turn does not spend the bounded repair turn" $?
+printf '%s\n' '{"node":"maker","feature":null,"layer":"baseline","mode":null,"hash":null,"requestId":"baseline:abc123","at":"2026-09-01T00:00:00.000Z"}' >> "$DG/loop/route-log.jsonl"
+dg_route > "$DG/r5.json"
+node -e "const r=require('$DG/r5.json');process.exit(r.node==='human'?0:1)"
+expect "a repair turn that changed nothing still escalates to a human, exactly as before" $?
+# Same gate on the feature path: a rejected feature is a repair, and attempt 2 must not start from
+# the same understanding that attempt 1 failed with.
+rm -f "$DG/loop/baseline-state.json" "$DG/loop/route-log.jsonl"
+dg_route > "$DG/r6.json"
+node -e "const r=require('$DG/r6.json');process.exit(r.node==='maker'&&r.feature==='feat-a'&&!r.mode?0:1)"
+expect "a feature nobody has rejected yet goes straight to the implement turn" $?
+node -e "const fs=require('fs'),p='$DG/feature_list.json',j=JSON.parse(fs.readFileSync(p));j.features[0].attempts=1;fs.writeFileSync(p,JSON.stringify(j,null,2))"
+dg_route > "$DG/r7.json"
+node -e "const r=require('$DG/r7.json');process.exit(r.node==='maker'&&r.feature==='feat-a'&&r.mode==='diagnose'?0:1)"
+expect "one checker rejection turns the next turn into a diagnosis" $?
+cat > "$DG/loop/diagnosis/feat-a-1.json" <<'DGJ'
+{"schema":"diagnosis/1","key":"feat-a#1","symptom":"the checker rejected the discrimination claim",
+ "cause":"the fallback path still fires, so deleting the primary path is invisible","layer":"project",
+ "provedBy":{"cmd":"node --test test/a.spec.ts","exit":0,"result":"green with the primary path deleted"},
+ "ruledOut":[{"hypothesis":"the assertion is too weak","killedBy":"tightening it left the mutant green, so the gap is the fallback"}],
+ "at":"2026-09-01T00:00:00.000Z"}
+DGJ
+dg_route > "$DG/r8.json"
+node -e "const r=require('$DG/r8.json');process.exit(r.node==='maker'&&r.feature==='feat-a'&&!r.mode?0:1)"
+expect "the recorded cause releases the repair turn for that attempt" $?
+node -e "const fs=require('fs'),p='$DG/feature_list.json',j=JSON.parse(fs.readFileSync(p));j.features[0].attempts=2;fs.writeFileSync(p,JSON.stringify(j,null,2))"
+dg_route > "$DG/r9.json"
+node -e "const r=require('$DG/r9.json');process.exit(r.mode==='diagnose'?0:1)"
+expect "a second rejection is a different failure — the old diagnosis cannot authorize it" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

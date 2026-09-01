@@ -6,6 +6,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs
 import path from "node:path";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import { decide as baselineDecision, inputsDigest } from "./baseline-cache.mjs";
 import { dispatch, selectRuntime } from "./dispatch.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -43,6 +44,19 @@ function readyForCheck() {
 }
 
 function recordBaseline() {
+  // Cross-session reuse (opt-in, see loop/baseline-cache.mjs). Reuse is recorded, never disguised:
+  // checkedAt keeps saying when the gate actually ran, and reusedAt/reuseCount say how long the
+  // loop has been trading on that one run.
+  const decision = baselineDecision();
+  if (decision.reuse) {
+    const state = { ...decision.state, reusedAt: new Date().toISOString(), reuseCount: (decision.state.reuseCount || 0) + 1 };
+    writeFileSync("loop/baseline-state.json", `${JSON.stringify(state, null, 2)}\n`);
+    console.log(`baseline: green (cached ${state.evidenceDigest}) — ${decision.reason}`);
+    return state;
+  }
+  // Digest the inputs BEFORE the run: the verdict belongs to the tree that produced it, not to
+  // whatever the gate itself wrote on the way through.
+  const before = inputsDigest().digest;
   const entry = existsSync("init.mjs") ? [process.execPath, ["init.mjs"]] : ["bash", ["init.sh"]];
   const result = run(entry[0], entry[1], { timeout: 300_000 });
   const output = String(result.stdout || "") + String(result.stderr || "");
@@ -53,8 +67,9 @@ function recordBaseline() {
     evidenceDigest: createHash("sha256").update(`${result.status}\0${normalized}`).digest("hex").slice(0, 16),
     exitCode: result.status, checkedAt: new Date().toISOString(), tail: output.split("\n").slice(-20).join("\n"),
   };
+  if (before) state.inputsDigest = before;
   writeFileSync("loop/baseline-state.json", `${JSON.stringify(state, null, 2)}\n`);
-  console.log(`baseline: ${state.status} (${state.evidenceDigest})`);
+  console.log(`baseline: ${state.status} (${state.evidenceDigest})${decision.reason ? ` — ran: ${decision.reason}` : ""}`);
   return state;
 }
 
@@ -71,7 +86,7 @@ function logRoute(next) {
   // ordinary delivery turn from a re-dispatched escalation without a second stream.
   appendFileSync("loop/route-log.jsonl", `${JSON.stringify({
     node: next.node, feature: next.feature || null, layer: next.layer || null,
-    hash: next.hash || null, requestId: next.requestId || null,
+    mode: next.mode || null, hash: next.hash || null, requestId: next.requestId || null,
     at: new Date().toISOString(),
   })}\n`);
 }

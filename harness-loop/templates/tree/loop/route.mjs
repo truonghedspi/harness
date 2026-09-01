@@ -67,8 +67,30 @@ const ROUTE_LOG = (() => {
 })();
 const alreadyDispatched = (node, feature, hash) =>
   ROUTE_LOG.some((e) => e.node === node && e.feature === feature && e.hash === hash);
+// A diagnose turn is a maker dispatch too, so it must not spend the bounded repair turn it exists
+// to inform. The dispatcher records the mode; the router reads it.
 const requestDispatched = (requestId, node) =>
-  ROUTE_LOG.some((e) => e.requestId === requestId && e.node === node);
+  ROUTE_LOG.some((e) => e.requestId === requestId && e.node === node && e.mode !== "diagnose");
+
+// Root cause before repair. A repair implemented against a GUESSED cause is the expensive kind of
+// wrong: it spends an attempt, edits product code, and leaves the real cause in place. The gate has
+// the same shape as the mutant-check — evidence that the explanation DISCRIMINATES. A diagnosis
+// with nothing ruled out is the first guess written down, so `ruledOut` must name at least one
+// competing explanation and the observation that killed it.
+//
+// Found on examples/jdt-mcp-server: a repeated EMFILE looked like a watcher defect, and the honest
+// fix would have been a patch to production code that hid a host problem. A standalone spike —
+// watch an empty directory with no repo code loaded — proved the cause was host directory-watch
+// state, and the correct move was to change nothing and stop. Shape: loop/diagnosis/README.md.
+const DIAG_DIR = "loop/diagnosis";
+const diagFile = (key) => `${DIAG_DIR}/${key.replace(/[^A-Za-z0-9._-]/g, "-")}.json`;
+function diagnosed(key) {
+  const d = readJSON(diagFile(key));
+  const filled = (v) => typeof v === "string" && v.trim().length > 0;
+  if (!d || d.schema !== "diagnosis/1" || d.key !== key) return false;
+  if (!filled(d.symptom) || !filled(d.cause) || !filled(d.provedBy && d.provedBy.cmd)) return false;
+  return Array.isArray(d.ruledOut) && d.ruledOut.some((r) => r && filled(r.hypothesis) && filled(r.killedBy));
+}
 // The test-designer's second output. A DIRECTORY is not an output: on aeron-demo tests/design/
 // held a plan.json and an empty conditions/ folder, so this returned true, the router dispatched
 // test-implementer, and it correctly refused — twice, two paid sessions for nothing. Count the
@@ -205,11 +227,15 @@ const RULES = [
   },
   {
     node: "maker", kind: "agent", layer: "baseline",
-    when: "the recorded baseline is red and this exact failure has not had one repair turn",
+    when: "the recorded baseline is red — diagnose the failure first, then one bounded repair turn",
     match: () => {
       const b = readJSON("loop/baseline-state.json");
       if (!b || b.status !== "red" || !b.evidenceDigest) return null;
       const requestId = `baseline:${b.evidenceDigest}`;
+      if (!diagnosed(requestId)) {
+        return { layer: "diagnosis", mode: "diagnose", requestId,
+          why: `the baseline is red — prove the cause before editing anything, and record it in ${diagFile(requestId)}` };
+      }
       if (requestDispatched(requestId, "maker")) {
         return { node: "human", kind: "human", layer: "baseline", why: "the baseline is unchanged after one bounded repair turn", requestId };
       }
@@ -580,7 +606,18 @@ const RULES = [
         !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(x)) && status(x) !== "blocked" &&
         !(x.kind === "build" && unproven.has(x.id) && hasAgent("test-implementer")) &&
         (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
-      return eligible.length ? { why: `${eligible.length} feature(s) eligible; next is ${eligible[0].id}`, feature: eligible[0].id } : null;
+      if (!eligible.length) return null;
+      const next = eligible[0];
+      // A feature the checker has already rejected is a repair, not construction. Attempt 2 that
+      // starts from the same understanding as attempt 1 is how a three-attempt budget is spent
+      // three times on one guess.
+      const attempts = Number(next.attempts || 0);
+      const key = `${next.id}#${attempts}`;
+      if (attempts >= 1 && !diagnosed(key)) {
+        return { feature: next.id, layer: "diagnosis", mode: "diagnose",
+          why: `${next.id} was rejected ${attempts} time(s) — prove why before changing code again, and record it in ${diagFile(key)}` };
+      }
+      return { why: `${eligible.length} feature(s) eligible; next is ${next.id}`, feature: next.id };
     },
   },
 ];

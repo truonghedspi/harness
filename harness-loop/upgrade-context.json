@@ -1260,6 +1260,28 @@
         "bash harness-loop/scripts/demo.sh",
         "node harness-loop/scripts/check-upgrade-context.mjs --target ."
       ]
+    },
+    {
+      "id": "HUC-2026-09-01-diagnosis-before-repair",
+      "summary": "A repair turn \u2014 a red baseline, or a feature the checker already rejected \u2014 is routed only after its root cause is on record.",
+      "why": "A repair implemented against a guessed cause spends an attempt, edits production code and leaves the real cause in place. On examples/jdt-mcp-server a repeated EMFILE looked like a watcher defect; a standalone spike proved it was host directory-watch state, and the correct repair was to change nothing. Without that turn the loop would have patched production code to hide a host problem and the evidence would have looked green.",
+      "targetImpact": "route.mjs splits a repair in two. A red baseline with no recorded cause, and an eligible feature with attempts >= 1 and no cause recorded for that attempt, both route maker with mode: diagnose and layer: diagnosis. The diagnose turn writes loop/diagnosis/<key>.json keyed on the failure identity (baseline:<evidenceDigest> or <feat-id>#<attempts>); it is valid only with a non-empty symptom, cause, provedBy.cmd and at least one ruledOut entry. run-loop.mjs now records mode in route-log.jsonl and requestDispatched ignores diagnose rows, so the diagnose turn does not spend the one bounded repair turn. Features with attempts 0 are unaffected.",
+      "paths": [
+        "loop/route.mjs",
+        "loop/run-loop.mjs",
+        "loop/maker-prompt.md",
+        "loop/diagnosis/README.md",
+        "references/graph.md",
+        "SKILL.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/route.mjs, loop/run-loop.mjs and loop/maker-prompt.md from the canonical template, and add loop/diagnosis/README.md.",
+        "Regenerate the agent files (node tools/gen-agents.mjs --target .) so the maker's diagnostician mode reaches every runtime."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     }
   ]
 }

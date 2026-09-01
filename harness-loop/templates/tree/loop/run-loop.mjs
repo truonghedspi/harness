@@ -86,7 +86,7 @@ function logRoute(next) {
   // ordinary delivery turn from a re-dispatched escalation without a second stream.
   appendFileSync("loop/route-log.jsonl", `${JSON.stringify({
     node: next.node, feature: next.feature || null, layer: next.layer || null,
-    hash: next.hash || null, requestId: next.requestId || null,
+    mode: next.mode || null, hash: next.hash || null, requestId: next.requestId || null,
     at: new Date().toISOString(),
   })}\n`);
 }
