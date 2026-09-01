@@ -441,13 +441,14 @@ const RULES = [
     // and silently shipped the amendment with zero coverage. Found live on examples/jdt-mcp-server.
     // A node handed a missing input does not fail; it improvises or stalls.
     match: () => {
-      const missing = open.filter((x) => !String(x.falsifier || "").trim());
+      const missing = open.filter((x) => !String(x.falsifier || "").trim() && status(x) !== "blocked");
       if (missing.length && hasAgent("test-designer")) {
         return { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id };
       }
       if (!hasAgent("test-designer")) return null;
+      // Blocked features must not drive test-designer dispatch — same exclusion as test-implementer.
       const candidates = open.filter((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
-        !String(x.evidence || "").trim());
+        !String(x.evidence || "").trim() && status(x) !== "blocked");
       if (!candidates.length) return null;
       const missingFeature = candidates.find((x) => !featureConditionsComplete(x));
       if (missingFeature) {

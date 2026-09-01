@@ -12,3 +12,4 @@ addressed to whichever agent reads it next, not to this project's readers. Entri
 in another language stay as they are — this governs what gets written from now on.
 
 - [grep demo step header is not falsifiable](grep-demo-step-header-not-falsifiable.md) — a verification that greps a demo.sh step title always matches; grep the assertion result or the exit code instead
+- [verification command must be scoped](verification-command-must-be-scoped.md) — a verification command coupling unrelated project health creates circular dependency and false failure; verify only the feature's own claim

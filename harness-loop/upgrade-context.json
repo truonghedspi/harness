@@ -1364,6 +1364,23 @@
         "bash harness-loop/scripts/demo.sh",
         "node harness-loop/scripts/check-workflow-diagram.mjs"
       ]
+    },
+    {
+      "id": "HUC-2026-09-01-blocked-test-designer-exclusion",
+      "summary": "The router ignores blocked features when deciding whether test design is still missing.",
+      "why": "A blocked feature is an explicit stop. Sending test-designer back to it recreated stopped work and could keep unrelated eligible work from advancing.",
+      "targetImpact": "loop/route.mjs excludes status=blocked from both the missing-falsifier count and test-designer candidates. No state migration is required.",
+      "paths": [
+        "templates/tree/loop/route.mjs"
+      ],
+      "mergeActions": [
+        "Refresh loop/route.mjs from the canonical template, preserving the target's real feature statuses and existing falsifier markers.",
+        "Rerun node loop/route.mjs to confirm an eligible feature, not a blocked one, is selected."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     }
   ]
 }

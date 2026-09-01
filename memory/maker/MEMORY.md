@@ -11,4 +11,4 @@ Write entries and hooks **in English**, whatever language the rest of the projec
 addressed to whichever agent reads it next, not to this project's readers. Entries already written
 in another language stay as they are — this governs what gets written from now on.
 
-<!-- - [Title](slug.md) — one-line hook -->
+- [compound-verification-commands](compound-verification-commands.md) — when verification combines unrelated checks with &&, implement against the falsifier not the compound failure
