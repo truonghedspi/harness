@@ -1,0 +1,19 @@
+{
+  "feature": "feat-readme-standardize",
+  "attempt": 1,
+  "cause": "Verification command couples README.md check to unrelated repo state",
+  "layer": "harness",
+  "ruledOut": [
+    {
+      "hypothesis": "README.md lacks required structure",
+      "killedBy": "spike shows README.md has exactly 5 level-2 headings including required sections 'Bắt đầu nhanh' and 'Mở rộng harness' — content satisfies the behavior spec"
+    }
+  ],
+  "evidence": {
+    "spikeCommand": "node spikes/readme-verification-test.mjs",
+    "spikeResult": "README.md verification in isolation passes (5 headings found), compound command fails due to 3 blocked features in verify-harness causing exit 1",
+    "rootCause": "Feature verification `node harness-loop/scripts/verify-harness.mjs --target . --skip-baseline --quiet && grep -c '^## ' README.md` creates a circular dependency: verify-harness fails because this feature has incomplete reviewPacket, making the verification always fail regardless of README.md content"
+  },
+  "correctVerification": "grep -c '^## ' README.md (exit 0 when count >= 5)",
+  "date": "2026-09-01"
+}
