@@ -14,8 +14,10 @@
 //   node tools/trace-insights.mjs                    ranked optimization options
 //   node tools/trace-insights.mjs --layer harness    only one layer
 //   node tools/trace-insights.mjs --since -7d        only records since seven days ago
-//   node tools/trace-insights.mjs --json             machine-readable options
-import { readFileSync, existsSync, writeSync } from "node:fs";
+//   node tools/trace-insights.mjs --json             machine-readable options (bare array)
+//   node tools/trace-insights.mjs --report PATH      write a schema-tagged report the skill's
+//                                                    backlog can import (harness-issue.mjs import)
+import { readFileSync, existsSync, writeFileSync, writeSync } from "node:fs";
 import path from "node:path";
 
 const args = process.argv.slice(2);
@@ -56,6 +58,9 @@ const features = (() => {
   const fl = JSON.parse(read(P("feature_list.json")) || '{"features":[]}');
   return fl.features || [];
 })();
+const approvals = (read(P("loop", "approval-log.jsonl")) || "").split("\n").filter(Boolean)
+  .map(parse).filter(Boolean).filter((e) => !e.at || inWindow(e.at));
+const assumptions = read(P("docs", "assumptions.md")) || "";
 
 const findings = [];
 
@@ -155,8 +160,103 @@ if (churned.length) {
   });
 }
 
+// --- where a human had to step in -------------------------------------------------------------
+//
+// The three detectors above read what the LOOP did. These read what the loop made a PERSON do, and
+// that is the signal nothing was capturing: human attention is the one input this harness cannot
+// renew (references/human-attention.md). Every escalation, rejection and unanswered question is
+// already written down — by route.mjs, by the approval gate — and until now all of it evaporated
+// when the session ended.
+
+// 6. The router escalating to `human` means open work that no rule could route. Once is a
+// judgement call the graph correctly refused to make. Repeatedly is a missing edge.
+const escalations = routes.filter((r) => r.node === "human");
+if (escalations.length) {
+  findings.push({
+    id: "router-escalation", layer: "harness",
+    title: `${escalations.length} router escalation(s) to a human`,
+    evidence: { count: escalations.length, requests: [...new Set(escalations.map((r) => r.requestId || r.feature || "unnamed"))].slice(0, 8) },
+    remedy: "Each escalation is open work the graph could not route. Read loop/route-log.jsonl for the requestIds, then either add the missing rule to loop/route.mjs or record why this decision is deliberately a human's (docs/reference/graph-closed-edges.md).",
+    confidence: escalations.length > 1 ? "high" : "low",
+    score: escalations.length * 3,
+  });
+}
+
+// 7. A rejected approval is a human saying the loop got it wrong, with a reason attached. The same
+// reason twice is a rule a script could have enforced before the human was ever asked.
+const rejectedApprovals = approvals.filter((a) => a.verdict === "rejected" && a.source !== "timeout");
+if (rejectedApprovals.length) {
+  findings.push({
+    id: "approval-rejected", layer: "workflow",
+    title: `${rejectedApprovals.length} approval(s) rejected by a human`,
+    evidence: { count: rejectedApprovals.length, reasons: rejectedApprovals.map((a) => String(a.reason || "").slice(0, 120)).slice(0, 5) },
+    remedy: "A reason a human writes twice is a mechanical check waiting to be written once. Turn the recurring reason into a tools/review-contract.mjs admission rule or a verify-harness.mjs gate, so the gate stops spending judgement on it.",
+    confidence: "high",
+    score: rejectedApprovals.length * 3,
+  });
+}
+
+// 8. A timed-out approval is worse than a rejected one: the gate asked for judgement and got
+// silence, so the auto-reject spent an iteration to learn nothing.
+const unanswered = approvals.filter((a) => a.source === "timeout");
+if (unanswered.length) {
+  findings.push({
+    id: "approval-unanswered", layer: "workflow",
+    title: `${unanswered.length} approval request(s) timed out unanswered`,
+    evidence: { count: unanswered.length, items: unanswered.map((a) => a.items ?? null).slice(0, 5) },
+    remedy: "The gate is asking for judgement nobody is there to give. Either narrow what it escalates so each question is worth a person's time, or run headless with a scripted --verdict and record the policy — an auto-reject nobody reads costs an iteration and teaches nothing (references/human-attention.md).",
+    confidence: "high",
+    score: unanswered.length * 2,
+  });
+}
+
+// --- what the project does not know yet --------------------------------------------------------
+//
+// 9. Unverified assumptions and residual unknowns are facts the loop is proceeding WITHOUT. They
+// are layer `project` on purpose: the remedy is a spike or a citation in the target, never an edit
+// to the skill. The point of surfacing them here is that an unknown nobody counts is an unknown
+// nobody closes — a confident sentence and a verified one read identically six weeks later
+// (references/llm-failure-modes.md, Confabulation).
+const unverified = assumptions.split("\n")
+  .filter((l) => l.trim().startsWith("|") && /\b(unverified|assumed|needs-human|open)\b/i.test(l))
+  .map((l) => (l.match(/\|\s*(A-\d+)\s*\|/) || [])[1]).filter(Boolean);
+const residual = features.flatMap((f) => {
+  const list = f.reviewPacket && f.reviewPacket.residualUnknowns;
+  return Array.isArray(list) && list.length ? [{ feature: f.id, count: list.length }] : [];
+});
+if (unverified.length || residual.length) {
+  findings.push({
+    id: "open-unknowns", layer: "project",
+    title: `${unverified.length} unverified assumption(s) and ${residual.length} feature(s) carrying residual unknowns`,
+    evidence: { assumptions: unverified.slice(0, 10), residual: residual.slice(0, 8) },
+    remedy: "Each one is a fact the loop is building on without proof. Close it the cheap way first: a `path:line` citation in a real checkout, or a throwaway spike under spikes/ that runs and settles it (docs/reference/design-engineering.md). Only what neither can answer is a design question for a human.",
+    confidence: "medium",
+    score: (unverified.length + residual.length) * 2,
+  });
+}
+
+// Every option gets the same shape of identity the static gates have. Without a stable signature
+// an option cannot be the SAME option across runs, so it can only ever be read and forgotten —
+// which is what this file did before: it found real inefficiency and wrote nothing down.
+// `severity` is always `warn`: an optimization option is a cost, never a broken gate, and calling
+// one a blocker would let it outrank a real defect in the backlog's ranking.
+for (const f of findings) { f.signature = `trace/${f.id}`; f.severity = "warn"; }
+
 findings.sort((a, b) => b.score - a.score);
 const rows = LAYER === "all" ? findings : findings.filter((f) => f.layer === LAYER);
+
+// The report is the import artifact, deliberately shaped like trace/verify-report.json: one file
+// per run, schema-tagged, so the backlog has exactly one import path for both sources.
+const REPORT = opt("--report");
+if (REPORT !== null) {
+  const file = REPORT && !String(REPORT).startsWith("--") ? REPORT : P("trace", "insights-report.json");
+  writeFileSync(file, JSON.stringify({
+    schema: "trace-insights/1", target: TARGET, timestamp: new Date().toISOString(), options: rows,
+  }, null, 2) + "\n");
+  out(`wrote ${rows.length} option(s) to ${file}`);
+  out(`Next: node harness-loop/scripts/harness-issue.mjs import --report ${file}`);
+  process.exit(0);
+}
 
 if (JSON_OUT) {
   out(JSON.stringify(rows, null, 2));

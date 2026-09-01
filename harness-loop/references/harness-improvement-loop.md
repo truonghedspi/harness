@@ -124,6 +124,67 @@ normal promotable feature to a mechanical replay. Promoting it anyway would sile
 human judgment call with a false "done." `blocked` is therefore excluded unconditionally, the same
 way `done` already was — see `demo.sh` step 16.
 
+## Three producers, one backlog
+
+The loop began with one producer: `verify-harness.mjs`'s static gates, which inspect files. Two
+more signals existed and evaporated.
+
+| Producer | Reads | Emits | Enters the backlog via |
+|---|---|---|---|
+| `verify-harness.mjs` | files and structure | `harness-verify/1` findings, signature `gate/id` | `harness-issue.mjs import --report` |
+| `trace-insights.mjs` | what the loop actually did — `trace/trace.jsonl`, `trace/tool-events.jsonl`, `loop/route-log.jsonl`, `loop/approval-log.jsonl`, `docs/assumptions.md` | `trace-insights/1` options, signature `trace/<id>` | `trace-insights.mjs --report`, then the same `import` |
+| a person | nothing — they saw it | one issue, gate `human` | `harness-issue.mjs feedback "<what the loop got wrong>"` |
+
+Folding them into one log is the point. An inefficiency seen in three runs and a defect seen in
+three targets are the same kind of debt, and ranking them in two places means two backlogs nobody
+reconciles.
+
+### What the human-signal detectors read
+
+Three of `trace-insights.mjs`'s detectors read what the loop made a *person* do. Human attention is
+the one input this harness cannot renew (`human-attention.md`), and all of it was already written
+down — by `route.mjs`, by the approval gate — and then discarded at the end of the session.
+
+- **`router-escalation`** — the router gave up and named `human`. Once is a judgement the graph
+  correctly refused to make. Repeatedly is a missing edge.
+- **`approval-rejected`** — a person said the loop got it wrong, with a reason attached. The same
+  reason twice is a rule a script could have enforced before anyone was asked.
+- **`approval-unanswered`** — the gate asked for judgement and got silence. Worse than a rejection:
+  the auto-reject spent an iteration to learn nothing.
+
+A fourth, `open-unknowns`, is tagged **`layer: project`** and is deliberately *not* imported into
+the shared backlog: unverified assumptions and residual unknowns are facts that target is building
+on without proof, and the remedy is a citation or a spike there, never an edit to the skill.
+
+### Two rules that keep this honest
+
+1. **Re-verification runs every detector.** `--reverify` re-runs `verify-harness.mjs` *and*
+   `trace-insights.mjs` per target and unions the signatures. Running only the static gates would
+   make every trace-sourced issue look fixed the moment it was imported — absence from a detector
+   that never emits it is not evidence of anything. If the trace miner fails to produce a report,
+   nothing is resolved that run.
+2. **A `gate: human` issue never auto-resolves.** It has no detector to fall silent, so letting
+   silence retire it would mean the loop closes the human's complaint by being unable to see it —
+   precisely what they were reporting. Only `harness-issue.mjs resolve` closes those.
+
+## `--route`: the backlog becomes work
+
+`node improve-harness.mjs --route [--id HI-NNN] [--into feature_list.json] [--all] [--min-score N]`
+writes the top-ranked open issue into a feature list as an ordinary feature, so the same
+maker/checker machinery that builds product work also repairs the harness. One per run by default —
+the ranking exists so the next fix is the highest-value one, and a backlog dumped wholesale into a
+feature list is a plan nobody cut.
+
+**The safety is in the verification, not the creation.** The routed feature's `verification` is
+`improve-harness.mjs --reverify --id HI-NNN`, which exits 1 while the signature still reproduces and
+0 when it is gone. So the loop may create its own work and still cannot declare that work done: the
+same generator/evaluator separation the maker and checker already have, applied to the harness
+repairing itself. The `falsifier` names the wrong fix explicitly — a repair made in the affected
+target instead of `templates/tree/**` or `scripts/*.mjs`, which the next scaffold reproduces.
+
+A `gate: human` issue is never routed. With no detector to close it, the feature would be a
+livelock: eligible forever, verifiable never.
+
 ## `harness-issues.jsonl` — event schema
 
 Append-only, one JSON object per line, folded into current state by `harness-issue.mjs`. Never

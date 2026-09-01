@@ -10,6 +10,7 @@
 // Usage:
 //   node improve-harness.mjs [--top N] [--json] [--out PATH]
 //   node improve-harness.mjs --reverify [--id HI-NNN] [--target DIR] [--auto-resolve] [--skip-baseline]
+//   node improve-harness.mjs --route    [--id HI-NNN] [--into feature_list.json] [--all] [--min-score N]
 //   node improve-harness.mjs --prompt [--id HI-NNN] # top issue, or one immutable repair objective
 import { readFileSync, writeFileSync, statSync, mkdtempSync , writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -87,6 +88,7 @@ if (flag("--reverify")) {
   }
 
   const stillSeen = new Set();
+  let trackerFailed = false;
   for (const t of targets) {
     const reportPath = path.join(mkdtempSync(path.join(tmpdir(), "harness-verify-")), "report.json");
     const a = [VERIFY_TOOL, "--target", t, "--quiet", "--report", reportPath];
@@ -97,10 +99,31 @@ if (flag("--reverify")) {
     if (!report) { console.error(`  ${t}: verify produced no report — skipped`); continue; }
     for (const f of report.findings) stillSeen.add(`${f.gate}/${f.id}`);
     console.log(`  re-verified ${t}: ${report.counts.blockers} blocker(s), ${report.counts.harnessLayer} harness-layer`);
+
+    // The backlog has two producers, so re-verification has to run BOTH detectors. Running only
+    // the static gates would make every trace-sourced issue look fixed the moment it was imported —
+    // absence from a detector that never emits it is not evidence of anything.
+    const insightsPath = path.join(path.dirname(reportPath), "insights.json");
+    const ti = path.join(t, "tools", "trace-insights.mjs");
+    const tiTool = exists(ti) ? ti : path.join(scriptDir, "trace-insights.mjs");
+    spawnSync(process.execPath, [tiTool, "--target", t, "--report", insightsPath],
+      { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+    try {
+      const insights = JSON.parse(readFileSync(insightsPath, "utf8"));
+      for (const o of insights.options || []) stillSeen.add(o.signature || `trace/${o.id}`);
+      console.log(`  re-mined  ${t}: ${(insights.options || []).length} trace option(s)`);
+    } catch { console.error(`  ${t}: trace-insights produced no report — trace-sourced issues left open`); trackerFailed = true; }
   }
 
-  const fixed = issues.filter((i) => !stillSeen.has(i.signature));
-  const remaining = issues.filter((i) => stillSeen.has(i.signature));
+  // A human-reported issue has no detector to fall silent, so nothing here can retire it. Letting
+  // the absence of a signature resolve it would mean the loop closes the human's complaint by not
+  // being able to see it — which is precisely the failure the human was reporting.
+  const humanReported = issues.filter((i) => i.gate === "human");
+  if (humanReported.length) {
+    console.log(`  ${humanReported.length} human-reported issue(s) skipped: only a person can close what only a person saw.`);
+  }
+  const fixed = issues.filter((i) => i.gate !== "human" && !trackerFailed && !stillSeen.has(i.signature));
+  const remaining = issues.filter((i) => !fixed.includes(i));
   console.log(`\n  ${fixed.length} open issue(s) no longer reproduce, ${remaining.length} still do.`);
   for (const i of fixed) {
     console.log(`    ${i.id}  [${i.gate}] ${i.symptom}`);
@@ -123,6 +146,68 @@ if (flag("--reverify")) {
 const ranked = openIssues()
   .map((i) => ({ ...i, score: score(i), route: routeFor(i.signature) }))
   .sort((a, b) => b.score - a.score);
+
+// ---------------------------------------------------------------------------------------------
+// --route: the backlog becomes work the loop can actually pick up
+//
+// Ranking told a human what to fix next; it still needed a human to carry it into the loop. This
+// writes the top-ranked issue into a feature_list.json as an ordinary feature, so the same
+// maker/checker machinery that builds product work also repairs the harness.
+//
+// The safety is in the VERIFICATION, not in the creation. The feature's verification command is
+// the detector that opened the issue, re-run: `--reverify --id HI-NNN` exits 1 while the signature
+// still reproduces and 0 when it is gone. So the loop may create its own work, but it cannot
+// declare that work done — the same generator/evaluator split the maker and checker already have,
+// applied to the harness repairing itself. A human-reported issue is never routed this way: it has
+// no detector, so nothing could ever close it, and an uncloseable feature is a livelock.
+// ---------------------------------------------------------------------------------------------
+if (flag("--route")) {
+  const defaultInto = path.resolve(scriptDir, "..", "..", "feature_list.json");
+  const intoPath = path.resolve(opt("--into", defaultInto));
+  if (!exists(intoPath)) {
+    console.error(`no feature_list.json at ${intoPath} — pass --into PATH`);
+    process.exit(2);
+  }
+  const minScore = Number(opt("--min-score", 0));
+  const requestedId = opt("--id");
+  const routable = ranked.filter((i) => i.gate !== "human" && i.score >= minScore &&
+    (!requestedId || i.id === requestedId));
+  if (requestedId && !routable.length) {
+    console.error(`${requestedId} is not an open, routable issue (human-reported issues are never routed)`);
+    process.exit(2);
+  }
+  // One per run by default: the ranking exists so the next fix is the highest-value one, and a
+  // backlog dumped wholesale into a feature list is a plan nobody cut.
+  const chosen = flag("--all") ? routable : routable.slice(0, 1);
+  if (!chosen.length) { console.log("No routable open issues — nothing to route."); process.exit(0); }
+
+  const list = JSON.parse(readFileSync(intoPath, "utf8"));
+  list.features = list.features || [];
+  const existing = new Set(list.features.map((f) => f.id));
+  const toolPath = path.relative(path.dirname(intoPath), path.join(scriptDir, "improve-harness.mjs"));
+  let added = 0;
+  for (const issue of chosen) {
+    const id = `feat-${issue.id.toLowerCase()}`;
+    if (existing.has(id)) { console.log(`  ${id} already exists — left untouched`); continue; }
+    const target = (issue.targets || []).find(exists);
+    list.features.push({
+      id, kind: "build", status: "not-started", readyForCheck: false,
+      behavior: `The harness no longer reproduces ${issue.id}: ${issue.symptom}`,
+      verification: `node ${toolPath} --reverify --id ${issue.id}${target ? ` --target ${path.relative(path.dirname(intoPath), target)}` : ""} --skip-baseline`,
+      falsifier: "a repair made in the affected target instead of templates/tree/** or scripts/*.mjs — the signature returns on the next scaffold, which is exactly what --reverify re-runs",
+      dependencies: [], attempts: 0, maxAttempts: 3, evidence: [],
+      checkerNotes: `Routed from harness issue ${issue.id} (${issue.signature}), score ${issue.score}, seen ${issue.occurrences}x.`,
+      context: { note: `Remedy on record: ${issue.remedy || "(none)"}\nEvidence: ${String(issue.evidence || "").slice(0, 400)}` },
+    });
+    existing.add(id);
+    added++;
+    console.log(`  routed ${issue.id} → ${id}  [score ${issue.score}]`);
+  }
+  if (added) writeFileSync(intoPath, JSON.stringify(list, null, 2) + "\n");
+  console.log(`\n${added} issue(s) routed into ${intoPath}.`);
+  console.log(`Each closes only when its verification exits 0 — the detector that opened it, re-run.`);
+  process.exit(0);
+}
 
 if (flag("--prompt")) {
   const requestedId = opt("--id");

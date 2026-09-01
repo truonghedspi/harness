@@ -1034,7 +1034,10 @@ process.exit(j.resources.includes('file://../../docs/constraints.md') ? 0 : 1);
 node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --record --note "demo" >/dev/null
 git -C "$T3" check-ignore -q trace/adoption-baseline.json
 [ "$?" != "0" ]; expect "adoption debt is durable tracked state, not ignored run output" $?
-BASE0=$(node -e "const b=require('$T3/trace/adoption-baseline.json');console.log(b.debt['falsifier-missing']||0)")
+# console.log(<number>) is colourized by util.inspect whenever FORCE_COLOR is set, even into a
+# pipe — so capturing it into a shell variable can yield "\e[33m1\e[39m" and every comparison
+# below silently becomes a syntax error. Print a string.
+BASE0=$(node -e "const b=require('$T3/trace/adoption-baseline.json');process.stdout.write(String(b.debt['falsifier-missing']||0))")
 node "$SCRIPTS/adoption-baseline.mjs" --target "$T3" --json > /tmp/demo-ab0.$$ 2>&1 || true
 node -e "
 const r=JSON.parse(require('fs').readFileSync('/tmp/demo-ab0.$$','utf8'));
@@ -3939,6 +3942,93 @@ import(m).then(d => {
   }
 });
 "; expect "classify() is the whole policy, readable without running a dispatch" $?
+
+step 68 "feedback loop: three sources into one backlog, and only a detector can close what a detector opened"
+# The improve loop had one producer — the static gates. trace-insights found real inefficiency and
+# wrote nothing down; a human correcting the loop had nowhere to put it. These are now three
+# producers into one ranked backlog, because an inefficiency seen three times and a defect seen in
+# three targets are the same kind of debt.
+FBK="$WORK/feedback"; rm -rf "$FBK"; mkdir -p "$FBK"
+FBLOG="$FBK/issues.jsonl"
+node "$SCRIPTS/setup-harness-loop.mjs" --target "$FBK/t" --name "Feedback" --purpose "close the loop" >/dev/null
+# demo.sh runs with HARNESS_LAYOUT=legacy, so the scaffold is flat: the harness IS $FBK/t.
+FBH="$FBK/t"; mkdir -p "$FBH/trace" "$FBH/loop" "$FBH/docs"
+cat > "$FBH/trace/trace.jsonl" <<'FB1'
+{"ts":"2026-01-02T10:00:00.000Z","actor":"checker","event":"verdict","feature":"feat-a","detail":"REJECT: behavior X not covered by the oracle"}
+{"ts":"2026-01-02T10:01:00.000Z","actor":"checker","event":"verdict","feature":"feat-b","detail":"REJECT: same missing real-boundary check"}
+FB1
+printf '%s\n' '{"node":"human","feature":null,"mode":null,"hash":null,"requestId":"baseline:deadbeef","at":"2026-01-02T13:00:00.000Z"}' \
+              '{"node":"human","feature":"feat-c","mode":null,"hash":"ccc","requestId":null,"at":"2026-01-02T13:30:00.000Z"}' > "$FBH/loop/route-log.jsonl"
+printf '%s\n' '{"at":"2026-01-02T11:00:00.000Z","verdict":"rejected","reason":"evidence shows only the happy path","items":2}' \
+              '{"at":"2026-01-02T12:00:00.000Z","verdict":"rejected","reason":"no response within 30m","items":1,"source":"timeout"}' > "$FBH/loop/approval-log.jsonl"
+printf '%s\n' '| A-001 | JDT LS needs Java 21 | unverified | — |' '| A-002 | index survives eviction | verified — spike | — |' > "$FBH/docs/assumptions.md"
+node "$FBH/tools/trace-insights.mjs" --target "$FBK/t" --report >/dev/null 2>&1
+FBR="$FBH/trace/insights-report.json"
+node -e "
+const j=require('$FBR');
+const ids=j.options.map(o=>o.id);
+// Every option needs a stable signature or it can only ever be read and forgotten.
+process.exit(j.schema==='trace-insights/1' && j.options.every(o=>o.signature===('trace/'+o.id)) &&
+  ids.includes('router-escalation') && ids.includes('approval-rejected') &&
+  ids.includes('approval-unanswered') && ids.includes('open-unknowns') ? 0 : 1);
+"; expect "the miner now reads where a human had to step in, and what the project still cannot prove" $?
+HARNESS_ISSUE_LOG="$FBLOG" node "$SCRIPTS/harness-issue.mjs" import --report "$FBR" > "$FBK/import.log" 2>&1
+grep -q "trace" "$FBK/import.log" && ! grep -q "open-unknowns" "$FBK/import.log"
+expect "trace options enter the shared backlog, but layer=project unknowns stay with the target" $?
+HARNESS_ISSUE_LOG="$FBLOG" node "$SCRIPTS/harness-issue.mjs" import --report "$FBR" > "$FBK/import2.log" 2>&1
+grep -q "0 new issue(s)" "$FBK/import2.log"
+expect "a second run of the same signal folds into a sighting, not a duplicate issue" $?
+HARNESS_ISSUE_LOG="$FBLOG" node "$SCRIPTS/harness-issue.mjs" feedback "the checker approves oracles that never ran on a real boundary" --target "$FBH" >/dev/null
+HARNESS_ISSUE_LOG="$FBLOG" node "$SCRIPTS/harness-issue.mjs" list --json > "$FBK/list.json"
+node -e "
+const j=require('$FBK/list.json');
+process.exit(j.some(x=>x.gate==='human') && j.some(x=>x.gate==='trace') ? 0 : 1);
+"; expect "a human correcting the loop lands in the same backlog as a machine finding" $?
+HARNESS_ISSUE_LOG="$FBLOG" node "$SCRIPTS/improve-harness.mjs" --reverify --target "$FBH" --skip-baseline --auto-resolve > "$FBK/rv1.log" 2>&1
+grep -q "re-mined" "$FBK/rv1.log" && grep -q "0 open issue(s) no longer reproduce" "$FBK/rv1.log"
+expect "re-verification runs BOTH detectors — a trace issue is not 'fixed' by a gate that never emits it" $?
+grep -q "human-reported issue(s) skipped" "$FBK/rv1.log"
+expect "a human-reported issue is never auto-resolved — nothing can close what only a person saw" $?
+rm -f "$FBH/trace/trace.jsonl"
+HARNESS_ISSUE_LOG="$FBLOG" node "$SCRIPTS/improve-harness.mjs" --reverify --target "$FBH" --skip-baseline --auto-resolve > "$FBK/rv2.log" 2>&1
+HARNESS_ISSUE_LOG="$FBLOG" node "$SCRIPTS/harness-issue.mjs" list --status all --json > "$FBK/final.json"
+node -e "
+const j=require('$FBK/final.json');
+const gone=j.find(x=>x.signature==='trace/reject-promotion');
+const human=j.find(x=>x.gate==='human');
+// The one signal that really stopped is resolved; everything still reproducing, and everything
+// only a person saw, is still open.
+process.exit(gone && gone.status==='resolved' && human && human.status==='open' ? 0 : 1);
+"; expect "once the signal really stops, the detector's silence is what resolves it" $?
+
+step 69 "auto-routing: the backlog becomes work, but the work still cannot mark itself done"
+# Ranking told a human what to fix next and then needed a human to carry it into the loop. --route
+# closes that gap. The safety is in the VERIFICATION, not the creation: the feature's verification
+# IS the detector that opened the issue, re-run — so the loop may create its own work and still
+# cannot declare it finished. Same generator/evaluator split the maker and checker already have.
+RT2="$WORK/auto-route"; rm -rf "$RT2"; mkdir -p "$RT2"
+cp "$FBLOG" "$RT2/issues.jsonl"
+printf '%s\n' '{"features":[]}' > "$RT2/feature_list.json"
+HARNESS_ISSUE_LOG="$RT2/issues.jsonl" node "$SCRIPTS/improve-harness.mjs" --route --into "$RT2/feature_list.json" > "$RT2/route.log" 2>&1
+node -e "
+const j=require('$RT2/feature_list.json');
+// One per run: the ranking exists so the next fix is the highest-value one; a backlog dumped
+// wholesale into a feature list is a plan nobody cut.
+process.exit(j.features.length===1 && /--reverify --id HI-/.test(j.features[0].verification) &&
+  j.features[0].status==='not-started' && j.features[0].falsifier ? 0 : 1);
+"; expect "the top-ranked issue becomes one ordinary feature whose verification is the detector re-run" $?
+HARNESS_ISSUE_LOG="$RT2/issues.jsonl" node "$SCRIPTS/improve-harness.mjs" --route --into "$RT2/feature_list.json" > "$RT2/route2.log" 2>&1
+node -e "const j=require('$RT2/feature_list.json');process.exit(j.features.length===1?0:1)"
+expect "routing twice does not duplicate the feature — the id is the issue" $?
+HUMAN_ID="$(HARNESS_ISSUE_LOG="$RT2/issues.jsonl" node "$SCRIPTS/harness-issue.mjs" list --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);const h=j.find(x=>x.gate==='human');process.stdout.write(h?h.id:'')})")"
+HARNESS_ISSUE_LOG="$RT2/issues.jsonl" node "$SCRIPTS/improve-harness.mjs" --route --id "$HUMAN_ID" --into "$RT2/feature_list.json" > "$RT2/route3.log" 2>&1
+test "$?" != "0" && grep -q "never routed" "$RT2/route3.log"
+expect "a human-reported issue refuses to be routed — no detector means no way to ever close it" $?
+node -e "
+const j=require('$RT2/feature_list.json');
+const f=j.features[0];
+process.exit(/harness issue HI-/.test(f.checkerNotes) && /templates\/tree|scripts/.test(f.falsifier) ? 0 : 1);
+"; expect "the routed feature carries its provenance and names the wrong fix — patching the target, not the skill" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

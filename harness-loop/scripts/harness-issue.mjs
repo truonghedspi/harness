@@ -7,6 +7,8 @@
 //
 // Usage:
 //   node harness-issue.mjs import   --report trace/verify-report.json [--include-project] [--json]
+//                                   also accepts a trace-insights/1 report (the dynamic source)
+//   node harness-issue.mjs feedback "<what the loop got wrong>" [--layer workflow] [--severity warn]
 //   node harness-issue.mjs add      --gate G --symptom S [--remedy R] [--layer harness]
 //                                   [--target DIR] [--severity blocker|warn]
 //   node harness-issue.mjs list     [--status open|resolved|wontfix|all] [--json]
@@ -101,8 +103,26 @@ switch (CMD) {
     const reportPath = path.resolve(opt("--report", "trace/verify-report.json"));
     if (!exists(reportPath)) { console.error(`error: report not found: ${reportPath}`); process.exit(2); }
     const report = JSON.parse(readFileSync(reportPath, "utf8"));
-    const wanted = (report.findings || []).filter((f) => flag("--include-project") || f.layer === "harness");
-    if (!wanted.length) { console.log(`No ${flag("--include-project") ? "" : "harness-layer "}findings in ${reportPath} — nothing to record.`); break; }
+    // Two producers, one backlog. The static gates (harness-verify/1) inspect files; the trace
+    // miner (trace-insights/1) replays what the loop actually did. Folding them into one log is
+    // the point: an inefficiency seen in three runs and a defect seen in three targets are the
+    // same kind of debt, and ranking them apart would mean two backlogs nobody reconciles.
+    //
+    // `layer: project` is the target's own content and never the skill's business, from either
+    // source — a trace option about the target's unverified assumptions belongs in that target's
+    // loop, not in a backlog shared across every project. Everything else a trace run reports
+    // (harness/workflow/skill) is the skill's, so none of those is filtered out.
+    const isTrace = report.schema === "trace-insights/1";
+    const findings = isTrace
+      ? (report.options || []).map((o) => ({
+          gate: "trace", id: o.id, layer: o.layer, severity: o.severity || "warn",
+          symptom: o.title, remedy: o.remedy,
+          evidence: typeof o.evidence === "string" ? o.evidence : JSON.stringify(o.evidence),
+        }))
+      : (report.findings || []);
+    const wanted = findings.filter((f) => flag("--include-project") ||
+      (isTrace ? f.layer !== "project" : f.layer === "harness"));
+    if (!wanted.length) { console.log(`No ${flag("--include-project") || isTrace ? "" : "harness-layer "}findings in ${reportPath} — nothing to record.`); break; }
     let created = 0, repeats = 0;
     const recorded = [];
     for (const f of wanted) {
@@ -128,6 +148,25 @@ switch (CMD) {
       target: opt("--target") ? path.resolve(opt("--target")) : null,
     });
     console.log(`${r.isNew ? "opened" : "repeat sighting of"} ${r.id} → ${LOG}`);
+    break;
+  }
+
+  // A person correcting the loop is the highest-value signal it produces and the only one with no
+  // machine that writes it down. `add` could always record it; nobody did, because in the moment
+  // you are correcting something you are not composing a --gate and a --severity. This is the same
+  // record with one required argument, so the cost of capturing the signal is one line.
+  case "feedback": {
+    const note = opt("--note") || args.slice(1).filter((a) => !a.startsWith("--") && args[args.indexOf(a) - 1] !== "--layer" &&
+      args[args.indexOf(a) - 1] !== "--severity" && args[args.indexOf(a) - 1] !== "--target" && args[args.indexOf(a) - 1] !== "--log").join(" ");
+    if (!note.trim()) { console.error('usage: harness-issue.mjs feedback "<what the loop got wrong>" [--layer workflow] [--severity warn]'); process.exit(2); }
+    const r = record({
+      gate: "human", id: note.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48),
+      layer: opt("--layer", "workflow"), severity: opt("--severity", "warn"),
+      symptom: note, remedy: opt("--remedy", "a human corrected the loop here — decide whether this becomes a gate, a prompt change, or a recorded exception"),
+      evidence: `reported by a human at ${new Date().toISOString()}`,
+      target: opt("--target") ? path.resolve(opt("--target")) : null,
+    });
+    console.log(`${r.isNew ? "recorded" : "repeat sighting of"} ${r.id} → ${LOG}`);
     break;
   }
 
@@ -186,6 +225,6 @@ switch (CMD) {
   }
 
   default:
-    console.error("usage: harness-issue.mjs <import|add|list|resolve|restore|wontfix|stats> [options]  (see header)");
+    console.error("usage: harness-issue.mjs <import|feedback|add|list|resolve|restore|wontfix|stats> [options]  (see header)");
     process.exit(2);
 }

@@ -1301,6 +1301,26 @@
         "bash harness-loop/scripts/demo.sh",
         "node harness-loop/scripts/check-upgrade-context.mjs --target ."
       ]
+    },
+    {
+      "id": "HUC-2026-09-01-feedback-loop",
+      "summary": "The improvement backlog takes three producers instead of one, and a ranked issue can be routed into a feature list as work the loop cannot close by itself.",
+      "why": "The improve loop was fed only by verify-harness's static gates. trace-insights.mjs found real inefficiency in the loop's own behavior and wrote nothing down; a human correcting the loop had nowhere to put it; unverified assumptions were counted by nobody. Every one of those signals evaporated at the end of a session.",
+      "targetImpact": "trace-insights.mjs gains three human-signal detectors (router-escalation, approval-rejected, approval-unanswered) and one knowledge detector (open-unknowns, layer project), stamps every option with a stable trace/<id> signature and severity warn, and gains --report to write a trace-insights/1 artifact. harness-issue.mjs import accepts that schema alongside harness-verify/1 and filters layer=project from both; a new `feedback` command records a human correction under gate human. improve-harness.mjs --reverify now runs BOTH detectors per target and never auto-resolves a gate=human issue; a new --route writes the top-ranked issue into a feature_list.json as a feature whose verification is --reverify --id, so created work still cannot mark itself done.",
+      "paths": [
+        "tools/trace-insights.mjs",
+        "references/harness-improvement-loop.md",
+        "references/graph.md",
+        "SKILL.md"
+      ],
+      "mergeActions": [
+        "Refresh tools/trace-insights.mjs from the canonical template; the backlog tools live in the skill and are not scaffolded.",
+        "Run `node tools/trace-insights.mjs --report` after a loop session, then import it into the skill backlog."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     }
   ]
 }

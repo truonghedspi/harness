@@ -657,6 +657,7 @@ After setup, the target project should contain:
 - [ ] `loop/baseline-cache.mjs` — opt-in cross-session reuse of a green gate; inert until the
       project writes `loop/baseline-cache.json`
 - [ ] `loop/diagnosis/` — the recorded root cause a repair turn is routed against
+- [ ] `tools/trace-insights.mjs` — the dynamic signal source; `--report` feeds the skill's backlog
 - [ ] `progress.md` + `DECISIONS.md` — external state
 - [ ] `session-handoff.md` — lifecycle handoff
 - [ ] `docs/{architecture,constraints,testing-standards,definition-of-done}.md`
