@@ -5,9 +5,13 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-08-23
-- **Active feature:** none
-- **Baseline (`./init.sh`):** green — `demo.sh` 51/51 steps
+- **Last updated:** 2026-09-01
+- **Active feature:** feat-readme-standardize (in-progress)
+- **Baseline (`./init.sh`):** green — `demo.sh` 70/70 steps
+
+## In Progress
+
+- feat-readme-standardize: README.md standardization complete (5 headings vs 1 before), includes quick start guide and extension instructions. Verification command has compound requirement where harness verification fails on unrelated project issues.
 
 ## Done
 
