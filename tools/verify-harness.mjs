@@ -764,7 +764,7 @@ function gateLoop() {
   // An agent nobody can reach is an agent nobody runs. The router (AGENTS.md/CLAUDE.md) is the
   // first file every session reads (Lesson 4), so an agent it never names is discoverable only by
   // listing .kiro/agents/ and guessing — which is how ten nodes ended up with three executable
-  // incoming edges (docs/reference/graph.md, "The seven implicit edges"). Warn, because a node may
+  // incoming edges (docs/reference/graph-closed-edges.md). Warn, because a node may
   // legitimately be dispatched only by loop/route.mjs; being named in either is enough.
   const routerText = (read(P("AGENTS.md")) || "") + (read(P("CLAUDE.md")) || "") +
     (read(P("loop", "route.mjs")) || "");

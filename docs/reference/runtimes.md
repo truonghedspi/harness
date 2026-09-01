@@ -202,6 +202,16 @@ session on 2026-08-12, kiro produced two hard stops:
   model, and a router can route to nothing.
 - **The monthly request quota ran out.** `Monthly request limit reached … limits reset on 09/01`,
   three weeks away. That is not a retry-and-continue failure; it ends the runtime for the period.
+  `loop/dispatch.mjs` classifies it `REFUSAL` and returns 75 without retrying, for exactly that
+  reason: the only failures it retries are the ones where **nothing came back** (`TRANSPORT`, a
+  spawn that never started; `EMPTY_RESPONSE`, an exit with zero bytes of output). The retry unit
+  here is an agent session that edits files, not an LLM turn on a durable history — so a dispatch
+  that produced output may have half-landed work, and running the same role again over that tree is
+  a worse failure than the one being retried. Budget: `HARNESS_DISPATCH_RETRIES` (default 2 retries,
+  0 disables), backoff 500 ms doubling to a 10 s cap with full jitter so parallel slice workers do
+  not retry in a herd. There is deliberately no deadline — an agent session legitimately runs for
+  tens of minutes, and bounding a hung runtime needs process-group management that changes what
+  Ctrl+C does. A hung dispatch still hangs.
 
 Both were survivable because the same agents exist for Claude Code, generated from the same
 manifest, and `HARNESS_RUNTIME=claude` resumes the loop where it stopped. A single-runtime harness

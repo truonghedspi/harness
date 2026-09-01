@@ -151,7 +151,7 @@
           "result": "48/48 demo steps passed with the mutation reverted"
         }
       ],
-      "checkerNotes": "Checker rejected the grep-on-step-header verification (mutation-tested: passed even with INV-SHARED-1's skip guard removed). Fixed to check demo.sh's own exit code; re-mutation-tested \u2014 now correctly fails.",
+      "checkerNotes": "Verification was replaced: the grep-on-step-header check did not discriminate.\n\nMutation-tested, it passed even with INV-SHARED-1's skip guard removed \u2014 it asserted a heading existed, not that the behavior held. Now it checks demo.sh's own exit code, and the same mutant makes it fail.",
       "attempts": 1,
       "maxAttempts": 3,
       "readyForCheck": false

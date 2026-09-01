@@ -114,6 +114,23 @@ and the stable repository map is in [architecture](docs/architecture.md).
 - **A finding you cannot classify** as `layer: project` vs `layer: harness`. Guessing sends the fix
   to the wrong place, and the wrong place is usually the one that hides it.
 
+## The agents in this repo, and who selects them
+
+`node loop/route.mjs` names the next node for every agent that runs *inside* the loop. Three are
+not routed, and that is deliberate — but an agent nobody names is an agent nobody runs, so they are
+named here instead:
+
+| Agent | Selected by | When |
+|---|---|---|
+| `orchestrator` | a human opening a session with no role named | the default front door: it reports loop state, spawns the node `route.mjs` names, and escalates decisions. It never chooses the node and never writes a product file |
+| `harness-setup` | a human, once per machine | standing the harness up against the real environment — toolchain, MCP connectivity, real verification commands, a green `./init.sh`. Setup only; it does no feature work |
+| `harness-onboarder` | a human, once per existing codebase | bringing a repo that already has code under the harness: survey, scaffold without overwriting, backfill the feature list, record an adoption baseline so the back catalogue is accepted debt rather than day-one warnings |
+
+All three run before or around the loop rather than in it, which is why `route.mjs` has no rule for
+them. Every other agent is reachable from the router; `verify-harness.mjs` reports `agent-unrouted`
+for any that is not (`docs/reference/graph-closed-edges.md` is what happens when that goes
+unchecked).
+
 ## Also in this repo
 
 `examples/timesten-migration/` is a **dormant** worked example: a real TimesTen → Aeron Cluster

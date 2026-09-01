@@ -3642,8 +3642,14 @@ process.exit(/NEEDS ORACLE FIX:/.test(t) && /Do \*\*not\*\* REJECT/.test(t) ? 0 
 "
 expect "the checker is told to write the marker instead of REJECTing an implementation that may be correct" $?
 node -e "
-const t=require('fs').readFileSync('$SCRIPTS/../references/graph.md','utf8');
-process.exit(/NEEDS ORACLE FIX:/.test(t) && /All twelve named edges/.test(t) ? 0 : 1);
+// The map and its history are two files since graph.md crossed the 300-line budget (Pattern A):
+// the routing rule stays on the map, the edge ledger moved to the sibling, and the map must still
+// LINK it — an extracted history nothing points at is how a split loses the content it saved.
+const fs=require('fs');
+const map=fs.readFileSync('$SCRIPTS/../references/graph.md','utf8');
+const edges=fs.readFileSync('$SCRIPTS/../references/graph-closed-edges.md','utf8');
+process.exit(/NEEDS ORACLE FIX:/.test(map) && /graph-closed-edges\.md/.test(map) &&
+             /All twelve named edges/.test(edges) ? 0 : 1);
 "
 expect "graph.md records the new edge and its count — the workflow and its only written-down map agree" $?
 
@@ -3877,6 +3883,62 @@ node -e "const fs=require('fs'),p='$DG/feature_list.json',j=JSON.parse(fs.readFi
 dg_route > "$DG/r9.json"
 node -e "const r=require('$DG/r9.json');process.exit(r.mode==='diagnose'?0:1)"
 expect "a second rejection is a different failure — the old diagnosis cannot authorize it" $?
+
+step 67 "dispatch retry: a runtime that returned nothing is retried, one that produced work is not"
+# The retry unit here is an agent SESSION that edits files, not an LLM turn on a durable history.
+# So the discriminator is not the error text but whether anything came back: a dispatch that
+# produced zero bytes did no work and re-running it is identical to running it once; a dispatch
+# that produced output may have half-landed, and a second maker on that tree is the real hazard.
+RT="$WORK/dispatch-retry"; rm -rf "$RT"; mkdir -p "$RT/loop" "$RT/tools" "$RT/.claude/agents" "$RT/bin"
+cp "$SCRIPTS/../templates/tree/loop/dispatch.mjs" "$RT/loop/dispatch.mjs"
+printf '%s\n' '{"agents":[{"name":"maker"}]}' > "$RT/agents.manifest.json"
+printf '%s\n' '{}' > "$RT/.claude/agents/maker.md"
+rt_runtime() { # rt_runtime "<shell body after the counter>"
+  { printf '%s\n' '#!/bin/sh' 'if [ "$1" = "--version" ]; then echo 1.0.0; exit 0; fi' \
+      'N=$(cat "$FAKE_STATE" 2>/dev/null || echo 0); N=$((N+1)); echo "$N" > "$FAKE_STATE"'
+    printf '%s\n' "$1"; } > "$RT/bin/claude"
+  chmod +x "$RT/bin/claude"
+}
+rt_run() { ( cd "$RT" && FAKE_STATE="$RT/count" PATH="$RT/bin:$PATH" HARNESS_RUNTIME=claude \
+  env "$@" node loop/dispatch.mjs maker go > "$RT/out.log" 2>&1 ); echo "$?" > "$RT/exit"; }
+rt_tries() { cat "$RT/count"; }
+rt_runtime 'if [ "$N" -le 2 ]; then exit 1; fi
+echo "agent did work"; exit 0'
+rm -f "$RT/count"; rt_run
+[ "$(rt_tries)" = "3" ] && [ "$(cat "$RT/exit")" = "0" ] && grep -q "EMPTY_RESPONSE" "$RT/out.log"
+expect "two empty exits are retried and the third attempt's work is what the loop gets" $?
+grep -qE "retrying in [0-9]+ms \(1/2\)" "$RT/out.log" && grep -qE "retrying in [0-9]+ms \(2/2\)" "$RT/out.log"
+expect "each retry announces itself with its backoff — a silent retry hides a flaky runtime" $?
+rt_runtime 'echo "rewrote half of feature_list.json, then the connection dropped"; exit 1'
+rm -f "$RT/count"; rt_run
+[ "$(rt_tries)" = "1" ] && [ "$(cat "$RT/exit")" = "1" ]
+expect "a failure that produced output is never retried — that turn may have landed work" $?
+rt_runtime 'echo "monthly request limit reached"; exit 0'
+rm -f "$RT/count"; rt_run
+[ "$(rt_tries)" = "1" ] && [ "$(cat "$RT/exit")" = "75" ]
+expect "a period-long refusal stays terminal at 75 — a retry cannot mint quota" $?
+rt_runtime 'exit 1'
+rm -f "$RT/count"; rt_run HARNESS_DISPATCH_RETRIES=0
+[ "$(rt_tries)" = "1" ]
+expect "HARNESS_DISPATCH_RETRIES=0 turns the whole layer off" $?
+rm -f "$RT/count"; rt_run HARNESS_DISPATCH_RETRIES=4
+[ "$(rt_tries)" = "5" ] && grep -q "after 5 attempt(s)" "$RT/out.log"
+expect "the budget is a number, and exhausting it reports the class rather than a bare exit code" $?
+node -e "
+const m = require('url').pathToFileURL('$RT/loop/dispatch.mjs').href;
+import(m).then(d => {
+  const table = [
+    [{ spawnError: new Error('spawn ENOENT') }, 'TRANSPORT', true],
+    [{ output: '', code: 1 }, 'EMPTY_RESPONSE', true],
+    [{ output: 'monthly request limit reached', code: 0 }, 'REFUSAL', false],
+    [{ output: 'did work', code: 0 }, null, false],
+  ];
+  for (const [input, failure, retry] of table) {
+    const v = d.classify(input);
+    if (v.failure !== failure || v.retry !== retry) process.exit(1);
+  }
+});
+"; expect "classify() is the whole policy, readable without running a dispatch" $?
 
 echo ""
 if [ "$FAIL" = "0" ]; then

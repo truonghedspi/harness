@@ -6,10 +6,12 @@
       "ref": "bb6b5f2",
       "vendoredAt": "2026-08-16",
       "vendoredCommit": null,
-      "localModifications": [{
-        "file": "schemas/test-case.schema.json",
-        "why": "allow INV-* design invariant identifiers alongside REQ-* requirements so independent test cases can trace approved design invariants — DECISIONS.md 2026-08-26"
-      }]
+      "localModifications": [
+        {
+          "file": "schemas/test-case.schema.json",
+          "why": "allow INV-* design invariant identifiers alongside REQ-* requirements so independent test cases can trace approved design invariants \u2014 DECISIONS.md 2026-08-26"
+        }
+      ]
     },
     {
       "path": "skills/feature-planning",
@@ -34,7 +36,15 @@
       "vendoredAt": "2026-08-16",
       "vendoredCommit": null,
       "localModifications": []
+    },
+    {
+      "path": "skills/harness-upgrade",
+      "upstream": "harness-loop skill, onboarding-skills/harness-upgrade",
+      "ref": "bb6b5f2",
+      "vendoredAt": "2026-08-16",
+      "vendoredCommit": null,
+      "localModifications": []
     }
   ],
-  "$comment": "Provenance for code this project did not write. Without `ref` you cannot re-sync or diff against the source; without `localModifications` a re-sync silently reverts a fix made here, or silently keeps a stale one. Set `vendoredCommit` to the commit that added the directory to THIS repo — that is what the drift check diffs against."
+  "$comment": "Provenance for code this project did not write. Without `ref` you cannot re-sync or diff against the source; without `localModifications` a re-sync silently reverts a fix made here, or silently keeps a stale one. Set `vendoredCommit` to the commit that added the directory to THIS repo \u2014 that is what the drift check diffs against."
 }

@@ -1282,6 +1282,25 @@
         "bash harness-loop/scripts/demo.sh",
         "node harness-loop/scripts/check-upgrade-context.mjs --target ."
       ]
+    },
+    {
+      "id": "HUC-2026-09-01-dispatch-retry",
+      "summary": "A dispatch that returned nothing is retried with a jittered backoff; one that produced output stays terminal.",
+      "why": "All three runtimes fail in ordinary ways mid-session \u2014 a dropped connection, a spawn that never starts, an exit with no output \u2014 and every one of those killed a whole loop iteration. The pre-step gate (HUC-2026-08-29) only proves the runtime is driveable before the first turn.",
+      "targetImpact": "dispatch.mjs exports classify({spawnError, output, code}) returning {failure, retry, why}. TRANSPORT and EMPTY_RESPONSE retry; REFUSAL returns 75 as before; a non-zero exit that produced output returns that code unchanged, because the retry unit is an agent session that edits files and such a turn may have half-landed work. Budget HARNESS_DISPATCH_RETRIES (default 2, 0 disables), backoff 500ms doubling to a 10s cap with full jitter. dispatch() also accepts an AbortSignal that cancels the backoff. A spawn error now returns a classified non-zero code instead of throwing. No deadline: a hung dispatch still hangs, and bounding it needs process-group management that changes what Ctrl+C does.",
+      "paths": [
+        "loop/dispatch.mjs",
+        "references/runtimes.md",
+        "references/graph.md"
+      ],
+      "mergeActions": [
+        "Refresh loop/dispatch.mjs from the canonical template.",
+        "Set HARNESS_DISPATCH_RETRIES=0 in any environment where a re-dispatch is not acceptable."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     }
   ]
 }

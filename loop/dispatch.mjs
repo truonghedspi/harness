@@ -15,6 +15,45 @@ const PROJECT_ROOT = path.basename(ROOT) === "harness" && existsSync(path.join(p
 const IS_WIN = process.platform === "win32";
 const RUNTIME_REFUSAL = /monthly request limit reached|rate limit exceeded|quota exceeded|usage limit reached|temporarily unavailable|PreToolUse hook returned unsupported|hook returned invalid pre-tool-use JSON output/i;
 
+// --- bounded retry ---------------------------------------------------------------------------
+//
+// The retry unit here is NOT an LLM turn on a durable history — it is an agent session that edits
+// files. So the usual "classify the error and try again" is unsafe by default: a runtime that dies
+// after the maker has rewritten half of feature_list.json leaves a tree no second run can reason
+// about, and re-dispatching the same role onto it is how one flaky connection becomes a corrupted
+// feature list. Blind retry would trade a visible failure for an invisible one.
+//
+// The discriminator is therefore not the error text but whether the dispatch PRODUCED ANYTHING. A
+// dispatch that returned zero bytes did no agent work, whatever killed it, so running it again is
+// exactly equivalent to running it the first time. A dispatch that produced output may have landed
+// work, so it fails once and a human reads it.
+//
+// Failures that carry output stay terminal on purpose. `RUNTIME_REFUSAL` is a period-long refusal,
+// not a flaky call (references/runtimes.md: "that is not a retry-and-continue failure; it ends the
+// runtime for the period"), and an auth failure is a credential a retry cannot mint.
+const RETRY_BASE_MS = 500, RETRY_CAP_MS = 10_000;
+const retryBudget = () => {
+  const n = Number(process.env.HARNESS_DISPATCH_RETRIES);
+  return Number.isFinite(n) && n >= 0 ? n : 2;
+};
+// Full jitter: without it every parallel slice worker backs off on the same schedule and retries in
+// a thundering herd, which is how a transient fault becomes a sustained one.
+const backoffMs = (attempt) => Math.round(Math.random() * Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** attempt));
+
+export function classify({ spawnError, output = "", code = null }) {
+  if (spawnError) return { failure: "TRANSPORT", retry: true, why: `the runtime process could not start: ${spawnError.message}` };
+  if (RUNTIME_REFUSAL.test(output)) return { failure: "REFUSAL", retry: false, why: "the runtime refused the dispatch; no agent work is accepted" };
+  if (!String(output).trim()) return { failure: "EMPTY_RESPONSE", retry: true, why: `the runtime exited ${code} without producing any output` };
+  return { failure: null, retry: false, why: "" };
+}
+
+const sleep = (ms, signal) => new Promise((resolve, reject) => {
+  if (signal?.aborted) return reject(new Error("dispatch aborted"));
+  const timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, ms);
+  function onAbort() { clearTimeout(timer); reject(new Error("dispatch aborted")); }
+  signal?.addEventListener("abort", onAbort, { once: true });
+});
+
 function commandRuns(command, args = ["--version"]) {
   const result = spawnSync(command, args, { cwd: PROJECT_ROOT, stdio: "ignore", shell: IS_WIN });
   return !result.error && result.status === 0;
@@ -52,31 +91,59 @@ function invocation(runtime, agent, message) {
   return [process.execPath, [path.join(ROOT, "tools", "codex-dispatch.mjs"), agent, message]];
 }
 
-// `env` carries the parallel-iteration identity: HARNESS_FEATURE + HARNESS_SLICE tell
-// tools/guard-write.mjs which slice of a work-split plan this worker is confined to. It has to
-// travel in the environment rather than the prompt, because the prompt is the layer that degrades
-// and the guard runs before the model gets a say.
-export async function dispatch(agent, message, { runtime = selectRuntime(), env = {} } = {}) {
-  checkRuntime(runtime);
+function runOnce(agent, message, { runtime, env, signal }) {
   const [command, args] = invocation(runtime, agent, message);
-  return await new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: PROJECT_ROOT, env: { ...process.env, HARNESS_AGENT: agent, ...env }, shell: IS_WIN,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    let output = "";
+    let output = "", spawnError = null;
+    // Best-effort only: the runtimes spawn their own children, and signalling the direct child does
+    // not reach a grandchild. Cancelling the BACKOFF is exact; cancelling a running agent is not.
+    const onAbort = () => { try { child.kill("SIGTERM"); } catch {} };
+    signal?.addEventListener("abort", onAbort, { once: true });
     for (const [stream, sink] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
       stream.on("data", (chunk) => { output += chunk; sink.write(chunk); });
     }
-    child.on("error", reject);
-    child.on("close", (code, signal) => {
-      if (RUNTIME_REFUSAL.test(output)) {
-        console.error("runtime refused the dispatch despite its process status; no agent work is accepted");
-        return resolve(75);
-      }
-      resolve(code ?? (signal ? 1 : 0));
+    // A failed spawn emits `error` and then `close`, so let close settle it and keep the error.
+    child.on("error", (error) => { spawnError = error; });
+    child.on("close", (code, killedBy) => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve({ code: code ?? (killedBy ? 1 : 0), output, spawnError });
     });
   });
+}
+
+// `env` carries the parallel-iteration identity: HARNESS_FEATURE + HARNESS_SLICE tell
+// tools/guard-write.mjs which slice of a work-split plan this worker is confined to. It has to
+// travel in the environment rather than the prompt, because the prompt is the layer that degrades
+// and the guard runs before the model gets a say.
+//
+// `signal` cancels the backoff between attempts and asks the running child to stop. There is no
+// deadline: an agent session legitimately runs for tens of minutes, so a guessed one turns real
+// work into a killed turn — and bounding a hung runtime honestly needs process-group management,
+// which changes what Ctrl+C does and belongs in its own change. A hung dispatch still hangs.
+export async function dispatch(agent, message, { runtime = selectRuntime(), env = {}, signal } = {}) {
+  checkRuntime(runtime);
+  const budget = retryBudget();
+  for (let attempt = 0; ; attempt++) {
+    if (signal?.aborted) throw new Error("dispatch aborted");
+    const result = await runOnce(agent, message, { runtime, env, signal });
+    const verdict = classify(result);
+    if (verdict.failure === "REFUSAL") {
+      console.error("runtime refused the dispatch despite its process status; no agent work is accepted");
+      return 75;
+    }
+    if (!verdict.failure) return result.code;
+    if (!verdict.retry || attempt >= budget) {
+      console.error(`dispatch failed [${verdict.failure}] after ${attempt + 1} attempt(s): ${verdict.why}`);
+      return result.code || 1;
+    }
+    const wait = backoffMs(attempt);
+    console.error(`dispatch [${verdict.failure}] — ${verdict.why}; retrying in ${wait}ms (${attempt + 1}/${budget})`);
+    await sleep(wait, signal);
+  }
 }
 
 function agentExists(agent) {

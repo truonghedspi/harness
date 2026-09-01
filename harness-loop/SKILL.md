@@ -452,7 +452,11 @@ default held in `env/local.json` (`node tools/harness-config.mjs get runMode`), 
 and can change on request — switching modes changes *how* the node runs, never *which* node runs.
 A broken dispatcher is a blocker, not a reason to play every role: `node loop/dispatch.mjs --check`
 proves the runtime is driveable before a turn is spent, and the orchestrator stops and reports
-rather than silently dropping generator/evaluator separation.
+rather than silently dropping generator/evaluator separation. A runtime that fails *mid*-turn is
+retried only when **nothing came back** — a spawn that never started, an exit with no output.
+Anything that produced output is terminal, because the retry unit here is an agent session that
+edits files, not an LLM turn on a durable history, and re-running a role over a half-changed tree is
+a worse failure than the one being retried (`references/runtimes.md`).
 
 Its safety is two mechanical constraints, not two sentences of good intent:
 
