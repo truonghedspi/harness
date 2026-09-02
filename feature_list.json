@@ -298,6 +298,46 @@
       "checkerNotes": "ACCEPTED: README.md đã được chuẩn hóa thành cấu trúc 5 mục rõ ràng với nội dung đầy đủ. Verification command đã được sửa để chỉ kiểm tra README.md độc lập, không phụ thuộc vào trạng thái repo. Evidence hoàn chỉnh với red→green run. ReviewPacket đạt tất cả tiêu chí admission.",
       "attempts": 1,
       "maxAttempts": 3
+    },
+    {
+      "id": "feat-prompt-centralize",
+      "name": "Tất cả prompt quản lý tập trung trong prompts/",
+      "behavior": "Mọi agent prompt nằm trong prompts/ duy nhất. agents.manifest.json trỏ đến prompts/ cho tất cả agents. gen-agents.mjs sinh config đúng từ vị trí mới.",
+      "verification": "node tools/gen-agents.mjs --target . --runtime claude --check && bash harness-loop/scripts/demo.sh",
+      "falsifier": "Prompt nằm ở hai thư mục khác nhau (loop/ và prompts/), hoặc manifest trỏ đến path không tồn tại, hoặc gen-agents sinh agent thiếu prompt.",
+      "kind": "build",
+      "dependencies": [],
+      "context": {
+        "touches": ["prompts/", "loop/", "agents.manifest.json", "harness-loop/templates/tree/"],
+        "note": "Di chuyển maker-prompt.md và checker-prompt.md từ loop/ sang prompts/. Cập nhật cả template và dogfood target."
+      },
+      "status": "passing",
+      "readyForCheck": true,
+      "evidence": ["prompts/maker.md và prompts/checker.md tồn tại; loop/maker-prompt.md và loop/checker-prompt.md đã xoá. agents.manifest.json trỏ 9 dòng 'prompts/', 0 dòng 'loop/*-prompt'. demo.sh xanh."],
+      "reviewPacket": "Prompt di chuyển từ loop/ sang prompts/. Manifest, verify-harness, check-coverage, demo.sh đều cập nhật. Template tree đồng bộ.",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-claude-code-acp",
+      "name": "Harness dùng Claude Code ACP với claude-opus-4-6",
+      "behavior": "dispatch.mjs ưu tiên Claude Code runtime. Tất cả agents chạy trên model claude-opus-4-6. Kiro agents giữ lại nhưng không còn là runtime mặc định.",
+      "verification": "HARNESS_RUNTIME=claude node loop/dispatch.mjs maker --dry-run 2>&1 | grep -q claude",
+      "falsifier": "dispatch.mjs vẫn chọn kiro trước claude, hoặc agents chạy trên model khác claude-opus-4-6.",
+      "kind": "build",
+      "dependencies": ["feat-prompt-centralize"],
+      "context": {
+        "touches": ["agents.manifest.json", ".claude/agents/", "loop/run-loop.mjs"],
+        "note": "Model claude-opus-4-6 cho tất cả agents. HARNESS_RUNTIME=claude đặt trong run-loop.mjs."
+      },
+      "status": "passing",
+      "readyForCheck": true,
+      "evidence": ["agents.manifest.json: tất cả agents dùng claude-opus-4-6. run-loop.mjs mặc định HARNESS_RUNTIME=claude. .claude/agents/*.md sinh đúng model. demo.sh xanh."],
+      "reviewPacket": "Model claude-opus-4-6 cho 8 agents. run-loop.mjs đặt HARNESS_RUNTIME=claude khi chưa có env. Kiro agents giữ lại với prompt path mới.",
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     }
   ]
 }

@@ -247,7 +247,7 @@ function gatePlaceholders() {
   const candidates = [
     "AGENTS.md", "CLAUDE.md", "feature_list.json", "progress.md", "DECISIONS.md",
     "session-handoff.md", "init.sh",
-    "loop/goal.md", "loop/maker-prompt.md", "loop/checker-prompt.md",
+    "loop/goal.md",
     ...lsSafe(P("docs")).filter((f) => f.endsWith(".md")).map((f) => `docs/${f}`),
     // prompts/ was missing, and it is the text agents read MOST. Two of them shipped a literal
     // {{PROJECT_NAME}} to a live project: the pattern was already here, nothing ever looked in the
@@ -753,11 +753,11 @@ function gateLoop() {
       });
     }
   }
-  const maker = read(P("loop/maker-prompt.md"));
+  const maker = read(P("prompts/maker.md")) || read(P("loop/maker-prompt.md"));
   if (maker && !/(never|not).{0,40}\bdone\b/is.test(maker)) {
     add({
       gate: "loop", id: "maker-may-self-grade", layer: "harness", severity: "warn",
-      symptom: "loop/maker-prompt.md does not forbid the maker from setting status=done",
+      symptom: "prompts/maker.md does not forbid the maker from setting status=done",
       remedy: "generator/evaluator separation: only the checker may flip done — fix the template",
     });
   }

@@ -463,7 +463,7 @@ process.exit(require('fs').existsSync('$TU/feature_list.digest.md') ? 0 : 1);
 node -e "
 const fs=require('fs'); const p='$TU/.kiro/agents/maker.json';
 const j=JSON.parse(fs.readFileSync(p,'utf8'));
-j.prompt='file://./loop/maker-prompt.md';   // the exact wrong form seen in the wild
+j.prompt='file://./prompts/maker.md';   // the exact wrong form seen in the wild
 fs.writeFileSync(p, JSON.stringify(j,null,2));
 "
 node "$SCRIPTS/verify-harness.mjs" --target "$TU" --skip-baseline --quiet
@@ -471,7 +471,7 @@ node -e "
 const r=require('$TU/trace/verify-report.json');
 const f=r.findings.find(x=>x.id==='agent-uri-broken:maker');
 // blocker, not warn: a write-capable agent with no rulebook loaded is not a degraded harness
-process.exit(f && f.severity==='blocker' && f.evidence.includes('loop/maker-prompt.md') ? 0 : 1);
+process.exit(f && f.severity==='blocker' && f.evidence.includes('prompts/maker.md') ? 0 : 1);
 "; expect "a file://./ URI that resolves to nothing is caught as a BLOCKER" $?
 cp "$T2/.kiro/agents/checker.json" "$T2/.kiro/agents/ghost.json"
 node -e "
@@ -1689,8 +1689,8 @@ cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$BATCH/bin/kiro-cli"
 chmod +x "$BATCH/bin/kiro-cli"
 ( cd "$BATCH" && PATH="$BATCH/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BATCH/runtime.log" node loop/run-loop.mjs 1 --headless > "$BATCH/run.log" 2>&1 )
 test "$(grep -c -- '--agent maker' "$BATCH/runtime.log")" = "1" -a "$(grep -c -- '--agent checker' "$BATCH/runtime.log" || true)" = "0" \
-  && grep -q 'only when the whole feature-level.*behavior' "$SCRIPTS/../templates/tree/loop/maker-prompt.md" \
-  && grep -q 'counts failed review cycles, not maker checkpoints' "$SCRIPTS/../templates/tree/loop/checker-prompt.md"
+  && grep -q 'only when the whole feature-level.*behavior' "$SCRIPTS/../templates/tree/prompts/maker.md" \
+  && grep -q 'counts failed review cycles, not maker checkpoints' "$SCRIPTS/../templates/tree/prompts/checker.md"
 expect "partial maker checkpoints do not dispatch the final checker" $?
 # route-log is the trajectory, not only the marker ledger: an ordinary (marker-free) maker dispatch
 # must still land there with its layer, so a run can be replayed end to end.
@@ -2352,7 +2352,7 @@ const f=r.findings.find(x=>x.id==='stray-verification-script');
 process.exit(f && /verify-thing\.mjs/.test(f.evidence) && !/scratch/.test(f.evidence) ? 0 : 1);
 "; expect "a stray script left in the tree is reported, while a probe in trace/scratch/ is not" $?
 node -e "
-const t=require('fs').readFileSync('$SG/loop/checker-prompt.md','utf8').replace(/\s+/g,' ');
+const t=require('fs').readFileSync('$SG/prompts/checker.md','utf8').replace(/\s+/g,' ');
 // the impulse to probe is right; what matters is where it lives and that it does not become evidence
 process.exit(/Probes live in .trace\/scratch/.test(t) && /Delete it, or promote it/.test(t)
   && /never the basis for approval/.test(t) ? 0 : 1);
@@ -3635,12 +3635,12 @@ process.exit(r.node==='human' && r.layer==='oracle' && /condition itself may be 
 "
 expect "one test-implementer turn, then a human — an oracle that cannot be reconciled is a question about the condition" $?
 node -e "
-const t=require('fs').readFileSync('$SCRIPTS/../templates/tree/loop/maker-prompt.md','utf8').replace(/\s+/g,' ');
+const t=require('fs').readFileSync('$SCRIPTS/../templates/tree/prompts/maker.md','utf8').replace(/\s+/g,' ');
 process.exit(/Never pick a feature whose .checkerNotes. starts with .NEEDS ORACLE FIX:./.test(t) ? 0 : 1);
 "
 expect "the maker prompt forbids picking it, so the marker and the eligibility filter agree" $?
 node -e "
-const t=require('fs').readFileSync('$SCRIPTS/../templates/tree/loop/checker-prompt.md','utf8').replace(/\s+/g,' ');
+const t=require('fs').readFileSync('$SCRIPTS/../templates/tree/prompts/checker.md','utf8').replace(/\s+/g,' ');
 process.exit(/NEEDS ORACLE FIX:/.test(t) && /Do \*\*not\*\* REJECT/.test(t) ? 0 : 1);
 "
 expect "the checker is told to write the marker instead of REJECTing an implementation that may be correct" $?

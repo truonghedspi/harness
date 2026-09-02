@@ -21,6 +21,7 @@ try {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 process.chdir(ROOT);
+if (!process.env.HARNESS_RUNTIME) process.env.HARNESS_RUNTIME = "claude";
 const args = process.argv.slice(2);
 const iterations = Number(args.find((arg) => /^\d+$/.test(arg)) || 1);
 let attended = !args.includes("--headless") && process.env.HARNESS_ATTENDED !== "0";

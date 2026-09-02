@@ -1,7 +1,7 @@
 {
   "name": "maker",
   "description": "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done.",
-  "prompt": "file://../../loop/maker-prompt.md",
+  "prompt": "file://../../prompts/maker.md",
   "tools": [
     "read",
     "write",

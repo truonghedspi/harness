@@ -1,7 +1,7 @@
 {
   "name": "checker",
   "description": "Final-acceptance checker: runs only after every non-blocked feature is handed off, replays evidence against the integrated delivery, and is the only agent allowed to set status=done. Write-restricted to state files.",
-  "prompt": "file://../../loop/checker-prompt.md",
+  "prompt": "file://../../prompts/checker.md",
   "tools": [
     "read",
     "write",

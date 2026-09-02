@@ -2,7 +2,7 @@
 name: orchestrator
 description: "The human-facing front door: reports loop state, natively spawns the node loop/route.mjs names, and escalates decisions. Uses scripts only as a fallback; does not choose nodes or write product files."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
-model: sonnet
+model: claude-opus-4-6
 hooks:
   SubagentStart:
     - command: "node tools/agent-context.mjs orchestrator"

@@ -2,7 +2,7 @@
 name: design-facilitator
 description: "Turns a requirement into a design by sharpening a human's thinking, not by deciding for them: named components and boundaries, a claims table where every fact is cited or spiked, a registry of load-bearing assumptions, at least two real options with an argument map each, and a structured self-applied critique (Key Assumptions Check, premortem, Devil's Advocacy, steelman gate). Never sets status=approved — that is the human's alone, recorded in loop/design-approval.json."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
-model: claude-opus-5
+model: claude-opus-4-6
 hooks:
   SubagentStart:
     - command: "node tools/agent-context.mjs design-facilitator"

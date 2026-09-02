@@ -2,7 +2,7 @@
 name: feature-planner
 description: "Turns a raw requirement into a right-sized, dependency-ordered feature_list.json. Runs once at setup (and again only when scope changes enough to need re-planning) — not a per-iteration loop role like maker/checker."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
-model: sonnet
+model: claude-opus-4-6
 hooks:
   SubagentStart:
     - command: "node tools/agent-context.mjs feature-planner"

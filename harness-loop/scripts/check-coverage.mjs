@@ -114,7 +114,7 @@ const CHECKS = [
     return bad.length ? no(`${bad.length} feature(s) lack a verification command or valid state`) : ok(`${features.length} features carry behavior+verification+state`);
   }],
   ["L9  Externalized termination", () => {
-    if (!exists(P("loop/checker-prompt.md"))) return no("missing loop/checker-prompt.md (no independent checker)");
+    if (!exists(P("prompts/checker.md")) && !exists(P("loop/checker-prompt.md"))) return no("missing prompts/checker.md (no independent checker)");
     if (!features) return no("feature_list.json invalid — cannot check evidence field");
     const noEvidence = features.filter((f) => !Object.prototype.hasOwnProperty.call(f, "evidence"));
     return noEvidence.length ? no(`${noEvidence.length} feature(s) lack an 'evidence' field`) : ok("checker present + every feature has evidence field");
@@ -143,9 +143,13 @@ const CHECKS = [
     return ok("exit checklist + handoff file present");
   }],
   ["L13 Autonomous loop", () => {
-    const required = ["loop/goal.md", "loop/maker-prompt.md", "loop/checker-prompt.md", "loop/run-loop.mjs"];
+    const required = ["loop/goal.md", "loop/run-loop.mjs"];
     const missing = required.filter((r) => !exists(P(r)));
-    for (const r of [".kiro/agents/maker.json", ".kiro/agents/checker.json"]) if (!exists(R(r))) missing.push(r);
+    for (const [a, b] of [["prompts/maker.md", "loop/maker-prompt.md"], ["prompts/checker.md", "loop/checker-prompt.md"]]) {
+      if (!exists(P(a)) && !exists(P(b))) missing.push(a);
+    }
+    const agentDirs = [".kiro/agents", ".claude/agents"];
+    if (!agentDirs.some((d) => exists(R(d)))) missing.push(".kiro/agents or .claude/agents");
     if (missing.length) return no("missing: " + missing.join(", "));
     const goal = read(P("loop/goal.md"));
     if (!goal || !/stop condition/i.test(goal)) return no("loop/goal.md lacks a stop-condition section");

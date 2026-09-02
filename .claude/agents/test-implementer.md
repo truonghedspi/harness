@@ -2,7 +2,7 @@
 name: test-implementer
 description: "Turns validated test conditions into running test code, red first. Writes tests only — never the implementation they judge."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
-model: sonnet
+model: claude-opus-4-6
 hooks:
   SubagentStart:
     - command: "node tools/agent-context.mjs test-implementer"

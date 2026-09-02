@@ -2,7 +2,7 @@
 name: test-designer
 description: "Turns the spec into test conditions WITHOUT reading the implementation. The independent oracle: designs what must be true, so the test cannot become a transcript of the code it judges."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
-model: sonnet
+model: claude-opus-4-6
 hooks:
   SubagentStart:
     - command: "node tools/agent-context.mjs test-designer"

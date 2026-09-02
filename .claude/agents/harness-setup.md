@@ -2,7 +2,7 @@
 name: harness-setup
 description: "Set up and validate the harness against the real environment: toolchain, MCP connectivity, real verification commands, and a green ./init.sh baseline. Setup only — no feature work."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
-model: sonnet
+model: claude-opus-4-6
 hooks:
   SubagentStart:
     - command: "node tools/agent-context.mjs harness-setup"
