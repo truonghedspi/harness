@@ -403,6 +403,23 @@ const RULES = [
     },
   },
   {
+    // A build feature with no prove feature is a plan that skipped independent acceptance. The
+    // check-plan.mjs `build-unproven` finding already catches this at planning time, but if the
+    // planner ignored it or was bypassed, nothing in the router stopped the maker from implementing
+    // the feature — and the oracle/test rules (below) only fire for EXISTING prove features.
+    // Found on qa_knowledge: all 9 features were kind:build, all reached done, zero test conditions.
+    node: "orchestrator", kind: "agent", layer: "decomposition",
+    when: "a non-done non-blocked build feature has no prove feature judging it — the plan is incomplete",
+    match: () => {
+      if (!hasAgent("test-agent")) return null;
+      const unjudged = open.filter((b) => b.kind === "build" && status(b) !== "blocked" &&
+        !features.some((p) => p.kind === "prove" && Array.isArray(p.dependencies) && p.dependencies.includes(b.id)));
+      if (!unjudged.length) return null;
+      return { why: `${unjudged.length} build feature(s) have no prove feature — dispatch feature-planner to re-cut with acceptance scenarios before implementation proceeds`,
+        detail: unjudged.slice(0, 5).map((f) => f.id).join(", ") };
+    },
+  },
+  {
     // The eighth implicit edge. A `prove` feature's oracle can be wrong — the assertion contradicts
     // the validated condition it was written from — and until now nothing could fix it. The
     // test-implementer rule below keys on empty `evidence` to tell "not written yet" from
@@ -606,9 +623,15 @@ const RULES = [
       const notMutantChecked = (p) => !(Array.isArray(p.evidence) && p.evidence.some((e) => e && e.mutant === true));
       const unproven = new Set(features.filter((p) => p.kind === "prove" && status(p) !== "blocked" &&
         (notWritten(p) || notMutantChecked(p))).flatMap((p) => p.dependencies || []));
+      // Defense-in-depth: a build with no prove feature at all also cannot proceed — the
+      // decomposition rule above should have caught it, but if it didn't, the maker must not
+      // implement a feature nobody can independently judge.
+      const neverJudged = (x) => x.kind === "build" && hasAgent("test-agent") &&
+        !features.some((p) => p.kind === "prove" && (p.dependencies || []).includes(x.id));
       const eligible = open.filter((x) => x.readyForCheck !== true &&
         !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(x)) && status(x) !== "blocked" &&
         !(x.kind === "build" && unproven.has(x.id) && hasAgent("test-agent")) &&
+        !neverJudged(x) &&
         (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
       if (!eligible.length) return null;
       const next = eligible[0];
