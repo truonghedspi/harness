@@ -8,9 +8,6 @@ hooks:
     - command: "node harness/tools/agent-context.mjs k8s-integration-tester"
   SubagentStop:
     - command: "node harness/tools/trace.mjs k8s-integration-tester session-end"
-  PostToolUse:
-    - matcher: "Read|Grep|Glob|Bash"
-      command: "node harness/tools/telemetry.mjs --runtime claude --actor k8s-integration-tester"
 ---
 
 <!-- GENERATED from agents.manifest.json + harness/prompts/k8s-integration-tester.md by tools/gen-agents.mjs. Do not hand-edit:

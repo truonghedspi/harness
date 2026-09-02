@@ -11,9 +11,6 @@ hooks:
       command: "node harness/tools/guard-write.mjs maker"
   SubagentStop:
     - command: "node harness/tools/trace.mjs maker session-end"
-  PostToolUse:
-    - matcher: "Read|Grep|Glob|Bash"
-      command: "node harness/tools/telemetry.mjs --runtime claude --actor maker"
 ---
 
 <!-- GENERATED from agents.manifest.json + harness/loop/maker-prompt.md by tools/gen-agents.mjs. Do not hand-edit:

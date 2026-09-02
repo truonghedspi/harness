@@ -6,14 +6,8 @@ model: claude-opus-5
 hooks:
   SubagentStart:
     - command: "node harness/tools/agent-context.mjs test-designer"
-  PreToolUse:
-    - matcher: "Edit|Write|NotebookEdit|Bash"
-      command: "node harness/tools/guard-write.mjs test-designer"
   SubagentStop:
     - command: "node harness/tools/trace.mjs test-designer session-end"
-  PostToolUse:
-    - matcher: "Read|Grep|Glob|Bash"
-      command: "node harness/tools/telemetry.mjs --runtime claude --actor test-designer"
 ---
 
 <!-- GENERATED from agents.manifest.json + harness/prompts/test-designer.md by tools/gen-agents.mjs. Do not hand-edit:

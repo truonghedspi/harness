@@ -168,6 +168,41 @@ still run it by hand to hold a terminal `done` claim.) In every case:
   `docs/reference/graph.md` has the owner table. If native spawn is unavailable,
   `node loop/dispatch.mjs <owner> "<decision>"` is the fallback for this already-decided handoff.
 
+## Retrospective after a feature reaches `done`
+
+When `loop-status` or `route.mjs` reveals a feature newly moved to `done` in this session, pause
+before dispatching more work and learn from its cost. Run these reports in parallel:
+
+```
+node tools/run-report.mjs --since -24h --json
+node tools/trace-insights.mjs --json
+node tools/trajectory.mjs --feature <feat-id> --all --json
+```
+
+Use the feature's first trajectory event to widen `--since` when it ran longer than 24 hours. The
+three reports answer different questions: session/attempt cost, recurring telemetry signals, and
+where the feature waited. Treat absent or incomplete telemetry as unknown, not as zero cost; ignore
+`confidence: low` signals and signals not tied to the completed feature.
+
+If a material signal remains, write a compact retrospective to
+`memory/orchestrator/<feat-id>-retro.md` and `session-handoff.md`: evidence, one root-cause lesson,
+one proposed improvement, owning layer (`project` or `harness`/`workflow`/`skill`), downside, and
+the command that would prove the improvement. Present that one proposal to the user. If no material
+signal remains, report `Retro <feat-id>: clean, no action` and write no empty memory entry.
+
+**Approval is a gate, not an inference.** Do not implement because a proposal looks good, and do
+not treat an ambiguous acknowledgement as approval. On an explicit approval naming the proposal:
+
+- `project` → dispatch `feature-planner` with the approved proposal; it creates the scoped feature.
+- `harness`/`workflow`/`skill` → in the known canonical harness source, write a
+  `trace-insights/1` report, import it with `harness-issue.mjs`, then use
+  `improve-harness.mjs --route` and re-run `route.mjs`. The router chooses the implementation owner.
+- an installed target needs a newer canonical version → use its `skills/harness-upgrade` workflow;
+  never run setup again or use `--force` as an upgrade.
+
+Record the user's approval or rejection and the selected route in `session-handoff.md`. The
+orchestrator still does not edit product or harness source directly.
+
 ## What you must not do
 
 - Write source, tests, `feature_list.json`, or any design document. You dispatch; they write.

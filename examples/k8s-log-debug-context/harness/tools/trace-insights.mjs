@@ -4,8 +4,8 @@
 //
 // verify-harness finds layer=harness defects by inspecting files; run-report.mjs aggregates a run
 // into project-level insight candidates ("this feature is stuck"). Neither reads the loop's own
-// behavior back as *what to change in the harness*. This does: it replays trace/trace.jsonl,
-// trace/tool-events.jsonl and loop/route-log.jsonl, detects recurring inefficiency patterns, and
+// behavior back as *what to change in the harness*. This does: it replays trace/trace.jsonl
+// and loop/route-log.jsonl, detects recurring inefficiency patterns, and
 // emits ranked optimization options — each with a layer (harness/workflow/skill), the trace
 // evidence, and a concrete remedy naming what to change. It is read-only and writes nothing; the
 // judgement about what to act on stays human, exactly like run-report and verify-harness.
@@ -48,8 +48,6 @@ const inWindow = (ts) => Date.parse(ts) >= since;
 // --- sources --------------------------------------------------------------------------------
 const events = (read(P("trace", "trace.jsonl")) || "").split("\n").filter(Boolean)
   .map(parse).filter(Boolean).filter((e) => e.ts && inWindow(e.ts));
-const toolEvents = (read(P("trace", "tool-events.jsonl")) || "").split("\n").filter(Boolean)
-  .map(parse).filter(Boolean).filter((e) => e.ts && inWindow(e.ts));
 const routes = (read(P("loop", "route-log.jsonl")) || "").split("\n").filter(Boolean)
   .map(parse).filter(Boolean).filter((e) => (e.ts || e.at) && inWindow(e.ts || e.at));
 const features = (() => {
@@ -80,25 +78,11 @@ if (rejects.length) {
   });
 }
 
-// 2. Read/search telemetry that observes only shell means every read-cost signal is blind: the
-// duplicate-read and rediscovery options below cannot fire, so optimization is guesswork.
-const shell = toolEvents.filter((e) => e.class === "shell").length;
-const directReads = toolEvents.filter((e) => e.class === "file-read" && e.success);
-const searches = toolEvents.filter((e) => e.class === "search" || e.class === "glob").length;
-const coverage = [...new Set(toolEvents.map((e) => `${e.runtime}:${e.coverage}`).filter(Boolean))];
-if (toolEvents.length && directReads.length === 0 && searches === 0) {
-  findings.push({
-    id: "telemetry-coverage", layer: "harness",
-    title: `read/search telemetry is blind — ${shell} shell event(s) and no observed file reads`,
-    evidence: { shell, directReads: 0, searches: 0, coverage },
-    remedy: "Run tools/telemetry-calibrate.mjs and confirm the runtime hooks observe read/search; without direct-read events, duplicate-read and rediscovery cost cannot be measured.",
-    confidence: "high", score: 100,
-  });
-}
-
-// 3. Rediscovery: the same file read over and over is context that should be injected once
+// 2. Rediscovery: the same file read over and over is context that should be injected once
 // (context packet mustRead) or remembered (memory/<agent>/), not re-read every session.
-if (directReads.length) {
+// NOTE: this finding requires external read-event data; without a telemetry source it cannot fire.
+{
+  const directReads = [];
   const counts = new Map();
   for (const e of directReads) if (e.path) counts.set(e.path, (counts.get(e.path) || 0) + 1);
   const repeated = [...counts.entries()].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]);
@@ -166,7 +150,7 @@ if (JSON_OUT) {
 out(`trace insights — ${rows.length} optimization option(s)${LAYER === "all" ? "" : ` (layer: ${LAYER})`}`);
 if (!rows.length) {
   out("  no optimization options found in the recorded trace — the loop looks clean on the signals checked.");
-  out(`  sources: trace/trace.jsonl, trace/tool-events.jsonl, loop/route-log.jsonl (under ${TARGET})`);
+  out(`  sources: trace/trace.jsonl, loop/route-log.jsonl (under ${TARGET})`);
   process.exit(0);
 }
 rows.forEach((f, i) => {

@@ -1,5 +1,0 @@
-{"ts":"2026-07-20T01:45:06.510Z","actor":"harness","event":"baseline","detail":"green","cwd":"/Users/loren/workspace/projects/harness","pid":67633}
-{"ts":"2026-07-30T02:57:07.712Z","actor":"harness","event":"baseline","detail":"green","cwd":"/Users/loren/workspace/projects/harness","pid":61414}
-{"ts":"2026-07-30T04:44:17.760Z","actor":"harness","event":"baseline","detail":"green","cwd":"/Users/loren/workspace/projects/harness","pid":67320}
-{"ts":"2026-08-10T05:56:17.743Z","actor":"harness","event":"baseline","detail":"green","cwd":"/Users/loren/workspace/projects/harness/examples/timesten-migration","pid":1111}
-{"ts":"2026-08-10T06:02:01.589Z","actor":"verify","event":"verify-red","feature":"blockers=17 harness=4","cwd":"/Users/loren/workspace/projects/harness/examples/timesten-migration","pid":2978}

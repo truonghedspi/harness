@@ -11,9 +11,6 @@ hooks:
       command: "node harness/tools/guard-write.mjs checker"
   SubagentStop:
     - command: "node harness/tools/trace.mjs checker session-end"
-  PostToolUse:
-    - matcher: "Read|Grep|Glob|Bash"
-      command: "node harness/tools/telemetry.mjs --runtime claude --actor checker"
 ---
 
 <!-- GENERATED from agents.manifest.json + harness/loop/checker-prompt.md by tools/gen-agents.mjs. Do not hand-edit:

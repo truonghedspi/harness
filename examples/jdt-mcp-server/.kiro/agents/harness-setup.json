@@ -29,28 +29,6 @@
         "command": "node harness/tools/trace.mjs harness-setup session-start"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor harness-setup"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor harness-setup"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor harness-setup"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor harness-setup"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor harness-setup"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs harness-setup session-end"

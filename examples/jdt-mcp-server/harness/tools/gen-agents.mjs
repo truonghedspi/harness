@@ -105,15 +105,6 @@ function kiroAgent(a) {
       ...(a.spawnCommands || []).map((command) => ({ command })),
     ];
   }
-  if (a.traceToolUse && a.traceToolUse.length) {
-    hooks.postToolUse = a.traceToolUse.map((matcher) => ({
-      matcher,
-      command: `node ${TOOL_ROOT}/trace.mjs ${a.name} tool-use ${matcher === "execute_bash" ? "shell" : "write"}`,
-    }));
-  }
-  hooks.postToolUse = [...(hooks.postToolUse || []), ...["fs_read", "read", "grep", "glob", "execute_bash"]
-    .map((matcher) => ({ matcher,
-      command: `node ${TOOL_ROOT}/telemetry.mjs --runtime kiro --actor ${a.name}` }))];
   if (a.trace) hooks.stop = [{ command: `node ${TOOL_ROOT}/trace.mjs ${a.name} session-end` }];
   if (Object.keys(hooks).length) j.hooks = hooks;
   if (a.welcomeMessage) j.welcomeMessage = a.welcomeMessage;
@@ -143,7 +134,6 @@ function claudeAgent(a) {
   if (a.trace) {
     hooks.push(`  SubagentStop:\n    - command: "node ${TOOL_ROOT}/trace.mjs ${a.name} session-end"`);
   }
-  hooks.push(`  PostToolUse:\n    - matcher: "Read|Grep|Glob|Bash"\n      command: "node ${TOOL_ROOT}/telemetry.mjs --runtime claude --actor ${a.name}"`);
   const body = read(P(a.prompt));
   if (body === null) return null;
   // Claude Code has no welcomeMessage field. The text exists so a human knows what this role can
@@ -223,10 +213,6 @@ function codexHooks(list) {
       PreToolUse: [{
         matcher: ".*",
         hooks: [{ type: "command", command: `node ${TOOL_ROOT}/guard-write.mjs --runtime codex --from-env` }],
-      }],
-      PostToolUse: [{
-        matcher: ".*",
-        hooks: [{ type: "command", command: `node ${TOOL_ROOT}/telemetry.mjs --runtime codex --actor \${HARNESS_AGENT:-unknown}` }],
       }],
     },
   }, null, 2) + "\n";

@@ -38,14 +38,6 @@
     ],
     "postToolUse": [
       {
-        "matcher": "execute_bash",
-        "command": "node tools/trace.mjs maker tool-use shell"
-      },
-      {
-        "matcher": "fs_write",
-        "command": "node tools/trace.mjs maker tool-use write"
-      },
-      {
         "matcher": "fs_read",
         "command": "node tools/telemetry.mjs --runtime kiro --actor maker"
       },

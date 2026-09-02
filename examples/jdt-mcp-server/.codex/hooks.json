@@ -11,17 +11,6 @@
           }
         ]
       }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node harness/tools/telemetry.mjs --runtime codex --actor ${HARNESS_AGENT:-unknown}"
-          }
-        ]
-      }
     ]
   }
 }

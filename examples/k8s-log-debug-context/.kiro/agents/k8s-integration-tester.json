@@ -32,36 +32,6 @@
         "command": "node harness/tools/trace.mjs k8s-integration-tester session-start"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/trace.mjs k8s-integration-tester tool-use shell"
-      },
-      {
-        "matcher": "fs_write",
-        "command": "node harness/tools/trace.mjs k8s-integration-tester tool-use write"
-      },
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor k8s-integration-tester"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor k8s-integration-tester"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor k8s-integration-tester"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor k8s-integration-tester"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor k8s-integration-tester"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs k8s-integration-tester session-end"

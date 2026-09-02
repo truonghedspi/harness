@@ -86,9 +86,8 @@ node harness-loop/scripts/upgrade-harness.mjs --target <dự-án>
 - Checker chỉ chạy sau khi mọi feature được handoff
 - Typed admission seam ngăn incomplete submission
 
-### Telemetry và tracing
-- Metadata redacted trong `trace/tool-events.jsonl`
-- Coverage report tách biệt native vs shell activity
+### Tracing
+- Decision path ghi nhận trong `trace/trace.jsonl`
 - Không lưu trữ file contents trong trace
 
 ## Working in this repo

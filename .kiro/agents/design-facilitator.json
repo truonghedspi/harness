@@ -49,14 +49,6 @@
     ],
     "postToolUse": [
       {
-        "matcher": "execute_bash",
-        "command": "node tools/trace.mjs design-facilitator tool-use shell"
-      },
-      {
-        "matcher": "fs_write",
-        "command": "node tools/trace.mjs design-facilitator tool-use write"
-      },
-      {
         "matcher": "fs_read",
         "command": "node tools/telemetry.mjs --runtime kiro --actor design-facilitator"
       },

@@ -33,10 +33,6 @@
     ],
     "postToolUse": [
       {
-        "matcher": "execute_bash",
-        "command": "node tools/trace.mjs test-implementer tool-use shell"
-      },
-      {
         "matcher": "fs_read",
         "command": "node tools/telemetry.mjs --runtime kiro --actor test-implementer"
       },

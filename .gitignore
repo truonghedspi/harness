@@ -3,6 +3,9 @@
 # Regenerated on every run, so its only diff is usually its own timestamp: run output, not state.
 harness-loop/harness-improvements.md
 
+# Runtime marker written by SubagentStart so the project-wide PreToolUse hook knows the active agent.
+.harness-agent
+
 # --- harness: run output. Regenerated every run; committing it is pure diff noise.
 trace/*
 !trace/adoption-baseline.json

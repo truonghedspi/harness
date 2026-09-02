@@ -9,6 +9,7 @@
     ".claude/agents/orchestrator.md",
     ".claude/agents/test-designer.md",
     ".claude/agents/test-implementer.md",
+    ".claude/settings.json",
     ".codex/agents/checker.toml",
     ".codex/agents/design-facilitator.toml",
     ".codex/agents/feature-planner.toml",

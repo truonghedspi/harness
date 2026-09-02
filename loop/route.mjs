@@ -446,7 +446,7 @@ const RULES = [
         return { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id };
       }
       if (!hasAgent("test-designer")) return null;
-      // Blocked features must not drive test-designer dispatch — same exclusion as test-implementer (line 506).
+      // Blocked features must not drive test-designer dispatch — same exclusion as test-implementer.
       const candidates = open.filter((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim() && status(x) !== "blocked");
       if (!candidates.length) return null;

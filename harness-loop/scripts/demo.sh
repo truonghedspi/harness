@@ -4030,7 +4030,17 @@ const f=j.features[0];
 process.exit(/harness issue HI-/.test(f.checkerNotes) && /templates\/tree|scripts/.test(f.falsifier) ? 0 : 1);
 "; expect "the routed feature carries its provenance and names the wrong fix — patching the target, not the skill" $?
 
-step 70 "workflow diagrams: split by audience, and mechanically unable to fall behind the router"
+step 70 "completed-feature telemetry retrospective: evidence first, approval before an improvement route"
+for retro_prompt in "$SCRIPTS/../templates/tree/prompts/orchestrator.md" "$FBH/prompts/orchestrator.md"; do
+  grep -q 'node tools/run-report.mjs --since -24h --json' "$retro_prompt" \
+    && grep -q 'node tools/trace-insights.mjs --json' "$retro_prompt" \
+    && grep -q 'node tools/trajectory.mjs --feature <feat-id> --all --json' "$retro_prompt" \
+    && grep -q 'Approval is a gate, not an inference' "$retro_prompt" \
+    && grep -q 'improve-harness.mjs --route' "$retro_prompt" || exit 1
+done
+expect "the scaffolded orchestrator runs telemetry, asks explicit approval, then routes the approved improvement" $?
+
+step 71 "workflow diagrams: split by audience, and mechanically unable to fall behind the router"
 # A diagram that lags the code is worse than none: it is read as authoritative and the reader
 # cannot tell. The existing graph-stale gate compares mtimes, which fires after any checkout that
 # rewrites both files in one second and stays silent when a rule changes. This one reads content.

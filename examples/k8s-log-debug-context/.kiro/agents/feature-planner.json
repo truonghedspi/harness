@@ -45,28 +45,6 @@
         "command": "node harness/tools/trace.mjs feature-planner session-start"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor feature-planner"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs feature-planner session-end"

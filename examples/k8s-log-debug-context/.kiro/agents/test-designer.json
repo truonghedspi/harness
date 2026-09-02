@@ -43,28 +43,6 @@
         "command": "node harness/tools/trace.mjs test-designer session-start"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-designer"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs test-designer session-end"

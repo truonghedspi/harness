@@ -571,14 +571,6 @@
       "sha256": "a347e8ac9722ddc714bf0caceb057175ad1fe93cb0040b0881c9b0f338e1f020",
       "ownership": "harness-owned"
     },
-    "tools/telemetry-calibrate.mjs": {
-      "sha256": "c50202ff01e93eecdab12f7421e0d41b4de93b9ec725ab3d5254244ef0b3b272",
-      "ownership": "harness-owned"
-    },
-    "tools/telemetry.mjs": {
-      "sha256": "37e87f33822a4ff65218365526acf1d024ecd4afe457cd899c958b7d865e9a90",
-      "ownership": "harness-owned"
-    },
     "tools/timeline.mjs": {
       "sha256": "3a5711c4d7118f20b8c9832173c841f8423fa700e4da7929532d5310fbe23f5f",
       "ownership": "harness-owned"

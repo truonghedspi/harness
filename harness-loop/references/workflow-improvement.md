@@ -16,6 +16,9 @@ a *person* do. Human attention is the one input this harness cannot renew
 flowchart TD
     V["verify-harness.mjs\nstatic gates over files\nsignature: gate/id"] --> IMP
     TI["trace-insights.mjs --report\nreplays trace/*.jsonl, route-log,\napproval-log, assumptions.md\nsignature: trace/id"] --> IMP
+    RETRO["orchestrator after a new done\nrun-report + trace-insights + trajectory\none evidence-backed proposal"] --> APPROVE{"human explicitly\napproves proposal?"}
+    APPROVE -- canonical harness --> TI
+    APPROVE -- project --> PJU
     HU["a person\nharness-issue.mjs feedback\ngate: human"] --> IMP["harness-issue.mjs import\nappend-only harness-issues.jsonl\nfold: open / occurrence / regressed"]
     TI --> PJU["layer:project options\n(unverified assumptions, residual unknowns)\nstay with the target — a citation or a spike there,\nnever an edit to the skill"]
     IMP --> RANK["improve-harness.mjs\nscore = occurrences x severity\nx distinct targets x (regressed ? 2 : 1)"]
@@ -45,6 +48,9 @@ Two consequences worth stating outright:
 - **A `gate: human` issue never auto-resolves and is never auto-routed.** It has no detector to
   fall silent, so silence retiring it would mean the loop closes the complaint by being unable to
   see it; and a routed feature with no way to verify itself is a livelock, eligible forever.
+- **Telemetry does not authorize an edit.** The orchestrator proposes one evidence-backed change
+  after a newly completed feature; only an explicit human approval sends it to this graph or to the
+  project's feature planner.
 
 ## The meta-loop's stop condition
 

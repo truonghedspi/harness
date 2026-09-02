@@ -2,15 +2,14 @@
 // trajectory.mjs — the loop's run as one compact chronological ledger (the CLI analogue of the
 // deepseek-harness Trajectory tab).
 //
-// The harness already RECORDS a run across three append-only streams, but none of them can be read
-// as the run actually happened: trace/trace.jsonl is the decision path, trace/tool-events.jsonl is
-// redacted tool activity, loop/route-log.jsonl is marker-driven routing. loop-status answers "where
-// is it now", timeline answers "how did feature_list.json get here", run-report aggregates a run
-// into insight candidates. A trajectory is none of those — it is the ordered sequence of sessions,
-// decisions and tool activity with timing, the same way the deepseek Trajectory ledger renders a
-// conversation rather than summarizing it.
+// The harness already RECORDS a run across two append-only streams, but neither can be read as the
+// run actually happened: trace/trace.jsonl is the decision path, loop/route-log.jsonl is
+// marker-driven routing. loop-status answers "where is it now", timeline answers "how did
+// feature_list.json get here", run-report aggregates a run into insight candidates. A trajectory is
+// none of those — it is the ordered sequence of sessions, decisions and routing with timing, the
+// same way the deepseek Trajectory ledger renders a conversation rather than summarizing it.
 //
-// This tool merges all three streams into one time-ordered ledger and renders it compactly. It is
+// This tool merges both streams into one time-ordered ledger and renders it compactly. It is
 // read-only and safe to run against a loop in progress.
 //
 // Usage:
@@ -61,7 +60,7 @@ const SUMMARY = args.includes("--summary");
 
 // A trajectory record is the least common shape of all three sources. `event` is the compact
 // kind label; `detail` is the human-readable summary (never a raw payload — trace.mjs already
-// truncates `raw`, and tool-events redacts inputs by hash). Machine fields stay separate so --json
+// truncates `raw`). Machine fields stay separate so --json
 // callers can project what they need without re-parsing prose.
 function collect() {
   const records = [];
@@ -77,21 +76,7 @@ function collect() {
     });
   }
 
-  // 2. Tool activity — redacted read/grep/glob/shell with duration and success.
-  for (const l of (read(P("trace", "tool-events.jsonl")) || "").split("\n")) {
-    const j = parse(l);
-    if (!j || !j.ts) continue;
-    records.push({
-      ts: j.ts, source: "tool", actor: String(j.actor || "unknown"),
-      event: String(j.tool || j.class || "tool"), feature: j.feature || null,
-      detail: j.path ? `→ ${j.path}` : null,
-      durationMs: Number.isFinite(j.durationMs) ? j.durationMs : null,
-      success: typeof j.success === "boolean" ? j.success : null,
-      sessionIdHash: j.sessionIdHash || null,
-    });
-  }
-
-  // 3. Marker-driven routing — the router's own dispatch decisions.
+  // 2. Marker-driven routing — the router's own dispatch decisions.
   for (const l of (read(P("loop", "route-log.jsonl")) || "").split("\n")) {
     const j = parse(l);
     if (!j || (!j.at && !j.ts)) continue;
@@ -176,7 +161,7 @@ if (SUMMARY) {
 // Default ledger. Oldest first so a run reads top-to-bottom as it happened.
 if (!rows.length) {
   out("no trajectory records — the loop has not recorded anything yet, or the filter matches nothing.");
-  out(`  sources: trace/trace.jsonl, trace/tool-events.jsonl, loop/route-log.jsonl (under ${TARGET})`);
+  out(`  sources: trace/trace.jsonl, loop/route-log.jsonl (under ${TARGET})`);
   process.exit(0);
 }
 out(`trajectory — ${rows.length} record(s)${ALL ? " (full run)" : ` (tail ${LIMIT})`}`);

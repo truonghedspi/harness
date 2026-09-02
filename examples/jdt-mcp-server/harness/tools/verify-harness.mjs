@@ -693,11 +693,6 @@ function promoteFeatures() {
 // Gate 5 — loop artifacts: a loop is only as good as its goal, its split, and its stop conditions
 // ---------------------------------------------------------------------------------------------
 function gateLoop() {
-  if (!exists(P("tools/telemetry.mjs")) || !exists(P("tools/telemetry-calibrate.mjs"))) {
-    add({ gate: "observability", id: "read-telemetry-missing", layer: "harness",
-      symptom: "runtime hooks cannot emit calibrated, redacted read/search telemetry",
-      remedy: "refresh skill-owned telemetry.mjs and telemetry-calibrate.mjs" });
-  }
   if (!exists(P("tools/guard-write.mjs")) || !exists(P("tools/hook-calibrate.mjs"))) {
     add({ gate: "runtime-hooks", id: "hook-calibration-missing", layer: "harness",
       symptom: "runtime write-confinement hooks have no allow/deny adapter calibration",

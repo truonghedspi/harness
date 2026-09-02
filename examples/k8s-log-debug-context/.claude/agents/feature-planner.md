@@ -11,9 +11,6 @@ hooks:
       command: "node harness/tools/guard-write.mjs feature-planner"
   SubagentStop:
     - command: "node harness/tools/trace.mjs feature-planner session-end"
-  PostToolUse:
-    - matcher: "Read|Grep|Glob|Bash"
-      command: "node harness/tools/telemetry.mjs --runtime claude --actor feature-planner"
 ---
 
 <!-- GENERATED from agents.manifest.json + harness/prompts/feature-planner.md by tools/gen-agents.mjs. Do not hand-edit:

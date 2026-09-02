@@ -53,28 +53,6 @@
         "command": "node harness/tools/trace.mjs orchestrator session-start"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor orchestrator"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs orchestrator session-end"

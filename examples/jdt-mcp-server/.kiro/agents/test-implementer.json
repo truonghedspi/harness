@@ -31,32 +31,6 @@
         "command": "node harness/tools/trace.mjs test-implementer session-start"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/trace.mjs test-implementer tool-use shell"
-      },
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-implementer"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-implementer"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-implementer"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-implementer"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor test-implementer"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs test-implementer session-end"

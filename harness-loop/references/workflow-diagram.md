@@ -11,7 +11,7 @@ Three workflows, split because they have three different readers and three diffe
 |---|---|---|
 | [workflow-onboarding.md](workflow-onboarding.md) | Floor 1: a requirement or an existing repo → a green harness. Adoption, scaffolding, the human interview, multi-service init, the gates | you are standing a harness up, or adopting one into a repo that already has history |
 | [workflow-development.md](workflow-development.md) | Floor 2: a green harness → DONE. Design, decomposition, oracle, implementation, the per-iteration sequence, the K8s specialization | you are running the loop, or trying to work out why the router picked what it picked |
-| [workflow-improvement.md](workflow-improvement.md) | The loop that repairs the **skill**: three signal producers, one ranked backlog, and a closing rule nothing can fake | a gate, a trace or a person says the harness itself is wrong |
+| [workflow-improvement.md](workflow-improvement.md) | The loop that repairs the **skill**: three signal producers, completed-feature telemetry proposals gated by a human, one ranked backlog, and a closing rule nothing can fake | a gate, a trace or a person says the harness itself is wrong |
 
 ## Keeping these current
 

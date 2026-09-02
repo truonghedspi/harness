@@ -1387,40 +1387,37 @@
       "summary": "The router ignores blocked features when deciding whether test design is still missing.",
       "why": "A blocked feature is an explicit stop. Sending test-designer back to it recreated stopped work and could keep unrelated eligible work from advancing.",
       "targetImpact": "loop/route.mjs excludes status=blocked from both the missing-falsifier count and test-designer candidates. No state migration is required.",
-      "paths": [
-        "templates/tree/loop/route.mjs"
-      ],
+      "paths": ["templates/tree/loop/route.mjs"],
       "mergeActions": [
         "Refresh loop/route.mjs from the canonical template, preserving the target's real feature statuses and existing falsifier markers.",
         "Rerun node loop/route.mjs to confirm an eligible feature, not a blocked one, is selected."
       ],
-      "verification": [
-        "bash harness-loop/scripts/demo.sh",
-        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
-      ]
+      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
     },
     {
       "id": "HUC-2026-09-02-prompts-home-and-coverage",
       "summary": "Maker and checker prompts live under prompts/, with manifest, coverage, verification and generated agents following that canonical location.",
       "why": "The loop directory was mixing control-plane state with agent instructions. A single prompt home makes the runtime inputs discoverable and prevents the generator and coverage gates from silently following different paths.",
       "targetImpact": "agents.manifest.json points maker and checker at prompts/maker.md and prompts/checker.md. The scaffold carries those prompt files; check-coverage.mjs, verify-harness.mjs and generated-agent tooling recognize the moved locations. Targets with custom prompts need a semantic merge, then regeneration; generated runtime files remain derived artifacts.",
-      "paths": [
-        "templates/tree/agents.manifest.json",
-        "templates/tree/prompts/maker.md",
-        "templates/tree/prompts/checker.md",
-        "scripts/check-coverage.mjs",
-        "scripts/verify-harness.mjs",
-        "scripts/demo.sh",
-        "metadata.json"
-      ],
+      "paths": ["templates/tree/agents.manifest.json", "templates/tree/prompts/maker.md", "templates/tree/prompts/checker.md", "scripts/check-coverage.mjs", "scripts/verify-harness.mjs", "scripts/demo.sh", "metadata.json"],
       "mergeActions": [
         "Move or semantically merge maker and checker prompt contents into prompts/, then update manifest prompt references.",
         "Regenerate runtime agent files with node tools/gen-agents.mjs --target .; never hand-edit generated outputs."
       ],
-      "verification": [
-        "bash harness-loop/scripts/demo.sh",
-        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
-      ]
+      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-09-02-completed-feature-retro-approval",
+      "summary": "After observing a feature newly reach done, the orchestrator reads run-report, trace-insights and trajectory, proposes at most one evidence-backed improvement, and routes it only after explicit human approval.",
+      "why": "Telemetry that is never read loses the cost of a completed feature; telemetry that edits the harness automatically turns an optimization heuristic into unsupervised scope change. The workflow needed both a mandatory retrospective and a human approval seam before implementation.",
+      "targetImpact": "The orchestrator prompt gains a post-done retrospective. It records a material lesson and proposal in its existing memory/handoff files, treats missing telemetry as unknown, and routes an approved project proposal to the planner or a canonical harness proposal through the issue/improvement pipeline. It never runs setup or --force as an upgrade.",
+      "paths": ["templates/tree/prompts/orchestrator.md", "references/graph.md", "references/workflow-improvement.md", "references/workflow-diagram.md", "scripts/demo.sh"],
+      "mergeActions": [
+        "Semantically merge the retrospective section into a customized orchestrator prompt; preserve project-specific instructions and keep the explicit human-approval gate.",
+        "Refresh the graph documentation and regenerate runtime agents from the merged manifest/prompt; never hand-edit generated agents.",
+        "For an existing target, use skills/harness-upgrade rather than setup --force."
+      ],
+      "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
     }
   ]
 }

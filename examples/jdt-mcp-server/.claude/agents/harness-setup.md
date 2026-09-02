@@ -8,9 +8,6 @@ hooks:
     - command: "node harness/tools/agent-context.mjs harness-setup"
   SubagentStop:
     - command: "node harness/tools/trace.mjs harness-setup session-end"
-  PostToolUse:
-    - matcher: "Read|Grep|Glob|Bash"
-      command: "node harness/tools/telemetry.mjs --runtime claude --actor harness-setup"
 ---
 
 <!-- GENERATED from agents.manifest.json + harness/prompts/harness-setup.md by tools/gen-agents.mjs. Do not hand-edit:

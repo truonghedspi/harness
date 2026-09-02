@@ -11,9 +11,6 @@ hooks:
       command: "node harness/tools/guard-write.mjs design-facilitator"
   SubagentStop:
     - command: "node harness/tools/trace.mjs design-facilitator session-end"
-  PostToolUse:
-    - matcher: "Read|Grep|Glob|Bash"
-      command: "node harness/tools/telemetry.mjs --runtime claude --actor design-facilitator"
 ---
 
 <!-- GENERATED from agents.manifest.json + harness/prompts/design-facilitator.md by tools/gen-agents.mjs. Do not hand-edit:

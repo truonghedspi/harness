@@ -36,36 +36,6 @@
         "command": "./harness/init.sh"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/trace.mjs maker tool-use shell"
-      },
-      {
-        "matcher": "fs_write",
-        "command": "node harness/tools/trace.mjs maker tool-use write"
-      },
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor maker"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs maker session-end"

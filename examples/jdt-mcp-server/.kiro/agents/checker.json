@@ -42,28 +42,6 @@
         "command": "node harness/tools/trace.mjs checker session-start"
       }
     ],
-    "postToolUse": [
-      {
-        "matcher": "fs_read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
-      },
-      {
-        "matcher": "read",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
-      },
-      {
-        "matcher": "grep",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
-      },
-      {
-        "matcher": "glob",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
-      },
-      {
-        "matcher": "execute_bash",
-        "command": "node harness/tools/telemetry.mjs --runtime kiro --actor checker"
-      }
-    ],
     "stop": [
       {
         "command": "node harness/tools/trace.mjs checker session-end"
