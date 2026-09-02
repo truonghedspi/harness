@@ -18,13 +18,26 @@ The compact roster view is available as [five-agent-workflow.svg](diagram/five-a
 [agent-interaction-contracts.svg](diagram/agent-interaction-contracts.svg) (also with a PNG preview).
 They complement, rather than replace, the phase-level Mermaid diagrams below.
 
-## Keeping these current
+## Keeping these current — single source of truth
 
-A diagram that lags the code is worse than no diagram: it is read as authoritative.
-`node scripts/check-workflow-diagram.mjs` is the mechanical check —
-it reads `agents.manifest.json` and `loop/route.mjs --rules` and fails when a real node, layer or
-named file is missing from every diagram. `verify-harness.mjs` runs it as the `workflow-diagram`
-gate, so the picture cannot silently fall behind the routing table it claims to draw.
+Workflow Markdown (`workflow-*.md`) **không được sửa tay**. Chúng được sinh từ
+[workflow-model.json](workflow-model.json) — nguồn sự thật duy nhất khai báo node, edge, layer
+và contract. Quy trình:
 
-What the checker cannot see is whether an *arrow* is still right. That stays a human's job, and the
-cheapest moment to do it is the same commit that changed the workflow.
+```
+workflow-model.json   ←── sửa ở đây
+        ↓
+node scripts/generate-workflows.mjs     ←── sinh workflow-*.md
+        ↓
+node scripts/check-workflow-diagram.mjs ←── kiểm tra (CI gate)
+```
+
+`check-workflow-diagram.mjs` kiểm tra hai lớp:
+1. **Generated check**: workflow-*.md khớp output của generator (bắt drift).
+2. **Model check**: model chứa mọi agent (từ `agents.manifest.json`), mọi node và layer
+   (từ `route.mjs --rules`), và mọi edge tham chiếu node/layer hợp lệ.
+
+Thay đổi routing hoặc contract → sửa `workflow-model.json` → chạy generator → cả runtime,
+Mermaid và bảng contract cùng đổi. Không còn "diagram đúng tên nhưng sai luồng".
+
+`verify-harness.mjs` chạy checker như gate `workflow-diagram`, nên CI tự động phát hiện drift.

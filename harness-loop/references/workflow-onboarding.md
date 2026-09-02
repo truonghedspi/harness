@@ -1,5 +1,7 @@
 # Onboarding workflow — requirement to a green harness
 
+<!-- GENERATED from workflow-model.json by scripts/generate-workflows.mjs. Do not hand-edit. -->
+
 **Scope: Floor 1.** Do not start delivery until the harness is observable, verifiable, and green.
 The development and self-repair maps are [workflow-development.md](workflow-development.md) and
 [workflow-improvement.md](workflow-improvement.md).

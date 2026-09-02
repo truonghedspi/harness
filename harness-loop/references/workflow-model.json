@@ -1,0 +1,593 @@
+{
+  "$comment": "Single source of truth for the harness workflow graph. route.mjs, workflow-*.md, SVG diagrams and check-workflow-diagram.mjs all derive from this model. Hand-editing workflow Markdown is forbidden — run: node scripts/generate-workflows.mjs",
+  "schema": "workflow-model/1",
+  "nodes": [
+    {
+      "id": "human",
+      "kind": "human",
+      "label": "human decision"
+    },
+    {
+      "id": "orchestrator",
+      "kind": "agent",
+      "label": "orchestrator"
+    },
+    {
+      "id": "harness-manager",
+      "kind": "agent",
+      "label": "harness-manager"
+    },
+    {
+      "id": "test-agent",
+      "kind": "agent",
+      "label": "test-agent"
+    },
+    {
+      "id": "maker",
+      "kind": "agent",
+      "label": "maker"
+    },
+    {
+      "id": "checker",
+      "kind": "agent",
+      "label": "checker"
+    },
+    {
+      "id": "router",
+      "kind": "code",
+      "label": "route.mjs + run-loop.mjs"
+    },
+    {
+      "id": "exit",
+      "kind": "terminal",
+      "label": "done / exit"
+    }
+  ],
+  "edges": [
+    {
+      "id": "human-decision",
+      "from": "human",
+      "to": "router",
+      "layer": "spec",
+      "trigger": "assumption needs-human OR design approval OR answer receipt",
+      "contract": {
+        "fields": [
+          "decision",
+          "approvedBy",
+          "designDigest"
+        ],
+        "writer": "human",
+        "consumer": "route.mjs"
+      }
+    },
+    {
+      "id": "baseline-red-diagnose",
+      "from": "router",
+      "to": "maker",
+      "layer": "baseline",
+      "mode": "diagnose",
+      "trigger": "baseline-state.json status=red AND no diagnosis recorded",
+      "contract": {
+        "fields": [
+          "evidenceDigest",
+          "status"
+        ],
+        "writer": "loop/baseline-cache.mjs",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 2
+    },
+    {
+      "id": "baseline-red-repair",
+      "from": "router",
+      "to": "maker",
+      "layer": "baseline",
+      "trigger": "baseline-state.json status=red AND diagnosis recorded AND repair not yet dispatched",
+      "contract": {
+        "fields": [
+          "evidenceDigest",
+          "diagnosis"
+        ],
+        "writer": "maker",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 2
+    },
+    {
+      "id": "baseline-red-escalate",
+      "from": "router",
+      "to": "human",
+      "layer": "baseline",
+      "trigger": "baseline unchanged after one bounded repair turn",
+      "routeRule": 2
+    },
+    {
+      "id": "needs-human-assumption",
+      "from": "router",
+      "to": "human",
+      "layer": "spec",
+      "trigger": "docs/assumptions.md has needs-human rows",
+      "contract": {
+        "fields": [
+          "assumption rows"
+        ],
+        "writer": "any agent",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 3
+    },
+    {
+      "id": "needs-design-first",
+      "from": "router",
+      "to": "orchestrator",
+      "layer": "design",
+      "trigger": "checkerNotes starts NEEDS DESIGN: AND design-facilitator has not had a turn on this marker",
+      "contract": {
+        "fields": [
+          "checkerNotes",
+          "markerHash"
+        ],
+        "writer": "checker",
+        "consumer": "route.mjs → orchestrator → design-facilitator"
+      },
+      "routeRule": 4
+    },
+    {
+      "id": "design-untestable",
+      "from": "router",
+      "to": "orchestrator",
+      "layer": "design",
+      "trigger": "docs/design/*.md collectively state no observable seam or no invariants",
+      "contract": {
+        "fields": [
+          "design files content"
+        ],
+        "writer": "design-facilitator",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 5
+    },
+    {
+      "id": "design-approval-needed",
+      "from": "router",
+      "to": "human",
+      "layer": "design",
+      "trigger": "design revision exists with no human approval matching its current digest",
+      "contract": {
+        "fields": [
+          "designDigest",
+          "status",
+          "approvedBy"
+        ],
+        "writer": "human",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 6
+    },
+    {
+      "id": "needs-design-planner",
+      "from": "router",
+      "to": "orchestrator",
+      "layer": "decomposition",
+      "trigger": "NEEDS DESIGN: marker still present after design-facilitator turn — planner must clear it",
+      "contract": {
+        "fields": [
+          "checkerNotes",
+          "markerHash",
+          "route-log dispatch history"
+        ],
+        "writer": "orchestrator → feature-planner",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 7
+    },
+    {
+      "id": "needs-design-human",
+      "from": "router",
+      "to": "human",
+      "layer": "decomposition",
+      "trigger": "same NEEDS DESIGN: marker after both design-facilitator and planner have had a turn",
+      "routeRule": 8
+    },
+    {
+      "id": "needs-replan",
+      "from": "router",
+      "to": "orchestrator",
+      "layer": "decomposition",
+      "trigger": "checkerNotes starts NEEDS RE-PLAN:",
+      "contract": {
+        "fields": [
+          "checkerNotes",
+          "markerHash"
+        ],
+        "writer": "checker",
+        "consumer": "route.mjs → orchestrator → feature-planner"
+      },
+      "next": {
+        "dispatched": "human"
+      },
+      "routeRule": 9
+    },
+    {
+      "id": "design-impact-recut",
+      "from": "router",
+      "to": "orchestrator",
+      "layer": "decomposition",
+      "trigger": "design Feature impact table marks change/new AND is newer than feature_list.json",
+      "contract": {
+        "fields": [
+          "Feature impact table rows",
+          "feature_list.json mtime"
+        ],
+        "writer": "design-facilitator",
+        "consumer": "route.mjs → orchestrator → feature-planner"
+      },
+      "routeRule": 10
+    },
+    {
+      "id": "needs-oracle-fix",
+      "from": "router",
+      "to": "test-agent",
+      "layer": "oracle",
+      "mode": "test-implement",
+      "trigger": "checkerNotes starts NEEDS ORACLE FIX:",
+      "contract": {
+        "fields": [
+          "checkerNotes",
+          "markerHash"
+        ],
+        "writer": "checker",
+        "consumer": "route.mjs"
+      },
+      "next": {
+        "dispatched": "human"
+      },
+      "routeRule": 11
+    },
+    {
+      "id": "oracle-falsifier-missing",
+      "from": "router",
+      "to": "test-agent",
+      "layer": "oracle",
+      "mode": "test-design",
+      "trigger": "unfinished feature has no falsifier OR falsifier cites invariant no test condition covers",
+      "contract": {
+        "fields": [
+          "falsifier",
+          "conditions (TCON-*.json)",
+          "conditionCitations"
+        ],
+        "writer": "test-agent (test-designer mode)",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 12
+    },
+    {
+      "id": "oracle-test-unwritten",
+      "from": "router",
+      "to": "test-agent",
+      "layer": "oracle",
+      "mode": "test-implement",
+      "trigger": "prove feature has falsifier and validated conditions but no written mutant-checked test",
+      "contract": {
+        "fields": [
+          "falsifier",
+          "conditions",
+          "evidence",
+          "mutant:true"
+        ],
+        "writer": "test-agent (test-implementer mode)",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 13
+    },
+    {
+      "id": "final-acceptance",
+      "from": "router",
+      "to": "checker",
+      "layer": "final-acceptance",
+      "trigger": "every non-blocked open feature has readyForCheck:true",
+      "contract": {
+        "fields": [
+          "readyForCheck",
+          "reviewPacket",
+          "evidence"
+        ],
+        "writer": "maker",
+        "consumer": "checker"
+      },
+      "routeRule": 14
+    },
+    {
+      "id": "k8s-integration",
+      "from": "router",
+      "to": "test-agent",
+      "layer": "integration",
+      "mode": "integration",
+      "trigger": "feature verification deploys to a real cluster",
+      "contract": {
+        "fields": [
+          "verification command",
+          "k8s-test-env"
+        ],
+        "writer": "test-agent (integration mode)",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 15
+    },
+    {
+      "id": "slice-repair",
+      "from": "router",
+      "to": "maker",
+      "layer": "implementation",
+      "mode": "slice-repair",
+      "trigger": "validated work split has a failed slice",
+      "contract": {
+        "fields": [
+          "work-split plan",
+          "failed slice status"
+        ],
+        "writer": "maker (slice worker)",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 16
+    },
+    {
+      "id": "slice-fanout",
+      "from": "router",
+      "to": "maker",
+      "layer": "implementation",
+      "mode": "slice-fanout",
+      "trigger": "validated work split has outstanding slices",
+      "contract": {
+        "fields": [
+          "work-split plan",
+          "slice briefs",
+          "HARNESS_FEATURE",
+          "HARNESS_SLICE"
+        ],
+        "writer": "maker (plan author)",
+        "consumer": "orchestrator → parallel makers"
+      },
+      "routeRule": 17
+    },
+    {
+      "id": "slice-integrate",
+      "from": "router",
+      "to": "maker",
+      "layer": "implementation",
+      "mode": "integrate",
+      "trigger": "every slice of a validated work split is complete",
+      "contract": {
+        "fields": [
+          "work-split plan",
+          "all slices complete"
+        ],
+        "writer": "maker (slice workers)",
+        "consumer": "one maker (integrator)"
+      },
+      "routeRule": 18
+    },
+    {
+      "id": "maker-eligible",
+      "from": "router",
+      "to": "maker",
+      "layer": "implementation",
+      "trigger": "feature is eligible: dependencies done/handed off, no blocking marker, within attempts budget",
+      "contract": {
+        "fields": [
+          "dependencies",
+          "attempts",
+          "maxAttempts",
+          "readyForCheck"
+        ],
+        "writer": "maker",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 19
+    },
+    {
+      "id": "maker-diagnose",
+      "from": "router",
+      "to": "maker",
+      "layer": "diagnosis",
+      "mode": "diagnose",
+      "trigger": "feature rejected 1+ times AND no diagnosis recorded for current attempt",
+      "contract": {
+        "fields": [
+          "attempts",
+          "diagnosis (symptom, cause, provedBy, ruledOut)"
+        ],
+        "writer": "maker",
+        "consumer": "route.mjs"
+      },
+      "routeRule": 19
+    },
+    {
+      "id": "checker-approve",
+      "from": "checker",
+      "to": "exit",
+      "layer": "final-acceptance",
+      "trigger": "checkerVerdict=APPROVE",
+      "contract": {
+        "fields": [
+          "status:done",
+          "checkerNotes"
+        ],
+        "writer": "checker",
+        "consumer": "feature_list.json"
+      }
+    },
+    {
+      "id": "checker-reject",
+      "from": "checker",
+      "to": "router",
+      "layer": "final-acceptance",
+      "trigger": "checkerVerdict=REJECT",
+      "contract": {
+        "fields": [
+          "checkerVerdict",
+          "checkerNotes",
+          "attempts"
+        ],
+        "writer": "checker",
+        "consumer": "route.mjs"
+      },
+      "next": {
+        "REJECT": "maker (via diagnosis then implementation)",
+        "NEEDS DESIGN:": "orchestrator → design-facilitator",
+        "NEEDS RE-PLAN:": "orchestrator → feature-planner",
+        "NEEDS ORACLE FIX:": "test-agent"
+      }
+    },
+    {
+      "id": "maker-handoff",
+      "from": "maker",
+      "to": "router",
+      "layer": "implementation",
+      "trigger": "maker sets readyForCheck:true with reviewPacket",
+      "contract": {
+        "fields": [
+          "reviewPacket",
+          "contractDigest",
+          "evidence",
+          "readyForCheck"
+        ],
+        "writer": "maker",
+        "consumer": "route.mjs → checker"
+      }
+    },
+    {
+      "id": "follow-up",
+      "from": "router",
+      "to": "orchestrator",
+      "layer": "decomposition",
+      "trigger": "done feature carries FOLLOW-UP: marker not yet planned",
+      "contract": {
+        "fields": [
+          "checkerNotes FOLLOW-UP:",
+          "requestId"
+        ],
+        "writer": "checker",
+        "consumer": "route.mjs → orchestrator → feature-planner"
+      },
+      "routeRule": 1
+    },
+    {
+      "id": "all-settled",
+      "from": "router",
+      "to": "exit",
+      "layer": "-",
+      "trigger": "every feature is done or blocked with a recorded reason"
+    },
+    {
+      "id": "stuck-human",
+      "from": "router",
+      "to": "human",
+      "layer": "unknown",
+      "trigger": "open features exist but no rule matches — damming analysis names the upstream blocker"
+    }
+  ],
+  "workflows": {
+    "onboarding": {
+      "title": "Onboarding — requirement to a green harness",
+      "scope": "Floor 1",
+      "edges": [
+        "human-decision"
+      ],
+      "notes": "Setup, human-interview, harness-manager, gates green. Not driven by route.mjs — orchestrator and harness-manager follow the setup contract."
+    },
+    "development": {
+      "title": "Development — one routed delivery contract at a time",
+      "scope": "Floor 2",
+      "edges": [
+        "human-decision",
+        "baseline-red-diagnose",
+        "baseline-red-repair",
+        "baseline-red-escalate",
+        "needs-human-assumption",
+        "needs-design-first",
+        "design-untestable",
+        "design-approval-needed",
+        "needs-design-planner",
+        "needs-design-human",
+        "needs-replan",
+        "design-impact-recut",
+        "needs-oracle-fix",
+        "oracle-falsifier-missing",
+        "oracle-test-unwritten",
+        "final-acceptance",
+        "k8s-integration",
+        "slice-repair",
+        "slice-fanout",
+        "slice-integrate",
+        "maker-eligible",
+        "maker-diagnose",
+        "checker-approve",
+        "checker-reject",
+        "maker-handoff",
+        "follow-up",
+        "all-settled",
+        "stuck-human"
+      ]
+    },
+    "improvement": {
+      "title": "Improvement — repair the harness, not one target",
+      "scope": "The loop that repairs the skill",
+      "edges": [],
+      "notes": "Driven by verify-harness findings and trace-insights, not by route.mjs edges. harness-manager owns canonical source repair."
+    }
+  },
+  "layers": [
+    {
+      "id": "spec",
+      "depth": 1,
+      "description": "Yêu cầu và giả định cần người xác nhận"
+    },
+    {
+      "id": "baseline",
+      "depth": 2,
+      "description": "Verification gate đỏ — phải sửa trước khi làm tính năng"
+    },
+    {
+      "id": "design",
+      "depth": 3,
+      "description": "Thiết kế thiếu seam hoặc invariant"
+    },
+    {
+      "id": "decomposition",
+      "depth": 4,
+      "description": "Cắt tính năng sai hoặc thiếu cập nhật sau thiết kế"
+    },
+    {
+      "id": "oracle",
+      "depth": 5,
+      "description": "Falsifier, điều kiện kiểm thử, bài kiểm thử oracle"
+    },
+    {
+      "id": "integration",
+      "depth": 6,
+      "description": "Triển khai và kiểm thử trên cluster thật"
+    },
+    {
+      "id": "implementation",
+      "depth": 7,
+      "description": "Triển khai tính năng — chỉ khi mọi lớp trên đã thông"
+    },
+    {
+      "id": "diagnosis",
+      "depth": 7,
+      "description": "Chẩn đoán nguyên nhân trước khi sửa (cùng lớp implementation)"
+    },
+    {
+      "id": "final-acceptance",
+      "depth": 8,
+      "description": "Checker duyệt lần cuối — chỉ checker đặt done"
+    },
+    {
+      "id": "unknown",
+      "depth": 0,
+      "description": "Router không xác định được layer — mọi rule đều từ chối nhưng vẫn còn tính năng mở"
+    }
+  ]
+}

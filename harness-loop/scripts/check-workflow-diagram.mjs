@@ -1,29 +1,20 @@
 #!/usr/bin/env node
-// check-workflow-diagram.mjs — the mechanical half of "the diagrams are current".
+// check-workflow-diagram.mjs — workflow file phải khớp workflow-model.json.
 //
-// A diagram that lags the code is worse than no diagram: it is read as authoritative, and the
-// reader has no way to tell. The existing `graph-stale` gate compares mtimes, which is a proxy —
-// it fires after any git checkout rewrites both files in the same second, and stays silent when
-// someone edits a rule and the diagram in one commit without touching the workflow.
+// Hai lớp kiểm tra:
+//   1. GENERATED CHECK: workflow-*.md phải khớp output của generate-workflows.mjs.
+//      Đây là kiểm tra chính — nếu model thay đổi mà không chạy generator, diagram drift.
+//   2. MODEL CHECK: model phải chứa mọi agent, node, layer mà route.mjs + manifest khai báo.
+//      Đây là kiểm tra model có đầy đủ, không phải kiểm tra diagram.
 //
-// This reads CONTENT instead, and asks three questions the diagrams must be able to answer:
-//
-//   1. every agent in agents.manifest.json appears in some diagram
-//        — an agent nobody drew is a node the picture forgot
-//   2. every node loop/route.mjs can return appears in some diagram
-//        — the router is the control flow; a destination it can reach and the picture cannot is
-//          exactly the "implicit edge" class that produced a livelock (graph-closed-edges.md)
-//   3. every layer loop/route.mjs can return appears in some diagram
-//        — layers are the vocabulary of rollback. A new layer is a new kind of return edge, and it
-//          is the change most likely to land without anyone opening a diagram
-//
-// What it deliberately does NOT check: whether an arrow is still right. No script can read a
-// picture's meaning, and pretending otherwise would make a green run mean less than it does.
+// Khác biệt quan trọng so với phiên bản cũ: script cũ grep tên trong Mermaid fence — nó chứng
+// minh "tên xuất hiện" nhưng không chứng minh "cạnh đúng" hay "contract đúng". Phiên bản này
+// kiểm tra cả hai: model khai báo edge + contract, generator vẽ chúng, checker so khớp.
 //
 // Usage:
 //   node scripts/check-workflow-diagram.mjs [--dir references] [--json]
-//   exit 0 = every required name appears somewhere; 1 = something is missing; 2 = cannot check
-import { readFileSync, readdirSync } from "node:fs";
+//   exit 0 = khớp; 1 = drift hoặc thiếu; 2 = không thể kiểm tra
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,30 +27,41 @@ const DIR = path.resolve(opt("--dir", path.join(skillRoot, "references")));
 
 const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
 
-// Only files whose name says they are a workflow picture. A name mentioned in prose elsewhere in
-// the skill is not the same as a name drawn in the workflow, and counting prose would make this
-// gate pass on a repo where the diagrams were deleted.
-const files = readdirSync(DIR).filter((f) => /^workflow[-.]/.test(f) && f.endsWith(".md"));
-if (!files.length) {
-  console.error(`no workflow-*.md under ${DIR} — nothing to check`);
-  process.exit(2);
-}
-// Only what is inside a ```mermaid fence counts as DRAWN. Prose mentioning an agent is not the
-// same as the picture containing it, and a substring match over whole files is worse than loose —
-// it is silently wrong: "diagnosis" matches the path `loop/diagnosis/README.md` in a sentence, so
-// removing the diagnosis node from every diagram left this gate green when it was first written.
-const drawn = files.map((f) => read(path.join(DIR, f)) || "")
-  .flatMap((text) => [...text.matchAll(/```mermaid\n([\s\S]*?)```/g)].map((m) => m[1]))
-  .join("\n");
-// Whole-token match, so `maker` is not satisfied by `marker-churn`.
-const mentions = (name) => new RegExp(`(^|[^A-Za-z0-9-])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^A-Za-z0-9-]|$)`).test(drawn);
-// Layers are matched only through the `LAYER: x` convention the diagrams already use. A bare word
-// like `design` appears inside `design-facilitator` and would make every layer trivially present.
-const layersDrawn = new Set([...drawn.matchAll(/LAYER:\s*([a-z][a-z-]*)/g)].map((m) => m[1]));
-
 const findings = [];
 
-// --- 1. agents ---------------------------------------------------------------------------------
+// --- 1. Generated check: workflow files phải khớp generator output ----------------------------
+const genScript = path.join(skillRoot, "scripts", "generate-workflows.mjs");
+if (existsSync(genScript)) {
+  const gen = spawnSync(process.execPath, [genScript, "--check"],
+    { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  if (gen.status !== 0) {
+    const driftFiles = (gen.stderr || "").split("\n")
+      .filter((l) => l.startsWith("DRIFT:"))
+      .map((l) => l.replace("DRIFT: ", "").trim());
+    for (const f of driftFiles) {
+      findings.push({ kind: "drift", name: f,
+        why: "workflow file does not match generate-workflows.mjs output from workflow-model.json" });
+    }
+    if (!driftFiles.length) {
+      findings.push({ kind: "drift", name: "generate-workflows.mjs",
+        why: `generator --check failed: ${(gen.stderr || gen.stdout || "").slice(0, 200)}` });
+    }
+  }
+} else {
+  console.error(`generate-workflows.mjs not found at ${genScript} — cannot run generated check`);
+}
+
+// --- 2. Model check: model phải chứa mọi agent, node, layer ---------------------------------
+const modelPath = path.join(DIR, "workflow-model.json");
+let model;
+try { model = JSON.parse(read(modelPath)); }
+catch { console.error(`could not read ${modelPath}`); process.exit(2); }
+
+const modelNodes = new Set(model.nodes.map((n) => n.id));
+const modelLayers = new Set(model.layers.map((l) => l.id));
+const modelEdgeLayers = new Set(model.edges.map((e) => e.layer).filter((l) => l && l !== "-"));
+
+// 2a. agents from manifest
 const manifestPath = path.join(skillRoot, "templates", "tree", "agents.manifest.json");
 const manifest = (() => { try { return JSON.parse(read(manifestPath)); } catch { return null; } })();
 if (!manifest) {
@@ -67,53 +69,100 @@ if (!manifest) {
   process.exit(2);
 }
 for (const agent of manifest.agents || []) {
-  if (agent.name && !mentions(agent.name)) {
+  if (agent.name && !modelNodes.has(agent.name)) {
     findings.push({ kind: "agent", name: agent.name,
-      why: "an agent the manifest ships but no workflow diagram draws" });
+      why: "agent in manifest but absent from workflow-model.json nodes" });
   }
 }
 
-// --- 2 & 3. router nodes and layers --------------------------------------------------------------
-// `--rules` prints the table without evaluating any match, so this needs no target state.
+// 2b. nodes and layers from route.mjs --rules
 const routePath = path.join(skillRoot, "templates", "tree", "loop", "route.mjs");
 const rules = spawnSync(process.execPath, [routePath, "--rules", "--json"],
   { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
 if (rules.status !== 0) {
-  console.error(`could not read the routing table from ${routePath}: ${rules.stderr || "no output"}`);
+  console.error(`could not read routing table from ${routePath}: ${rules.stderr || "no output"}`);
   process.exit(2);
 }
 let table = [];
 try { table = JSON.parse(rules.stdout); } catch {
-  console.error("the routing table did not parse as JSON");
+  console.error("routing table did not parse as JSON");
   process.exit(2);
 }
-// `human` and `exit` are terminal states drawn as outcomes, not as named nodes; a diagram showing
-// "stop — needs human" satisfies the intent without containing the literal token.
 const SKIP_NODES = new Set(["human", "exit"]);
 for (const node of [...new Set(table.map((r) => r.node))]) {
-  if (SKIP_NODES.has(node) || mentions(node)) continue;
+  if (SKIP_NODES.has(node) || modelNodes.has(node)) continue;
   findings.push({ kind: "node", name: node,
-    why: "a destination loop/route.mjs can return that no workflow diagram draws" });
+    why: "a destination route.mjs can return that is absent from workflow-model.json nodes" });
+}
+for (const layer of [...new Set(table.map((r) => r.layer))]) {
+  if (!layer || layer === "-" || modelLayers.has(layer)) continue;
+  findings.push({ kind: "layer", name: layer,
+    why: "a layer route.mjs can return that is absent from workflow-model.json layers" });
+}
+
+// 2c. edge layers phải nằm trong model layers
+for (const l of modelEdgeLayers) {
+  if (!modelLayers.has(l)) {
+    findings.push({ kind: "layer", name: l,
+      why: "an edge in workflow-model.json references a layer not declared in the layers array" });
+  }
+}
+
+// 2d. edge from/to phải nằm trong model nodes
+for (const e of model.edges) {
+  if (!modelNodes.has(e.from) && e.from !== "router") {
+    findings.push({ kind: "edge", name: `${e.id}.from=${e.from}`,
+      why: "edge references a source node not declared in nodes" });
+  }
+  if (!modelNodes.has(e.to) && e.to !== "router") {
+    findings.push({ kind: "edge", name: `${e.id}.to=${e.to}`,
+      why: "edge references a target node not declared in nodes" });
+  }
+}
+
+// --- 3. Legacy compat: mermaid fence presence check (giữ lại cho backward compat) -------------
+const files = readdirSync(DIR).filter((f) => /^workflow[-.]/.test(f) && f.endsWith(".md"));
+const drawn = files.map((f) => read(path.join(DIR, f)) || "")
+  .flatMap((text) => [...text.matchAll(/```mermaid\n([\s\S]*?)```/g)].map((m) => m[1]))
+  .join("\n");
+const mentions = (name) => new RegExp(`(^|[^A-Za-z0-9-])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^A-Za-z0-9-]|$)`).test(drawn);
+const layersDrawn = new Set([...drawn.matchAll(/LAYER:\s*([a-z][a-z-]*)/g)].map((m) => m[1]));
+
+for (const agent of manifest.agents || []) {
+  if (agent.name && !mentions(agent.name)) {
+    findings.push({ kind: "mermaid-missing-agent", name: agent.name,
+      why: "agent not drawn in any mermaid fence — regenerate with: node scripts/generate-workflows.mjs" });
+  }
 }
 for (const layer of [...new Set(table.map((r) => r.layer))]) {
   if (!layer || layer === "-" || layersDrawn.has(layer)) continue;
-  findings.push({ kind: "layer", name: layer,
-    why: "a rollback layer the router can return that no workflow diagram names" });
+  findings.push({ kind: "mermaid-missing-layer", name: layer,
+    why: "layer not in any mermaid fence — regenerate with: node scripts/generate-workflows.mjs" });
 }
 
 // --- report -------------------------------------------------------------------------------------
+// Deduplicate: nếu drift đã bắt, mermaid-missing là hệ quả — chỉ giữ drift
+const hasDrift = findings.some((f) => f.kind === "drift");
+const deduped = hasDrift
+  ? findings.filter((f) => !f.kind.startsWith("mermaid-missing"))
+  : findings;
+
 if (JSON_OUT) {
   process.stdout.write(JSON.stringify({
-    schema: "workflow-diagram-check/1", dir: DIR, files, green: findings.length === 0, findings,
+    schema: "workflow-diagram-check/2", dir: DIR, files, model: modelPath,
+    green: deduped.length === 0, findings: deduped,
   }, null, 2) + "\n");
-  process.exit(findings.length ? 1 : 0);
+  process.exit(deduped.length ? 1 : 0);
 }
-if (!findings.length) {
-  console.log(`workflow diagrams current: ${files.length} file(s) cover every agent, router node and layer.`);
+if (!deduped.length) {
+  console.log(`workflow check passed: ${files.length} file(s) match workflow-model.json, all nodes/layers/edges present.`);
   process.exit(0);
 }
-console.log(`workflow diagrams are behind the code — ${findings.length} name(s) missing from ${files.join(", ")}:\n`);
-for (const f of findings) console.log(`  [${f.kind}] ${f.name}\n      ${f.why}`);
-console.log(`\nAdd each to the diagram it belongs in — inside a mermaid fence, since prose mentioning a name`);
-console.log(`is not the same as the picture drawing it. Layers are matched through the "LAYER: x" convention.`);
+console.log(`workflow check failed — ${deduped.length} finding(s):\n`);
+for (const f of deduped) console.log(`  [${f.kind}] ${f.name}\n      ${f.why}`);
+if (hasDrift) {
+  console.log(`\nFix: node scripts/generate-workflows.mjs`);
+} else {
+  console.log(`\nFix: update references/workflow-model.json, then: node scripts/generate-workflows.mjs`);
+}
 process.exit(1);
