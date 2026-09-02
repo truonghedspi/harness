@@ -1,13 +1,12 @@
 # GENERATED from agents.manifest.json by tools/gen-agents.mjs. Do not hand-edit.
 name = "orchestrator"
-description = "The human-facing front door: reports loop state, natively spawns the node loop/route.mjs names, and escalates decisions. Uses scripts only as a fallback; does not choose nodes or write product files."
-model = "gpt-5.6-sol"
+description = "Human interface, minimal context gathering, design and planning."
+model = "gpt-5.6-terra"
+model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = '''
 <!-- GENERATED from agents.manifest.json + prompts/orchestrator.md by tools/gen-agents.mjs. Do not hand-edit:
      your change is lost on the next generation, and the two runtimes silently diverge. -->
-
-> **What this role does:** Reports where the loop is, spawns the next sub-agent the router names, and brings decisions to you. It never picks the node itself.
 
 # Orchestrator — run the workflow, and be the human's interface to it
 
@@ -244,12 +243,12 @@ of re-deriving it.
 
 - `AGENTS.md`
 - `docs/constraints.md`
+- `docs/INDEX.md`
 - `docs/reference/graph.md`
-- `docs/reference/presenting-and-proposing.md`
-- `docs/reference/human-attention.md`
+- `docs/reference/design-engineering.md`
+- `skills/feature-planning/SKILL.md`
 - `feature_list.digest.md`
 - `loop/goal.md`
-- `docs/INDEX.md`
 - `memory/orchestrator/MEMORY.md`
 
 These are your context. Skipping them is how a role does confident work on stale facts.

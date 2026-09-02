@@ -65,15 +65,12 @@ how long each open feature has been open. A snapshot cannot tell a moving projec
 
 | Agent | Runs when | Owns |
 |---|---|---|
-| `orchestrator` | **a human is talking to you and named no agent** — the default role | driving the loop and being the human's interface. Spawns the router-named sub-agent; writes no product file |
+| `orchestrator` | **a human is talking to you and named no agent** — the default role; also design/planning routes | human interface, minimal-context gathering, design, and feature planning |
 | current agent + user-scope `human-interview` skill | it discovers a fact or decision only a person can supply | spec — ask without discarding the working context; persist a receipt |
-| `design-facilitator` | `checkerNotes` starts `NEEDS DESIGN:` | design — components, cited claims, invariants, options, self-applied critique. Approval is the human's alone (`loop/design-approval.json`) |
-| `feature-planner` | `checkerNotes` starts `NEEDS RE-PLAN:` | decomposition — re-cutting `feature_list.json` |
-| `test-designer` → `test-implementer` | no `falsifier`, or the oracle is unwritten | the oracle — **neither reads the implementation** |
+| `test-agent` | no `falsifier`, oracle unwritten, or Kubernetes verification | phase-routed oracle work: design without implementation access, red-first implementation, or Level-3 integration proof |
 | `maker` | a feature is eligible | implementation. **Cannot set `done`** |
 | `checker` | every non-blocked open feature is `readyForCheck` | final acceptance of the integrated delivery — **the only agent that may set `done`** |
-| `k8s-integration-tester` | verification deploys to a real cluster | integration — Level 3 across a real service boundary |
-| `harness-setup` | the environment is not ready | toolchain and baseline |
+| `harness-manager` | environment setup or a harness-layer finding | toolchain, baseline, and canonical harness repair |
 
 Two supporting nodes are plain code: `tools/verify-harness.mjs` (replays evidence without deciding
 semantic acceptance) and `loop/approval-gate.mjs` (selective human judgement before a terminal claim).

@@ -1,6 +1,6 @@
 # GENERATED from agents.manifest.json by tools/gen-agents.mjs. Do not hand-edit.
 name = "checker"
-description = "Final-acceptance checker: runs only after every non-blocked feature is handed off, replays evidence against the integrated delivery, and is the only agent allowed to set status=done. Write-restricted to state files."
+description = "Independent final acceptance; only checker sets done."
 model = "gpt-5.6-terra"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
@@ -172,14 +172,8 @@ scrutiny?
 
 - `AGENTS.md`
 - `docs/constraints.md`
-- `docs/INDEX.md`
 - `feature_list.digest.md`
 - `docs/testing-standards.md`
-- `docs/assumptions.md`
-- `docs/cross-cutting.md`
-- `docs/definition-of-done.md`
-- `DECISIONS.md`
-- `loop/goal.md`
 - `memory/checker/MEMORY.md`
 
 These are your context. Skipping them is how a role does confident work on stale facts.

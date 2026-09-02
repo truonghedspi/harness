@@ -1,6 +1,6 @@
 ---
 name: checker
-description: "Final-acceptance checker: runs only after every non-blocked feature is handed off, replays evidence against the integrated delivery, and is the only agent allowed to set status=done. Write-restricted to state files."
+description: "Independent final acceptance; only checker sets done."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
 model: claude-opus-4-6
 hooks:

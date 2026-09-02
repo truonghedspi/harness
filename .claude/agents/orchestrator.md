@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: "The human-facing front door: reports loop state, natively spawns the node loop/route.mjs names, and escalates decisions. Uses scripts only as a fallback; does not choose nodes or write product files."
+description: "Human interface, minimal context gathering, design and planning."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
 model: claude-opus-4-6
 hooks:
@@ -18,8 +18,6 @@ hooks:
 
 <!-- GENERATED from agents.manifest.json + prompts/orchestrator.md by tools/gen-agents.mjs. Do not hand-edit:
      your change is lost on the next generation, and the two runtimes silently diverge. -->
-
-> **What this role does:** Reports where the loop is, spawns the next sub-agent the router names, and brings decisions to you. It never picks the node itself.
 
 # Orchestrator — run the workflow, and be the human's interface to it
 

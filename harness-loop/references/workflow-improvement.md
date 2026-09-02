@@ -25,9 +25,9 @@ flowchart TD
     RANK --> ROUTE{"--route?"}
     ROUTE -- yes --> FEAT["top issue becomes a feature\nverification = --reverify --id HI-NNN\n(gate:human is never routed —\nno detector means no way to close it)"]
     ROUTE -- no --> PR["--prompt --id HI-NNN\none immutable repair objective"]
-    FEAT --> FIX
-    PR --> FIX["fix lands in templates/tree/** or scripts/*.mjs\nnever in the one target"]
-    FIX --> RV["improve-harness.mjs --reverify\nre-runs BOTH detectors per target"]
+    FEAT --> HM
+    PR --> HM["harness-manager\nfix canonical templates/tree/** or scripts/*.mjs\nnever only one target"]
+    HM --> RV["improve-harness.mjs --reverify\nre-runs BOTH detectors per target"]
     RV --> GONE{"signature still\nreproduces?"}
     GONE -- yes --> RANK
     GONE -- no --> RES["resolved\n(gate:human issues excepted —\nonly a person closes what only a person saw)"]

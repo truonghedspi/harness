@@ -1,6 +1,6 @@
 {
   "name": "orchestrator",
-  "description": "The human-facing front door: reports loop state, natively spawns the node loop/route.mjs names, and escalates decisions. Uses scripts only as a fallback; does not choose nodes or write product files.",
+  "description": "Human interface, minimal context gathering, design and planning.",
   "prompt": "file://../../prompts/orchestrator.md",
   "tools": [
     "read",
@@ -12,38 +12,44 @@
     "read"
   ],
   "includeMcpJson": true,
-  "model": "claude-sonnet-4",
+  "model": "claude-sonnet-4.5",
   "toolsSettings": {
     "write": {
       "allowedPaths": [
+        "feature_list.json",
+        "docs/design/**",
+        "docs/architecture.md",
+        "docs/assumptions.md",
+        "docs/cross-cutting.md",
+        "DECISIONS.md",
+        "spikes/**",
+        "loop/design-approval.json",
+        "loop/context-packets/**",
+        "loop/goal.md",
         "session-handoff.md",
         "progress.md",
-        "loop/approval.md",
         "trace/**",
         "memory/orchestrator/**"
       ]
     },
     "subagent": {
       "availableAgents": [
-        "checker",
-        "design-facilitator",
-        "feature-planner",
-        "harness-setup",
+        "harness-manager",
+        "test-agent",
         "maker",
-        "test-designer",
-        "test-implementer"
+        "checker"
       ]
     }
   },
   "resources": [
     "file://../../AGENTS.md",
     "file://../../docs/constraints.md",
+    "file://../../docs/INDEX.md",
     "file://../../docs/reference/graph.md",
-    "file://../../docs/reference/presenting-and-proposing.md",
-    "file://../../docs/reference/human-attention.md",
+    "file://../../docs/reference/design-engineering.md",
+    "file://../../skills/feature-planning/SKILL.md",
     "file://../../feature_list.digest.md",
     "file://../../loop/goal.md",
-    "file://../../docs/INDEX.md",
     "file://../../memory/orchestrator/MEMORY.md"
   ],
   "hooks": {
@@ -79,6 +85,5 @@
         "command": "node tools/trace.mjs orchestrator session-end"
       }
     ]
-  },
-  "welcomeMessage": "Reports where the loop is, spawns the next sub-agent the router names, and brings decisions to you. It never picks the node itself."
+  }
 }

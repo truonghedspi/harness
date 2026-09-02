@@ -13,6 +13,11 @@ Three workflows, split because they have three different readers and three diffe
 | [workflow-development.md](workflow-development.md) | Floor 2: a green harness → DONE. Design, decomposition, oracle, implementation, the per-iteration sequence, the K8s specialization | you are running the loop, or trying to work out why the router picked what it picked |
 | [workflow-improvement.md](workflow-improvement.md) | The loop that repairs the **skill**: three signal producers, completed-feature telemetry proposals gated by a human, one ranked backlog, and a closing rule nothing can fake | a gate, a trace or a person says the harness itself is wrong |
 
+The compact roster view is available as [five-agent-workflow.svg](diagram/five-agent-workflow.svg)
+(with a PNG preview beside it). For the dispatch path and durable handoff contracts, read
+[agent-interaction-contracts.svg](diagram/agent-interaction-contracts.svg) (also with a PNG preview).
+They complement, rather than replace, the phase-level Mermaid diagrams below.
+
 ## Keeping these current
 
 A diagram that lags the code is worse than no diagram: it is read as authoritative.

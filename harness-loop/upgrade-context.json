@@ -1418,6 +1418,22 @@
         "For an existing target, use skills/harness-upgrade rather than setup --force."
       ],
       "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-09-02-passing-handoff-final-acceptance",
+      "summary": "A feature with status=passing remains routable for final acceptance while readyForCheck=true.",
+      "why": "HI-085: both router and run-loop treated passing as terminal before noticing its ready handoff, so a complete green delivery could exit without any checker verdict.",
+      "targetImpact": "route.mjs includes passing+readyForCheck features in the final checker batch, and run-loop.mjs does not early-exit while any exists. A passing feature without readyForCheck remains settled; dependency handoff behavior is unchanged.",
+      "paths": ["loop/route.mjs", "loop/run-loop.mjs", "docs/reference/graph.md"],
+      "mergeActions": [
+        "Refresh the two loop files and graph reference from the canonical upgrader; preserve target feature state.",
+        "Re-run node loop/route.mjs: passing handoffs must name checker rather than exit."
+      ],
+      "verification": [
+        "bash harness-loop/scripts/demo.sh",
+        "node loop/route.mjs --json",
+        "node harness-loop/scripts/check-upgrade-context.mjs --target ."
+      ]
     }
   ]
 }

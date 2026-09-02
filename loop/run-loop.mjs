@@ -41,7 +41,8 @@ function allSettled() {
   try { decisions = readFileSync("DECISIONS.md", "utf8"); } catch {}
   return (list.features || []).every((feature) => {
     const status = String(feature.status || feature.state || "");
-    return ["done", "passing"].includes(status) ||
+    return status === "done" ||
+      (status === "passing" && feature.readyForCheck !== true) ||
       (status === "blocked" && (String(feature.checkerNotes || "").trim() || decisions.includes(feature.id)));
   });
 }

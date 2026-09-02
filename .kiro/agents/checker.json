@@ -1,6 +1,6 @@
 {
   "name": "checker",
-  "description": "Final-acceptance checker: runs only after every non-blocked feature is handed off, replays evidence against the integrated delivery, and is the only agent allowed to set status=done. Write-restricted to state files.",
+  "description": "Independent final acceptance; only checker sets done.",
   "prompt": "file://../../prompts/checker.md",
   "tools": [
     "read",
@@ -26,14 +26,8 @@
   "resources": [
     "file://../../AGENTS.md",
     "file://../../docs/constraints.md",
-    "file://../../docs/INDEX.md",
     "file://../../feature_list.digest.md",
     "file://../../docs/testing-standards.md",
-    "file://../../docs/assumptions.md",
-    "file://../../docs/cross-cutting.md",
-    "file://../../docs/definition-of-done.md",
-    "file://../../DECISIONS.md",
-    "file://../../loop/goal.md",
     "file://../../memory/checker/MEMORY.md"
   ],
   "hooks": {

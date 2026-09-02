@@ -1,0 +1,56 @@
+{
+  "name": "harness-manager",
+  "description": "Setup and canonical harness improvement.",
+  "prompt": "file://../../prompts/harness-manager.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4",
+  "resources": [
+    "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
+    "file://../../docs/INDEX.md",
+    "file://../../memory/harness-manager/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node tools/trace.mjs harness-manager session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor harness-manager"
+      },
+      {
+        "matcher": "read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor harness-manager"
+      },
+      {
+        "matcher": "grep",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor harness-manager"
+      },
+      {
+        "matcher": "glob",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor harness-manager"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor harness-manager"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node tools/trace.mjs harness-manager session-end"
+      }
+    ]
+  }
+}

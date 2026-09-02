@@ -1,0 +1,57 @@
+{
+  "name": "test-agent",
+  "description": "Phase-routed test design, test implementation, and integration proof.",
+  "prompt": "file://../../prompts/test-agent.md",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "*"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4",
+  "resources": [
+    "file://../../AGENTS.md",
+    "file://../../docs/constraints.md",
+    "file://../../skills/test-design/SKILL.md",
+    "file://../../docs/reference/test-authoring.md",
+    "file://../../memory/test-agent/MEMORY.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "node tools/trace.mjs test-agent session-start"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-agent"
+      },
+      {
+        "matcher": "read",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-agent"
+      },
+      {
+        "matcher": "grep",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-agent"
+      },
+      {
+        "matcher": "glob",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-agent"
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "node tools/telemetry.mjs --runtime kiro --actor test-agent"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node tools/trace.mjs test-agent session-end"
+      }
+    ]
+  }
+}

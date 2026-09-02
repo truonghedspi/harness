@@ -1,14 +1,11 @@
 ---
 name: maker
-description: "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done."
+description: "Implements one feature step with evidence; cannot set done."
 tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
 model: claude-opus-4-6
 hooks:
   SubagentStart:
     - command: "node tools/agent-context.mjs maker"
-  PreToolUse:
-    - matcher: "Edit|Write|NotebookEdit|Bash"
-      command: "node tools/guard-write.mjs maker"
   SubagentStop:
     - command: "node tools/trace.mjs maker session-end"
   PostToolUse:

@@ -1700,6 +1700,14 @@ const last=JSON.parse(lines[lines.length-1]);
 process.exit(last.node==='maker' && !last.hash && !last.requestId && last.layer==='implementation' ? 0 : 1);
 "
 expect "the dispatcher logs every route — not only marker-driven ones — with its layer" $?
+# `passing` records a green implementation result, not semantic acceptance. A ready handoff must
+# still start the loop and reach the checker; treating it as settled silently bypasses final review.
+printf '%s\n' '{"features":[{"id":"feat-passing","status":"passing","readyForCheck":true,"checkerNotes":"","attempts":0,"maxAttempts":3}]}' > "$BATCH/feature_list.json"
+printf '%s\n' '#!/usr/bin/env node' 'process.stdout.write(JSON.stringify({node:"checker",kind:"agent",layer:"final-acceptance",why:"all work handed off"}));' > "$BATCH/loop/route.mjs"
+: > "$BATCH/runtime.log"
+( cd "$BATCH" && PATH="$BATCH/bin:$PATH" KIRO_API_KEY=fake HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$BATCH/runtime.log" node loop/run-loop.mjs 1 --headless > "$BATCH/passing-handoff.log" 2>&1 )
+test "$(grep -c -- '--agent checker' "$BATCH/runtime.log" || true)" = "1"
+expect "a passing readyForCheck handoff is not early-settled before final checker acceptance" $?
 # A maker can still set readyForCheck too early. Admission classifies that as mechanically
 # incomplete, skips checker, and does not spend the semantic attempts budget.
 cp "$SCRIPTS/../templates/tree/tools/review-contract.mjs" "$BATCH/tools-review-contract.mjs"
@@ -3662,14 +3670,14 @@ FC="$WORK/demo-final-check"; rm -rf "$FC"; mkdir -p "$FC/loop"
 cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$FC/loop/route.mjs"
 cat > "$FC/feature_list.json" <<'FCJ'
 {"features":[
- {"id":"feat-a","kind":"build","status":"in-progress","readyForCheck":true,"behavior":"a","verification":"true","falsifier":"wrong a","dependencies":[],"evidence":[{"run":"green"}],"checkerNotes":"","attempts":0,"maxAttempts":3},
+ {"id":"feat-a","kind":"build","status":"passing","readyForCheck":true,"behavior":"a","verification":"true","falsifier":"wrong a","dependencies":[],"evidence":[{"run":"green"}],"checkerNotes":"","attempts":0,"maxAttempts":3},
  {"id":"feat-b","kind":"build","status":"not-started","readyForCheck":false,"behavior":"b","verification":"true","falsifier":"wrong b","dependencies":["feat-a"],"evidence":[],"checkerNotes":"","attempts":0,"maxAttempts":3}
 ]}
 FCJ
 (cd "$FC" && node loop/route.mjs --json > partial.json 2>/dev/null)
 node -e "const r=require('$FC/partial.json');process.exit(r.node==='maker'&&r.feature==='feat-b'?0:1)"
 expect "one handed-off feature unlocks its dependent, while checker stays out of the delivery loop" $?
-node -e "const fs=require('fs'),p='$FC/feature_list.json',j=JSON.parse(fs.readFileSync(p));j.features[1].status='in-progress';j.features[1].readyForCheck=true;fs.writeFileSync(p,JSON.stringify(j,null,2))"
+node -e "const fs=require('fs'),p='$FC/feature_list.json',j=JSON.parse(fs.readFileSync(p));j.features[1].status='passing';j.features[1].readyForCheck=true;fs.writeFileSync(p,JSON.stringify(j,null,2))"
 (cd "$FC" && node loop/route.mjs --json > final.json 2>/dev/null)
 node -e "const r=require('$FC/final.json');process.exit(r.node==='checker'&&r.layer==='final-acceptance'&&r.features.length===2?0:1)"
 expect "checker is selected once every non-blocked open feature has been handed off" $?

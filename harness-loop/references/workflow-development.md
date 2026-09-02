@@ -11,13 +11,12 @@ defect came from, not one step back ([graph.md](graph.md)).
 
 ```mermaid
 flowchart TD
-    READY["harness ready\n(gates green)"] --> DS["design-facilitator\nLAYER: design\ncomponents · cited claims · live assumptions\n+ observable seam & invariants per component\n+ self-applied critique, never a verdict"]
-    DS --> DA{"human writes\nloop/design-approval.json\nmatching the design digest?"}
-    DA -- no --> DS
-    DA -- yes --> FP["feature-planner + capability skill\nLAYER: decomposition\ndraft → check-plan.mjs → publish\nbuild/prove DAG + digest-bound context packet"]
-    QS["quality-strategy\nCapability–Attribute risk → oracle\nscope ≠ execution size"] --> FP
-    FP --> TD["test-designer\nLAYER: oracle\nspec → conditions. Never reads the code."]
-    TD --> TI["test-implementer\nconditions → FAILING test, then a\nmutant-checked red run proving it discriminates"]
+    READY["harness ready\n(gates green)"] --> O["orchestrator\nLAYER: design\nLAYER: decomposition\nminimal evidence → design/plan\n+ observable seam, invariants and falsifiers"]
+    O --> DA{"human writes\nloop/design-approval.json\nmatching the design digest?"}
+    DA -- no --> O
+    DA -- yes --> TD["test-agent · test-design\nLAYER: oracle\nspec → conditions. Never reads implementation."]
+    QS["quality-strategy\nCapability–Attribute risk → oracle\nscope ≠ execution size"] --> O
+    TD --> TI["test-agent · test-implement\nconditions → FAILING test, then a\nmutant-checked red run proving it discriminates"]
     TI --> MK["maker\nLAYER: implementation\nmakes the existing oracle pass"]
     MK --> BG{"loop/baseline-state.json\nLAYER: baseline\ngreen? (reused across sessions when\nbaseline-cache.mjs says inputs are identical)"}
     BG -- no --> RP
@@ -26,7 +25,7 @@ flowchart TD
     DG --> MK
     RP -- no --> LOOP["node loop/run-loop.mjs N\nrouted by loop/route.mjs"]
     LOOP --> K8S{"verification invokes Kubernetes tooling\nor a tests/k8s/ journey?"}
-    K8S -- yes --> KT["k8s-integration-tester\nLAYER: integration (Level 3)\nsame test-authoring rules;\nreads the code, so its independence\nis the boundary, not blindness"]
+    K8S -- yes --> KT["test-agent · integration\nLAYER: integration (Level 3)\nsame test-authoring rules;\nreads the code, so its independence\nis the boundary, not blindness"]
     KT --> BJ{"business outcome spans\nmultiple deployed services?"}
     BJ -- yes --> BJC["business-journey capability (Level 4)\npublic driver · per-run isolation\nconvergence + fault/idempotency oracle\nredacted journey metrics"]
     BJC --> STOP
@@ -52,8 +51,8 @@ But *case-level* test design needs a unit and an interface, which do not exist b
 while *"how would we know this works"* — the observable seam and the invariants — is a property of
 the design itself. A component whose behaviour can only be seen by reaching inside it is a boundary
 defect, and discovering that at test-writing time forces the choice between a bad test and a
-redesign; the bad test always wins. So the design-facilitator states seam + invariants, the planner
-derives each `falsifier` from them, and the test-designer builds cases on top
+redesign; the bad test always wins. So the orchestrator states seam + invariants and cuts the
+feature plan, then the test-agent's design phase derives each `falsifier` and builds cases on top
 ([test-authoring.md](test-authoring.md)).
 
 Measured symptom of the version without this: on the dogfood project **every** unfinished feature
@@ -64,6 +63,24 @@ produced an invariant to derive one from.
 attempt, edits production code, and leaves the real cause in place. The diagnose turn is not a
 repair: it proves the cause and rules one competing reading out before anything is edited
 (`loop/diagnosis/README.md`).
+
+## Agent interactions and durable handoff contracts
+
+Agents do not choose or directly invoke one another. `loop/route.mjs` reads the durable contract
+state, returns one `{node, layer, mode, why}` decision, and `run-loop.mjs` dispatches that named
+agent. This prevents a handoff from surviving only in a prior agent's context.
+
+| From → to | Router trigger | Durable contract | Receiver may rely on | Receiver must produce |
+|---|---|---|---|---|
+| human → orchestrator | a requirement, a human-owned gap, or a design approval is needed | human-interview receipt or `loop/design-approval.json` bound to the current design digest | the answer is explicit and evidence-backed, not inferred | bounded design/plan state; an unresolved gap returns to the human |
+| orchestrator → test-agent `test-design` | open work lacks a `falsifier` or feature-linked conditions | feature contract: design digest, observable seam, invariant, `falsifier`, interfaces | implementation bodies are intentionally out of scope | `tests/design/TCON-*.json` conditions linked to the prove feature |
+| test-agent `test-design` → `test-implement` | conditions exist but no discriminating test has been recorded | condition IDs plus interfaces | condition ownership is feature-specific; another feature's oracle does not qualify | red-first test source and a `mutant: true` failing run |
+| test-agent → maker | a build feature's prove dependency has a mutant-checked red run | eligible feature contract: verification, falsifier, dependencies, fresh context packet | the oracle precedes implementation | one bounded code step or a complete handoff; never `status: done` |
+| maker → checker | every non-blocked open feature has `readyForCheck: true` and passes `review-contract.mjs --ready` | digest-bound `reviewPacket`, evidence, verification result, `readyForCheck: true` | the claim is complete enough to falsify; `passing` remains open | typed APPROVE/REJECT verdict; only checker writes `status: done` |
+| checker → orchestrator / maker | `NEEDS DESIGN:`, `NEEDS RE-PLAN:`, or ordinary REJECT | `checkerNotes` first-line marker plus structured verdict/counterexample | marker identity is stable across appended diagnostics | router selects design/planning or implementation; no agent self-routes |
+| verifier → harness-manager | finding classified `layer: harness` | issue signature, affected target, detector evidence | repair belongs in canonical source, never only the target | source repair, `demo.sh` evidence, upgrade context and re-verification |
+
+The detailed visual counterpart is [agent-interaction-contracts.svg](diagram/agent-interaction-contracts.svg).
 
 ## 2. Inside one iteration — generator/evaluator separation (Lesson 9/13)
 
@@ -84,7 +101,7 @@ sequenceDiagram
     participant FS as feature_list.json (disk)
     participant C as checker agent
 
-    RL->>RL: all features done/blocked-with-reason?<br/>→ exit early, no LLM session spawned
+    RL->>RL: all features done/blocked-with-reason/<br/>passing without readyForCheck?<br/>→ exit early, no LLM session spawned
     RL->>RL: baseline gate — reuse a green one when<br/>loop/baseline-cache.mjs says the inputs are identical
     RL->>M: dispatch (retry only when nothing came back)<br/>ACP initialize → session/new → session/prompt
     M->>FS: pick first not-started feature<br/>whose dependencies are done or handed off<br/>(skip NEEDS RE-PLAN and k8s-specialized ones)
@@ -100,7 +117,7 @@ sequenceDiagram
         M->>FS: checkpoint evidence/progress,<br/>readyForCheck=false
         RL->>RL: next iteration routes the<br/>active feature to maker
     else complete behavior + green verification + complete evidence
-        M->>FS: reviewPacket + readyForCheck=true<br/>(cannot write status=done)
+        M->>FS: reviewPacket + readyForCheck=true<br/>(cannot write status=done; passing remains open)
         RL->>RL: continue delivery while any<br/>non-blocked open feature is not handed off
         alt every remaining feature handed off
         RL->>FS: review-contract.mjs --ready<br/>admits the complete final batch
@@ -112,7 +129,7 @@ sequenceDiagram
         else evidence fails or scope drifted
             C->>FS: attempts += 1; status=in-progress<br/>+ checkerNotes (or blocked at maxAttempts)
         else feature itself is mis-cut
-            C->>FS: checkerNotes = "NEEDS RE-PLAN: ..."<br/>→ routes to feature-planner, not the maker
+            C->>FS: checkerNotes = "NEEDS RE-PLAN: ..."<br/>→ routes to orchestrator, not the maker
         end
         end
     end
@@ -126,10 +143,10 @@ sequenceDiagram
     end
 ```
 
-## 3. `k8s-integration-tester`'s own workflow (opt-in, `templates/k8s/`)
+## 3. `test-agent` integration phase (opt-in, `templates/k8s/`)
 
-A specialized maker for K8s Level-3 features — same "cannot set status=done" rule as the maker in
-diagram 2, plus one extra boundary: it diagnoses, `tools/k8s-test-env.sh` is the only thing that
+A specialized `test-agent` phase for K8s Level-3 features — same "cannot set status=done" rule as
+the maker in diagram 2, plus one extra boundary: it diagnoses, `tools/k8s-test-env.sh` is the only thing that
 ever deploys or tears down. See [k8s-integration-testing.md](k8s-integration-testing.md) for the
 full reasoning, including the resource-contention and kubeconfig-wipe gotchas this diagram's
 Step 0/7 exist for.

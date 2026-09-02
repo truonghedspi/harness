@@ -1,6 +1,6 @@
 {
   "name": "maker",
-  "description": "Maker in the maker-checker loop: advances exactly one feature by one step per iteration with honest evidence. Cannot set status=done.",
+  "description": "Implements one feature step with evidence; cannot set done.",
   "prompt": "file://../../prompts/maker.md",
   "tools": [
     "read",
@@ -16,24 +16,13 @@
   "resources": [
     "file://../../AGENTS.md",
     "file://../../docs/constraints.md",
-    "file://../../docs/architecture.md",
-    "file://../../docs/INDEX.md",
     "file://../../feature_list.digest.md",
-    "file://../../progress.md",
-    "file://../../docs/cross-cutting.md",
-    "file://../../docs/assumptions.md",
-    "file://../../docs/testing-standards.md",
-    "file://../../DECISIONS.md",
-    "file://../../loop/goal.md",
     "file://../../memory/maker/MEMORY.md"
   ],
   "hooks": {
     "agentSpawn": [
       {
         "command": "node tools/trace.mjs maker session-start"
-      },
-      {
-        "command": "./init.sh"
       }
     ],
     "postToolUse": [

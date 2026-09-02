@@ -174,7 +174,11 @@ const notes = (f) => String(f.checkerNotes || "").trim();
 // create a new request identity and restart an already-spent escalation ladder.
 const marker = (f) => notes(f).split("\n")[0].trim();
 const status = (f) => String(f.status || f.state || "");
-const open = features.filter((f) => !["done", "passing"].includes(status(f)));
+// `passing` is only settled after the checker has consumed the handoff. A maker may record a
+// green result before final acceptance, so `passing + readyForCheck` must remain visible to the
+// final batch rather than falling through to `exit`.
+const open = features.filter((f) => status(f) !== "done" &&
+  (status(f) !== "passing" || f?.readyForCheck === true));
 // A complete maker handoff is enough to unblock downstream implementation. Semantic acceptance
 // is deliberately deferred until every remaining feature has been handed off, so the checker
 // reviews the integrated delivery once instead of becoming an inner-loop hop after each feature.
@@ -217,11 +221,11 @@ const designDigest = () => {
 // can dissolve the shallower ones, and doing it the other way round wastes the work.
 const RULES = [
   {
-    node: "feature-planner", kind: "agent", layer: "decomposition",
+    node: "orchestrator", kind: "agent", layer: "decomposition",
     when: "a done feature carries a FOLLOW-UP: marker that has not been planned",
     match: () => {
       const f = features.find((x) => status(x) === "done" && /^FOLLOW-UP:/.test(marker(x)) &&
-        !requestDispatched(`follow-up:${x.id}:${markerHash(marker(x))}`, "feature-planner"));
+        !requestDispatched(`follow-up:${x.id}:${markerHash(marker(x))}`, "orchestrator"));
       return f ? { why: `${f.id} was approved with actionable follow-up work; turn it into explicit scope or record why it is discarded`, feature: f.id, detail: marker(f), requestId: `follow-up:${f.id}:${markerHash(marker(f))}` } : null;
     },
   },
@@ -254,18 +258,18 @@ const RULES = [
     },
   },
   {
-    node: "design-facilitator", kind: "agent", layer: "design",
+    node: "orchestrator", kind: "agent", layer: "design",
     when: "a feature's checkerNotes starts NEEDS DESIGN: and the design-facilitator has not had a turn on that marker",
     match: () => {
       // Only until the design-facilitator has had its turn on THIS marker. Its answer cannot clear
       // the marker, so "marker still present" is not evidence that it failed to answer.
       const f = open.find((x) => /^NEEDS DESIGN:/.test(marker(x)) &&
-        !alreadyDispatched("design-facilitator", x.id, markerHash(marker(x))));
+        !alreadyDispatched("orchestrator", x.id, markerHash(marker(x))));
       return f ? { why: `${f.id} raised a design question the maker is forbidden to answer inline`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
   {
-    node: "design-facilitator", kind: "agent", layer: "design",
+    node: "orchestrator", kind: "agent", layer: "design",
     when: "docs/design/*.md collectively state no observable seam or no invariants",
     // Same predicate as verify-harness's design-untestable gate. Without this rule the router
     // matched only the NEEDS DESIGN: marker, so a design that simply never said how anyone would
@@ -316,7 +320,7 @@ const RULES = [
     },
   },
   {
-    node: "feature-planner", kind: "agent", layer: "decomposition",
+    node: "orchestrator", kind: "agent", layer: "decomposition",
     when: "a NEEDS DESIGN: marker the design-facilitator has already had a turn on — the planner must clear it",
     // The design-facilitator answered; someone has to retire the marker and re-cut if the answer
     // changed the scope. That is the planner: it is the one node downstream of design allowed to
@@ -324,8 +328,8 @@ const RULES = [
     match: () => {
       const f = open.find((x) => {
         const h = markerHash(marker(x));
-        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("design-facilitator", x.id, h) &&
-          !alreadyDispatched("feature-planner", x.id, h);
+        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("orchestrator", x.id, h) &&
+          !alreadyDispatched("orchestrator", x.id, h);
       });
       return f ? { why: `${f.id}'s NEEDS DESIGN: already went to the design-facilitator and the marker is still there — it cannot clear the marker itself. Consume the answer, re-cut if it changed the scope, and clear the marker`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
@@ -340,27 +344,26 @@ const RULES = [
     match: () => {
       const f = open.find((x) => {
         const h = markerHash(marker(x));
-        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("design-facilitator", x.id, h) &&
-          alreadyDispatched("feature-planner", x.id, h);
+        return /^NEEDS DESIGN:/.test(marker(x)) && alreadyDispatched("orchestrator", x.id, h);
       });
       return f ? { why: `${f.id} still carries the SAME NEEDS DESIGN: marker after both the design-facilitator and the planner have had a turn on it. Nobody else can clear it. Clear it by hand, or say why it is still open.`, feature: f.id, detail: notes(f).split("\n")[0] } : null;
     },
   },
   {
-    node: "feature-planner", kind: "agent", layer: "decomposition",
+    node: "orchestrator", kind: "agent", layer: "decomposition",
     when: "a feature's checkerNotes starts NEEDS RE-PLAN:",
     match: () => {
       const f = open.find((x) => /^NEEDS RE-PLAN:/.test(marker(x)));
       if (!f) return null;
       const requestId = `replan:${f.id}:${markerHash(marker(f))}`;
-      if (requestDispatched(requestId, "feature-planner")) {
+      if (requestDispatched(requestId, "orchestrator")) {
         return { node: "human", kind: "human", layer: "decomposition", why: `${f.id} still carries the same NEEDS RE-PLAN marker after the planner ran`, feature: f.id, requestId };
       }
       return { why: `${f.id} was ruled mis-cut by the checker; re-cutting is not the maker's job`, feature: f.id, detail: marker(f), requestId };
     },
   },
   {
-    node: "feature-planner", kind: "agent", layer: "decomposition",
+    node: "orchestrator", kind: "agent", layer: "decomposition",
     when: "a design's ## Feature impact table marks change/new and is newer than feature_list.json",
     // A design that changes what a feature means, or implies new ones, leaves feature_list.json a
     // version behind — and nothing marks it, because the designer is (correctly) not allowed to
@@ -408,25 +411,25 @@ const RULES = [
     // forbids the maker touching an oracle-layer test; and the checker may not write test files.
     // Observed on examples/jdt-mcp-server: the fix was a hand-written bounded edit permission in
     // checkerNotes, re-invented per occurrence. This makes it a state instead of a convention.
-    node: "test-implementer", kind: "agent", layer: "oracle",
+    node: "test-agent", kind: "agent", layer: "oracle",
     when: "a feature's checkerNotes starts NEEDS ORACLE FIX: — the oracle contradicts its own condition",
     match: () => {
-      if (!hasAgent("test-implementer")) return null;
+      if (!hasAgent("test-agent")) return null;
       const f = open.find((x) => /^NEEDS ORACLE FIX:/.test(marker(x)) && status(x) !== "blocked");
       if (!f) return null;
       const hash = markerHash(marker(f));
       // Same bounded ladder as every other marker: one turn, then a human. An oracle the
       // implementer could not reconcile with its condition is a question about the condition.
-      if (alreadyDispatched("test-implementer", f.id, hash)) {
+      if (alreadyDispatched("test-agent", f.id, hash)) {
         return { node: "human", kind: "human", layer: "oracle",
           why: `${f.id} still carries the same NEEDS ORACLE FIX marker after one test-implementer turn — the condition itself may be wrong`,
           feature: f.id };
       }
-      return { why: `${f.id}: the checker ruled the red comes from the oracle, not the implementation`, feature: f.id };
+      return { why: `${f.id}: the checker ruled the red comes from the oracle, not the implementation`, feature: f.id, mode: "test-implement" };
     },
   },
   {
-    node: "test-designer", kind: "agent", layer: "oracle",
+    node: "test-agent", kind: "agent", layer: "oracle",
     when: "an unfinished feature has no falsifier, or its falsifier cites an invariant no test condition covers",
     // Three outputs to check, not two: the `falsifier` in feature_list.json, whether ANY condition
     // files exist under tests/design/ at all, and — the newest of the three — whether the SPECIFIC
@@ -442,10 +445,10 @@ const RULES = [
     // A node handed a missing input does not fail; it improvises or stalls.
     match: () => {
       const missing = open.filter((x) => !String(x.falsifier || "").trim() && status(x) !== "blocked");
-      if (missing.length && hasAgent("test-designer")) {
-        return { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id };
+      if (missing.length && hasAgent("test-agent")) {
+        return { why: `${missing.length} unfinished feature(s) have no falsifier — nobody has said what wrong implementation their verification catches`, feature: missing[0].id, mode: "test-design" };
       }
-      if (!hasAgent("test-designer")) return null;
+      if (!hasAgent("test-agent")) return null;
       // Blocked features must not drive test-designer dispatch — same exclusion as test-implementer.
       const candidates = open.filter((x) => x.kind === "prove" && String(x.falsifier || "").trim() &&
         !String(x.evidence || "").trim() && status(x) !== "blocked");
@@ -453,10 +456,10 @@ const RULES = [
       const missingFeature = candidates.find((x) => !featureConditionsComplete(x));
       if (missingFeature) {
         const requestId = `test-design:${missingFeature.id}:${markerHash(String(missingFeature.falsifier))}`;
-        if (requestDispatched(requestId, "test-designer")) {
+        if (requestDispatched(requestId, "test-agent")) {
           return { node: "human", kind: "human", layer: "oracle", why: `${missingFeature.id} still has no feature-linked validated conditions after one test-designer turn`, feature: missingFeature.id, requestId };
         }
-        return { why: `${missingFeature.id} has no complete feature-linked condition plan yet`, feature: missingFeature.id, requestId };
+        return { why: `${missingFeature.id} has no complete feature-linked condition plan yet`, feature: missingFeature.id, requestId, mode: "test-design" };
       }
       // Guard against the livelock this rule could otherwise create: if test-designer has already
       // been sent here for this feature and tests/design/ is STILL absent, that is a human problem,
@@ -464,26 +467,26 @@ const RULES = [
       if (!conditionsExist()) {
         const f = candidates[0];
         const requestId = `test-design:${f.id}:${markerHash(String(f.falsifier))}`;
-        if (requestDispatched(requestId, "test-designer")) {
+        if (requestDispatched(requestId, "test-agent")) {
           return { node: "human", kind: "human", layer: "oracle", why: `${f.id} still has no validated conditions after one test-designer turn`, feature: f.id, requestId };
         }
-        return { why: `no validated test condition (TCON-*.json) exists yet, so ${f.id} has a falsifier but nothing to implement from`, feature: f.id, requestId };
+        return { why: `no validated test condition (TCON-*.json) exists yet, so ${f.id} has a falsifier but nothing to implement from`, feature: f.id, requestId, mode: "test-design" };
       }
       const citedIds = conditionCitations();
       for (const f of candidates) {
         const uncovered = citedInvariants(f.falsifier).filter((id) => !citedIds.has(id));
         if (!uncovered.length) continue;
         const requestId = `test-design:${f.id}:${markerHash(String(f.falsifier))}`;
-        if (requestDispatched(requestId, "test-designer")) {
+        if (requestDispatched(requestId, "test-agent")) {
           return { node: "human", kind: "human", layer: "oracle", why: `${f.id}'s falsifier still cites ${uncovered.join(", ")} with no matching test condition after one test-designer turn`, feature: f.id, requestId };
         }
-        return { why: `${f.id}'s falsifier cites ${uncovered.join(", ")} but no test condition covers ${uncovered.length > 1 ? "them" : "it"} yet`, feature: f.id, requestId };
+        return { why: `${f.id}'s falsifier cites ${uncovered.join(", ")} but no test condition covers ${uncovered.length > 1 ? "them" : "it"} yet`, feature: f.id, requestId, mode: "test-design" };
       }
       return null;
     },
   },
   {
-    node: "test-implementer", kind: "agent", layer: "oracle",
+    node: "test-agent", kind: "agent", layer: "oracle",
     when: "a prove feature has a falsifier and validated conditions but no written, mutant-checked test",
     // The edge that was missing: test-designer fills the falsifier, its own rule stops matching,
     // and control fell straight through to the maker — which then wrote the test it was supposed
@@ -492,7 +495,7 @@ const RULES = [
     // wrong implementation, and the checker is the one who pays for that after a full implement
     // cycle (feat-diag-open-on-query).
     match: () => {
-      if (!hasAgent("test-implementer")) return null;
+      if (!hasAgent("test-agent")) return null;
       // A falsifier alone is not enough to implement from — the validated conditions are the input,
       // and a plan with an empty conditions/ folder is not one.
       if (!conditionsExist()) return null;
@@ -505,7 +508,7 @@ const RULES = [
       const notMutantChecked = (x) => !(Array.isArray(x.evidence) && x.evidence.some((e) => e && e.mutant === true));
       const f = open.find((x) => x.kind === "prove" && featureConditionsComplete(x) && String(x.falsifier || "").trim() &&
         (notWritten(x) || notMutantChecked(x)) && !/^NEEDS /.test(notes(x)) && status(x) !== "blocked");
-      return f ? { why: `${f.id} has a falsifier but no ${notWritten(f) ? "test" : "mutant-checked test"} yet — the oracle is specified, not proven`, feature: f.id } : null;
+      return f ? { why: `${f.id} has a falsifier but no ${notWritten(f) ? "test" : "mutant-checked test"} yet — the oracle is specified, not proven`, feature: f.id, mode: "test-implement" } : null;
     },
   },
   {
@@ -527,13 +530,13 @@ const RULES = [
     // `oracle`: unlike test-designer/test-implementer it must read the implementation to diagnose
     // a failed deploy, so its independence comes from the boundary it tests across, not from
     // blindness to the code.
-    node: "k8s-integration-tester", kind: "agent", layer: "integration",
+    node: "test-agent", kind: "agent", layer: "integration",
     when: "the feature's verification deploys to a real cluster",
     match: () => {
-      if (!hasAgent("k8s-integration-tester")) return null;
+      if (!hasAgent("test-agent")) return null;
       const f = open.find((x) => x.readyForCheck !== true && /k8s-test-env|kubectl|helm |(?:^|\/)tests\/k8s\//i.test(String(x.verification || "")) &&
         (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
-      return f ? { why: `${f.id} verifies against a real cluster — cluster lifecycle knowledge the maker does not carry`, feature: f.id } : null;
+      return f ? { why: `${f.id} verifies against a real cluster — cluster lifecycle knowledge the maker does not carry`, feature: f.id, mode: "integration" } : null;
     },
   },
   {
@@ -605,7 +608,7 @@ const RULES = [
         (notWritten(p) || notMutantChecked(p))).flatMap((p) => p.dependencies || []));
       const eligible = open.filter((x) => x.readyForCheck !== true &&
         !/^NEEDS (DESIGN|RE-PLAN|ORACLE FIX):/.test(notes(x)) && status(x) !== "blocked" &&
-        !(x.kind === "build" && unproven.has(x.id) && hasAgent("test-implementer")) &&
+        !(x.kind === "build" && unproven.has(x.id) && hasAgent("test-agent")) &&
         (x.dependencies || []).every((d) => handedOff(features.find((y) => y.id === d) || {})));
       if (!eligible.length) return null;
       const next = eligible[0];

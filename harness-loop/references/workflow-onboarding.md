@@ -32,7 +32,7 @@ flowchart TD
     HU --> HI
     B --> HI["current agent + human-interview\nLAYER: spec\nfind evidence → ask → receipt\nno context switch"]
     KS -. "only on a human-owned gap" .-> HI
-    HI --> SU["harness-setup\ntoolchain · MCP connectivity ·\nreal verification commands"]
+    HI --> SU["harness-manager\nLAYER: setup\ntoolchain · MCP connectivity ·\nreal verification commands"]
     SU --> GATES
     B --> CP
     CS["collect-services\nwide inventory + rule provenance"] --> CP["context-plan\nactive feature touches → scoped rules"]
