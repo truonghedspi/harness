@@ -96,13 +96,17 @@ so, show the state you think it misread, and stop. Never route around it.
 
    **The one exception is `mode: slice-fanout`** — see the next section. It is the router's word,
    not your judgement: if the router did not print that mode, spawn one child.
-4. **Show what changed and how far the workflow has moved.** After every sub-agent return — and
-   after any other observed change to files or workflow state — re-run `node tools/loop-status.mjs`
-   and `node loop/route.mjs`. Report the diff, the new router decision, and the exact progress line:
-   **`Progress: <done>/<total> done (<percent>%), <remaining> remaining`**. Include the active
-   feature or escalation beside it when one exists. This snapshot is mandatory even when the
-   percentage did not move: an implementation checkpoint can be real work without completing a
-   feature, and the unchanged number makes that distinction visible. "It ran" is not a result.
+4. **Show what changed and how far the workflow has moved.** After every sub-agent return:
+   1. If no snapshot exists yet: `node tools/iteration-recap.mjs --snapshot`.
+   2. Run `node tools/iteration-recap.mjs --reason "<one sentence why>" --json`. The script computes
+      the feature-state delta, files changed, commits, progress, and next routing decision from
+      actual data on disk — you supply only the reason. Read its output.
+   3. Report answer-first: the progress line
+      **`Progress: <done>/<total> done (<percent>%), <remaining> remaining`**, then what moved (or
+      did not move), then what is next. Include the active feature or escalation beside the progress
+      line when one exists. This snapshot is mandatory even when the percentage did not move: an
+      implementation checkpoint can be real work without completing a feature, and the unchanged
+      number makes that distinction visible. "It ran" is not a result.
 5. **Stop and ask** the moment the loop escalates (below). Do not keep spending sessions past a
    question nobody has answered.
 

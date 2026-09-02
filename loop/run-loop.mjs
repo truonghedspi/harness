@@ -224,6 +224,7 @@ async function main() {
     }
     if (next.kind === "agent") {
       markCurrent(next, iteration);
+      if (existsSync("tools/iteration-recap.mjs")) run(process.execPath, ["tools/iteration-recap.mjs", "--snapshot"]);
       // Build a typed dispatch brief so the worker arrives knowing the feature state, baseline,
       // checker notes, diagnosis, and recent changes — without re-reading feature_list.json or
       // grepping for context (references/context-contract-research.md).
@@ -245,6 +246,7 @@ async function main() {
         ? await fanOut(next, message, runtime)
         : await dispatch(next.node, message, { runtime });
       markCurrent(next, iteration, true);
+      if (existsSync("tools/iteration-recap.mjs")) run(process.execPath, ["tools/iteration-recap.mjs"]);
       if (code !== 0) return code;
     }
     if (next.node === "checker") {
