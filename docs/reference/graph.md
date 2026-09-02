@@ -5,6 +5,9 @@ executes*: every node, every edge, who owns every field of shared state, and the
 picks the next node. The difference between the two documents is the point — writing this one is
 what surfaced seven edges that existed only inside an agent's context.
 
+The workflow maps deliberately collapse tool internals into contract-labelled edges; this graph is
+where the exact state owner and routing condition remain auditable.
+
 Scope: the project loop (`node loop/run-loop.mjs`). The harness self-improvement loop
 (`scripts/harness-loop.sh`) is a second graph; the one edge between them is listed at the end.
 
