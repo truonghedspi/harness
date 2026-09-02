@@ -8,7 +8,9 @@ hooks:
     - command: "node tools/agent-context.mjs checker"
   PreToolUse:
     - matcher: "Edit|Write|NotebookEdit|Bash"
-      command: "node tools/guard-write.mjs checker"
+      hooks:
+        - type: command
+          command: "node tools/guard-write.mjs checker"
   SubagentStop:
     - command: "node tools/trace.mjs checker session-end"
   PostToolUse:

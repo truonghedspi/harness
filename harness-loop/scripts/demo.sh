@@ -611,13 +611,13 @@ process.exit(r.includes('feature_list.digest.md') && !r.includes('/feature_list.
 "; expect "maker auto-loads the digest, not the full list" $?
 node -e "
 const fs=require('fs');
-const j=JSON.parse(fs.readFileSync('$T2/.kiro/agents/feature-planner.json','utf8'));
-const r=j.resources.join(' ');
-// The planner used to auto-load the FULL list because it rewrites the array — a real guarantee,
-// paid on every spawn: 1943 lines on aeron-demo, the heaviest agent by far and growing with the
-// project. It now loads the digest and reads the file on demand.
-process.exit(r.includes('feature_list.digest.md') && !r.includes('/feature_list.json') ? 0 : 1);
-"; expect "even the planner auto-loads the digest — the full list is read on demand, not carried" $?
+const agents=fs.readdirSync('$T2/.kiro/agents').filter(f=>f.endsWith('.json'))
+  .map(f=>JSON.parse(fs.readFileSync('$T2/.kiro/agents/'+f,'utf8')));
+// The consolidated roster has no separate planner role. Preserve the actual context-budget
+// guarantee: no generated agent carries the full feature list; roles that need it use the digest
+// or read the focused entry on demand.
+process.exit(agents.length>0 && agents.every(a=>!(a.resources||[]).join(' ').includes('/feature_list.json')) ? 0 : 1);
+"; expect "no generated agent auto-loads the full feature list" $?
 node -e "
 const fs=require('fs');
 // Dropping a mechanical guarantee for a prompt sentence is the trade this harness says degrades,
@@ -759,7 +759,7 @@ route_node(){ (cd "$TO" && node loop/route.mjs --json | node -e 'let s="";proces
 # test-designer to derive falsifiers from invariants nobody had written (HI-014).
 mkdir -p "$TO/docs/design"
 printf '# Reconciler\n\nIt reads the log and fills the gap. It writes to the sink.\n%.0s' 1 2 3 4 5 6 7 8 > "$TO/docs/design/recon.md"
-[ "$(route_node)" = "design-facilitator" ]; expect "a design stating no seam and no invariants outranks the oracle layer" $?
+[ "$(route_node)" = "orchestrator" ]; expect "a design stating no seam and no invariants routes to the consolidated design owner" $?
 printf '\n## Observable seam\n\nThe GapEventSink, externally visible.\n\n## Invariants\n\nEvent count is conserved for every replay; reconcile is idempotent.\n' >> "$TO/docs/design/recon.md"
 # A design that changes what a feature MEANS leaves feature_list.json a version behind, and the
 # design-facilitator is (correctly) not allowed to write scope — so route on what it can write: its
@@ -778,19 +778,19 @@ MD
 [ "$(route_node)" = "human" ]; expect "a valid but unapproved design routes to a human, never back to an agent" $?
 TO_DIGEST="$(cd "$TO" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')"
 printf '{"schema":"design-approval/1","designDigest":"%s","status":"approved","approvedBy":"demo-human","approvedAt":"2026-08-18","decisions":["demo approval"],"acceptedRisks":[]}\n' "$TO_DIGEST" > "$TO/loop/design-approval.json"
-[ "$(route_node)" = "feature-planner" ]; expect "a design marking a feature change/new outranks the oracle layer, once approved" $?
+[ "$(route_node)" = "orchestrator" ]; expect "a design marking a feature change/new routes to the consolidated decomposition owner, once approved" $?
 # Edit the design after approval — even one line — and the digest changes, so the approval silently
 # stops matching: there is no partial-credit "still basically approved" state.
 printf '\n' >> "$TO/docs/design/recon.md"
 [ "$(route_node)" = "human" ]; expect "a design edited after approval invalidates the approval automatically, no expiry step needed" $?
 printf '{"schema":"design-approval/1","designDigest":"%s","status":"approved","approvedBy":"demo-human","approvedAt":"2026-08-18","decisions":["re-approved after trailing newline"],"acceptedRisks":[]}\n' "$(cd "$TO" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).detail))')" > "$TO/loop/design-approval.json"
-[ "$(route_node)" = "feature-planner" ]; expect "re-approving the new digest unblocks the loop again" $?
+[ "$(route_node)" = "orchestrator" ]; expect "re-approving the new digest unblocks the consolidated decomposition owner" $?
 node -e "
 const fs=require('fs');const p='$TO/feature_list.json';
 fs.writeFileSync(p, fs.readFileSync(p,'utf8'));   // planner catches up = feature_list is newer
 "
-[ "$(route_node)" = "test-designer" ]; expect "once the cut catches up, routing falls through to test-designer" $?
-[ "$(route_node)" = "test-designer" ]; expect "a feature with no falsifier routes to test-designer, not the maker" $?
+[ "$(route_node)" = "test-agent" ]; expect "once the cut catches up, routing falls through to test-agent" $?
+[ "$(route_node)" = "test-agent" ]; expect "a feature with no falsifier routes to test-agent, not the maker" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -802,7 +802,7 @@ fs.writeFileSync(p, JSON.stringify(d,null,2));
 # contract, the designer rule never fires, tests/design/ is never created, and the implementer is
 # dispatched to implement conditions that do not exist. Measured on aeron-demo during a codex run:
 # two paid sessions on one feature, the agent hunting for tests/design/, zero output.
-[ "$(route_node)" = "test-designer" ]; expect "falsifiers filled but no validated conditions still routes to test-designer" $?
+[ "$(route_node)" = "test-agent" ]; expect "falsifiers filled but no validated conditions still route to test-agent" $?
 ( cd "$TO" && node loop/route.mjs --json ) | grep -q "no complete feature-linked condition"
 expect "and the reason names the missing input rather than the feature" $?
 # A real condition file, not just the directory: an empty conditions/ folder used to satisfy this,
@@ -810,7 +810,7 @@ expect "and the reason names the missing input rather than the feature" $?
 mkdir -p "$TO/tests/design/plans/TP-D-0001/conditions"
 printf '{"id":"TCON-D-0001","requirement_id":"INV-RECON-1"}' > "$TO/tests/design/plans/TP-D-0001/conditions/TCON-D-0001.json"
 node -e "const fs=require('fs'); const p='$TO/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); d.features.find(f=>f.id==='feat-p').conditions=['TCON-D-0001']; fs.writeFileSync(p,JSON.stringify(d,null,2));"
-[ "$(route_node)" = "test-implementer" ]; expect "once the conditions exist, a specified-but-unwritten oracle routes to test-implementer" $?
+[ "$(route_node)" = "test-agent" ]; expect "once conditions exist, a specified-but-unwritten oracle routes to test-agent" $?
 # conditionsExist() only asks "does ANY TCON-*.json exist anywhere" — true the moment ONE feature
 # has conditions. It stays true even after a design amendment adds a NEW invariant citation to a
 # DIFFERENT falsifier that no condition covers, so the router used to jump straight past
@@ -825,7 +825,7 @@ const d=JSON.parse(fs.readFileSync(p,'utf8'));
 d.features.find(f=>f.id==='feat-p').falsifier='breaks the conservation invariant [INV-RECON-2]';
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(route_node)" = "test-designer" ]; expect "a falsifier amended to cite a new invariant routes back to test-designer even though other conditions already exist" $?
+[ "$(route_node)" = "test-agent" ]; expect "a falsifier amended to cite a new invariant routes back to test-agent even though other conditions already exist" $?
 ( cd "$TO" && node loop/route.mjs --json ) | grep -q "INV-RECON-2"
 expect "and the reason names the specific uncovered invariant, not just 'no conditions'" $?
 node -e "
@@ -833,14 +833,14 @@ const fs=require('fs'); const p='$TO/tests/design/plans/TP-D-0001/conditions/TCO
 fs.writeFileSync(p, JSON.stringify({id:'TCON-D-0002', requirement_id:'INV-RECON-2'}));
 "
 node -e "const fs=require('fs'); const p='$TO/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); d.features.find(f=>f.id==='feat-p').conditions.push('TCON-D-0002'); fs.writeFileSync(p,JSON.stringify(d,null,2));"
-[ "$(route_node)" = "test-implementer" ]; expect "a condition citing the new invariant clears it, back to test-implementer" $?
+[ "$(route_node)" = "test-agent" ]; expect "a condition citing the new invariant clears it, back to test-agent" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
 d.features.find(f=>f.id==='feat-p').evidence='wrote the test; ran it, FAILED (exit 1) as expected';
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(route_node)" = "test-implementer" ]; expect "a written test still routes to test-implementer until it is mutant-checked" $?
+[ "$(route_node)" = "test-agent" ]; expect "a written test still routes to test-agent until it is mutant-checked" $?
 node -e "
 const fs=require('fs'); const p='$TO/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -853,9 +853,8 @@ fs.writeFileSync(p, JSON.stringify(d,null,2));
 node -e "
 const fs=require('fs');
 const src=fs.readFileSync('$TO/loop/route.mjs','utf8');
-const m=src.match(/node: \"k8s-integration-tester\"[^}]*?layer: \"(\w+)\"/s);
-process.exit(m && m[1]==='integration' ? 0 : 1);
-"; expect "k8s-integration-tester routes as layer:integration, not layer:implementation" $?
+process.exit(/node: \"test-agent\", kind: \"agent\", layer: \"integration\"[\s\S]*?when: \"the feature's verification deploys to a real cluster\"/.test(src) ? 0 : 1);
+"; expect "test-agent's K8s mode routes as layer:integration, not layer:implementation" $?
 # The graph is the one artifact no other gate substitutes for: every check here inspects file
 # CONTENT, none inspects which node runs next. Nine gates and a green demo coexisted with a
 # livelock that only writing the routing table out by hand exposed.
@@ -965,9 +964,9 @@ const fs=require('fs');
 const need=['skills/test-design/SKILL.md','skills/test-design/references/anti-patterns.md',
             'skills/test-design/references/property-catalog.md','skills/test-design/schemas/test-condition.schema.json',
             'skills/test-design/checklists/reviewer-checklist.md','docs/reference/test-authoring.md',
-            '.kiro/agents/test-designer.json','.kiro/agents/test-implementer.json','memory/test-designer/MEMORY.md'];
+            '.kiro/agents/test-agent.json','memory/test-agent/MEMORY.md'];
 process.exit(need.every(f=>fs.existsSync('$T3/'+f)) ? 0 : 1);
-"; expect "the test-design skill, its agents and their memory are scaffolded into the target" $?
+"; expect "the test-design skill, consolidated test agent, and its memory are scaffolded into the target" $?
 node -e "
 const s=require('$T3/skills/test-design/schemas/test-case.schema.json');
 const p=new RegExp(s.properties.requirement_id.pattern);
@@ -982,18 +981,20 @@ const need=['skills/feature-planning/SKILL.md','skills/feature-planning/schemas/
  'skills/feature-planning/references/cutting-rules.md','skills/feature-planning/references/counterexamples.md',
  'skills/feature-planning/scripts/check-plan.mjs','skills/feature-planning/evals/run-fixtures.mjs'];
 const man=JSON.parse(fs.readFileSync('$TO/agents.manifest.json','utf8'));
-const planner=man.agents.find(a=>a.name==='feature-planner');
+const planner=man.agents.find(a=>a.name==='orchestrator');
 process.exit(need.every(f=>fs.existsSync('$TO/'+f)) && planner.resources.includes('skills/feature-planning/SKILL.md') ? 0 : 1);
-"; expect "the planner receives its complete capability pack and auto-loads the invariant workflow" $?
+"; expect "the consolidated planning owner receives the complete capability pack" $?
 node "$TO/skills/feature-planning/evals/run-fixtures.mjs" >/tmp/demo-plan-fixtures.$$ 2>&1
 grep -q 'PASS valid' /tmp/demo-plan-fixtures.$$ && grep -q 'PASS orphan-build' /tmp/demo-plan-fixtures.$$ && grep -q 'PASS invented-invariant' /tmp/demo-plan-fixtures.$$
 expect "planner fixtures accept a complete DAG and reject orphan proof plus invented traceability" $?
 rm -f /tmp/demo-plan-fixtures.$$
 node -e "
 const fs=require('fs');
-const p=fs.readFileSync('$TO/prompts/feature-planner.md','utf8');
-process.exit(p.split('\n').length<60 && /skills\/feature-planning\/SKILL\.md/.test(p) && /check-plan\.mjs/.test(p) ? 0 : 1);
-"; expect "the planner prompt is a thin launcher into the skill, not a second drifting manual" $?
+const exists=fs.existsSync('$TO/prompts/feature-planner.md');
+const man=JSON.parse(fs.readFileSync('$TO/agents.manifest.json','utf8'));
+const owner=man.agents.find(a=>a.name==='orchestrator');
+process.exit(!exists && owner.resources.includes('skills/feature-planning/SKILL.md') ? 0 : 1);
+"; expect "planning is a capability of the consolidated owner, not a retired standalone prompt" $?
 
 step 31 "adopting an existing repo: minimal entry plus upgrade capability, then debt ratchets"
 LEG="$WORK/legacy-repo"
@@ -1094,19 +1095,13 @@ test ! -e "$TR/.kiro/agents/retired-demo.json" -a ! -e "$TR/.claude/agents/retir
 expect "retired generated agents are removed from all runtimes while unmanaged user agents survive" $?
 node -e "
 const fs=require('fs');
-// Cheap model for producing, strong model for judging — the same line as generator/evaluator
-// separation, because catching what a cheaper model got wrong IS the evaluator's job.
-// Both kiro roles name a model rather than riding auto: on 2026-08-12 auto returned
-// temporarily-unavailable mid-run and killed a maker part-way through a fix. A router can
-// route to nothing. (No backticks in this comment: it sits inside a double-quoted shell
-// string, where a backtick is command substitution — that is why the demo used to print
-// auto: command not found.)
+// Model policy belongs to the manifest. Assert that each generated runtime preserves it instead
+// of hard-coding a former cheap-executor policy into this fixture.
 const cc=(n)=>(fs.readFileSync('$TR/.claude/agents/'+n+'.md','utf8').match(/^model: (.+)\$/m)||[])[1];
 const kiro=(n)=>require('$TR/.kiro/agents/'+n+'.json').model;
-process.exit(cc('checker')==='claude-opus-5' && cc('design-facilitator')==='claude-opus-5' &&
-             cc('maker')==='sonnet' && cc('test-designer')==='sonnet' &&
-             kiro('checker')==='claude-sonnet-4.5' && kiro('maker')==='claude-sonnet-4' ? 0 : 1);
-"; expect "evaluators get the strongest model each runtime offers; executors run cheap" $?
+const manifest=require('$TR/agents.manifest.json').agents;
+process.exit(manifest.every(a=>cc(a.name)===a.model.claude && kiro(a.name)===a.model.kiro) ? 0 : 1);
+"; expect "generated Claude and Kiro agents preserve the manifest's model policy" $?
 node -e "
 const fs=require('fs');
 // kiro's own subagent tool is what 'native sub-agent facility' means for kiro specifically — this
@@ -1120,10 +1115,12 @@ process.exit(orch.tools.includes('subagent') && Array.isArray(avail) &&
 "; expect "kiro's orchestrator can spawn every other agent but never itself, enforced by config" $?
 node -e "
 const fs=require('fs');
-// the two things Claude Code has no field for are carried by per-agent hooks
+// The two things Claude Code has no field for are carried by per-agent hooks. PreToolUse
+// requires command hooks nested beneath each matcher; a direct command makes Claude reject the
+// whole agent file (HI-086).
 const md=fs.readFileSync('$TR/.claude/agents/checker.md','utf8');
 process.exit(/SubagentStart:[\s\S]*agent-context\.mjs checker/.test(md) &&
-             /PreToolUse:[\s\S]*guard-write\.mjs checker/.test(md) ? 0 : 1);
+             /PreToolUse:[\s\S]*matcher:[\s\S]*hooks:[\s\S]*- type: command[\s\S]*guard-write\.mjs checker/.test(md) ? 0 : 1);
 "; expect "the checker's Claude config carries the resource-injection and write-guard hooks" $?
 node -e "
 // the write restriction must actually restrict — this is what makes 'the maker never grades
@@ -1341,15 +1338,15 @@ grep -q '^# K8s Integration Tester — K8s Demo$' "$K8T/prompts/k8s-integration-
 expect "K8s prompts pass through project-name substitution instead of leaking a template token" $?
 grep -q '^# K8s-integration-tester memory — K8s Demo$' "$K8T/memory/k8s-integration-tester/MEMORY.md"
 expect "K8s memory passes through the same substitution path" $?
-test -f "$K8T/.claude/agents/k8s-integration-tester.md" -a -f "$K8T/.kiro/agents/k8s-integration-tester.json"
-expect "the optional agent appears in BOTH runtimes, from the prompt file's presence alone" $?
+test -f "$K8T/.claude/agents/test-agent.md" -a -f "$K8T/.kiro/agents/test-agent.json"
+expect "the consolidated test agent is available in BOTH runtimes for K8s mode" $?
 node -e "
 const fs=require('fs'); const p='$K8T/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
 d.features=[{id:'feat-k',name:'journey',behavior:'b',verification:'tests/k8s/run-journey.sh',falsifier:'a broken deployed journey',dependencies:[],status:'not-started',readyForCheck:false,evidence:'',checkerNotes:'',attempts:0,maxAttempts:3}];
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(cd "$K8T" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))')" = "k8s-integration-tester" ]; expect "a tests/k8s journey routes to the Kubernetes integration tester, not maker" $?
+[ "$(cd "$K8T" && node loop/route.mjs --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).node))')" = "test-agent" ]; expect "a tests/k8s journey routes to test-agent's integration mode, not maker" $?
 node -e "
 const a=require('$K8T/.mcp.json').mcpServers, b=require('$K8T/.kiro/settings/mcp.json').mcpServers;
 const ka=Object.keys(a).sort().join(','), kb=Object.keys(b).sort().join(',');
@@ -1872,7 +1869,7 @@ fl.features=[{id:'feat-approved',name:'approved',behavior:'b',verification:'echo
 fs.writeFileSync(p,JSON.stringify(fl,null,2));
 "
 (cd "$FU" && node loop/route.mjs --json) > /tmp/demo-follow-up.$$
-node -e "const r=require('fs').readFileSync('/tmp/demo-follow-up.$$','utf8'); const j=JSON.parse(r); process.exit(j.node==='feature-planner'&&j.feature==='feat-approved'?0:1)"
+node -e "const r=require('fs').readFileSync('/tmp/demo-follow-up.$$','utf8'); const j=JSON.parse(r); process.exit(j.node==='orchestrator'&&j.feature==='feat-approved'?0:1)"
 expect "an approved feature's actionable FOLLOW-UP routes to explicit planning" $?
 rm -f /tmp/demo-follow-up.$$
 MK="$WORK/marker"; rm -rf "$MK"; mkdir -p "$MK/docs/design"
@@ -1893,15 +1890,16 @@ dispatched(){ (cd "$MK" && node loop/route.mjs --json | node -e '
   let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);
   if(j.hash||j.requestId) require("fs").appendFileSync("loop/route-log.jsonl",
     JSON.stringify({node:j.node,feature:j.feature||null,mode:j.mode||null,hash:j.hash||null,requestId:j.requestId||null})+"\n");});'); }
-[ "$(route_of)" = "design-facilitator" ]; expect "a NEEDS DESIGN: marker the design-facilitator has not seen routes to it" $?
+[ "$(route_of)" = "orchestrator" ]; expect "a NEEDS DESIGN: marker routes to the consolidated design owner" $?
 dispatched
-# The design-facilitator answers but CANNOT clear the marker — it may not write feature_list.json.
-[ "$(route_of)" = "feature-planner" ]; expect "after the design-facilitator's turn the same marker routes to the planner, the only node that may clear it" $?
+# The consolidated owner cannot take a second turn on the same marker; an unchanged marker is a
+# human decision rather than an automatic self-retry.
+[ "$(route_of)" = "human" ]; expect "an unchanged NEEDS DESIGN marker escalates after the consolidated owner's turn" $?
 # Appending evidence below the marker is not a new request. Previously the whole notes body was
 # hashed, so this restarted the ladder at the design layer.
 node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFileSync(p));d.features.find(x=>x.id==='feat-q').checkerNotes+='\nextra diagnostic';fs.writeFileSync(p,JSON.stringify(d,null,2))"
-[ "$(route_of)" = "feature-planner" ]; expect "appending diagnostics does not change the first-line routing request identity" $?
-( cd "$MK" && node loop/route.mjs --json ) | grep -q "clear the marker"
+[ "$(route_of)" = "human" ]; expect "appending diagnostics does not change the first-line routing request identity" $?
+( cd "$MK" && node loop/route.mjs --json ) | grep -q "Clear it by hand"
 expect "and the reason says so, rather than leaving it to be inferred" $?
 dispatched
 [ "$(route_of)" = "human" ]; expect "with both turns spent and the marker unchanged it escalates instead of cycling" $?
@@ -1914,7 +1912,7 @@ const d=JSON.parse(fs.readFileSync(p,'utf8'));
 d.features.find(x=>x.id==='feat-q').checkerNotes='NEEDS DESIGN: a different question entirely';
 fs.writeFileSync(p, JSON.stringify(d,null,2));
 "
-[ "$(route_of)" = "design-facilitator" ]; expect "a NEW question on the same feature restarts the ladder at the design-facilitator" $?
+[ "$(route_of)" = "orchestrator" ]; expect "a NEW question on the same feature restarts the consolidated design route" $?
 node -e "
 const fs=require('fs'); const p='$MK/feature_list.json';
 const d=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -1926,7 +1924,7 @@ fs.writeFileSync(p, JSON.stringify(d,null,2));
 # Re-plan uses the same finite request ladder: one planner turn, then human if the typed request is
 # unchanged instead of an unbounded paid-session loop.
 node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFileSync(p));d.features.find(x=>x.id==='feat-q').checkerNotes='NEEDS RE-PLAN: split the behavior';fs.writeFileSync(p,JSON.stringify(d,null,2))"
-[ "$(route_of)" = "feature-planner" ]; expect "a new re-plan request routes to the planner" $?
+[ "$(route_of)" = "orchestrator" ]; expect "a new re-plan request routes to the consolidated planning owner" $?
 dispatched
 [ "$(route_of)" = "human" ]; expect "an unchanged re-plan request escalates after one planner turn" $?
 node -e "const fs=require('fs'),p='$MK/feature_list.json',d=JSON.parse(fs.readFileSync(p));d.features.find(x=>x.id==='feat-q').checkerNotes='resolved';fs.writeFileSync(p,JSON.stringify(d,null,2))"
@@ -2022,12 +2020,12 @@ const {execFileSync}=require('child_process');
 const run=(f)=>JSON.parse(execFileSync('node',['tools/guard-write.mjs','orchestrator'],
   {cwd:'$OR',input:JSON.stringify({tool_input:{file_path:f}}),encoding:'utf8'}))
   .hookSpecificOutput.permissionDecision;
-// it dispatches; the agents it dispatches are the ones that write
-process.exit(run('src/Foo.java')==='deny' && run('feature_list.json')==='deny' &&
-             run('docs/design/x.md')==='deny' && run('session-handoff.md')==='allow' ? 0 : 1);
-"; expect "it cannot write source, scope or design — only the handoff files it needs to talk to a human" $?
+// The consolidated front door owns human-facing design and planning state, but never product source.
+process.exit(run('src/Foo.java')==='deny' && run('feature_list.json')==='allow' &&
+             run('docs/design/x.md')==='allow' && run('session-handoff.md')==='allow' ? 0 : 1);
+"; expect "the consolidated front door can update planning state but cannot write product source" $?
 grep -q "orchestrator" "$OR/loop/route.mjs" && ORROUTE=1 || ORROUTE=0
-test "$ORROUTE" = "0"; expect "route.mjs never dispatches it — it is the node that READS the router, not one the loop can recurse into" $?
+test "$ORROUTE" = "1"; expect "route.mjs dispatches the consolidated owner for design and planning work" $?
 node "$SCRIPTS/verify-harness.mjs" --target "$OR" --skip-baseline --quiet
 node -e "
 const r=require('$OR/trace/verify-report.json');
@@ -2057,7 +2055,7 @@ process.exit(r.findings.some(f=>/agent-cannot-write-instructed:orchestrator/.tes
 "; expect "a 'What you must not do' section is not read as an instruction to write those files" $?
 node -e "
 const fs=require('fs');
-fs.appendFileSync('$OR/prompts/orchestrator.md', '\n## Extra duties\n\nAlways update \`feature_list.json\` with the outcome.\n');
+fs.appendFileSync('$OR/prompts/orchestrator.md', '\n## Extra duties\n\nAlways write \`docs/unowned.md\` with the outcome.\n');
 "
 node "$SCRIPTS/verify-harness.mjs" --target "$OR" --skip-baseline --quiet
 node -e "
@@ -2074,8 +2072,8 @@ const {execFileSync}=require('child_process');
 const out=JSON.parse(execFileSync('node',['tools/agent-context.mjs','orchestrator'],
   {cwd:'$OR',input:'{}',encoding:'utf8'}));
 const t=out.hookSpecificOutput.additionalContext;
-process.exit(/presenting-and-proposing/.test(t) && !/MISSING/.test(t) ? 0 : 1);
-"; expect "and it is injected at spawn, so the orchestrator starts holding it" $?
+process.exit(/AGENTS\.md/.test(t) && !/MISSING/.test(t) ? 0 : 1);
+"; expect "and its configured resources are injected at spawn" $?
 # The orchestrator must be able to self-diagnose a failed spawn/dispatch without paying to carry
 # the full runtime mapping every session: it points at runtimes.md and reads it only on failure.
 node -e "
@@ -2226,12 +2224,12 @@ DP="$WORK/dispatch"; rm -rf "$DP"; mkdir -p "$DP/bin"
 node "$SCRIPTS/setup-harness-loop.mjs" --target "$DP" --name "Disp" --purpose "named dispatch" >/dev/null
 test -f "$DP/loop/dispatch.mjs" -a -f "$DP/loop/dispatch.cmd" -a -x "$DP/loop/dispatch.sh"; expect "every scaffold ships a runtime-agnostic way to dispatch one named agent" $?
 cp "$SCRIPTS/fixtures/fake-kiro-acp.mjs" "$DP/bin/kiro-cli"; chmod +x "$DP/bin/kiro-cli"
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$DP/runtime.log" node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/d.log" 2>&1
-grep -q "\[stub\]" "$DP/d.log" && grep -q '^acp --agent design-facilitator --trust-all-tools$' "$DP/runtime.log"; expect "it runs the named agent through an ACP session, not headless chat" $?
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_OUTPUT="Monthly request limit reached; resets later" node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/q.log" 2>&1
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_LOG="$DP/runtime.log" node loop/dispatch.mjs orchestrator "decided" ) > "$DP/d.log" 2>&1
+grep -q "\[stub\]" "$DP/d.log" && grep -q '^acp --agent orchestrator --trust-all-tools$' "$DP/runtime.log"; expect "it runs the named agent through an ACP session, not headless chat" $?
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_OUTPUT="Monthly request limit reached; resets later" node loop/dispatch.mjs orchestrator "decided" ) > "$DP/q.log" 2>&1
 QC=$?; [ "$QC" = "75" ] && grep -q "runtime refused" "$DP/q.log"
 expect "a quota refusal that exits zero is classified as no agent work" $?
-( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_OUTPUT="PreToolUse hook returned unsupported permissionDecision:allow" node loop/dispatch.mjs design-facilitator "decided" ) > "$DP/hook.log" 2>&1
+( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro HARNESS_FAKE_RUNTIME_OUTPUT="PreToolUse hook returned unsupported permissionDecision:allow" node loop/dispatch.mjs orchestrator "decided" ) > "$DP/hook.log" 2>&1
 HC=$?; [ "$HC" = "75" ] && grep -q "runtime refused" "$DP/hook.log"
 expect "a hook-contract failure that exits zero is refused instead of accepting unconfined agent work" $?
 ( cd "$DP" && PATH="$DP/bin:$PATH" KIRO_API_KEY=x HARNESS_RUNTIME=kiro node loop/dispatch.mjs ghost "x" ) > "$DP/g.log" 2>&1
@@ -2247,7 +2245,7 @@ process.exit(rl.includes('./dispatch.mjs') && !rl.includes('kiro-cli chat --agen
 node -e "
 const fs=require('fs'); const op=fs.existsSync('$DP/prompts/orchestrator.md')?'$DP/prompts/orchestrator.md':(fs.existsSync('$DP/harness/prompts/orchestrator.md')?'$DP/harness/prompts/orchestrator.md':'$SCRIPTS/../templates/tree/prompts/orchestrator.md');
 const t=fs.readFileSync(op,'utf8').replace(/\s+/g, ' ');
-process.exit(t.includes('design-facilitator') && t.includes('node loop/dispatch.mjs') ? 0 : 1);
+process.exit(t.includes('orchestrator') && t.includes('node loop/dispatch.mjs') ? 0 : 1);
 "; expect "and human decisions use native owner spawn first, with named dispatch only as fallback" $?
 
 # setup never overwrites, --force overwrites everything including the project's own work. Neither
@@ -2266,7 +2264,7 @@ process.exit(j.changed.length===0 && j.added.length===0 && j.drifted.length===0 
 # age it the way a real target ages
 printf '#!/usr/bin/env bash\necho old\n' > "$UP/loop/route.mjs"
 rm -f "$UP/loop/dispatch.sh" "$UP/tools/feature.mjs"
-printf '\n<!-- this project: never touch the ledger -->\n' >> "$UP/prompts/design-facilitator.md"
+printf '\n<!-- this project: never touch the ledger -->\n' >> "$UP/prompts/orchestrator.md"
 node -e "const fs=require('fs'),p='$UP/agents.manifest.json',j=require(p),a=structuredClone(j.agents.find(x=>x.name==='maker'));a.name='context-interviewer';j.agents.push(a);fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
 node "$SCRIPTS/upgrade-harness.mjs" --target "$UP" --json > "$UP/aged.json" 2>/dev/null
 node -e "
@@ -2282,9 +2280,9 @@ process.exit(c && c.why && c.targetImpact && c.paths.includes('loop/dispatch.sh'
 node -e "
 const j=require('$UP/aged.json');
 // the customised prompt is REPORTED, never overwritten — merge, don't overwrite
-process.exit(j.drifted.includes('prompts/design-facilitator.md') ? 0 : 1);
+process.exit(j.drifted.includes('prompts/orchestrator.md') ? 0 : 1);
 "; expect "a customised prompt is reported as drift, not silently replaced" $?
-grep -q "never touch the ledger" "$UP/prompts/design-facilitator.md"
+grep -q "never touch the ledger" "$UP/prompts/orchestrator.md"
 expect "and the customisation is still there afterwards" $?
 node -e "const j=require('$UP/aged.json');process.exit(j.retiredAgents.includes('context-interviewer')?0:1)"
 expect "upgrade reports the retired interview agent for an explicit manifest merge" $?
@@ -2376,7 +2374,7 @@ node "$SCRIPTS/setup-harness-loop.mjs" --target "$RR" --name "Rules" --purpose "
 node -e "
 const t=require('fs').readFileSync('$RR/rules.txt','utf8');
 // every rule, in order, each with the condition the source only implies
-process.exit(/human/.test(t) && !/context-interviewer/.test(t) && /feature-planner/.test(t) && /test-implementer/.test(t)
+process.exit(/human/.test(t) && !/context-interviewer/.test(t) && /orchestrator/.test(t) && /test-agent/.test(t)
   && /maker/.test(t) && /precedence order/.test(t) && /when /.test(t) ? 0 : 1);
 "; expect "route.mjs --rules prints the whole routing table, so nothing has to parse its source" $?
 node -e "
@@ -2674,12 +2672,12 @@ route_n(){ ( cd "$RN" && node loop/route.mjs --json | node -e 'let s="";process.
 # test-implementer, which correctly refused. Twice, on the real project. Two paid sessions, nothing.
 mkdir -p "$RN/tests/design/plans/TP-X-0001/conditions"
 printf '{"plan_id":"TP-X-0001"}' > "$RN/tests/design/plans/TP-X-0001/plan.json"
-[ "$(route_n)" = "test-designer" ]; expect "a plan with an empty conditions/ folder routes to test-designer, not the implementer" $?
+[ "$(route_n)" = "test-agent" ]; expect "a plan with an empty conditions/ folder routes to test-agent, not maker" $?
 ( cd "$RN" && node loop/route.mjs --json ) | grep -q "no complete feature-linked condition"
 expect "and the reason names the missing artifact, not the directory that happens to exist" $?
 printf '{"id":"TCON-X-0001","requirement_id":"INV-X-1"}' > "$RN/tests/design/plans/TP-X-0001/conditions/TCON-X-0001.json"
 node -e "const fs=require('fs'); const p='$RN/feature_list.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); d.features.find(f=>f.id==='feat-oracle').conditions=['TCON-X-0001']; fs.writeFileSync(p,JSON.stringify(d,null,2));"
-[ "$(route_n)" = "test-implementer" ]; expect "once a real TCON-*.json citing the falsifier's invariant exists, the implementer is dispatchable" $?
+[ "$(route_n)" = "test-agent" ]; expect "once a real TCON-*.json citing the falsifier's invariant exists, test-agent is dispatchable" $?
 node -e "
 const t=require('fs').readFileSync('$SCRIPTS/codex-dispatch.mjs','utf8');
 // codex's workspace-write sandbox blocks socket LISTENING: the baseline goes red inside it and
@@ -3033,7 +3031,7 @@ test -f "$CT/AGENTS.md" -a -f "$CT/.kiro/agents/orchestrator.json" -a -f "$CT/.c
   && grep -q 'harness/AGENTS.md' "$CT/AGENTS.md" && grep -q 'file://../../harness/prompts/orchestrator.md' "$CT/.kiro/agents/orchestrator.json"
 expect "root keeps only the discovery adapters each runtime requires" $?
 node -e "
-const fs=require('fs'), files=['harness/AGENTS.md','harness/prompts/design-facilitator.md','harness/prompts/orchestrator.md'];
+const fs=require('fs'), files=['harness/AGENTS.md','harness/prompts/orchestrator.md','harness/prompts/test-agent.md'];
 const bad=files.flatMap(f=>[...fs.readFileSync('$CT/'+f,'utf8').matchAll(/(^|[^/])\\b(docs|prompts|loop|tools|skills|memory|trace)\//gm)].map(()=>f));
 process.exit(bad.length?1:0);
 "
@@ -3601,7 +3599,7 @@ echo ""
 step 59 "NEEDS ORACLE FIX: the eighth implicit edge — a prove feature whose own oracle is wrong"
 OF="$WORK/demo-oracle-fix"; rm -rf "$OF"; mkdir -p "$OF/loop" "$OF/.claude/agents" "$OF/tests/design"
 cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$OF/loop/route.mjs"
-touch "$OF/.claude/agents/test-implementer.md" "$OF/.claude/agents/maker.md"
+touch "$OF/.claude/agents/test-agent.md" "$OF/.claude/agents/maker.md"
 printf '{"requirement_id":"INV-P-1"}\n' > "$OF/tests/design/TCON-P-1.json"
 cat > "$OF/feature_list.json" <<'OFJ'
 {"features":[
@@ -3613,7 +3611,7 @@ OFJ
 (cd "$OF" && node loop/route.mjs --json > r1.json 2>/dev/null)
 node -e "
 const r=require('$OF/r1.json');
-process.exit(r.node==='test-implementer' && r.layer==='oracle' && r.feature==='feat-prove-pool' ? 0 : 1);
+process.exit(r.node==='test-agent' && r.layer==='oracle' && r.feature==='feat-prove-pool' ? 0 : 1);
 "
 expect "a prove feature with a recorded red run still routes back to the oracle layer under this marker" $?
 node -e "
@@ -3634,7 +3632,7 @@ cp "$OF/fl-marker.json" "$OF/feature_list.json"
 node -e "
 const {createHash}=require('crypto');
 const m='NEEDS ORACLE FIX: the assertion says an evicted workspace is absent forever, but its own fixture re-acquires it';
-require('fs').writeFileSync('$OF/loop/route-log.jsonl', JSON.stringify({node:'test-implementer',feature:'feat-prove-pool',hash:createHash('sha1').update(m).digest('hex').slice(0,12),at:new Date().toISOString()})+'\n');
+require('fs').writeFileSync('$OF/loop/route-log.jsonl', JSON.stringify({node:'test-agent',feature:'feat-prove-pool',hash:createHash('sha1').update(m).digest('hex').slice(0,12),at:new Date().toISOString()})+'\n');
 "
 (cd "$OF" && node loop/route.mjs --json > r2.json 2>/dev/null)
 node -e "
@@ -3753,7 +3751,7 @@ echo ""
 step 63 "mutant-check before implement: an unproven oracle blocks the maker"
 MC="$WORK/mutant-check"; rm -rf "$MC"; mkdir -p "$MC/loop" "$MC/.kiro/agents"
 cp "$SCRIPTS/../templates/tree/loop/route.mjs" "$MC/loop/route.mjs"
-printf '%s\n' '{}' > "$MC/.kiro/agents/test-implementer.json"
+printf '%s\n' '{}' > "$MC/.kiro/agents/test-agent.json"
 cat > "$MC/feature_list.json" <<'MCJ'
 {"features":[
  {"id":"prove-a","kind":"prove","status":"active","falsifier":"returns the wrong value","dependencies":["build-a"],"evidence":[{"run":"red"}],"checkerNotes":""},
@@ -4067,36 +4065,25 @@ process.exit(/workflow-onboarding\.md/.test(map) && /workflow-development\.md/.t
 "; expect "the map keeps its filename and links every workflow it was split into" $?
 node "$SCRIPTS/check-workflow-diagram.mjs" --dir "$REFS" > "$WD/current.log" 2>&1
 expect "the shipped diagrams name every agent, router node and rollback layer the code can produce" $?
-# The load-bearing property: it must FAIL on real drift. This fixture reproduces the drift the
-# skill's own diagram actually carried before the split — harness-setup shipped but never drawn,
-# and final-acceptance a layer the router returns that no diagram ever named.
-cat > "$WD/workflow-drifted.md" <<'WDX'
-# A workflow diagram missing two things the code really produces
-
-```mermaid
-flowchart TD
-    A["User requirement"] --> O["orchestrator"]
-    O --> ON["harness-onboarder"]
-    ON --> DS["design-facilitator\nLAYER: design"]
-    DS --> FP["feature-planner\nLAYER: decomposition"]
-    FP --> TD["test-designer\nLAYER: oracle"]
-    TD --> TI["test-implementer\nLAYER: oracle"]
-    TI --> MK["maker\nLAYER: implementation"]
-    MK --> DG["maker mode diagnose\nLAYER: diagnosis"]
-    DG --> BG["baseline gate\nLAYER: baseline"]
-    BG --> KT["k8s-integration-tester\nLAYER: integration"]
-    KT --> CK["checker"]
-```
-WDX
+# The load-bearing property: it must FAIL on real drift. The checker now validates the workflow
+# model (then generated diagrams), so make the model omit a shipped agent and a router layer.
+cp "$REFS/workflow-model.json" "$WD/workflow-model.json"
+node -e "
+const fs=require('fs'), p='$WD/workflow-model.json', m=require(p);
+m.nodes=m.nodes.filter(n=>n.id!=='harness-manager');
+m.layers=m.layers.filter(l=>l.id!=='final-acceptance');
+fs.writeFileSync(p, JSON.stringify(m,null,2)+'\\n');
+"
 node "$SCRIPTS/check-workflow-diagram.mjs" --dir "$WD" --json > "$WD/old.json" 2>&1
 node -e "
 const j=require('$WD/old.json');
 const names=j.findings.map(f=>f.kind+':'+f.name);
-process.exit(!j.green && names.includes('agent:harness-setup') && names.includes('layer:final-acceptance') ? 0 : 1);
-"; expect "an agent that ships undrawn and a layer the router returns unnamed both fail the gate" $?
+process.exit(!j.green && names.includes('agent:harness-manager') && names.includes('layer:final-acceptance') ? 0 : 1);
+"; expect "a workflow model missing a shipped agent and router layer fails the gate" $?
 # Prose is not a drawing. A name mentioned in a sentence must not satisfy the gate, or the check
 # passes on a repo whose diagrams were deleted and replaced with a paragraph about them.
 mkdir -p "$WD/prose"
+cp "$REFS/workflow-model.json" "$WD/prose/workflow-model.json"
 { echo "# workflow-prose"; echo ""; echo "This project uses maker, checker, harness-setup and every LAYER: there is."; } > "$WD/prose/workflow-prose.md"
 node "$SCRIPTS/check-workflow-diagram.mjs" --dir "$WD/prose" > /dev/null 2>&1
 test "$?" = "1"

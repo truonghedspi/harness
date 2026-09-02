@@ -1420,6 +1420,30 @@
       "verification": ["bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
     },
     {
+      "id": "HUC-2026-09-02-consolidated-orchestrator-context-budget",
+      "summary": "The consolidated orchestrator reads graph and human-attention guidance on demand, keeping its automatic context under the 1,200-line budget.",
+      "why": "HI-087: consolidating design and planning into orchestrator made its default resource packet exceed the budget. The prompt already names graph.md at the moments it is needed, so auto-loading it (and the broad human-attention reference) paid the cost on every routing turn.",
+      "targetImpact": "Regenerated orchestrator agents load the smaller resource packet. Design ownership, planning authority, and on-demand graph guidance are unchanged.",
+      "paths": ["templates/tree/agents.manifest.json", "scripts/demo.sh"],
+      "mergeActions": [
+        "Remove docs/reference/graph.md and docs/reference/human-attention.md from the orchestrator resources array, preserving prompt links for on-demand reads.",
+        "Regenerate all runtime agent files and run tools/context-budget.mjs."
+      ],
+      "verification": ["node tools/context-budget.mjs --target .", "bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
+      "id": "HUC-2026-09-02-claude-pretooluse-hook-shape",
+      "summary": "Claude Code PreToolUse hooks use the required nested command-hook array, so write-restricted generated agents load successfully.",
+      "why": "HI-086: gen-agents.mjs emitted a command directly on each PreToolUse matcher. Claude Code now requires matcher entries to contain a nested `hooks` array, so orchestrator and checker were rejected before their prompts could run.",
+      "targetImpact": "Regenerating Claude agents replaces the invalid PreToolUse shape for every write-restricted role. Existing root-level .claude/settings.json files using the shared write guard must make the same nesting change; roles without PreToolUse are unaffected.",
+      "paths": ["scripts/gen-agents.mjs", "scripts/demo.sh", ".claude/settings.json"],
+      "mergeActions": [
+        "Refresh tools/gen-agents.mjs from the canonical skill, then run node tools/gen-agents.mjs --target . --runtime claude.",
+        "In any hand-maintained .claude/settings.json PreToolUse matcher, move `command` into `hooks: [{ type: command, command: ... }]`."
+      ],
+      "verification": ["node tools/gen-agents.mjs --target . --runtime claude --check", "bash harness-loop/scripts/demo.sh", "node harness-loop/scripts/check-upgrade-context.mjs --target ."]
+    },
+    {
       "id": "HUC-2026-09-02-passing-handoff-final-acceptance",
       "summary": "A feature with status=passing remains routable for final acceptance while readyForCheck=true.",
       "why": "HI-085: both router and run-loop treated passing as terminal before noticing its ready handoff, so a complete green delivery could exit without any checker verdict.",

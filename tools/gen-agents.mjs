@@ -138,7 +138,7 @@ function claudeAgent(a) {
     // named and was absent for the one every agent has. Shell inspection is best-effort by nature
     // (a script can always write through an API), so guard-write catches the common redirect shapes
     // and clean-state's stray-verification-script catches whatever gets through.
-    hooks.push(`  PreToolUse:\n    - matcher: "Edit|Write|NotebookEdit|Bash"\n      command: "node ${TOOL_ROOT}/guard-write.mjs ${a.name}"`);
+    hooks.push(`  PreToolUse:\n    - matcher: "Edit|Write|NotebookEdit|Bash"\n      hooks:\n        - type: command\n          command: "node ${TOOL_ROOT}/guard-write.mjs ${a.name}"`);
   }
   if (a.trace) {
     hooks.push(`  SubagentStop:\n    - command: "node ${TOOL_ROOT}/trace.mjs ${a.name} session-end"`);

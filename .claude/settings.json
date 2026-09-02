@@ -3,7 +3,12 @@
     "PreToolUse": [
       {
         "matcher": "Edit|Write|NotebookEdit|Bash",
-        "command": "node tools/guard-write.mjs"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node tools/guard-write.mjs"
+          }
+        ]
       }
     ]
   }
