@@ -68,7 +68,7 @@ flowchart LR
 | integration | 6 | Deployment and testing on a real cluster |
 | implementation | 7 | Feature implementation — only after every higher layer is clear |
 | diagnosis | 7 | Diagnose the cause before fixing it (same layer as implementation) |
-| final-acceptance | 8 | Final checker approval — only the checker sets `done` |
+| final-acceptance | 8 | Final checker approval — only the checker sets done |
 | unknown | 0 | The router cannot identify a layer — every rule declines while open work remains |
 
 Deeper layers (lower depth) have higher routing priority.
