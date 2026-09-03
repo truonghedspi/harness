@@ -1,6 +1,6 @@
 {
-  "at": "2026-09-02T15:01:27.315Z",
-  "gitSha": "979e7a0acb002c5ef712b2ec99c9ac5859cd28a1",
+  "at": "2026-09-03T08:25:36.289Z",
+  "gitSha": "87e95ec962448a0dc7fc5a8c619e3b4d866918bd",
   "features": [
     {
       "id": "feat-windows-native-loop",
@@ -56,6 +56,46 @@
       "id": "feat-claude-code-acp",
       "status": "passing",
       "readyForCheck": true
+    },
+    {
+      "id": "feat-prove-prompt-acp",
+      "status": "active",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-toolchain-schema",
+      "status": "not-started",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-toolchain-resolve",
+      "status": "not-started",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-toolchain-init",
+      "status": "not-started",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-toolchain-feature-scope",
+      "status": "not-started",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-toolchain-survey",
+      "status": "not-started",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-toolchain-quality-strategy",
+      "status": "not-started",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-toolchain-e2e",
+      "status": "not-started",
+      "readyForCheck": false
     }
   ]
 }

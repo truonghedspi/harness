@@ -1,0 +1,19 @@
+{
+  "schema": "diagnosis/1",
+  "key": "baseline-22e0e2d60777c5a3",
+  "symptom": "Error: Cannot find module '/private/var/folders/.../tools/review-digest.mjs' when approval-gate.mjs executes from demo.sh",
+  "cause": "approval-gate.mjs hardcodes relative path 'tools/review-digest.mjs' at line 56, fails when working directory is not project root",
+  "layer": "harness",
+  "provedBy": {
+    "cmd": "node spikes/test-relative-path.mjs",
+    "exit": 0,
+    "result": "SUCCESS from root but FAILED from loop/ with 'Cannot find module' error, SUCCESS again with ../tools/review-digest.mjs - proves relative path dependency"
+  },
+  "ruledOut": [
+    {
+      "hypothesis": "the file tools/review-digest.mjs is actually missing or unreadable",
+      "killedBy": "spike shows SUCCESS from root directory and existsSync('tools/review-digest.mjs') returns true"
+    }
+  ],
+  "at": "2026-09-03T08:25:37.000Z"
+}
