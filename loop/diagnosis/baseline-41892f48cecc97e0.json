@@ -1,0 +1,19 @@
+{
+  "schema": "diagnosis/1",
+  "key": "baseline:41892f48cecc97e0",
+  "symptom": "Cannot find module '/private/var/folders/3z/np7bbr2910zg9tml74w1gyjh0000gn/T/tmp.F0SzlMTUlS/demo-approval-notify/tools/review-digest.mjs' when demo.sh runs approval-gate.mjs in step 49",
+  "cause": "approval-gate.mjs hardcodes 'node tools/review-digest.mjs' but demo.sh runs it from a minimal fake directory (demo-approval-notify) that lacks the tools/ directory structure",
+  "layer": "harness",
+  "provedBy": {
+    "cmd": "node spikes/reproduce-exact-failure.mjs",
+    "exit": 0,
+    "result": "Review-digest works fine when run with proper scaffold (harness/tools/review-digest.mjs), but approval-gate.mjs expects tools/review-digest.mjs in current directory"
+  },
+  "ruledOut": [
+    {
+      "hypothesis": "the harness scaffold is missing review-digest.mjs",
+      "killedBy": "spike confirmed that setup-harness-loop.mjs properly creates harness/tools/review-digest.mjs and the review-digest command works when called correctly"
+    }
+  ],
+  "at": "2026-09-03T14:49:00.000Z"
+}
