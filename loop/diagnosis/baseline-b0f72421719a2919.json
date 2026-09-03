@@ -1,0 +1,18 @@
+{
+  "schema": "diagnosis/1",
+  "key": "baseline-b0f72421719a2919",
+  "symptom": "Error: Cannot find module '/private/var/folders/3z/np7bbr2910zg9tml74w1gyjh0000gn/T/tmp.gNfPLOZgtB/demo-approval-notify/tools/review-digest.mjs' at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)",
+  "cause": "approval-gate.mjs hardcode đường dẫn tương đối 'tools/review-digest.mjs' mà không xử lý khi chạy từ thư mục khác",
+  "layer": "harness",
+  "provedBy": {
+    "cmd": "cd spikes && node ../loop/approval-gate.mjs --check",
+    "exit": "0",
+    "result": "Error: Cannot find module '/Users/loren/workspace/projects/harness/spikes/tools/review-digest.mjs' - lỗi tương tự xảy ra khi chạy từ thư mục spikes/"
+  },
+  "ruledOut": [
+    {
+      "hypothesis": "file tools/review-digest.mjs bị thiếu hoặc ở vị trí sai",
+      "killedBy": "file tools/review-digest.mjs tồn tại ở đúng vị trí trong repo gốc - có thể đọc được từ project root"
+    }
+  ]
+}
