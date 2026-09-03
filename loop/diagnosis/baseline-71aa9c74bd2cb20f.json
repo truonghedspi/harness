@@ -1,0 +1,22 @@
+{
+  "schema": "diagnosis/1",
+  "key": "baseline-71aa9c74bd2cb20f",
+  "symptom": "Error: Cannot find module '/private/var/folders/.../demo-target/tools/review-digest.mjs' - MODULE_NOT_FOUND during demo execution in harness-loop/scripts/demo.sh",
+  "cause": "approval-gate.mjs hardcodes path 'tools/review-digest.mjs' but contained layout places it at 'harness/tools/review-digest.mjs'",
+  "layer": "harness",
+  "provedBy": {
+    "cmd": "cd /tmp/spike-demo && node harness/loop/approval-gate.mjs --check",
+    "exit": "0",
+    "result": "Error: Cannot find module '/private/tmp/spike-demo/tools/review-digest.mjs' - same error reproduced in isolated contained scaffold"
+  },
+  "ruledOut": [
+    {
+      "hypothesis": "Missing review-digest.mjs file in setup",
+      "killedBy": "File exists at harness/tools/review-digest.mjs in demo target - verified with ls -la harness/tools/review-digest.mjs"
+    },
+    {
+      "hypothesis": "Demo environment issue",
+      "killedBy": "Same error reproduces in clean isolated scaffold created with setup-harness-loop.mjs --target"
+    }
+  ]
+}
