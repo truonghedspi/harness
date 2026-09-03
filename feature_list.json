@@ -338,6 +338,192 @@
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3
+    },
+    {
+      "id": "feat-prove-prompt-acp",
+      "name": "Prove: prompt centralization and Claude Code ACP work end-to-end",
+      "behavior": "A scaffolded target generates agents from prompts/, dispatches through Claude Code runtime, and the demo exercises the full path without referencing the old loop/*-prompt layout.",
+      "verification": "node tools/gen-agents.mjs --target . --runtime all --check && bash harness-loop/scripts/demo.sh",
+      "falsifier": "gen-agents produces an agent referencing loop/*-prompt.md, or dispatch.mjs falls back to Kiro when HARNESS_RUNTIME is unset.",
+      "oracle": "node tools/oracles/feat-prove-prompt-acp.mjs",
+      "kind": "prove",
+      "dependencies": ["feat-prompt-centralize", "feat-claude-code-acp"],
+      "context": {
+        "touches": ["harness-loop/scripts/demo.sh", "loop/dispatch.mjs"],
+        "note": "Prove counterpart for feat-prompt-centralize and feat-claude-code-acp. One prove judges both because they share the same verification path."
+      },
+      "status": "active",
+      "readyForCheck": false,
+      "evidence": [
+        {
+          "date": "2026-09-03",
+          "type": "oracle",
+          "result": "Oracle được tạo với 6 điều kiện kiểm tra độc lập: tập trung prompt, không còn legacy path, gen-agents tạo config đúng, dispatch chọn claude runtime, không fallback về kiro, và demo chạy thành công end-to-end"
+        }
+      ],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-toolchain-schema",
+      "name": "test-toolchain.json schema and validator",
+      "behavior": "schemas/test-toolchain.schema.json validates the test-toolchain/1 format. tools/validate-toolchain.mjs reads a project's test-toolchain.json, validates it against the schema, checks requires conditions, and reports scope/size/command for each declared scope.",
+      "verification": "node tools/validate-toolchain.mjs --target . --check",
+      "falsifier": "The validator accepts a toolchain with a missing command field, an invalid size value, or a requires entry referencing a nonexistent scope.",
+      "kind": "build",
+      "dependencies": [],
+      "context": {
+        "touches": [
+          "schemas/test-toolchain.schema.json",
+          "tools/validate-toolchain.mjs"
+        ],
+        "note": "Design doc: docs/design/pluggable-test-toolchain.md. Schema version test-toolchain/1. Scope names: unit|component|contract|journey|e2e|snapshot|lint|typecheck|build."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-toolchain-resolve",
+      "name": "resolve-test-command.mjs resolves scope to command",
+      "behavior": "tools/resolve-test-command.mjs reads test-toolchain.json and returns the command for a given --scope, the scopes and commands for a given --feature (using testScope), or the full command list for a given --profile. --check-requires reports skipped scopes.",
+      "verification": "node tools/resolve-test-command.mjs --scope unit --check",
+      "falsifier": "The script returns a command for a scope whose requires are not met, or returns nothing when the toolchain declares the scope with a valid command.",
+      "kind": "build",
+      "dependencies": ["feat-toolchain-schema"],
+      "context": {
+        "touches": [
+          "tools/resolve-test-command.mjs"
+        ],
+        "note": "Reads test-toolchain.json (project root or harness/). Placeholder expansion: {file} and {name} in focused commands. Falls back gracefully when no toolchain exists."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-toolchain-init",
+      "name": "init.mjs reads test-toolchain.json for baseline",
+      "behavior": "When test-toolchain.json exists, init.mjs reads its baseline array and runs each scope's command in order, skipping scopes whose requires are not met. When no toolchain exists, init.mjs falls back to the current stack-detection logic.",
+      "verification": "bash harness-loop/scripts/demo.sh",
+      "falsifier": "init.mjs ignores a present test-toolchain.json and runs the hardcoded verification block, or it fails when test-toolchain.json is absent instead of falling back.",
+      "kind": "build",
+      "dependencies": ["feat-toolchain-schema"],
+      "context": {
+        "touches": [
+          "init.mjs",
+          "harness-loop/templates/tree/init.mjs"
+        ],
+        "note": "The VERIFICATION block between >>> and <<< markers is replaced by toolchain-reading logic. Template init.mjs gets the same change. Scaffolder still writes the fallback block for projects without a toolchain."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-toolchain-feature-scope",
+      "name": "feature_list.json supports testScope field",
+      "behavior": "review-contract.mjs validates that a feature's testScope (string or array) references only scopes declared in test-toolchain.json. The feature template includes testScope. When testScope is absent, defaultTestScope from the toolchain applies.",
+      "verification": "node tools/review-contract.mjs feat-001 --json 2>&1; echo $?",
+      "falsifier": "review-contract.mjs accepts a feature with testScope referencing a scope not in the toolchain, or rejects a feature when no toolchain exists.",
+      "kind": "build",
+      "dependencies": ["feat-toolchain-schema"],
+      "context": {
+        "touches": [
+          "tools/review-contract.mjs",
+          "harness-loop/templates/tree/feature_list.json"
+        ],
+        "note": "testScope is metadata for checker scope-match validation. Does not replace the verification string. Backward compatible: absent testScope uses defaultTestScope; absent toolchain makes testScope inert."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-toolchain-survey",
+      "name": "survey-project.mjs detects test runners and suggests toolchain",
+      "behavior": "survey-project.mjs detects installed test runners (vitest, jest, playwright, cypress, pact, pytest, junit/maven, go test, cargo test) from manifests and devDependencies, and includes a suggestedToolchain object in its --json output.",
+      "verification": "node tools/survey-project.mjs --target . --json | node -e \"const d=JSON.parse(require('fs').readFileSync(0,'utf8')); process.exit(d.suggestedToolchain ? 0 : 1)\"",
+      "falsifier": "survey-project.mjs reports no runner for a project whose package.json lists vitest in devDependencies, or invents a runner not evidenced by any manifest file.",
+      "kind": "build",
+      "dependencies": ["feat-toolchain-schema"],
+      "context": {
+        "touches": [
+          "tools/survey-project.mjs",
+          "harness-loop/scripts/survey-project.mjs"
+        ],
+        "note": "Detection is evidence-based: every runner must cite the file it was found in. suggestedToolchain is a draft — the human confirms before committing."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-toolchain-quality-strategy",
+      "name": "check-quality-strategy.mjs validates scope against toolchain",
+      "behavior": "When test-toolchain.json exists, check-quality-strategy.mjs warns if a risk's requiredScope has no matching scope in the toolchain. The existing scope/size validation rules remain unchanged.",
+      "verification": "node skills/quality-strategy/scripts/check-quality-strategy.mjs --risk test-risk.json 2>&1; echo $?",
+      "falsifier": "check-quality-strategy.mjs stays silent when a risk requires scope 'contract' but the toolchain declares no contract scope.",
+      "kind": "build",
+      "dependencies": ["feat-toolchain-schema"],
+      "context": {
+        "touches": [
+          "skills/quality-strategy/scripts/check-quality-strategy.mjs"
+        ],
+        "note": "Additive check only: no toolchain means no new findings. Existing scope/size validation unchanged."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "feat-toolchain-e2e",
+      "name": "Prove: pluggable test toolchain works end-to-end",
+      "behavior": "A scaffolded target with test-toolchain.json runs init.mjs through the toolchain baseline, resolve-test-command returns correct commands, review-contract validates testScope, and survey-project detects the runner. Removing the toolchain falls back to stack detection.",
+      "verification": "node tools/validate-toolchain.mjs --target . --check && node tools/resolve-test-command.mjs --scope unit --check && bash harness-loop/scripts/demo.sh",
+      "falsifier": "The demo target's init.mjs ignores the toolchain and runs hardcoded commands, or resolve-test-command returns a command for a scope whose requires are not met, or review-contract accepts a testScope referencing an undeclared scope.",
+      "kind": "prove",
+      "dependencies": [
+        "feat-toolchain-schema",
+        "feat-toolchain-resolve",
+        "feat-toolchain-init",
+        "feat-toolchain-feature-scope",
+        "feat-toolchain-survey",
+        "feat-toolchain-quality-strategy"
+      ],
+      "context": {
+        "touches": [
+          "harness-loop/scripts/demo.sh",
+          "tools/validate-toolchain.mjs",
+          "tools/resolve-test-command.mjs"
+        ],
+        "note": "Prove counterpart for the six toolchain build features. Demo needs a fixture target with test-toolchain.json to exercise the full path. Design doc: docs/design/pluggable-test-toolchain.md."
+      },
+      "status": "not-started",
+      "readyForCheck": false,
+      "evidence": [],
+      "checkerNotes": "",
+      "attempts": 0,
+      "maxAttempts": 3
     }
   ]
 }

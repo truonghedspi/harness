@@ -5,17 +5,17 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-09-01  
-- **Active feature:** none (checker completed final acceptance)
+- **Last updated:** 2026-09-03  
+- **Active feature:** feat-prove-prompt-acp (oracle created)
 - **Baseline (`./init.sh`):** green — `demo.sh` 70/70 steps
 
 ## In Progress
 
-*No active features — checker completed final acceptance.*
+- **feat-prove-prompt-acp:** Oracle tạo thành công với 6 điều kiện kiểm tra end-to-end proof cho prompt centralization và Claude Code ACP. Status = active, oracle complete, awaiting maker implementation.
 
-## Completed This Session (2026-09-01)
+## Completed This Session (2026-09-03)
 
-- **feat-readme-standardize: ACCEPTED** — README.md was standardized into five clear sections with complete content for new users. The verification command was fixed to check it independently rather than rely on other repository state. Complete red→green evidence. Status = done.
+- **feat-prove-prompt-acp oracle:** Tạo tools/oracles/feat-prove-prompt-acp.mjs với 6 điều kiện kiểm tra độc lập: prompts tập trung trong prompts/, không còn legacy prompt trong loop/, gen-agents tạo config đúng, dispatch chọn Claude runtime, không fallback về Kiro, và demo chạy thành công end-to-end.
 
 ## Done
 
