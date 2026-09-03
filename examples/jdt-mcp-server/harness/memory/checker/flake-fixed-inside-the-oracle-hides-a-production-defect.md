@@ -1,47 +1,47 @@
-# Lỗi flaky được sửa bên trong oracle có thể là lỗi sản phẩm bị dời khỏi tầm nhìn
+# The flaky bug fixed inside oracle could be a product being moved out of view bug
 
-**Khi nào áp dụng:** maker báo cáo đã sửa một ca kiểm thử chập chờn bằng cách thêm cơ chế vào tệp
-spec — tệp mồi, vòng chờ, độ trễ khởi động, retry — mà không chạm `src/`. Gặp ở
-`feat-file-sync-watcher`, lượt 2.
+**When to apply:** Maker reported fixing a choppy test case by adding the mechanism to the file
+spec — decoy file, wait loop, startup delay, retry — without touching `src/`. Meet at
+`feat-file-sync-watcher`, turn 2.
 
-## Điều trông như một lượt sửa oracle sạch
+## What looks like a clean oracle fix
 
-Maker đo được 2 trên 4 lần chạy đỏ, chẩn đoán đúng nguyên nhân gốc (libuv khởi động luồng FSEvents
-sau khi `fs.watch()` đã trả về; lần ghi rơi vào cửa sổ đó không bao giờ được chuyển tới), rồi đóng
-cửa sổ bằng một tệp mồi ghi trong spec. Anh ta còn ghi rõ ranh giới: sửa `src/` trong một lượt sửa
-oracle là cách nhanh nhất để bị từ chối. Ranh giới đó đúng, và cú hích thật sự không làm yếu oracle
-— tôi kiểm chứng bằng hành vi: ba mutant làm tệp biến mất khỏi tập quét vẫn chết, nên cú hích không
-có khả năng cứu một thông báo thiếu.
+Maker measured 2 out of 4 red runs, correctly diagnosing the root cause (libuv starts the FSEvents stream
+after `fs.watch()` has returned; writes that fall into that window are never delivered), then close
+windows with a primer file written in the spec. He also clearly states the boundary: edit `src/` in one edit
+oracle is the fastest way to get rejected. That boundary is correct, and the push really doesn't weaken the oracle
+— I tested it with behavior: the three mutants that made the file disappear from the scan set still died, so the kick was no
+capable of rescuing a missing message.
 
-## Câu hỏi mà cả hai bên đều bỏ qua
+## The question that both sides ignored
 
-Cơ chế vừa thêm có bản đối ứng trong sản phẩm không? Ở đây là không: không ai ghi `.fs-watch-probe`
-giúp daemon. Nghĩa là hiện tượng chập chờn không phải tạo tác của kiểm thử — nó là một lỗ hổng thật
-của bản triển khai, và lượt sửa vừa rồi làm cho không còn ca nào phát hiện được nó nữa.
+Does the newly added mechanism have a counterpart in the product? Here it is no: no one records `.fs-watch-probe`
+help daemon. That means the jitter isn't a test artifact — it's a real vulnerability
+of the deployment, and the recent fix makes it no longer detectable.
 
-Cách xác nhận nhanh, không cần tranh luận thiết kế: tra `harness/docs/assumptions.md` xem có dòng
-nào đang khẳng định điều ngược lại. A-014 ghi "A recursive filesystem watcher observes every relevant
-change", trạng thái vẫn là `assumed`, ô bằng chứng để trống — trong khi maker đã có số đo bác bỏ nó.
-Một giả định bị bằng chứng đo được bác bỏ mà dòng tương ứng không đổi trạng thái là một khiếm khuyết
-cụ thể, nêu tên được, không phải cảm giác.
+Quick way to confirm, without debating the design: look up `harness/docs/assumptions.md` to see if there is a line
+Which is asserting the opposite. A-014 reads "A recursive filesystem watcher observes every relevant
+change", the status is still `assumed`, the evidence box is blank — while the maker has measurements that refute it.
+An assumption refuted by measured evidence that the corresponding current does not change state is a defect
+Specific, namable, not feeling.
 
-## Việc checker phải làm
+## What the checker must do
 
-1. Hỏi cơ chế mới có bản đối ứng trong sản phẩm không. Nếu không, đó là lỗi sản phẩm, không phải
-   lỗi kiểm thử.
-2. Tra `assumptions.md` trước khi kết luận. Dòng mâu thuẫn biến một nghi ngờ thành một việc có chủ
-   sở hữu rõ ràng.
-3. Vẫn tôn trọng ranh giới phạm vi của maker. Đừng bắt anh ta sửa `src/` trong lượt sửa oracle; hãy
-   nêu tên phần việc còn thiếu và giao cho planner hoặc design layer tạo phạm vi. Không nêu tên tức
-   là chấp nhận một lỗi im lặng.
+1. Ask if the new mechanism has a counterpart in the product. If not, it's a product defect, not
+   test error.
+2. Look up `assumptions.md` before concluding. The flow of contradiction turns a doubt into a purposeful matter
+   clear ownership.
+3. Still respect the maker's scope boundaries. Don't make him edit `src/` during the oracle edit; please
+   Name the missing work and assign it to the planner or design layer to create the scope. Do not mention names
+   is to accept a silent error.
 
-## Bài học thứ hai của cùng lượt: một phép so nhiều trường cần một ca cho mỗi trường
+## Second lesson of the same turn: a multi-field comparison requires a case for each field
 
-Bản triển khai quyết định "đã thay đổi" bằng bộ ba `(mtimeMs, size, ino)`. Lượt 1 phát hiện vế `ino`
-không ca nào ghim; maker thêm đúng một ca cho `ino` và dừng lại. Hai vế còn lại vẫn xoá được mà bộ
-kiểm thử không đỏ — trong đó vế `mtime` là vế nặng nhất, vì `writeFileSync` ghi đè giữ nguyên inode
-nên một lần sửa tại chỗ cùng số byte chỉ khác đúng mtime.
+The implementation decides "changed" with the triple `(mtimeMs, size, ino)`. Pass 1 detects the `ino` clause
+No cases were stapled; maker adds exactly one shift to `ino` and stops. The remaining two sides can still be deleted
+The test is not red — in which the `mtime` part is the heaviest part, because the override `writeFileSync` keeps the inode intact
+so once fixed in place the same number of bytes only differs in mtime.
 
-Quy tắc rút ra: khi thấy một biểu thức `a !== a' || b !== b' || c !== c'`, đòi một ca cho MỖI vế
-trong CÙNG một lượt, mỗi ca ghim các vế còn lại bằng nhau. Nêu đủ danh sách ngay lần từ chối đầu
-tiên; đóng một trục mỗi lượt là cách nhỏ giọt các lỗ hổng đến vô hạn và đốt hết `maxAttempts`.
+Rule of thumb: when seeing an expression `a !== a' || b !== b' || c !== c'`, requires a shift for EACH side
+In the SAME turn, each shift pins the remaining sides equally. State the complete list at the first refusal
+fairy; Closing a shaft every turn is a way to trickle holes to infinity and burn out `maxAttempts`.

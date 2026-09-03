@@ -46,7 +46,7 @@ iteration — can resume without an information cliff.
   "answeredBy": "human",
   "answeredAt": "2026-09-02T12:24:00+07:00",
   "scope": ["agents.manifest.json", "loop/route.mjs", "generated runtime agents"],
-  "basis": [{"kind": "human", "pointer": "conversation: user message 'maker và checker vẫn phải giữ lại'"}],
+  "basis": [{"kind": "human", "pointer": "conversation: user message 'maker and checker must remain'"}],
   "supersedes": null,
   "openFollowUps": []
 }
@@ -60,7 +60,7 @@ iteration — can resume without an information cliff.
   "answeredBy": "human",
   "answeredAt": "2026-09-02T12:26:00+07:00",
   "scope": ["orchestrator", "test-agent", "loop/route.mjs", "agents.manifest.json"],
-  "basis": [{"kind": "human", "pointer": "conversation: user message 'đúng'"}],
+  "basis": [{"kind": "human", "pointer": "conversation: user message 'yes'"}],
   "supersedes": null,
   "openFollowUps": []
 }

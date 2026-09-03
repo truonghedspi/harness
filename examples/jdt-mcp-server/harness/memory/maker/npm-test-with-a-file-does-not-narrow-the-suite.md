@@ -1,40 +1,40 @@
-# `npm test -- <file>` nối thêm vào glob, không thu hẹp nó
+# `npm test -- <file>` appends to the glob, does not collapse it
 
-**Khi nào áp dụng:** mọi lượt maker trên repo này, vì `verification` của phần lớn tính năng được
-viết dưới dạng `npm test -- test/<vùng>/<tên>.spec.ts`. Gặp ở `feat-tool-references`.
+**When applicable:** every build on this repo, because `verification` of most features is possible
+written as `npm test -- test/<region>/<name>.spec.ts`. Found in `feat-tool-references`.
 
-## Điều gì thật sự xảy ra
+## What really happened
 
-Script `test` trong `package.json` đã chứa sẵn ba glob:
+The `test` script in `package.json` already contains three globs:
 
 ```
 node --experimental-strip-types --test test/lsp/*.spec.ts test/workspace/*.spec.ts test/tools/*.spec.ts
 ```
 
-`npm test -- X` **nối** `X` vào cuối dòng lệnh đó. Kết quả là toàn bộ ba glob vẫn chạy, còn tệp
-được nêu tên chạy thêm một lần nữa. Lệnh trông như "chỉ chạy đúng oracle của tôi" nhưng thực tế là
-"chạy tất cả".
+`npm test -- X` **append** `X` to the end of that command line. As a result, all three globs still run, but the file remains
+named run one more time. The command looks like "just runs my correct oracle" but in reality it is
+"run all".
 
-## Vì sao điều đó làm hỏng phán đoán
+## Why does that corrupt judgment
 
-Lượt này chạy song song với ba maker khác, mỗi người đang viết dở một tệp trong `test/tools/`. Lần
-chạy `npm test -- test/tools/references.spec.ts` đầu tiên báo **9 fail / 100**, trong khi oracle của
-chính tính năng đang xanh hoàn toàn. Nếu đọc con số tổng đó là "bằng chứng đỏ của tôi", cả lần đỏ
-lẫn lần xanh ghi vào `evidence` đều nói về công việc của người khác.
+This run runs in parallel with three other makers, each in the middle of writing a file in `test/tools/`. Times
+running `npm test -- test/tools/references.spec.ts` first reported **9 failures / 100**, while oracle's
+The main feature is completely green. If you read that total number as "my red proof", all red times
+and the green times recorded in `evidence` both talk about other people's work.
 
-Cách làm đúng, theo thứ tự:
+The correct way to do it, in order:
 
-1. Đo tính năng của mình bằng lệnh hẹp thật sự:
-   `node --experimental-strip-types --test test/tools/<tên>.spec.ts`.
-2. Chỉ khi đó mới chạy `npm test` đầy đủ, và nếu có lỗi thì **quy trách nhiệm theo tệp** trước khi
-   kết luận, bằng một vòng lặp cho từng spec:
+1. Measure your performance with truly narrow commands:
+   `node --experimental-strip-types --test test/tools/<name>.spec.ts`.
+2. Only then run the full `npm test`, and if there are errors, **attribute file responsibility** before
+   Conclusion, with a loop for each spec:
    `for f in test/tools/*.spec.ts; do node --experimental-strip-types --test "$f"; done`.
-   Bảng pass/fail theo tệp biến "8 lỗi ở đâu đó" thành "8 lỗi nằm trọn trong hai tệp không thuộc
-   phạm vi lượt này" — một khẳng định kiểm chứng được, không phải một lời bào chữa.
-3. Ghi cả hai con số vào `evidence`: số của lệnh hẹp là bằng chứng, số của `npm test` là ngữ cảnh.
+   The file-by-file pass/fail table turns "8 errors somewhere" into "8 errors in two unrelated files
+   this turn range" — a verifiable assertion, not an excuse.
+3. Write both numbers into `evidence`: the narrow command number is the evidence, the `npm test` number is the context.
 
-## Hệ quả cho checker
+## Consequences for checkers
 
-`verification` ghi trong `feature_list.json` vẫn là lệnh rộng. Người review chạy đúng lệnh đó sẽ
-thấy lỗi của các tính năng đang chạy song song và có thể quy nhầm cho tính năng đang xét. Nên nêu
-thẳng phân bổ lỗi theo tệp trong `checkerNotes` hoặc `progress.md`.
+The `verification` recorded in `feature_list.json` is still a broad command. The reviewer will run that command correctly
+see errors in features running in parallel and may be mistakenly attributed to the feature in question. Should state
+directly allocate errors by file in `checkerNotes` or `progress.md`.

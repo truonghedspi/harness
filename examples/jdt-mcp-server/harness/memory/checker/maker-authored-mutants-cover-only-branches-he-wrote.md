@@ -1,42 +1,42 @@
-# Mutant do maker tự dựng chỉ phủ nhánh chính maker đã viết
+# Mutants created by the creator only cover the main branch the creator wrote
 
-**Khi nào áp dụng:** mọi tính năng `kind: build` mà maker viết cả implementation lẫn unit test của
-chính nó, rồi nộp một danh sách mutant tự dựng làm bằng chứng cho sức phân biệt của oracle. Gặp lần
-đầu ở `feat-file-sync-watcher` (2026-08-22).
+**When applicable:** any `kind: build` feature for which the maker writes both the implementation and the unit tests
+itself, then submitted a self-made mutant list as proof of the oracle's discriminating power. Meet once
+beginning at `feat-file-sync-watcher` (2026-08-22).
 
-## Vì sao danh sách mutant của maker trông thuyết phục mà vẫn hụt
+## Why does Maker's mutant list look convincing but still falls short?
 
-Bốn mutant maker khai báo đều tái hiện đúng từng chữ. Không mutant nào bịa. Vấn đề nằm ở chỗ khác:
-cả bốn đều đánh vào một nhánh `if` mà maker vừa gõ ra vài phút trước. Người viết code chọn mutant từ
-bản đồ nhánh trong đầu mình, nên tập mutant đó chứng minh đúng thứ oracle vốn đã phủ. Nó không thể
-chỉ ra trục nào chưa ai nghĩ tới.
+The four declared mutants all reproduced word for word. No mutant makes it up. The problem lies elsewhere:
+All four hit an `if` branch that the maker just typed out a few minutes ago. The coder chooses the mutant from
+branch map in my head, so that mutant episode proves exactly what oracle already covered. It's not possible
+point out which axis no one has thought of yet.
 
-Ở lần đó, năm mutant do checker tự dựng đều sống sót với 8/8 xanh, trong khi bản triển khai hoàn
-toàn đúng. Lỗ hổng thuộc về oracle, không thuộc về mã nguồn — nhưng falsifier của tính năng vẫn
-không được chứng minh.
+At that time, the five mutants built by the checker all survived with 8/8 green, while the deployment was complete
+absolutely correct. The vulnerability belongs to the oracle, not the source code — but the feature falsifier remains
+not proven.
 
-## Ba trục nên dựng mutant, ngoài bản đồ nhánh của maker
+## Three axes should build mutants, in addition to the maker's branch map
 
-1. **Hằng số giao thức mà test nhập lại từ chính module đang phán xét.** Đây là R-T3 ở dạng khó
-   thấy nhất. Nếu mọi khẳng định đều so với `FileChangeType.Created` nhập từ module đó, thì đổi
-   `{ Created: 1, Deleted: 3 }` thành `{ Created: 3, Deleted: 1 }` sẽ sống sót: oracle chỉ chứng
-   minh nhãn nhất quán với chính nó, không chứng minh số nguyên đặt lên dây. Cách bắt: đọc chú thích
-   trích dẫn spec ngay trên hằng số, rồi hỏi ca nào ghim literal của spec thay vì ghim tên hằng số.
-2. **Cơ chế mà chính lời giải thích của maker gọi là chịu lực.** Ghi chú thiết kế khẳng định vế
-   `ino` là điểm khiến pattern ghi-tạm-rồi-đổi-tên hiện ra "kể cả khi kích thước không đổi". Xoá vế
-   `ino`: vẫn xanh, vì mọi ca đều ghi nội dung khác độ dài. Quy tắc rút ra: mỗi câu "X là lý do thiết
-   kế này chạy đúng" phải có một ca đỏ khi thiếu X. Nếu không, X là lời khẳng định chứ không phải
-   hành vi đã được chứng minh.
-3. **Hình dạng fixture mà mọi ca cùng chia sẻ.** Cả tám ca dùng một module, một source root
-   `src/main/java`, một `pom.xml` ở gốc. Ba mutant thu hẹp tập được theo dõi (chỉ pom gốc; bỏ
-   `src/test/java`; bỏ luật infix cho reactor) cùng sống sót vì không fixture nào có hình dạng thứ
-   hai. Đây là R-T9 nhìn từ dữ liệu thay vì nhìn từ mã: đọc hằng số cấu hình và chú thích tuỳ chọn
-   của component, rồi đếm xem mỗi giá trị trong đó được ca nào chạm tới.
+1. **Protocol constant that the test re-imports from the module being judged.** This is R-T3 in hard form
+   see the most. If all assertions compare to `FileChangeType.Created` imported from that module, then change
+   `{ Created: 1, Deleted: 3 }` to `{ Created: 3, Deleted: 1 }` will survive: oracle certificate
+   Prove that the label is consistent with itself, not prove that the integer is placed on the string. How to catch: read notes
+   quote the spec right above the constant, then ask which cases include the literal of the spec instead of the constant name.
+2. **The mechanism that maker's own explanation calls load-bearing.** Design notes confirm the
+   `ino` is the point where the write-temporary-then-rename pattern appears "even if the size remains the same". Delete clause
+   `ino`: still green, because all cases record content of different lengths. Rule to draw: each sentence "X is the necessary reason
+   This plan works" There must be a red shift when X is missing. Otherwise, X is a statement, not a statement
+   proven behavior.
+3. **The fixture shape that all cases share.** All eight cases use one module, one source root
+   `src/main/java`, a `pom.xml` at the root. Three set-reduction mutants were observed (original pom only; omitted
+   `src/test/java`; remove the infix rule for reactor) both survive because neither fixture has a second shape
+   two. Here's what R-T9 looks like from the data instead of from the code: reading configuration constants and option comments
+   of the component, then count which shift each value in it touches.
 
-## Cách dựng rẻ và an toàn
+## Cheap and safe way to build
 
-Chép `src/<file>.ts` và spec vào `harness/trace/scratch/<slug>/`, đổi import tương đối của bản sao
-source về `../../../../src/...`, đổi import của bản sao spec về bản sao source. Luôn chạy một bản
-đối chứng `m0` không đột biến trước: nếu `m0` không xanh đúng số ca như bản gốc, bản sao sai và mọi
-kết luận sau đó vô nghĩa. Xoá thư mục sau khi xong; các ca còn thiếu ghi thành yêu cầu cụ thể trong
-`checkerNotes`, không để lại kịch bản.
+Copy `src/<file>.ts` and spec to `harness/trace/scratch/<slug>/`, change the copy's relative import
+source to `../../../../src/...`, change the import of the spec copy to the source copy. Always run one copy
+control `m0` without previous mutation: if `m0` is not green the same number of cases as the original, the copy is wrong and all
+The conclusion then makes no sense. Delete the folder once done; The missing cases are written into specific requirements
+`checkerNotes`, leave no script.

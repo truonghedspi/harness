@@ -1,21 +1,21 @@
-// workspace-edit — tạo hình và áp WorkspaceEdit, dùng chung cho java_rename và java_apply_code_action.
+// workspace-edit — creates and applies WorkspaceEdit, shared with java_rename and java_apply_code_action.
 //
-// Cả hai tool đột biến đều nhận một WorkspaceEdit từ JDT LS (`changes`: URI -> TextEdit[]) và phải
-// (1) chuyển nó thành dữ liệu công bố với toạ độ 1-based, (2) khi `apply:true`, áp ngược lên đĩa.
-// Chúng nằm ở đây để hai tool không có hai bản khác nhau của cùng một phép đổi offset — một lỗi lệch
-// toạ độ ở đây là một lỗi ghi đĩa sai chỗ, tệ hơn nhiều so với một lỗi hiển thị.
+// Both mutants receive a WorkspaceEdit from JDT LS (`changes`: URI -> TextEdit[]) and must
+// (1) convert it to published data with 1-based coordinates, (2) when `apply:true`, apply it back to disk.
+// They are here so that two tools do not have two different versions of the same offset change — an offset error
+// coordinates here are a misplaced disk write error, much worse than a display error.
 
 import { readFileSync, writeFileSync } from "node:fs";
 
 import { fromLspRange, type LspRange, type SourceRange } from "./tool-layer.ts";
 
-/** Shape gốc, giữ range LSP 0-based — đúng đơn vị cần để đổi offset khi ghi đĩa. */
+/** Original shape, keeping range LSP 0-based — correct units needed to convert offset when burning disc. */
 export interface RawWorkspaceFileEdit {
   path: string;
   edits: { range: LspRange; newText: string }[];
 }
 
-/** Shape công bố, toạ độ 1-based — đúng hệ mọi kết quả tool dùng. */
+/** Published shape, 1-based coordinates — valid for all results used by the tool. */
 export interface WorkspaceTextEdit {
   range: SourceRange;
   newText: string;
@@ -26,7 +26,7 @@ export interface WorkspaceFileEdit {
   edits: WorkspaceTextEdit[];
 }
 
-/** Shape `changes` (URI -> TextEdit[]) thành danh sách tệp, bỏ phần tử hỏng. Giữ range LSP. */
+/** Shape `changes` (URI -> TextEdit[]) to file list, removing broken elements. Keep range LSP. */
 export function shapeWorkspaceEdit(raw: unknown): RawWorkspaceFileEdit[] {
   const changes = isRecord(raw) && isRecord(raw.changes) ? raw.changes : undefined;
   if (changes === undefined) return [];
@@ -46,15 +46,14 @@ export function shapeWorkspaceEdit(raw: unknown): RawWorkspaceFileEdit[] {
   return files;
 }
 
-/** Chuyển shape gốc sang shape công bố 1-based — đi qua đúng một ranh giới (INV-TOOL-1). */
+/** Converts the original shape to a 1-based published shape — passing through exactly one boundary (INV-TOOL-1). */
 export function toPublicFileEdits(files: RawWorkspaceFileEdit[]): WorkspaceFileEdit[] {
   return files.map((file) => ({
-    path: file.path,
-    edits: file.edits.map((edit) => ({ range: fromLspRange(edit.range), newText: edit.newText })),
+    path: file.path,edits: file.edits.map((edit) => ({ range: fromLspRange(edit.range), newText: edit.newText })),
   }));
 }
 
-/** Ghi ngược các edit lên đĩa — dùng range LSP gốc để đổi offset chính xác. */
+/** Writes edits back to disk — uses the original range LSP to change the exact offset. */
 export function writeWorkspaceEdits(files: RawWorkspaceFileEdit[]): void {
   for (const file of files) {
     const current = readFileSync(file.path, "utf8");
@@ -64,8 +63,8 @@ export function writeWorkspaceEdits(files: RawWorkspaceFileEdit[]): void {
 }
 
 /**
- * Áp TextEdit lên nội dung theo thứ tự NGƯỢC vị trí bắt đầu, để một edit ở đầu không dịch chuyển
- * offset của edit phía sau. Offset tính bằng UTF-16 code unit — đúng đơn vị LSP `character` dùng.
+ * Apply TextEdit to content in REVERSE order of starting position, so that an edit at the beginning does not move
+ * offset of rear edit. Offset in UTF-16 code units — the correct unit used by LSP `character`.
  */
 export function applyTextEdits(content: string, edits: { range: LspRange; newText: string }[]): string {
   const lines = content.split("\n");
@@ -108,8 +107,7 @@ export function readLspRange(value: unknown): LspRange | undefined {
 }
 
 function readLspPosition(value: unknown): { line: number; character: number } | undefined {
-  if (!isRecord(value)) return undefined;
-  if (typeof value.line !== "number" || typeof value.character !== "number") return undefined;
+  if (!isRecord(value)) return undefined;  if (typeof value.line !== "number" || typeof value.character !== "number") return undefined;
   return { line: value.line, character: value.character };
 }
 

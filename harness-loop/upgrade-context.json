@@ -3,15 +3,15 @@
   "entries": [
     {
       "id": "HUC-2026-09-01-dispatch-brief-quality",
-      "summary": "Dispatch brief truyền diagnosis schema cho maker khi mode=diagnose, cảnh báo verification command phụ thuộc tuần hoàn, và maker prompt hướng dẫn batch writes cho feature_list.json.",
-      "why": "Đo telemetry cho thấy: (1) maker viết sai diagnosis schema vì brief không truyền format cần thiết, (2) feature_list.json bị đọc 12 lần trong một iteration vì maker sửa từng field riêng lẻ, (3) verification command ghép verify-harness tạo phụ thuộc tuần hoàn không được phát hiện sớm.",
-      "targetImpact": "briefToMessage() thêm diagnosis schema block khi mode=diagnose. buildBrief() thêm warnings[] cho compound verification commands. maker-prompt.md step 7 hướng dẫn batch writes. Không breaking change.",
+      "summary": "The dispatch brief provides the diagnosis schema to the maker in diagnose mode, warns about circular verification-command dependencies, and the maker prompt instructs batched writes to feature_list.json.",
+      "why": "Telemetry showed: (1) the maker wrote an invalid diagnosis schema because the brief omitted the required format, (2) feature_list.json was read 12 times in one iteration because the maker changed each field separately, and (3) a verification command chaining verify-harness created a circular dependency that was not detected early.",
+      "targetImpact": "briefToMessage() adds a diagnosis-schema block in diagnose mode. buildBrief() adds warnings[] for compound verification commands. Step 7 of maker-prompt.md instructs batched writes. No breaking change.",
       "paths": [
         "tools/dispatch-brief.mjs",
         "loop/maker-prompt.md"
       ],
       "mergeActions": [
-        "Refresh tools/dispatch-brief.mjs và loop/maker-prompt.md."
+        "Refresh tools/dispatch-brief.mjs and loop/maker-prompt.md."
       ],
       "verification": [
         "bash harness-loop/scripts/demo.sh",

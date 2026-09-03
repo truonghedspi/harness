@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://harness.tcbs.vn/schemas/test-plan/v1",
   "title": "Test Plan (metadata)",
-  "description": "Validate plans/<plan_id>/plan.json. Conditions KHÔNG nhúng vào đây — mỗi condition là một file tại conditions/<TCON-id>.json, validate bằng test-condition.schema.json. Thư mục conditions/ là nguồn sự thật về danh sách condition; harness kiểm referential integrity (plan_id khớp, tên file khớp id, mọi P0 requirement có condition).",
+  "description": "Validates plans/<plan_id>/plan.json. Conditions are not embedded here — each condition is a file at conditions/<TCON-id>.json, validated by test-condition.schema.json. The conditions/ directory is the authoritative condition list; the harness checks referential integrity (matching plan_id, filename and id, and a condition for every P0 requirement).",
   "type": "object",
   "additionalProperties": false,
   "required": ["plan_id", "component", "spec_refs", "risk_tier", "spec_gaps"],
@@ -10,13 +10,13 @@
     "plan_id": {
       "type": "string",
       "pattern": "^TP-[A-Z]+-\\d{4}$",
-      "description": "Phải trùng tên thư mục plans/<plan_id>/ — harness kiểm"
+      "description": "Must match the plans/<plan_id>/ directory name — checked by the harness"
     },
     "component": {
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "Package hoặc module được cover, ví dụ vn.tcbs.halo.matching"
+      "description": "Covered package or module, for example vn.tcbs.halo.matching"
     },
     "spec_refs": {
       "type": "array",
@@ -24,16 +24,16 @@
       "items": {
         "type": "string",
         "maxLength": 300,
-        "description": "Đường dẫn/ID tài liệu spec làm nguồn"
+        "description": "Path or ID of a source specification document"
       }
     },
     "risk_tier": {
       "enum": ["T0", "T1", "T2"],
-      "description": "Do harness routing gán, Designer chép lại — không tự quyết"
+      "description": "Assigned by harness routing and copied by the Designer — do not choose it independently"
     },
     "spec_gaps": {
       "type": "array",
-      "description": "Behavior spec chưa cover hoặc mơ hồ. Rỗng nếu không có — nhưng field luôn phải hiện diện để Designer buộc phải cân nhắc.",
+      "description": "Behavior missing from or ambiguous in the specification. Empty when none exist, but always present so the Designer must consider it.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -43,12 +43,12 @@
             "type": "string",
             "minLength": 10,
             "maxLength": 1000,
-            "description": "Gap là gì; nếu mơ hồ, nêu cả hai cách hiểu"
+            "description": "What the gap is; when ambiguous, state both interpretations"
           },
           "location": {
             "type": "string",
             "maxLength": 300,
-            "description": "Vị trí trong spec (section/dòng) hoặc 'missing'"
+            "description": "Location in the specification (section/line) or 'missing'"
           }
         }
       }

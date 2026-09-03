@@ -1,47 +1,47 @@
-# `EMFILE` từ `fs.watch()` là hạn ngạch của host, và nó tự lành
+# `EMFILE` from `fs.watch()` is the host's quota, and it heals itself
 
-**Bối cảnh.** `feat-prove-diagnostics`, attempt 2 (2026-08-24) và attempt 3 (2026-08-25).
+**Context.** `feat-prove-diagnostics`, attempt 2 (2026-08-24) and attempt 3 (2026-08-25).
 
-## Triệu chứng
+## Symptoms
 
-Oracle của chính tính năng xanh 3/3 trong 10,6 s, nhưng `./harness/init.sh` đỏ. Ca đỏ nằm trong
-`DiskFileSyncWatcher` và báo `EMFILE` từ `fs.watch()`. Hình dạng này mời gọi hai kết luận sai:
-watcher rò file descriptor qua nhiều lần gọi, hoặc tiến trình test cạn fd theo hạn ngạch thông
-thường.
+Oracle's main feature is green 3/3 in 10.6 s, but `./harness/init.sh` is red. The red case is inside
+`DiskFileSyncWatcher` and report `EMFILE` from `fs.watch()`. This shape invites two false conclusions:
+The watcher leaks the descriptor file over many calls, or the test process exhausts the fd according to the throughput quota
+usually.
 
-## Cách phân biệt, chỉ tốn một lệnh
+## How to differentiate, only takes one command
 
-Chạy một tiến trình Node **độc lập, không import module nào của dự án**, rồi đo ba thứ trong cùng
-lần chạy:
+Run a Node process **independently, without importing any modules from the project**, then measure the three things in the same
+run times:
 
-1. `fs.watch()` một thư mục temp vừa tạo, còn trống;
-2. `fs.watch()` một tệp đơn lẻ;
-3. mở khoảng 300 file descriptor `/dev/null` thường.
+1. `fs.watch()` a newly created, empty temp directory;
+2. `fs.watch()` a single file;
+3. Open about 300 regular `/dev/null` file descriptors.
 
-Attempt 2 đo được: vế 1 đỏ, vế 2 và vế 3 xanh. Ba kết quả đó cùng lúc bác bỏ cả hai giả thuyết về
-mã nguồn. Một thư mục trống không có gì để watcher rò; theo dõi tệp và mở fd thường vẫn còn dư địa,
-nên thứ cạn không phải hạn ngạch fd chung mà là hạn ngạch **theo dõi thư mục** của host. Không có
-thay đổi nào trong `src/` hay `test/` biện minh được, và đó là lý do đúng để giữ `readyForCheck`
-ở `false` thay vì vá bừa.
+Attempt 2 measures: side 1 is red, side 2 and side 3 are blue. Those three results simultaneously refute both hypotheses
+source code. An empty directory has nothing for the watcher to leak; file tracking and fd opening usually still have room to spare,
+so what's shallow is not the general fd quota but the host's **directory tracking** quota. No
+What changes in `src/` or `test/` justify it, and which is the right reason to keep `readyForCheck`
+in `false` instead of haphazardly patching.
 
-## Điều không hiển nhiên
+## It's not obvious
 
-Hạn ngạch này **tự giải phóng**. Attempt 3 chạy lại đúng lệnh chẩn đoán đó một ngày sau: cả thư mục
-temp trống, thư mục repo, lẫn 200 thư mục con mới đều theo dõi được, không một lần `EMFILE`. Oracle
-vẫn 3/3 trong 10,64 s và baseline lên 124/124 mà không ai sửa một dòng nào.
+This quota is **self-freeing**. Attempt 3 ran the same diagnostic command again a day later: the whole directory
+empty temp, repo folder, and 200 new subfolders are all traceable, not once `EMFILE`. Oracle
+still 3/3 in 10.64 s and the baseline is up 124/124 without anyone editing a single line.
 
-Nguyên nhân gốc là nhiều tiến trình test chạy song song trong cùng một phiên (nhiều maker và checker
-làm việc đồng thời trên các tính năng khác nhau) làm cạn hạn ngạch của macOS tại đúng thời điểm đó.
-Khi các tiến trình ấy kết thúc, hạn ngạch trở lại.
+The root cause is multiple test processes running in parallel in the same session (multiple makers and checkers
+working on different features simultaneously) exhausts macOS's quota at that exact moment.
+When those processes end, the quota returns.
 
-## Rút ra
+## Pull out
 
-- `EMFILE` từ `fs.watch()` trên macOS là **tín hiệu về tải của máy**, không phải tín hiệu về mã.
-  Đừng tiêu một lượt thử lại để vá watcher.
-- Trước khi đổ lỗi cho watcher, luôn chạy vế đối chứng ở tiến trình độc lập. Nếu một tiến trình
-  không import gì cũng đỏ, khiếm khuyết nằm ngoài repo theo định nghĩa.
-- Baseline đỏ vì môi trường thì phương án đúng là ghi rõ chẩn đoán vào `checkerNotes`, giữ
-  `readyForCheck: false`, rồi **đo lại sau** — không phải nới ca test cho vừa.
-- Hệ quả cho ngân sách thử lại: một lượt "chỉ xác nhận lại" vẫn tính là một attempt. Ở đây nó tiêu
-  nốt lượt cuối (3/3), nên hãy đo lại khi máy đã rảnh, đừng đo giữa lúc còn nhiều tiến trình test
-  khác đang chạy.
+- `EMFILE` from `fs.watch()` on macOS is a **machine load signal**, not a code signal.
+  Don't waste a retry trying to patch the watcher.
+- Before blaming the watcher, always run the control in an independent process. If a process
+  Not importing anything is red, the defect is outside the repo by definition.
+- Baseline is red because of the environment, the correct option is to clearly write the diagnosis in `checkerNotes`, keep
+  `readyForCheck: false`, then **measure again later** — no need to scale the test case to fit.
+- Consequences for the retry budget: a "retry only" still counts as an attempt. Here it is spent
+  last turn (3/3), so measure again when the machine is idle, don't measure while there are many testing processes
+  other is running.

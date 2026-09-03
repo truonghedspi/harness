@@ -1,27 +1,27 @@
-// tool-layer — lõi của `mcp-tool-layer`: xác thực tham số, chuyển đổi toạ độ, tạo hình kết quả
-// (harness/docs/design/architecture.md bảng thành phần, harness/docs/design/tool-surface.md).
+// tool-layer — core of `mcp-tool-layer`: parameter validation, coordinate conversion, result shaping
+// (harness/docs/design/architecture.md component table, harness/docs/design/tool-surface.md).
 //
-// Bất biến sở hữu tại đây:
-//   INV-TOOL-1  mọi vị trí trong mọi kết quả tool — bất kể method LSP nào sinh ra nó — nằm trong
-//               MỘT hệ toạ độ đã tài liệu hoá, chuyển đổi tại ĐÚNG MỘT ranh giới; không kết quả
-//               nào trộn hai cơ sở.
-//   INV-TOOL-4  mọi thất bại được báo cáo dưới dạng structured error nêu đúng tên loại của nó;
-//               không thất bại nào được mã hoá thành một kết quả thành công rỗng.
-//   INV-TOOL-5  xác thực tham số từ chối line/column vượt giới hạn của nội dung HIỆN TẠI của tệp
-//               TRƯỚC khi bất kỳ lời gọi LSP nào được phát ra.
+// Invariants owned here:
+//   INV-TOOL-1  every position in every tool result—regardless of its generating LSP method—uses
+//               ONE documented coordinate system, converted at EXACTLY ONE boundary; no result
+//               mixes the two bases.
+//   INV-TOOL-4  every failure is reported as a structured error naming its correct kind; no failure
+//               is encoded as an empty success result.
+//   INV-TOOL-5  parameter validation rejects line/column outside CURRENT file content limits BEFORE
+//               any LSP request is issued.
 //
-// Tầng này là hàm thuần của một `LspFacade` được tiêm. Nó không sở hữu pool, router, readiness-gate
-// hay watcher: nó nhận một facade đã gộp sẵn ba câu hỏi mà nó cần trả lời được, và không bao giờ tự
-// mở tệp hay tự mở tiến trình. Việc nối dây thật với pool/router/readiness/sync do daemon làm và
-// được chứng minh end-to-end ở feat-prove-cross-process-integration.
+// This layer is a pure function of injected `LspFacade`. It owns no pool, router, readiness gate, or
+// watcher: it receives a facade bundling the three questions it must answer and never opens a file
+// or process itself. The daemon wires pool/router/readiness/sync and proves it end-to-end in
+// feat-prove-cross-process-integration.
 //
-// Vì sao 1-based: X-007. Mọi thứ khác mà một LLM đọc về mã nguồn — lỗi biên dịch, `grep -n`, stack
-// trace — đều 1-based; LSP thì 0-based và đếm bằng UTF-16 code unit. Trộn hai quy ước sinh ra lỗi
-// lệch một dòng trông y hệt lỗi của mô hình. Vì vậy toàn bộ tệp này có đúng hai hàm chạm vào phép
-// cộng trừ đó: `fromLspPosition` cho chiều lên, `toLspPosition` cho chiều xuống. Mọi range, mọi
-// capability, mọi tool tương lai đều đi qua chúng — không có đường tắt nào tự cộng lấy.
+// Why 1-based: X-007. Everything else an LLM reads about source—compiler errors, `grep -n`, stack
+// traces—is 1-based; LSP is 0-based and counts UTF-16 code units. Mixing conventions creates
+// off-by-one errors that look like model failures. This file therefore has exactly two functions
+// performing that arithmetic: `fromLspPosition` upward and `toLspPosition` downward. Every range,
+// capability, and future tool crosses them; no shortcut adds on its own.
 
-/** Taxonomy đóng của X-003. Không có mã lỗi nào ngoài danh sách này rời khỏi tầng tool. */
+/** Closed X-003 taxonomy. No error code outside this list leaves the tool layer. */
 export const TOOL_ERROR_CODES = [
   "unroutable",
   "not-ready",
@@ -32,7 +32,7 @@ export const TOOL_ERROR_CODES = [
 ] as const;
 export type ToolErrorCode = (typeof TOOL_ERROR_CODES)[number];
 
-/** Vị trí trong hệ toạ độ công bố ra ngoài: 1-based, cột đếm bằng UTF-16 code unit (X-007). */
+/** Position in the public coordinate system: 1-based with UTF-16-code-unit columns (X-007). */
 export interface SourcePosition {
   line: number;
   column: number;
@@ -43,7 +43,7 @@ export interface SourceRange {
   end: SourcePosition;
 }
 
-/** Vị trí đúng như LSP nói: 0-based, `character` đếm bằng UTF-16 code unit. */
+/** Position as LSP expresses it: 0-based, with `character` counted in UTF-16 code units. */
 export interface LspPosition {
   line: number;
   character: number;
@@ -54,14 +54,14 @@ export interface LspRange {
   end: LspPosition;
 }
 
-/** Độ lệch giữa hai hệ. Hằng số này chỉ được đọc bởi hai hàm chuyển đổi bên dưới. */
+/** Offset between the two systems. Only the two conversion functions below read this constant. */
 const POSITION_BASE = 1;
 
 // -------------------------------------------------------------------------------------------
-// RANH GIỚI CHUYỂN ĐỔI DUY NHẤT (INV-TOOL-1)
+// THE ONLY CONVERSION BOUNDARY (INV-TOOL-1)
 // -------------------------------------------------------------------------------------------
 
-/** LSP → hệ công bố. Đây là điểm duy nhất trong tầng tool cộng vào một chỉ số dòng hoặc cột. */
+/** LSP → public system. The only point in the tool layer that adds to a line or column index. */
 export function fromLspPosition(position: LspPosition): SourcePosition {
   return {
     line: position.line + POSITION_BASE,
@@ -69,12 +69,12 @@ export function fromLspPosition(position: LspPosition): SourcePosition {
   };
 }
 
-/** Range chỉ là hai vị trí; nó không được phép biết cách chuyển đổi. */
+/** A range is only two positions; it must not know how conversion works. */
 export function fromLspRange(range: LspRange): SourceRange {
   return { start: fromLspPosition(range.start), end: fromLspPosition(range.end) };
 }
 
-/** Hệ công bố → LSP. Điểm duy nhất trong tầng tool trừ đi một chỉ số dòng hoặc cột. */
+/** Public system → LSP. The only point in the tool layer that subtracts a line or column index. */
 export function toLspPosition(position: SourcePosition): LspPosition {
   return {
     line: position.line - POSITION_BASE,
@@ -83,7 +83,7 @@ export function toLspPosition(position: SourcePosition): LspPosition {
 }
 
 // -------------------------------------------------------------------------------------------
-// Cổng tới một workspace
+// Port to a workspace
 // -------------------------------------------------------------------------------------------
 
 export interface WorkspaceReady {
@@ -92,8 +92,8 @@ export interface WorkspaceReady {
 }
 
 /**
- * Mọi lý do khiến một workspace không trả lời được, đặt tên đúng bằng taxonomy X-003 trừ
- * `invalid-position` — mã đó thuộc về tham số của lời gọi, không thuộc về workspace.
+ * Every reason a workspace cannot answer is named by the X-003 taxonomy except `invalid-position`:
+ * that code belongs to call parameters, not the workspace.
  */
 export interface WorkspaceUnavailable {
   status: Exclude<ToolErrorCode, "invalid-position">;
@@ -104,20 +104,21 @@ export interface WorkspaceUnavailable {
 export type WorkspaceAvailability = WorkspaceReady | WorkspaceUnavailable;
 
 /**
- * Ba câu hỏi mà tầng tool cần một workspace trả lời, và không hơn. Daemon dựng facade này từ
- * project-router + workspace-pool + readiness-gate + file-sync-watcher; test dựng nó bằng đồ giả.
+ * The three questions, and no more, that the tool layer needs a workspace to answer. The daemon
+ * builds this facade from project-router + workspace-pool + readiness-gate + file-sync-watcher;
+ * tests build it with fakes.
  */
 export interface LspFacade {
-  /** Workspace phục vụ đường dẫn này có đang trả lời được không, và nếu không thì vì sao. */
+  /** Whether the workspace serving this path can answer, and why if not. */
   workspace(filePath: string): WorkspaceAvailability | Promise<WorkspaceAvailability>;
-  /** Nội dung HIỆN TẠI của tệp — cơ sở duy nhất hợp lệ để xác thực line/column (INV-TOOL-5). */
+  /** CURRENT file content—the only valid basis for line/column validation (INV-TOOL-5). */
   readFile(filePath: string): string | undefined;
-  /** Phát một LSP request tới workspace đó. Tầng tool không bao giờ chạm vào khung LSP. */
+  /** Sends an LSP request to that workspace. The tool layer never touches the LSP framing. */
   request(method: string, params: unknown): Promise<unknown>;
 }
 
 // -------------------------------------------------------------------------------------------
-// Envelope kết quả
+// Result envelope
 // -------------------------------------------------------------------------------------------
 
 export interface ToolFailure {
@@ -130,8 +131,8 @@ export interface ToolFailure {
 export type ToolOutcome<T> = { isError: false; value: T } | ToolFailure;
 
 /**
- * Mọi lỗi rời khỏi tầng này đều đi qua đây, nên thông điệp luôn tự nêu tên loại của nó và không
- * envelope lỗi nào mang theo `value` (INV-TOOL-4).
+ * Every error leaving this layer passes here, so its message always names its kind and no error
+ * envelope carries `value` (INV-TOOL-4).
  */
 function fail(code: ToolErrorCode, message: string, detail?: unknown): ToolFailure {
   const failure: ToolFailure = { isError: true, code, message: `${code}: ${message}` };
@@ -140,24 +141,24 @@ function fail(code: ToolErrorCode, message: string, detail?: unknown): ToolFailu
 }
 
 // -------------------------------------------------------------------------------------------
-// Xác thực tham số (INV-TOOL-5)
+// Parameter validation (INV-TOOL-5)
 // -------------------------------------------------------------------------------------------
 
 /**
- * Tách nội dung thành dòng theo cả ba kiểu xuống dòng. Một tệp rỗng vẫn có đúng một dòng rỗng, nên
- * `line: 1, column: 1` luôn là một vị trí hợp lệ của một tệp tồn tại.
+ * Splits content into lines for all three newline styles. An empty file still has exactly one empty
+ * line, so `line: 1, column: 1` is always a valid position in an existing file.
  */
 function splitLines(content: string): string[] {
   return content.split(/\r\n|\n|\r/);
 }
 
 /**
- * Xác thực một vị trí 1-based so với nội dung hiện tại và hạ nó xuống 0-based. Trả về `ToolFailure`
- * mang mã `invalid-position` cho mọi vi phạm, kèm giới hạn thực tế để người gọi sửa được.
+ * Validates a 1-based position against current content and lowers it to 0-based. Returns a
+ * `ToolFailure` with `invalid-position` for every violation, including actual limits callers need.
  *
- * Cột được so với `line.length`, tức UTF-16 code unit — cùng đơn vị LSP dùng — nên một ký tự
- * astral-plane chiếm hai cột, đúng như JDT LS sẽ hiểu. `length + 1` được chấp nhận: đó là điểm chèn
- * ngay cuối dòng, một vị trí có thật mà completion thường được gọi ở đó.
+ * Columns are compared with `line.length`, in UTF-16 code units like LSP, so an astral-plane
+ * character takes two columns as JDT LS understands it. `length + 1` is accepted: it is the real
+ * insertion point immediately after a line, where completion is often called.
  */
 export function validatePosition(
   content: string,
@@ -185,8 +186,8 @@ export function validatePosition(
     );
   }
 
-  // Chỉ số đã được kẹp trong khoảng hợp lệ ngay bên trên, nên nhánh `?? ""` không bao giờ chạy; nó
-  // có mặt để `noUncheckedIndexedAccess` được thoả bằng mã, không bằng một khẳng định kiểu.
+  // The index was constrained to a valid range just above, so `?? ""` never executes; it exists to
+  // satisfy `noUncheckedIndexedAccess` in code rather than with a type assertion.
   const text = lines[position.line - POSITION_BASE] ?? "";
   if (position.column < POSITION_BASE) {
     return fail(
@@ -206,7 +207,7 @@ export function validatePosition(
 }
 
 // -------------------------------------------------------------------------------------------
-// Đúc range của một token từ nội dung tệp
+// Shape a token range from file content
 // -------------------------------------------------------------------------------------------
 
 const IDENTIFIER_PART = /[\p{L}\p{N}_$]/u;
@@ -216,19 +217,19 @@ function isIdentifierPart(codePointText: string): boolean {
 }
 
 /**
- * Range của token định danh phủ lên `character` trên `text`, tính bằng UTF-16 code unit. Đi theo
- * ranh giới code point nên một cặp surrogate không bao giờ bị cắt đôi. Khi vị trí không nằm trên
- * một định danh, range rỗng tại chính vị trí đó — vẫn là một range hợp lệ, không phải trường trống.
+ * An identifier-token range covers `character` in `text`, measured in UTF-16 code units. It follows
+ * code-point boundaries so a surrogate pair is never split. When the position is not on an
+ * identifier, the range is empty at that position—still a valid range, not an omitted field.
  */
 function tokenBoundsAt(text: string, character: number): { start: number; end: number } {
   const clamped = Math.max(0, Math.min(character, text.length));
 
   let start = clamped;
   while (start > 0) {
-    // Đi ngược thì không đọc được code point bằng `codePointAt(start - 1)`: ở đúng một cặp surrogate,
-    // vị trí đó là nửa sau (trail), và `codePointAt` trả về chính nửa đó chứ không phải cả cặp. Nên
-    // bề rộng phải suy ra từ dải trail surrogate, ngược lại token dừng sớm ngay trước một chữ cái
-    // astral-plane và range trả về thiếu mất ký tự đầu của định danh.
+    // Walking backward cannot read a code point with `codePointAt(start - 1)`: in a surrogate pair,
+    // that position is its trailing half and `codePointAt` returns that half, not the full pair.
+    // Infer width from the trailing-surrogate range instead, or the token stops before an astral
+    // character and the returned range omits the identifier's first character.
     const previous = text.charCodeAt(start - 1);
     const isTrailSurrogate = start >= 2 && previous >= 0xdc00 && previous <= 0xdfff;
     const width = isTrailSurrogate ? 2 : 1;
@@ -249,7 +250,7 @@ function tokenBoundsAt(text: string, character: number): { start: number; end: n
   return { start, end };
 }
 
-/** Range của token tại một vị trí LSP, trả về trong hệ LSP: người gọi vẫn phải đi qua ranh giới. */
+/** Token range at an LSP position, returned in the LSP system; callers still cross the boundary. */
 function tokenLspRangeAt(content: string, position: LspPosition): LspRange {
   const lines = splitLines(content);
   const text = lines[position.line] ?? "";
@@ -261,7 +262,7 @@ function tokenLspRangeAt(content: string, position: LspPosition): LspRange {
 }
 
 // -------------------------------------------------------------------------------------------
-// Đường gọi tool theo vị trí
+// Positional tool call path
 // -------------------------------------------------------------------------------------------
 
 export const HOVER_METHOD = "textDocument/hover";
@@ -270,9 +271,9 @@ export const COMPLETION_METHOD = "textDocument/completion";
 export type PositionCapability = "hover" | "completion";
 
 /**
- * INV-TOOL-6 rút gọn cho lõi: hover thành công LUÔN mang `range`, và "không giải được phần tử nào"
- * là một nhánh có tên chứ không phải một trường bị bỏ trống. Việc nhánh `resolved: false` được ánh
- * xạ ra envelope MCP thế nào là chuyện của feat-tool-hover.
+ * Core form of INV-TOOL-6: successful hover ALWAYS carries `range`, and "no element resolved" is a
+ * named branch rather than an omitted field. How `resolved: false` maps to the MCP envelope belongs
+ * to feat-tool-hover.
  */
 export type HoverAnswer =
   | { resolved: true; contents: string; range: SourceRange }
@@ -290,7 +291,7 @@ export interface CompletionAnswer {
 
 export interface PositionalRequest {
   path: string;
-  /** 1-based, theo X-007 — đúng hệ mà mọi kết quả cũng dùng. */
+  /** 1-based per X-007—the same system every result uses. */
   line: number;
   column: number;
 }
@@ -298,20 +299,20 @@ export interface PositionalRequest {
 export interface PositionalAnswer {
   path: string;
   workspaceId: string;
-  /** Vị trí đã được xác thực, echo lại trong cùng hệ toạ độ với mọi range bên dưới. */
+  /** Validated position, echoed in the same coordinate system as every range below. */
   position: SourcePosition;
   hover?: HoverAnswer;
   completion?: CompletionAnswer;
 }
 
 /**
- * Đường đi chung của mọi tool nhận `path/line/column`. Thứ tự các bước là nội dung của hai bất biến,
- * không phải sở thích:
+ * Common path for every tool receiving `path/line/column`. Step order is the substance of two
+ * invariants, not a preference:
  *
- *   1. hỏi workspace có trả lời được không — chưa sẵn sàng thì dừng ngay với lỗi có tên (INV-TOOL-4);
- *   2. đọc nội dung HIỆN TẠI của tệp;
- *   3. xác thực line/column so với nội dung đó — hỏng thì dừng, và facade chưa hề bị gọi (INV-TOOL-5);
- *   4. chỉ đến đây mới phát LSP request, và mọi vị trí trả về đi qua đúng một ranh giới (INV-TOOL-1).
+ *   1. ask whether the workspace can answer—if not ready, stop with a named error (INV-TOOL-4);
+ *   2. read CURRENT file content;
+ *   3. validate line/column against it—on failure stop before calling the facade (INV-TOOL-5);
+ *   4. only now send the LSP request, and every returned position crosses exactly one boundary (INV-TOOL-1).
  */
 export async function callPositionalTool(
   facade: LspFacade,
@@ -320,8 +321,8 @@ export async function callPositionalTool(
 ): Promise<ToolOutcome<PositionalAnswer>> {
   const availability = await facade.workspace(request.path);
   if (availability.status !== "ready") {
-    // INV-TOOL-4: spike B cho thấy JDT LS trả `[]` thay vì lỗi khi bị hỏi sai chỗ, nên một kết quả
-    // rỗng ở đây sẽ được agent đọc là "không có gì cả" và hành động theo. Không bao giờ.
+    // INV-TOOL-4: spike B showed JDT LS returns `[]`, not an error, when asked in the wrong place;
+    // an empty result here would mean "there is nothing" to the agent, which would act on it. Never.
     return fail(
       availability.status,
       `workspace serving ${request.path} cannot answer: ${availability.detail}`,
@@ -373,7 +374,7 @@ export async function callPositionalTool(
   return { isError: false, value: answer };
 }
 
-/** Tiện ích một-capability. Chúng tồn tại để không tool nào có lý do dựng đường đi riêng. */
+/** Single-capability helpers. They exist so no tool has a reason to construct its own path. */
 export function hover(
   facade: LspFacade,
   request: PositionalRequest,
@@ -389,23 +390,23 @@ export function completion(
 }
 
 // -------------------------------------------------------------------------------------------
-// Tạo hình kết quả — mọi range ở đây đều đi qua fromLspRange, không có ngoại lệ
+// Result shaping — every range here crosses fromLspRange, without exception
 // -------------------------------------------------------------------------------------------
 
 function shapeHover(raw: unknown, content: string, position: LspPosition): HoverAnswer {
   const contents = readHoverContents(raw);
   if (contents === undefined || contents.length === 0) {
-    // `reason` chở một toạ độ ra khỏi tầng tool y như `range`, chỉ khác là dưới dạng văn xuôi mà
-    // agent đọc. Vì vậy nó đi qua đúng ranh giới chung; tự cộng `POSITION_BASE` tại đây sẽ là ranh
-    // giới chuyển đổi thứ ba, và INV-TOOL-1 không còn được một chỗ duy nhất bảo đảm.
+    // `reason` carries a coordinate out of tool-layer just like `range`, except as prose the agent
+    // reads. It therefore crosses the shared boundary; adding `POSITION_BASE` here would create a
+    // third conversion boundary and no single place would guarantee INV-TOOL-1.
     const reported = fromLspPosition(position);
     return {
       resolved: false,
       reason: `${HOVER_METHOD} resolved no element at line ${reported.line}, column ${reported.column}`,
     };
   }
-  // JDT LS không bao giờ đặt `Hover.range` (HoverHandler.hover() chỉ setContents), nên range được
-  // đúc từ chính nội dung tệp mà bước xác thực đã đọc. Dù nguồn nào, nó vẫn đi qua ranh giới chung.
+  // JDT LS never sets `Hover.range` (HoverHandler.hover() only setsContents), so range is shaped
+  // from the file content read by validation. Whatever its source, it still crosses the shared boundary.
   const lspRange = readRange(raw) ?? tokenLspRangeAt(content, position);
   return { resolved: true, contents, range: fromLspRange(lspRange) };
 }
@@ -425,7 +426,7 @@ function shapeCompletion(raw: unknown, content: string, position: LspPosition): 
     if (label === undefined) continue;
     const item: CompletionItemAnswer = {
       label,
-      // Cùng một hàm, cùng một hằng số, cùng một phép cộng như hover. Đó là toàn bộ INV-TOOL-1.
+      // Same function, constant, and addition as hover. That is all of INV-TOOL-1.
       range: fromLspRange(readCompletionRange(rawItem) ?? fallback),
     };
     if (typeof rawItem.detail === "string") item.detail = rawItem.detail;
@@ -461,7 +462,7 @@ function readLspPosition(value: unknown): LspPosition | undefined {
   return { line: value.line, character: value.character };
 }
 
-/** LSP cho phép `contents` là string, MarkupContent, MarkedString hoặc mảng của chúng. */
+/** LSP allows `contents` to be string, MarkupContent, MarkedString, or an array of them. */
 function readHoverContents(raw: unknown): string | undefined {
   if (!isRecord(raw)) return undefined;
   return readMarkup(raw.contents);

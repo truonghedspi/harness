@@ -1,15 +1,15 @@
-// apply-code-action — tool `java_apply_code_action` của tầng MCP (harness/docs/design/tool-surface.md).
+// apply-code-action — the MCP-layer `java_apply_code_action` tool (harness/docs/design/tool-surface.md).
 //
-// Nửa thứ hai của giao thức hai pha: `java_code_actions` đúc `actionId` mờ đục (trói vào sync
-// generation), còn tool này giải nó bằng một vòng `codeAction/resolve`. Hai bất biến riêng của cặp
-// tool này đều đổ dồn về đây:
+// The second half of the two-phase protocol: `java_code_actions` mints an opaque `actionId` (bound
+// to sync generation), and this tool resolves it through `codeAction/resolve`. The pair's two
+// specific invariants converge here:
 //
-//   INV-CA-1  một actionId chỉ giải được khi sync generation của workspace vẫn khớp lúc đúc; đổi thì
-//             LUÔN lỗi thay vì âm thầm trả edit tính trên mã nguồn đã đổi (stale).
-//   INV-CA-2  mọi actionId trao ra hoặc giải được, hoặc hết hạn kèm lỗi — không bao giờ giải nhầm
-//             sang action khác.
+//   INV-CA-1  an actionId resolves only when the workspace sync generation still matches its mint;
+//             a change ALWAYS fails instead of silently returning an edit for changed source (stale).
+//   INV-CA-2  every issued actionId either resolves or expires with an error; it never resolves to
+//             another action.
 //
-// `apply:true` vẫn là opt-in ghi đĩa theo INV-TOOL-2 (A-002), giống java_rename.
+// `apply:true` remains opt-in disk writing under INV-TOOL-2 (A-002), as with java_rename.
 
 import {
   type LspFacade,
@@ -45,7 +45,7 @@ export async function javaApplyCodeAction(
   generation: number,
   args: JavaApplyCodeActionArguments,
 ): Promise<ToolOutcome<JavaApplyCodeActionResult>> {
-  // INV-CA-1/2: handle phải giải được ở đúng workspace và đúng generation; không thì lỗi có tên.
+  // INV-CA-1/2: the handle must resolve in the correct workspace and generation; otherwise use a named error.
   const resolved = store.resolve(workspaceId, generation, args.actionId);
   if (!resolved.ok) {
     return resolved.reason === "expired"

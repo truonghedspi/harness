@@ -1,23 +1,23 @@
-# Chặn nhịp một cổng tiêm được, thay vì thay nó bằng đồ giả
+# Pacing an injectable port, instead of replacing it with a dummy
 
-**Khi nào áp dụng:** ca kiểm thử phải giết một thành phần rồi để một thành phần khác thế chỗ trên
-cùng một tài nguyên dùng chung (socket, cổng, tệp khoá). Gặp ở `feat-mcp-shim`, ca `INV-SHIM-3`
-"daemon bị giết giữa phiên, shim phải tái kết nối trong suốt".
+**When to apply:** The test case must kill one component and then let another component take its place
+same shared resource (socket, port, key file). Found in `feat-mcp-shim`, ca `INV-SHIM-3`
+"daemon killed mid-session, shim must reconnect during".
 
-## Cuộc chạy đua mà bản viết ngây thơ tự tạo ra
+## The race that the innocent script created for itself
 
-Kịch bản mong muốn: daemon A đang phục vụ socket, shim đã nối; SIGKILL A; daemon B lên; shim phải
-tự nối lại và định tuyến sang B.
+Desired scenario: daemon A is serving socket, shim hooked up; SIGKILL A; daemon B up; right shim
+reconnect and route to B.
 
-Bản ngây thơ giết A rồi khởi động B. Nhưng ngay khi A chết, đường dẫn socket **trống**, và cơ chế
-connect-or-spawn của chính shim sẽ tự bind nó. Tuỳ nhịp máy, hoặc shim thắng (nó tự làm daemon, B
-sau đó delegate sang shim), hoặc B thắng. Ca xanh vì lý do khác nhau ở mỗi lần chạy, và không lần
-nào chứng minh được điều nó tuyên bố.
+The naive version kills A and then starts B. But as soon as A dies, the socket path is **empty**, and the mechanism
+The shim's connect-or-spawn will automatically bind it. Depending on machine speed, or shim wins (it makes its own daemon, B
+then delegate to shim), or B wins. Green shift for different reasons in each run, and not each time
+Which proves what it claims.
 
-## Cách sửa
+## How to fix
 
-Đừng thay `startDaemon` bằng một hàm giả — làm thế là bỏ mất chính giao thức đang cần chứng minh.
-Hãy **chặn nhịp** nó: cổng tiêm vào vẫn gọi `startDaemon` thật, chỉ chờ một promise do test nắm.
+Don't replace `startDaemon` with a dummy function — doing so will miss the very protocol being proven.
+Let's **stop** it: the injection port still calls the real `startDaemon`, just waiting for a promise held by the test.
 
 ```ts
 let gate: Promise<void> = Promise.resolve();
@@ -26,19 +26,19 @@ const closeGate = () => { gate = new Promise((resolve) => { openGate = resolve; 
 const launch: LaunchDaemon = async (options) => { await gate; return startDaemon(options); };
 ```
 
-Trình tự trở thành xác định: `closeGate()` → giết A → chờ shim **thấy** link đứt
-(`waitFor(() => !shim.stats().connected)`) → client ghi tiếp lời gọi → chờ nó nằm trong đệm
-(`bufferedLines === 1`) → khởi động B, chờ B báo listening → `openGate()`.
+The sequence becomes deterministic: `closeGate()` → kill A → wait for shim to **see** broken link
+(`waitFor(() => !shim.stats().connected)`) → client records the call → waits for it to be in the buffer
+(`bufferedLines === 1`) → start B, wait for B to notify listening → `openGate()`.
 
-## Hai điều kèm theo, cùng quan trọng
+## Two accompanying things, equally important
 
-1. **Chờ hệ thống thấy sự kiện, đừng chờ sự kiện xảy ra.** Ghi vào stdin ngay sau `kill()` là ghi
-   vào một socket có thể chưa phát `close`; thông điệp mất theo đúng nghĩa "lời gọi đang bay", và ca
-   sẽ đỏ ngẫu nhiên. Điều kiện chờ phải là trạng thái quan sát được của thành phần
-   (`stats().connected`), không phải trạng thái của con mồi.
-2. **Gắn thẻ pid vào câu trả lời của mỗi tiến trình daemon.** `result.pid` khác nhau giữa hai lần là
-   bằng chứng cơ học rằng một tiến trình thật sự khác đã trả lời — mạnh hơn nhiều so với việc chỉ
-   khẳng định "có câu trả lời".
+1. **Wait for the system to see the event, don't wait for the event to happen.** Writing to stdin immediately after `kill()` is writing
+   into a socket that may not have issued `close`; the message is lost in the true sense of "the call is flying", and ca
+   will be red randomly. The wait condition must be an observable state of the component
+   (`stats().connected`), not the status of the prey.
+2. **Attach the pid tag to each daemon process's response.** The difference between the two `result.pid` is
+   mechanical evidence that another process actually responded — much stronger than just
+   claim "to have the answer".
 
-Đo được: mutant bỏ `reconnect()` và mutant vứt thông điệp thay vì đệm đều giết đúng ca này và không
-giết ca nào khác.
+Measured: mutant dropping `reconnect()` and mutant throwing message instead of buffer both kill this case correctly and not
+kill someone else.

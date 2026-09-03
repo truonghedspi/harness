@@ -1,33 +1,33 @@
-# Cơ chế dự phòng dư thừa che mất mutant
+# Redundant redundancy mechanism obscures mutants
 
-Bối cảnh: kiểm chứng feat-workspace-pool. Hàm dừng tiến trình có hai tầng:
+Context: verify feat-workspace-pool. The process stop function has two levels:
 
 ```ts
 child.kill("SIGTERM");
 const escalation = setTimeout(() => child.kill("SIGKILL"), graceMs);
 ```
 
-## Vấn đề
+## Problem
 
-Mutant xoá dòng `child.kill("SIGTERM")` vẫn cho kết quả xanh trên cả hai test integration, dù test
-khẳng định rõ "closing the pool must terminate the real process it started". Nguyên nhân gốc: tầng
-SIGKILL sau 5 giây vẫn thu hồi tiến trình con, trong khi ngân sách chờ của test là 10 giây. Tầng dự
-phòng hấp thụ đúng khiếm khuyết mà mutant tạo ra.
+Mutant deleting the line `child.kill("SIGTERM")` still gives green results on both integration tests, even though the test
+clearly states "closing the pool must terminate the real process it started". Root cause: floor
+SIGKILL after 5 seconds still revokes the child process, while the test's waiting budget is 10 seconds. Attendance floor
+The room absorbs the exact defect that the mutant created.
 
-Nếu dừng ở đây và kết luận "test không chứng minh được việc dừng tiến trình", phán quyết sẽ sai.
-Mutant thay thế xoá toàn bộ thân hàm (`return` ngay đầu hàm) làm cả hai test đỏ sau khoảng 10,8
-giây mỗi test. Việc dừng tiến trình được chứng minh thật; chỉ có thứ tự SIGTERM trước SIGKILL là
-chưa được cố định.
+If we stop here and conclude "testing does not prove stopping the process", the verdict will be wrong.
+The substitution mutant deletes the entire function body (`return` right at the beginning of the function) making both tests red after about 10.8
+seconds per test. Stopping the process is proven; only the order SIGTERM before SIGKILL is
+not yet fixed.
 
-## Kết luận rút ra
+## Conclusion drawn
 
-Trước khi thiết kế mutant, hãy đọc hết thân hàm và đếm số cơ chế cùng hướng tới một kết quả. Khi có
-từ hai cơ chế trở lên:
+Before designing a mutant, read through the function body and count the number of mechanisms working towards the same result. When available
+two or more mechanisms:
 
-1. Xoá cả hàm để kiểm tra kết quả tổng thể có được chứng minh hay không.
-2. Xoá từng cơ chế riêng lẻ chỉ để trả lời một câu hỏi hẹp hơn: cơ chế đó có được cố định riêng
-   không.
+1. Delete the whole function to check whether the overall result is proven or not.
+2. Delete each individual mechanism just to answer a narrower question: is the mechanism individually fixed
+   no.
 
-Một mutant sống sót ở bước 2 không phải là lỗ hổng nếu hành vi tương ứng nằm ngoài falsifier của
-tính năng. Ở lần này, "dừng nhẹ nhàng trước khi kill" thuộc feat-prove-pool-crash-handling, nên chỉ
-ghi chú, không REJECT.
+A mutant that survives step 2 is not vulnerable if the corresponding behavior is outside of the falsifier
+feature. This time, "pause gently before killing" belongs to feat-prove-pool-crash-handling, so just
+Note, do not REJECT.

@@ -542,52 +542,52 @@
     {
       "id": "spec",
       "depth": 1,
-      "description": "Yêu cầu và giả định cần người xác nhận"
+      "description": "Requirements and assumptions awaiting human confirmation"
     },
     {
       "id": "baseline",
       "depth": 2,
-      "description": "Verification gate đỏ — phải sửa trước khi làm tính năng"
+      "description": "A failing verification gate that must be fixed before feature work"
     },
     {
       "id": "design",
       "depth": 3,
-      "description": "Thiết kế thiếu seam hoặc invariant"
+      "description": "A missing design seam or invariant"
     },
     {
       "id": "decomposition",
       "depth": 4,
-      "description": "Cắt tính năng sai hoặc thiếu cập nhật sau thiết kế"
+      "description": "Incorrect feature slicing or missing post-design updates"
     },
     {
       "id": "oracle",
       "depth": 5,
-      "description": "Falsifier, điều kiện kiểm thử, bài kiểm thử oracle"
+      "description": "Falsifier, test conditions, and oracle tests"
     },
     {
       "id": "integration",
       "depth": 6,
-      "description": "Triển khai và kiểm thử trên cluster thật"
+      "description": "Deployment and testing on a real cluster"
     },
     {
       "id": "implementation",
       "depth": 7,
-      "description": "Triển khai tính năng — chỉ khi mọi lớp trên đã thông"
+      "description": "Feature implementation — only after every higher layer is clear"
     },
     {
       "id": "diagnosis",
       "depth": 7,
-      "description": "Chẩn đoán nguyên nhân trước khi sửa (cùng lớp implementation)"
+      "description": "Diagnose the cause before fixing it (same layer as implementation)"
     },
     {
       "id": "final-acceptance",
       "depth": 8,
-      "description": "Checker duyệt lần cuối — chỉ checker đặt done"
+      "description": "Final checker approval — only the checker sets done"
     },
     {
       "id": "unknown",
       "depth": 0,
-      "description": "Router không xác định được layer — mọi rule đều từ chối nhưng vẫn còn tính năng mở"
+      "description": "The router cannot identify a layer — every rule declines while open work remains"
     }
   ]
 }

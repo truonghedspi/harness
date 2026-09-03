@@ -1,95 +1,95 @@
 # harness
 
-Công cụ harness tự động cho kỹ thuật phần mềm, giúp các đội phát triển xây dựng quy trình maker-checker với độ tin cậy có thể kiểm chứng.
+An automated software-engineering harness that helps development teams build maker-checker workflows with verifiable reliability.
 
-## Bắt đầu nhanh
+## Quick start
 
-### Cài đặt harness cho dự án hiện có
+### Install the harness in an existing project
 
 ```bash
-# Thiết lập harness trên dự án
-node harness-loop/scripts/setup-harness-loop.mjs --target <đường-dẫn-dự-án>
+# Set up the harness in a project
+node harness-loop/scripts/setup-harness-loop.mjs --target <project-path>
 
-# Kiểm tra cấu trúc (phải đạt 13/13 bài học)
+# Check structure (must pass all 13 lessons)
 node check-coverage.mjs
 
-# Xác minh hoạt động (phải báo 0 blocker)
-node harness-loop/scripts/verify-harness.mjs --target <đường-dẫn-dự-án> --run-features
+# Verify behavior (must report zero blockers)
+node harness-loop/scripts/verify-harness.mjs --target <project-path> --run-features
 ```
 
-### Chạy quy trình tự động
+### Run the automated workflow
 
 ```bash
-# Chạy vòng lặp maker-checker
-node <dự-án>/harness/loop/run-loop.mjs
+# Run the maker-checker loop
+node <project>/harness/loop/run-loop.mjs
 
-# Theo dõi tiến độ
-node <dự-án>/harness/tools/loop-status.mjs --watch
+# Monitor progress
+node <project>/harness/tools/loop-status.mjs --watch
 ```
 
-## Thành phần chính
+## Main components
 
 ### harness-loop/
-Scaffold hoàn chỉnh bao gồm 13 bài học từ [Learn Harness Engineering](https://github.com/walkinglabs/learn-harness-engineering), với vòng lặp maker-checker tự động và khả năng tự cải tiến.
+A complete scaffold covering the 13 lessons from [Learn Harness Engineering](https://github.com/walkinglabs/learn-harness-engineering), with an automated maker-checker loop and self-improvement capability.
 
-**Ba pha chính:**
-- **Tạo**: `setup-harness-loop.mjs` scaffold cấu trúc harness
-- **Xác minh**: `check-coverage.mjs` kiểm tra cấu trúc, `verify-harness.mjs` kiểm tra hoạt động thực tế
-- **Cải tiến**: `harness-issue.mjs` + `improve-harness.mjs` theo dõi và sửa lỗi tự động
+**Three main phases:**
+- **Create**: `setup-harness-loop.mjs` scaffolds the harness structure
+- **Verify**: `check-coverage.mjs` checks structure; `verify-harness.mjs` checks real behavior
+- **Improve**: `harness-issue.mjs` + `improve-harness.mjs` track and repair defects automatically
 
-**Tính năng nổi bật:**
-- Hỗ trợ đa nền tảng (Windows, macOS, Linux) qua Node.js `.mjs`
-- Dispatch tự động thông qua ACP cho Kiro
-- Báo cáo tiến độ theo thời gian thực
-- Layout được chứa trong thư mục `harness/` duy nhất
+**Highlights:**
+- Cross-platform support (Windows, macOS, Linux) through Node.js `.mjs`
+- Automatic dispatch through ACP for Kiro
+- Real-time progress reporting
+- A contained layout in a single `harness/` directory
 
 ### test-design.skill
-Gói kỹ năng thiết kế test độc lập với khả năng tạo oracle và điều kiện test không phụ thuộc vào implementation.
+An independent test-design skill pack that creates implementation-independent oracles and test conditions.
 
 ### examples/timesten-migration/
-Ví dụ thực tế về migration TimesTen → Aeron Cluster, bao gồm pipeline per-unit và Definition of Done dựa trên chứng cứ.
+A practical TimesTen → Aeron Cluster migration example, including a per-unit pipeline and evidence-based Definition of Done.
 
-## Mở rộng harness
+## Extend the harness
 
-### Thêm agent mới
-1. Chỉnh sửa `agents.manifest.json` để định nghĩa agent
-2. Tạo prompt trong `harness/prompts/` 
-3. Cập nhật routing rules trong `harness/loop/route.mjs`
-4. Chạy `node tools/gen-agents.mjs` để sinh config runtime
+### Add a new agent
+1. Edit `agents.manifest.json` to define the agent
+2. Create a prompt in `harness/prompts/`
+3. Update routing rules in `harness/loop/route.mjs`
+4. Run `node tools/gen-agents.mjs` to generate runtime configuration
 
-### Tùy chỉnh quy trình
-- **Routing**: Chỉnh sửa `harness/loop/route.mjs` cho logic routing tùy chỉnh
-- **Gate mới**: Thêm verification vào `harness/init.mjs`
-- **Capabilities**: Thêm skill pack vào `harness-loop/capabilities/`
+### Customize the workflow
+- **Routing**: Edit `harness/loop/route.mjs` for custom routing logic
+- **New gate**: Add verification to `harness/init.mjs`
+- **Capabilities**: Add a skill pack to `harness-loop/capabilities/`
 
-### Tích hợp Kubernetes
-Harness tự động phát hiện `Chart.yaml` và cài đặt tooling cluster:
+### Kubernetes integration
+The harness automatically detects `Chart.yaml` and installs cluster tooling:
 - Namespace-per-run isolation
-- Helm deploy/test/teardown tự động  
-- Agent `k8s-integration-tester` chuyên biệt
+- Automated Helm deploy/test/teardown
+- Dedicated `k8s-integration-tester` agent
 
-### Upgrade harness hiện có
+### Upgrade an existing harness
 ```bash
-# Nâng cấp harness cũ với ownership-aware merge
-node harness-loop/scripts/upgrade-harness.mjs --target <dự-án>
+# Upgrade an existing harness with an ownership-aware merge
+node harness-loop/scripts/upgrade-harness.mjs --target <project>
 ```
 
 ## Architecture
 
-### Vòng lặp maker-checker
-- **Maker**: Triển khai features, ghi lại evidence trung thực
-- **Checker**: Đánh giá cuối cùng, quyền độc quyền đặt `status: done`
-- **Router**: Điều phối luồng công việc dựa trên trạng thái và dependencies
+### Maker-checker loop
+- **Maker**: Implements features and records honest evidence
+- **Checker**: Performs final evaluation and has exclusive authority to set `status: done`
+- **Router**: Directs workflow from state and dependencies
 
-### Phân tách vai trò
-- Maker không thể tự chấm `done`
-- Checker chỉ chạy sau khi mọi feature được handoff
-- Typed admission seam ngăn incomplete submission
+### Role separation
+- Makers cannot mark themselves `done`
+- The checker runs only after every feature is handed off
+- The typed admission seam prevents incomplete submissions
 
 ### Tracing
-- Decision path ghi nhận trong `trace/trace.jsonl`
-- Không lưu trữ file contents trong trace
+- The decision path is recorded in `trace/trace.jsonl`
+- Trace files do not store file contents
 
 ## Working in this repo
 
-Đọc [`AGENTS.md`](AGENTS.md) — router chính: cái gì nằm ở đâu, quy tắc cần tuân thủ (sửa template chứ không sửa target; mọi thay đổi hành vi đều cần bước `demo.sh`), và cách xác minh thay đổi.
+Read [`AGENTS.md`](AGENTS.md) — the main router for where things live, rules to follow (fix the template rather than the target; every behavioral change needs a `demo.sh` step), and how to verify changes.

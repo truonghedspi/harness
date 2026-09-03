@@ -2,47 +2,47 @@
 name: superlative-in-invariant-needs-two-candidates
 description: A superlative in an invariant (outermost/nearest/first/last) is unverified unless a fixture offers two candidates on that axis.
 metadata:
-  type: lesson
+  type: lessons
   date: 2026-08-21
 ---
 
-`INV-ROUTE-1` chứa hai từ chọn lọc: `outermost enclosing ancestor pom.xml that declares <modules>` và
-`nearest ancestor pom.xml`. Bộ oracle sáu điều kiện giết mọi mutant mà falsifier nêu tên, nhưng mutant
-đổi `mavenRoots.findLast(...)` thành `mavenRoots.find(...)` — chọn reactor trong cùng thay vì ngoài
-cùng — vẫn xanh 6/6. Nguyên nhân gốc: không fixture nào có reactor lồng trong reactor, nên trục
-`outermost` chỉ có đúng một ứng viên.
+`INV-ROUTE-1` contains two select words: `outermost enclosing ancestor pom.xml that declares <modules>` and
+`nearest ancestor pom.xml`. The six-condition oracle kills all mutants that falsifier names, but mutants
+change `mavenRoots.findLast(...)` to `mavenRoots.find(...)` — select innermost reactor instead of outer
+same — still green 6/6. Root cause: no fixture has a reactor nested in the reactor, so the shaft
+`outermost` has only one candidate.
 
-**Vì sao khó thấy:** đây là lần thứ hai liên tiếp cùng một hàm routing lọt lưới theo cùng một kiểu.
-Lần trước là mệnh đề fallback (`nearest`) không có ứng viên thứ hai; TCON-ROUTE-0006 đóng đúng mệnh đề
-đó rồi dừng lại. Một điều kiện mới chỉ đóng đúng trục mà nó được đặt hàng, không đóng các trục còn lại
-của cùng một câu invariant.
+**Why it's hard to see:** This is the second time in a row that the same routing function has slipped through the net in the same way.
+The previous time was a fallback (`nearest`) clause with no second candidate; TCON-ROUTE-0006 correctly closes the clause
+then stop. A new condition only closes the axis it was ordered on, not the remaining axes
+of the same invariant sentence.
 
-**Cách áp dụng:** khi invariant chứa từ so sánh nhất hoặc từ chọn lọc (`outermost`, `nearest`, `first`,
-`last`, `longest prefix`, `highest priority`), tách câu thành từng trục chọn lọc. Với mỗi trục, hỏi cây
-fixture có tối thiểu hai ứng viên hợp lệ hay không. Nếu chỉ có một, từ đó được chứng minh bởi không gì
-cả — đảo chiều phép chọn trong bản sao scratch và chạy lại để xác nhận. Báo cáo dạng `FOLLOW-UP:` kèm
-đúng hàng decision table còn thiếu, khi các falsifier mà tính năng tự nêu đều đã bị giết.
+**How to apply:** when invariant contains a superlative or selective word (`outermost`, `nearest`, `first`,
+`last`, `longest prefix`, `highest priority`), separates sentences into each selection axis. For each axis, ask the tree
+fixture has at least two valid candidates. If there is only one, the word is proven by nothing
+both — reverse the selection in the scratch copy and run again to confirm. Report in the form `FOLLOW-UP:` attached
+The correct decision table row is missing, when the falsifiers that the feature mentioned have all been killed.
 
-## Cập nhật vòng ba (2026-08-21) — mệnh đề định tính cũng là một trục riêng
+## Round three update (2026-08-21) — qualitative clause is also a separate axis
 
-TCON-ROUTE-0007 đóng đúng trục `outermost` và giết M3 sạch sẽ. Nhưng vòng quét mutant ngay sau đó lộ
-mutant M12 vẫn sống sót cả 7/7: *nếu chuỗi tổ tiên có bất kỳ reactor nào thì lấy pom.xml ngoài cùng, dù
-chính pom đó không khai báo `<modules>`*. Nguyên nhân gốc: câu invariant có ba trục chứ không phải hai —
-thứ tự chọn (`outermost`), nhánh dự phòng (`nearest`), và **mệnh đề định tính** (`that declares
-<modules>`) lọc tập ứng viên trước khi thứ tự chọn được áp dụng.
+TCON-ROUTE-0007 correctly closes the `outermost` axis and kills M3 cleanly. But the mutant scanning ring was soon revealed
+mutant M12 still survives all 7/7: *if the ancestral chain has any reactors, take the outermost pom.xml, even though
+The pom itself does not declare `<modules>`*. Root cause: invariant sentences have three axes, not two —
+selection order (`outermost`), fallback branch (`nearest`), and **qualifying clause** (`that declares
+<modules>`) filters the candidate set before the selection order is applied.
 
-**Bài học sắc hơn:** một mệnh đề quan hệ bổ nghĩa cho ứng viên (`that declares X`, `with status Y`) là
-một trục độc lập với từ so sánh nhất đứng trước nó. Nó cần fixture đặt một ứng viên KHÔNG thỏa mệnh đề ở
-đúng vị trí mà phép chọn ưu tiên — ở đây là một pom.xml phi reactor nằm TRÊN reactor root.
+**Better lesson:** a relative clause that modifies a candidate (`that declares X`, `with status Y`) is
+an axis independent of the superlative that precedes it. It needs fixture to place a candidate that does NOT satisfy the at clause
+right where the select takes precedence — here is a non-reactor pom.xml located ABOVE the reactor root.
 
-**Cách làm khác đi lần sau:** đừng đặt hàng từng hàng decision table theo từng mutant vừa bắt được; ba
-vòng liên tiếp mỗi vòng chỉ đóng một trục rồi lộ trục kế. Thay vào đó, dựng một hàng trộn duy nhất phủ
-toàn bộ phép chọn: chuỗi tổ tiên năm tầng gồm đỉnh phi reactor, reactor A, tầng giữa phi reactor,
-reactor B, module lá — kết quả đúng là A. Hàng này giết cả ba trục cùng lúc. Đồng thời, chạy quét mutant
-theo lô trên mọi quyết định của hàm (id, thông báo lỗi, điều kiện dừng vòng lặp, nhánh dự phòng) ngay
-trong verdict đầu tiên, để mọi mutant sống sót lộ ra một lần thay vì nhỏ giọt qua từng vòng.
+**How ​​to do it differently next time:** Don't order each row of decision tables for each mutant you just captured; three
+In consecutive rounds, each round only closes one axis and then exposes the next axis. Instead, build a single row of mixed cover
+total selection: five-layer ancestral chain including top non-reactor, reactor A, middle layer non-reactor,
+reactor B, leaf module — the correct result is A. This row kills all three axes at once. At the same time, run a mutant scan
+batch on every function decision (id, error message, loop stop condition, fallback branch) now
+in the first verdict, have every surviving mutant revealed at once instead of trickling through each round.
 
-**Ràng buộc điều hướng:** khi phát hiện gap ở lần thử cuối (attempts = maxAttempts), `FOLLOW-UP:` phải
-nói rõ không được mở rộng tại chỗ tính năng đó nữa — maker hết lượt, mở rộng tại chỗ tạo ra một tính
-năng vĩnh viễn không thể đánh giá lại. Định tuyến sang một tính năng oracle mới hoặc một hàng rủi ro
-chấp nhận được.
+**Navigation constraints:** when gap detected on last attempt (attempts = maxAttempts), `FOLLOW-UP:` must
+clearly state that the feature cannot be expanded in place anymore — the maker ends its turn, expanding in place creates a feature
+permanent ability that cannot be reevaluated. Route to a new oracle feature or a risky queue
+acceptable.

@@ -1,17 +1,16 @@
-// completion — tool `java_completion` của tầng MCP (bảng tool trong harness/docs/design/tool-surface.md).
+// completion — the MCP-layer `java_completion` tool (tool table in harness/docs/design/tool-surface.md).
 //
-// Đây là wrapper MỎNG. Mọi thứ khó nằm ở `tool-layer.ts`: hỏi workspace → đọc nội dung hiện tại →
-// xác thực line/column trước mọi lời gọi LSP (INV-TOOL-5), chuyển đổi toạ độ qua đúng một ranh giới
-// (INV-TOOL-1), và tạo hình item completion (`shapeCompletion`). Tệp này chỉ gánh đúng một việc mà
-// tool-layer cố ý không làm — chính sách kích thước của một tool dùng cho tác tử:
+// This is a THIN wrapper. All difficult work belongs to `tool-layer.ts`: query the workspace → read
+// current content → validate line/column before every LSP call (INV-TOOL-5), translate coordinates
+// through exactly one boundary (INV-TOOL-1), and shape completion items (`shapeCompletion`). This
+// file owns the one intentional omission from tool-layer: the size policy for an agent-facing tool:
 //
-//   INV-TOOL-3  mọi danh sách vượt cap đã cấu hình luôn được trả về ở dạng đã cắt KÈM
-//               `truncated: true` và tổng số THỰC — không bao giờ bị cắt im lặng, không bao giờ
-//               trả về nguyên vẹn không giới hạn.
+//   INV-TOOL-3  every list over its configured cap is returned truncated WITH `truncated: true` and
+//               the REAL total—it is never silently cut and never returned unbounded.
 //
-// Vì sao cap không phải một hằng số cứng trên đường cắt: X-008 CÒN MỞ. Con số 200 hiện chỉ là
-// khuyến nghị, nên nó nằm ở đúng một chỗ có tên (`DEFAULT_COMPLETION_CAP`) và bị
-// `JavaCompletionOptions.cap` ghi đè được — cùng quy ước `references.ts` đã dùng cho `java_references`.
+// The cap is not a hard-coded truncation-path constant because X-008 is still OPEN. The current 200
+// is only a recommendation, so it lives at one named location (`DEFAULT_COMPLETION_CAP`) and can be
+// overridden by `JavaCompletionOptions.cap`, matching `references.ts` for `java_references`.
 
 import {
   completion as completionThroughToolLayer,
@@ -21,17 +20,17 @@ import {
   type ToolOutcome,
 } from "./tool-layer.ts";
 
-/** Cap mặc định cho danh sách completion item — khuyến nghị của X-008 khi quyết định đó còn mở. */
+/** Default completion-item-list cap—the X-008 recommendation while that decision remains open. */
 export const DEFAULT_COMPLETION_CAP = 200;
 
-/** Tham số của `java_completion`, đúng bảng tool: `path`, `line`, `column` (1-based, X-007). */
+/** `java_completion` parameters from the tool table: `path`, `line`, `column` (1-based, X-007). */
 export interface JavaCompletionArguments {
   path: string;
   line: number;
   column: number;
 }
 
-/** Một item completion công bố ra ngoài, trong cùng hệ toạ độ 1-based với mọi tool khác. */
+/** A published completion item, in the same 1-based coordinate system as every other tool. */
 export interface JavaCompletionItem {
   label: string;
   detail?: string;
@@ -39,24 +38,24 @@ export interface JavaCompletionItem {
 }
 
 /**
- * `total` và `truncated` KHÔNG bao giờ là trường tuỳ chọn: một trường vắng mặt khi danh sách vừa đủ
- * và có mặt khi bị cắt sẽ khiến người đọc phải suy đoán, và một lỗi cắt im lặng trông y hệt một câu
- * trả lời đầy đủ. Luôn có mặt, kể cả khi `truncated === false`.
+ * `total` and `truncated` are NEVER optional: a field absent when the list fits and present when it
+ * is cut forces readers to infer its meaning, while a silent truncation looks exactly like a full
+ * answer. They are always present, including when `truncated === false`.
  */
 export interface JavaCompletionResult {
   path: string;
   workspaceId: string;
   position: SourcePosition;
-  /** Cap thực sự đã áp dụng cho lời gọi này. */
+  /** Cap actually applied to this call. */
   cap: number;
-  /** Tổng số item TRƯỚC khi cắt. Bằng `items.length` khi và chỉ khi `truncated === false`. */
+  /** Item count BEFORE truncation. Equals `items.length` if and only if `truncated === false`. */
   total: number;
   truncated: boolean;
   items: JavaCompletionItem[];
 }
 
 export interface JavaCompletionOptions {
-  /** Ghi đè cap của lời gọi này. Bỏ trống thì dùng `DEFAULT_COMPLETION_CAP`. */
+  /** Override this call's cap. Omit it to use `DEFAULT_COMPLETION_CAP`. */
   cap?: number;
 }
 
@@ -67,7 +66,7 @@ export async function javaCompletion(
 ): Promise<ToolOutcome<JavaCompletionResult>> {
   const cap = options.cap ?? DEFAULT_COMPLETION_CAP;
 
-  // Bước 1-4 (workspace, nội dung, xác thực vị trí, LSP request + tạo hình item) do tool-layer làm.
+  // tool-layer performs steps 1–4 (workspace, content, position validation, LSP request, and item shaping).
   const outcome = await completionThroughToolLayer(facade, {
     path: args.path,
     line: args.line,
@@ -78,8 +77,8 @@ export async function javaCompletion(
   const answer = outcome.value;
   const items = answer.completion?.items ?? [];
 
-  // INV-TOOL-3. `total` được chốt TRƯỚC khi cắt: sau `slice` thì tổng số thực không còn tồn tại.
-  // `truncated` so bằng `>` chứ không phải `>=`: đúng bằng cap là vừa đủ, chưa mất phần tử nào.
+  // INV-TOOL-3. Capture `total` BEFORE truncation; after `slice`, the true total no longer exists.
+  // Compare `truncated` with `>`, not `>=`: exactly at cap fits and has lost no item.
   const total = items.length;
   const truncated = total > cap;
 

@@ -1,25 +1,25 @@
-# Một cổng được khai báo không có nghĩa là đã có ai sở hữu đầu nối
+# A declared port does not mean that anyone already owns the connector
 
-**Bối cảnh.** 2026-08-23, xử lý FOLLOW-UP của `feat-diagnostics-cache`. Hai tính năng `build` khác
-nhau (`feat-file-sync-watcher`, `feat-diagnostics-cache`) đều được checker APPROVE với lập luận
-giống hệt nhau: component khai một cổng hẹp trong tệp của chính nó
-(`LspNotificationSink`, `LspNotificationSource`) thay vì sửa `src/lsp/lsp-client.ts`, vì
-`context.touches` không liệt kê tệp đó nên sửa nó mới là scope bleed. Lập luận ấy đúng. Nhưng sau
-hai lượt APPROVE, không tính năng nào trong đồ thị sở hữu đầu bên kia: `LspClient` không có
-`notify()` lẫn `onNotification()`, và `#handleMessage` bỏ im lặng mọi thông điệp không mang id.
+**Context.** 2026-08-23, handling FOLLOW-UP of `feat-diagnostics-cache`. Two other `build` features
+each other (`feat-file-sync-watcher`, `feat-diagnostics-cache`) are checked by APPROVE with argument
+identical: the component declares a narrow port in its own file
+(`LspNotificationSink`, `LspNotificationSource`) instead of editing `src/lsp/lsp-client.ts`, because
+`context.touches` does not list that file so fix it as scope bleed. That argument is correct. But later
+two rounds of APPROVE, no feature in the graph owns the other end: `LspClient` is absent
+`notify()` and `onNotification()`, and `#handleMessage` silence all messages that do not carry an id.
 
-**Lỗi thuộc về lần cắt đầu tiên.** `feat-lsp-client` được cắt theo bảng thành phần trong
-`docs/design/architecture.md`, ở đó dòng của `lsp-client` chỉ viết "Content-Length framing, id
-correlation, server→client requests". Danh sách ấy bỏ sót notification, nên tính năng cũng bỏ sót,
-rồi đi tới `done` với bằng chứng đầy đủ cho đúng phần nó tuyên bố. Không có tín hiệu đỏ nào: mọi
-tính năng liên quan đều xanh, chỉ có hai `prove` ở xa nằm `blocked` với lý do nghe như bình thường.
+**Error in first cut.** `feat-lsp-client` is cut according to the component table in
+`docs/design/architecture.md`, where the line for `lsp-client` just says "Content-Length framing, id
+correlation, server→client requests". That list omits notifications, so features are also omitted.
+then go to `done` with full proof of what it claims. There are no red flags: every
+Related features are all green, only two `prove` in the distance are `blocked` with the usual sounding reason.
 
-**Dấu hiệu nhận biết lần sau.** Mỗi khi một tính năng `build` thoả một hợp đồng bằng cách khai một
-`interface` cổng trong tệp của chính nó, hãy tìm ngay tính năng sở hữu lớp triển khai cổng đó. Nếu
-không tìm ra, đó là scope chưa có chủ, không phải chi tiết triển khai sẽ tự xuất hiện. Cạnh phụ
-thuộc phải đi từ tính năng `prove` chạy qua đường dây thật tới tính năng mới, chứ không thêm ngược
-vào tính năng `build` đã `done` — hành vi của tính năng đã `done` được chứng minh đối với cổng, và
-cạnh ngược chỉ làm bẩn DAG mà không thêm khẳng định kiểm chứng được nào.
+**Signs for next time.** Every time a `build` feature satisfies a contract by declaring a
+`interface` port in its own file, immediately find the feature that owns the class that implements that port. If
+can't find it, it's a scope that doesn't have an owner, not an implementation detail that will appear on its own. Secondary edge
+The attribute must go from the `prove` feature through the actual wire to the new feature, not the other way around
+on the `build` feature `done` — the behavior of the `done` feature is demonstrated for the port, and
+The inverted edge just dirtyes the DAG without adding any verifiable assertions.
 
-**Cách kiểm nhanh.** Grep tên `interface` cổng trên toàn bộ `src/`: nếu chỉ có đúng một tệp nhắc
-tới nó, cổng đang treo.
+**Quick way to check.** Grep the port `interface` name across all `src/`: if there is only one prompt file
+to it, the gate is hanging.

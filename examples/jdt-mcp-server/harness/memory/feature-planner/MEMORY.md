@@ -1,6 +1,6 @@
 # Feature-planner memory — JDT MCP Server
 
-Index of what the feature-planner has learned across planning passes for this project
+Index of what the feature-planner has learned planning across passes for this project
 (`harness/docs/reference/agent-memory.md` documents the schema and why). One line
 per entry, always loaded — keep it short.
 
@@ -15,7 +15,7 @@ in another language stay as they are — this governs what gets written from now
 
 <!-- - [Title](slug.md) — one-line hook -->
 
-- [Một cổng được khai báo không có nghĩa là đã có ai sở hữu đầu nối](port-declared-but-connector-unowned.md) — component khai `interface` cổng trong tệp của chính nó là ranh giới đúng, nhưng nếu không tính năng nào sở hữu lớp triển khai cổng thì đó là scope chưa có chủ; grep tên cổng trên `src/`, chỉ một tệp nhắc tới là cổng đang treo.
-- [Một mutant thứ tự chỉ tương đương khi cả kẻ kế nhiệm cũng không quan sát được](equivalent-mutant-claims-need-the-successor-check.md) — tài nguyên dọn dẹp khoá theo identity (hash của root) chứ theo thế hệ tiến trình thì luôn còn người quan sát thứ hai là workspace kế nhiệm; chép `src/` ra thư mục nháp, vá mutant, chạy probe thay vì kết luận bằng đọc.
-- [Cạnh cổng-giai-đoạn trỏ vào một tính năng `prove` sẽ chặn cả chuỗi khi tính năng đó hết ngân sách](stage-gate-edge-into-a-prove-feature-dams-the-chain.md) — router báo "none routable" mà các tính năng được nêu tên đều sạch thì đi ngược `dependencies` tới mắt xích `blocked` đầu tiên; cạnh build→prove làm cổng thứ tự biến `maxAttempts` của tính năng `prove` thành hạn mức của cả nhánh phía sau.
-- [Một oracle viết sẵn không thể quay lại lớp oracle sau khi đã có evidence](pre-authored-oracle-cannot-return-to-oracle-layer.md) — tính năng `prove` có `evidence` không rỗng thì router chỉ còn đưa cho maker, mà maker bị cấm sửa test: phải tự ghi quyền sửa có giới hạn vào entry, hoặc cắt tính năng oracle mới.
+- [A declared port does not mean the connector is owned](port-declared-but-connector-unowned.md) — the component declaring the `interface` port in its own file is the correct boundary, but if no feature owns the port implementation class then it is an unowned scope; grep portname on `src/`, only one file mentions the hanging port.
+- [An sequential mutant is only equivalent if the successor is not observable](equivalent-mutant-claims-need-the-successor-check.md) — the resource clears keys according to identity (root's hash) rather than by process generation, while the second observer is the successor workspace; Copy `src/` to draft folder, patch mutant, run probe instead of concluding by reading.
+- [Stage-gate-edge pointing to a `prove` feature will block the whole chain when that feature runs out of budget](stage-gate-edge-into-a-prove-feature-dams-the-chain.md) — router reporting "none routable" and the named features are clean then goes back `dependencies` to the first `blocked` link; The build→prove edge is the ordering gate that turns the `maxAttempts` of the `prove` feature into the limit of the entire downstream branch.
+- [A pre-written oracle cannot return to the oracle layer after having evidence](pre-authored-oracle-cannot-return-to-oracle-layer.md) — if the `prove` feature has an empty `evidence`, the router can only give it to the maker, and the maker is prohibited from editing the test: he must write limited edit permissions into the entry, or cut off the new oracle feature.

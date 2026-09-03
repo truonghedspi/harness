@@ -1,0 +1,61 @@
+{
+  "at": "2026-09-02T15:01:27.315Z",
+  "gitSha": "979e7a0acb002c5ef712b2ec99c9ac5859cd28a1",
+  "features": [
+    {
+      "id": "feat-windows-native-loop",
+      "status": "done",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-dogfood-baseline",
+      "status": "blocked",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-dogfood-structure",
+      "status": "blocked",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-dogfood-runtime",
+      "status": "blocked",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-shared-memory-promote",
+      "status": "done",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-shared-memory-gate",
+      "status": "done",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-shared-memory-resources",
+      "status": "done",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-shared-memory-v1",
+      "status": "done",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-readme-standardize",
+      "status": "done",
+      "readyForCheck": false
+    },
+    {
+      "id": "feat-prompt-centralize",
+      "status": "passing",
+      "readyForCheck": true
+    },
+    {
+      "id": "feat-claude-code-acp",
+      "status": "passing",
+      "readyForCheck": true
+    }
+  ]
+}

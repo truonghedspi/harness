@@ -3,18 +3,18 @@
   "key": "feat-readme-standardize#1",
   "feature": "feat-readme-standardize",
   "attempt": 1,
-  "symptom": "Verification command exit 1 dù README.md đã đạt 5 heading cấp 2",
-  "cause": "Verification command ghép verify-harness.mjs với grep, tạo phụ thuộc tuần hoàn: verify-harness fail vì chính feature này có reviewPacket chưa hoàn chỉnh và 3 feature khác đang blocked",
+  "symptom": "The verification command exited 1 even though README.md had five level-2 headings",
+  "cause": "The verification command combined verify-harness.mjs with grep, creating a circular dependency: verify-harness failed because this feature had an incomplete reviewPacket and three other features were blocked",
   "provedBy": {
     "cmd": "grep -c '^## ' README.md",
-    "result": "5 — README.md đạt yêu cầu khi kiểm tra riêng lẻ, compound command fail do trạng thái repo"
+    "result": "5 — README.md met the requirement when checked independently; the compound command failed because of repository state"
   },
   "ruledOut": [
     {
-      "hypothesis": "README.md thiếu cấu trúc heading theo yêu cầu",
-      "killedBy": "grep -c '^## ' README.md trả về 5, xác nhận có đủ heading: Bắt đầu nhanh, Thành phần chính, Mở rộng harness, Architecture, Working in this repo"
+      "hypothesis": "README.md lacked the required heading structure",
+      "killedBy": "grep -c '^## ' README.md returned 5, confirming the required headings: Quick start, Main components, Extend the harness, Architecture, Working in this repo"
     }
   ],
-  "correctVerification": "grep -c '^## ' README.md (exit 0 khi count >= 5)",
+  "correctVerification": "grep -c '^## ' README.md (exit 0 when count >= 5)",
   "date": "2026-09-01"
 }

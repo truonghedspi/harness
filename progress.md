@@ -15,7 +15,7 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Completed This Session (2026-09-01)
 
-- **feat-readme-standardize: ACCEPTED** — README.md chuẩn hóa thành cấu trúc 5 mục rõ ràng với nội dung đầy đủ cho người dùng mới. Verification command đã được sửa để kiểm tra độc lập, không phụ thuộc vào trạng thái repo khác. Evidence đầy đủ red→green. Status = done.
+- **feat-readme-standardize: ACCEPTED** — README.md was standardized into five clear sections with complete content for new users. The verification command was fixed to check it independently rather than rely on other repository state. Complete red→green evidence. Status = done.
 
 ## Done
 
@@ -51,9 +51,8 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## 2026-09-01 — Checker session: feat-readme-standardize
 
-- **REJECT**: verification command không đúng — coupling unrelated project health.
-- README.md claim thực tế **đúng** (5 headings, có Quick start/Extending, nội dung đủ).
-- Nhưng verification `verify-harness.mjs && grep` exit 1 vì 3 feature khác blocked không có checkerNotes + circular dependency (feature này có incomplete reviewPacket).
-- Ghi memory entry mới: `verification-command-must-be-scoped.md` — class này chưa từng xuất hiện.
-- Maker cần: sửa verification command chỉ xét README.md, không phụ thuộc trạng thái toàn repo. Không cần sửa README.md (đã đúng).
-
+- **REJECT**: the verification command was wrong — it coupled unrelated project health.
+- The README.md claim was **correct** (five headings, Quick start/Extending, sufficient content).
+- But verification `verify-harness.mjs && grep` exited 1 because three other blocked features lacked checkerNotes, plus a circular dependency (this feature had an incomplete reviewPacket).
+- Record a new memory entry: `verification-command-must-be-scoped.md` — this class has not appeared before.
+- The maker must fix the verification command to inspect README.md only, independent of whole-repository state. README.md does not need a change (it is already correct).

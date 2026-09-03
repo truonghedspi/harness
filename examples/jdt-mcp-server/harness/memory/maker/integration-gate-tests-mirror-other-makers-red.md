@@ -1,38 +1,38 @@
-# Ca `feat-001` đỏ có thể là suite unit của maker khác, không phải tính năng của bạn
+# The red `feat-001` may be another maker's suite unit, not your feature
 
-**Khi nào áp dụng:** nhiều maker chạy song song trên cùng cây nguồn, và `npm run test:integration`
-báo đỏ ở các ca mang tên `feat-001: the standard baseline gate ...`. Gặp ở lượt
-`feat-tool-diagnostics`, khi ba maker khác đang xây `hover`/`definition`/`references`.
+**When applicable:** multiple makers run in parallel on the same source tree, and `npm run test:integration`
+Red flags in cases named `feat-001: the standard baseline gate ...`. Meet at turn
+`feat-tool-diagnostics`, while the other three makers are building `hover`/`definition`/`references`.
 
-## Hiện tượng
+## Phenomenon
 
-Lượt chạy đầu: `# tests 320 / # fail 5`, năm dòng đỏ đều thuộc `feat-001` —
+First run: `# tests 320 / # fail 5`, five red lines all belong to `feat-001` —
 `the standard baseline gate executes every required step`,
 `a failed install/fixture/test step makes the standard baseline gate red`,
-`the maintained fixture step installs the pinned JDT LS archive`.
-Không dòng nào nêu tên tệp của tính năng đang làm. Chạy lại đúng lệnh đó vài phút sau:
-`# tests 181 / # fail 0`.
+`the maintaining fixture step installs the pinned JDT LS archive`.
+None of the lines state the filename of the feature being worked on. Run the same command again a few minutes later:
+`# tests 181 / # failures 0`.
 
-## Nguyên nhân gốc
+## Root cause
 
-Các ca `feat-001` gọi chính cổng baseline (`init.mjs`) trong tiến trình con, và cổng đó chạy
-`npm test` trên TOÀN BỘ suite unit. Vì vậy chúng phản chiếu trạng thái tức thời của mọi tệp đang
-được sửa dở, kể cả tệp của maker khác. Trong khoảng thời gian một maker song song để
-`src/tools/hover.ts` ở trạng thái đỏ, mọi ca `feat-001` đỏ theo.
+The `feat-001` calls the baseline port itself (`init.mjs`) in the child process, and that port runs
+`npm test` on the ENTIRE suite unit. So they reflect the instantaneous state of every file
+unedited, including files from other makers. During a parallel maker to
+`src/tools/hover.ts` is red, all `feat-001` shifts are red.
 
-Số ca cũng nhảy (320 → 181) vì đầu ra TAP của các tiến trình con được đếm gộp vào lượt chạy ngoài.
-Chênh lệch lớn về `# tests` giữa hai lần chạy liên tiếp chính là dấu hiệu nhận biết.
+The number of shifts also jumps (320 → 181) because the TAP output of child processes is included in the external run.
+A large difference in `# tests` between two consecutive runs is a telltale sign.
 
-## Cách xử lý
+## How to handle
 
-1. Đọc TÊN ca đỏ trước khi đọc số. Ca đỏ không nêu tên tệp thuộc tính năng của mình thì đừng sửa gì.
-2. Chạy lại lệnh và so `# tests`. Số ca đổi giữa hai lần chạy nghĩa là cây nguồn đang bị sửa đồng
-   thời, và kết quả của lần chạy trước không nói gì về mã nguồn của mình.
-3. Bằng chứng riêng của tính năng luôn lấy từ lệnh hẹp
-   (`node --experimental-strip-types --test test/tools/<của mình>.spec.ts`), không lấy từ suite gộp.
-4. Ghi thẳng vào evidence rằng lượt gộp đầu tiên đỏ vì lý do gì. Bỏ qua im lặng một lượt đỏ rồi chỉ
-   chép lượt xanh vào là làm hỏng chính thứ mà evidence dùng để chứng minh.
+1. Read the NAME of the red case before reading the number. If you don't mention the file name of your feature, don't edit anything.
+2. Run the command again and compare `# tests`. The number of shifts between two runs means the source tree is being modified
+   time, and the results of the previous run say nothing about my source code.
+3. Specific evidence of a feature is always obtained from a narrow command
+   (`node --experimental-strip-types --test test/tools/<my>.spec.ts`), not from the pooled suite.
+4. Write directly in the evidence that the first merge is red for whatever reason. Ignore the silence for a moment and then point
+   Copying the green line is destroying the very thing that evidence is used to prove.
 
-Lưu ý phụ đo được cùng lượt: `npm test -- test/tools/x.spec.ts` KHÔNG thu hẹp phạm vi. Script
-`test` đã mang sẵn danh sách glob, nên tham số chỉ được nối thêm — tệp của mình chạy hai lần và số
-đỏ bị nhân đôi, lẫn với đỏ của người khác.
+Side note measures the same: `npm test -- test/tools/x.spec.ts` does NOT narrow the scope. Script
+`test` already contains a list of globs, so the parameter is just appended — my file runs twice and no
+red is duplicated, mixed with other people's red.

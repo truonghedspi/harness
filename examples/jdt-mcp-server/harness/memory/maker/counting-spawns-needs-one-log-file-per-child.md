@@ -1,30 +1,30 @@
-# Đếm tiến trình con: mỗi child phải ghi vào file log riêng, không dùng chung một file
+# Count child processes: each child must be recorded in a separate log file, not in the same file
 
-**Khi nào áp dụng:** oracle Level 3 cần đếm số tiến trình thật được spawn (INV-POOL-5, INV-SHIM-2,
-INV-SHIM-4 — mọi bất biến dạng "N lời gọi song song chỉ tạo một tiến trình").
+**When to apply:** oracle Level 3 needs to count the number of real processes spawned (INV-POOL-5, INV-SHIM-2,
+INV-SHIM-4 — all invariants "N parallel calls create only one process").
 
-## Triệu chứng
+## Symptoms
 
-Fixture `java` giả ghi pid và argv của nó vào **một** file dùng chung bằng `{ ... } >> log`. Khi
-hai child chạy song song, test khẳng định phải thấy 2 bản ghi nhưng chỉ đọc được 1, kèm thông báo
-`1 !== 2`. Nhìn qua giống như pool đã spawn thiếu một tiến trình — nghĩa là đổ lỗi nhầm cho mã
-nguồn đang được kiểm tra.
+Fixture `java` writes its pid and argv to **a** shared file using `{ ... } >> log`. When
+Two children run in parallel, test confirms to see 2 records but can only read 1, with notification
+`1 !== 2`. At first glance, it looks like the spawned pool is missing a process — meaning the code is mistakenly to blame
+Source is being checked.
 
-## Nguyên nhân gốc
+## Root cause
 
-`{ printf; printf; printf; } >> file` trong sh không phải một lần ghi nguyên tử: mỗi `printf` là một
-syscall riêng. Hai child ghi xen kẽ nhau thành `PID a / ARG… / PID b / ARG… / END / END`. Bộ phân
-tích theo trạng thái đọc `PID b` khi đang dựng bản ghi a sẽ ghi đè bản ghi a và làm mất nó. Số bản
-ghi đọc được trở thành hàm của thời điểm lập lịch, không phải của hành vi cần chứng minh.
+`{ printf; printf; printf; } >> file` in sh is not an atomic write: each `printf` is one
+private syscall. The two children write alternately as `PID a / ARG… / PID b / ARG… / END / END`. Division
+Analyzing the status of reading `PID b` while building record a will overwrite record a and lose it. Number of copies
+write read becomes a function of the scheduling moment, not of the behavior to be demonstrated.
 
-## Cách làm đúng
+## Correct way
 
-Mỗi child ghi ra file riêng đặt tên theo pid của chính nó: `} > "$LOGDIR"/"$$".txt`. Oracle đọc cả
-thư mục và bỏ qua file chưa có dòng `END` (bản ghi đang viết dở). Không còn xen kẽ, và số file
-chính là số tiến trình thật.
+Each child writes to a separate file named after its own pid: `} > "$LOGDIR"/"$$".txt`. Oracle reads it all
+directory and ignore files that do not have an `END` line (record in progress). No more interlacing, and file numbers
+is the actual process number.
 
-Kèm theo: sau khi `acquire` trả về, child mới `exec` xong nên chưa chắc đã ghi log. Phải chờ một
-khoảng lắng (khoảng 400 ms) rồi mới khẳng định "đúng một tiến trình", nếu không phép đếm chỉ chứng
-minh rằng tiến trình thừa chưa kịp xuất hiện.
+Attached: after `acquire` returns, the child has just finished `exec`, so it is not necessarily logged. Have to wait one
+settling period (about 400 ms) then confirm "exactly one process", otherwise counting only proves
+Prove that the redundant process has not appeared yet.
 
-Xem `test/integration/workspace-pool-spawn.integration.spec.ts` (feat-workspace-pool, lần thử 1).
+See `test/integration/workspace-pool-spawn.integration.spec.ts` (feat-workspace-pool, attempt 1).

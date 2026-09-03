@@ -321,7 +321,7 @@ class DiskFileSyncWatcher implements FileSyncWatcher {
           if (!EXCLUDED_DIRECTORIES.has(entry.name) && !entry.name.startsWith(".")) walk(absolute);
           continue;
         }
-        if (!entry.isFile()) continue; // symlinks are not followed: a cycle would never terminate
+if (!entry.isFile()) continue; // symlinks are not followed: a cycle will never terminate
         if (!this.#isWatchedPath(absolute)) continue;
         try {
           const stat = statSync(absolute);
@@ -372,29 +372,28 @@ export function watchWorkspace(
 }
 
 /**
- * Ngữ cảnh một TIẾN TRÌNH JDT LS vừa được spawn. Cấu trúc này khớp `WorkspaceAttachContext` của
- * workspace-pool mà không cần import ngược, nên watcher không biết gì về pool.
- */
-export interface SpawnedWorkspaceContext {
+ * Context of a JDT LS PROCESS that has just been spawned. This structure matches `WorkspaceAttachContext`
+ * workspace-pool without back-importing, so the watcher doesn't know anything about the pool.
+ */export interface SpawnedWorkspaceContext {
   workspaceId: string;
   projectRoot: string;
-  /** LspClient thoả `LspNotificationSink` ngay khi nó có `notify(method, params?)`. */
+  /** LspClient satisfies `LspNotificationSink` as soon as it has `notify(method, params?)`. */
   client?: LspNotificationSink;
 }
 
 export interface FileSyncAttachmentOptions
   extends Omit<FileSyncWatcherOptions, "projectRoot" | "notifications"> {
-  /** Trao watcher cho daemon, nơi INV-SYNC-1 dùng `generation`/`whenSettled()` để chặn tool call. */
+  /** Gives the watcher to the daemon, where INV-SYNC-1 uses `generation`/`whenSettled()` to block tool calls. */
   onStarted?: (context: SpawnedWorkspaceContext, watcher: FileSyncWatcher) => void;
 }
 
 /**
- * Nối dây production của chiều gửi: một watcher cho mỗi tiến trình JDT LS, sink trỏ thẳng vào
- * `client.notify`. Vòng đời là spawn ↔ evict, KHÔNG phải acquire ↔ release — một tiến trình ấm phục
- * vụ nhiều lease, nên dựng watcher theo từng lease vừa nhân bản watcher vừa nhân bản notification.
+ * Production wiring of sending direction: one watcher for each JDT LS process, sink pointing directly
+ * `client.notify`. The lifecycle is spawn ↔ evict, NOT acquire ↔ release — a recovery process
+ * For multiple leases, you should build a watcher for each lease to both duplicate the watcher and the notification.
  *
- * Trả về hàm gỡ đóng watcher; `undefined` khi tiến trình không nói LSP (spawn seam giả trong test),
- * vì một watcher không có nơi để gửi chỉ là một vòng quét đĩa vô ích.
+ * Returns the watcher unclose function; `undefined` when the process does not say LSP (spawn fake seam in test),
+ * because a watcher with no place to send is just a useless round of disk scanning.
  */
 export function attachFileSync(
   options: FileSyncAttachmentOptions = {},
@@ -409,8 +408,8 @@ export function attachFileSync(
       notifications: client,
     });
     const reportError = watcherOptions.onError ?? ((): void => {});
-    // start() là bất đồng bộ nhưng attachment thì không: một lỗi khởi động phải đi ra cổng onError
-    // chứ không thành unhandled rejection giết cả tiến trình daemon.
+    // start() is asynchronous but attachment is not: a start error must go out the onError port
+    // instead of unhandled rejection, killing the daemon process.
     void watcher.start().catch((error: unknown) => {
       reportError(error instanceof Error ? error : new Error(String(error)));
     });

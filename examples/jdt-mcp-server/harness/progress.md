@@ -1,49 +1,46 @@
 # Progress Log — JDT MCP Server
 
 External state for cross-session continuity (Lesson 5). The agent's memory is wiped between
-sessions; this file is not. Update it at the end of every session (Lesson 12).
+sessions; this file is not available. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **2026-08-29 — feat-gradle-routing (DONE, checker approve):** project-router giờ nhận diện Gradle (settings.gradle/.kts = gốc multi-project, build.gradle/.kts = project) bên cạnh Maven — INV-ROUTE-4 (additive). Router giờ định tuyến được repo aeron (Gradle 9.6.1): smoke-test real file aeron-client/.../ClientConductor.java → root aeron. 5 ca oracle mới (TCON-ROUTE-GRADLE-0001..0005), mutant xóa nhánh Gradle → đỏ. Full suite 255/255.
+- **2026-08-29 — feat-gradle-routing (DONE, checker approved):** project-router now recognizes Gradle (settings.gradle/.kts = multi-project root, build.gradle/.kts = project) alongside Maven — INV-ROUTE-4 (additive). Router now routes to aeron repo (Gradle 9.6.1): smoke-test real file aeron-client/.../ClientConductor.java → root aeron. 5 new oracle cases (TCON-ROUTE-GRADLE-0001..0005), mutant delete Gradle branch → red. Full suite 255/255.
 
-- **2026-08-29 — feat-diag-open-on-query (DONE, checker approve):** INV-DIAG-4 sau một lượt REJECT được viết lại để ghim cái "chờ có giới hạn" (bounded wait for publishDiagnostics) làm phần chịu lực, còn textDocument/didOpen là trigger/tối ưu. Checker mutant: xóa wait (giữ didOpen) → đỏ "not-reported"; xóa didOpen (giữ wait) → vẫn xanh (chấp nhận là tối ưu, ghi acceptedRisks). Router giờ lại "exit" — 37/37 done.
+- **2026-08-29 — feat-diag-open-on-query (DONE, checker approved):** INV-DIAG-4 after a REJECT was rewritten to pin the "bounded wait for publishDiagnostics" as the load-bearing part, and textDocument/didOpen as the trigger/optimization. Checker mutant: clear wait (keep didOpen) → red "not-reported"; delete didOpen (keep wait) → still green (accept as optimal, record acceptedRisks). The router now "exits" again — 37/37 done.
 
-- **2026-08-29 — feat-diag-open-on-query (build, readyForCheck):** đóng gap INV-DIAG-4 — daemon (src/cli.ts) giờ gửi textDocument/didOpen cho document được hỏi trước khi java_diagnostics trả lời và chờ publish có giới hạn (DIAG_OPEN_WAIT_MS=10s), nên file trên workspace đã import (.project/.classpath có sẵn) trả "reported" thay vì "not-reported" vĩnh viễn. Test mới test/integration/diagnostics-open.integration.spec.ts (2 pha daemon, red→green); npm test 159/159, npm run test:integration 250/250. Design: Option A (didOpen on-query), approvedBy "gommi", INV-DIAG-4 + design-approval.json cập nhật.
+- **2026-08-29 — feat-diag-open-on-query (build, readyForCheck):** close gap INV-DIAG-4 — daemon (src/cli.ts) now sends textDocument/didOpen to the questioned document before java_diagnostics responds and waits for a limited publish (DIAG_OPEN_WAIT_MS=10s), so the file on the imported workspace (.project/.classpath is available) returns "reported" instead of "not-reported" forever. New test test/integration/diagnostics-open.integration.spec.ts (2 phase daemon, red→green); npm test 159/159, npm run test:integration 250/250. Design: Option A (didOpen on-query), approvedBy "gommi", INV-DIAG-4 + updated design-approval.json.
 
-- **2026-08-28 — HOÀN TẤT: 36/36 done (100%).** Cả 12 feature còn lại đã qua checker review (APPROVE,
-  `status: done`, `checkerVerdict: approve`). Router giờ trả `exit` — mọi feature done. `npm test`
-  159/159; `npm run test:integration` (danger-full-access) 249/249. Bốn tool build
+- **2026-08-28 — COMPLETED: 36/36 done (100%).** All 12 remaining features have passed checker review (APPROVE,
+  `status: done`, `checkerVerdict: approved`). The router now returns `exit` — every feature done. `npm test`
+  159/159; `npm run test:integration` (danger-full-access) 249/249. Four build tools
   (`java_completion`, `java_rename`, `java_code_actions`, `java_apply_code_action`) + oracle prove
-  tương ứng, hai feature blocked-3/3 gỡ bằng điều kiện oracle mới, và end-to-end
-  `feat-prove-cross-process-integration`. Chi tiết: `src/tools/{completion,rename,code-actions,apply-code-action,code-action-store,workspace-edit}.ts`,
+respectively, the two features blocked-3/3 are removed by the new oracle condition, and end-to-end `feat-prove-cross-process-integration`. Details: `src/tools/{completion,rename,code-actions,apply-code-action,code-action-store,workspace-edit}.ts`,
   `src/workspace/sync-guard.ts`, oracle `{completion,rename,code-actions,cross-process}.integration.spec.ts`
-  + `TCON-PROV-0009` + `TCON-DIAG-0004` + `A-021`. Sandbox DSH chặn `ps` (EPERM): `TCON-SHIM-0003`
-  fail giả, xác nhận bằng `danger-full-access`.
+  + `TCON-PROV-0009` + `TCON-DIAG-0004` + `A-021`. Sandbox DSH blocking `ps` (EPERM): `TCON-SHIM-0003`
+  fake fail, confirm with `danger-full-access`.
 
-- **2026-08-28 — `feat-prove-sync` (oracle + sync-guard, chờ checker):** hiện thực `src/workspace/sync-guard.ts`
-  (`withSyncQuiescence`: chờ watcher settle rồi POLL cho tới khi câu trả lời hết stale, không thì
-  `ResyncingError` code `resyncing`) — thành phần INV-SYNC-1 còn thiếu mà runtime-model mô tả nhưng
-  không build feature nào sở hữu. Viết oracle `test/integration/file-sync.integration.spec.ts` tái
-  hiện spike C qua `textDocument/definition` (workspace/symbol chỉ giải TYPE, đo được bằng spike) trên
-  pool thật + JDT LS thật + watcher thật. Control 2/2 xanh; mutant M1 (guard trả kết quả đầu tiên
-  không poll) làm TCON-SYNC-0001 đỏ đúng falsifier. `npm test` 124/124 xanh. Feature chuyển
-  `blocked` → `in-progress`, ghi evidence + checkerNotes; chưa `readyForCheck` (checker không dispatch
-  được trong phiên). Ghi chú scope: sync-guard là component production mới, nếu tách build feature
-  riêng thì planner cắt lại.
+- **2026-08-28 — `feat-prove-sync` (oracle + sync-guard, wait for checker):** implement `src/workspace/sync-guard.ts`
+  (`withSyncQuiescence`: wait for watcher to settle then POLL until the reply is no longer stale, otherwise
+  `ResyncingError` code `resyncing`) — missing INV-SYNC-1 component that runtime-model describes but
+  No build feature owns it. Write oracle `test/integration/file-sync.integration.spec.ts` again
+  show spike C via `textDocument/definition` (workspace/symbol only resolves TYPE, measured by spike) above
+  real pool + real JDT LS + real watcher. Control 2/2 green; mutant M1 (guard returns the first result
+  no poll) makes TCON-SYNC-0001 red and true falsifier. `npm test` 124/124 green. Feature transfer
+  `blocked` → `in-progress`, write evidence + checkerNotes; not yet `readyForCheck` (checker not dispatched
+  be in session). Scope note: sync-guard is the new production component, if the build feature is separated
+  Personally, the planner cuts it back.
 
-- **2026-08-28 — `feat-prove-readiness` (oracle deadline path, chờ checker):** viết
-  `test/integration/readiness.integration.spec.ts` — 3 caller đồng thời chống một workspace thật không
-  bao giờ ready (không có Java source nên `probeSemanticIndex` luôn `ok:false`) qua pool thật + JDT LS
-  thật + readiness-gate thật; cả 3 reject `WorkspaceNotReadyError` trong deadline tham số (X-001 mở).
-  Control 1/1 xanh; mutant M1 (awaitReady resolve empty success thay vì reject) làm oracle đỏ 1/1.
-  Feature `blocked` → `in-progress`, `readyForCheck: true` + reviewPacket ADMITTED. Cả hai feature
-  (`feat-prove-sync`, `feat-prove-readiness`) giờ chờ checker.
-
-- **2026-08-24 — `feat-prove-diagnostics` maker attempt 1/3:** implementation green; baseline blocks checker. Live JDT LS
+- **2026-08-28 — `feat-prove-readiness` (oracle deadline path, waiting for checker):** wrote
+  `test/integration/readiness.integration.spec.ts` — Is it true that 3 callers at the same time against one workspace
+  ever ready (no Java source so `probeSemanticIndex` is always `ok:false`) via real pool + JDT LS
+  real + readiness-gate real; All three reject `WorkspaceNotReadyError` in the deadline parameter (X-001 opens).
+  Control 1/1 green; mutant M1 (awaitReady resolve empty success instead of reject) makes the oracle red 1/1.
+  Feature `blocked` → `in-progress`, `readyForCheck: true` + reviewPacket ADMITTED. Both features
+  (`feat-prove-sync`, `feat-prove-readiness`) timer waiting for checker.- **2026-08-24 — `feat-prove-diagnostics` maker attempt 1/3:** implementation green; baseline blocks checker. Live JDT LS
   notifications arrived under canonical `file:///private/var/...` URIs while the tool queried the
   same files through `file:///var/...`; `DiagnosticsCache` now keys existing file URIs by canonical
-  filesystem identity. Exact verification: 3/3 green in 10.6 s, replacing the prior repeated
+  filesystem identity. Exact verification: 3/3 green in 10.6 s, replacing the prior repeat
   timeout behavior with a bounded run.
   `./harness/init.sh` is nevertheless red: all 14 recursive watcher cases fail with `EMFILE`, even
   after raising this shell's soft fd limit from 256 to 10240. The feature remains not ready for
@@ -53,10 +50,10 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   single-file watch and 300 ordinary open descriptors succeed. Classification: host directory-watch
   capacity/runtime state, not `DiskFileSyncWatcher`; no out-of-scope source or oracle edit made.
 
-- **Cập nhật lần cuối:** 2026-08-22 (lượt maker, `feat-file-sync-watcher`)
-- **Tính năng đang mở:** `feat-file-sync-watcher` (`in-progress`, `readyForCheck: true`, 1/3) chờ checker.
-- **Latest commit:** tách contract hook Codex (xem git log)
-- **Baseline (`./harness/init.sh`):** xanh — 18 trường hợp unit (4 lsp-client, 6 workspace-pool, 8 file-sync-watcher) và toàn bộ 56 trường hợp khi chạy discovery đầy đủ đều đạt
+- **Last updated:** 2026-08-22 (maker hit, `feat-file-sync-watcher`)
+- **Opening feature:** `feat-file-sync-watcher` (`in-progress`, `readyForCheck: true`, 1/3) wait for checker.
+- **Latest commit:** detach Codex contract hook (see git log)
+- **Baseline (`./harness/init.sh`):** green — 18 unit instances (4 lsp-client, 6 workspace-pool, 8 file-sync-watcher) and all 56 instances when running full discovery passed
 
 ## Done
 
@@ -64,753 +61,716 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
   - Checker replayed the six-case integration oracle and `./harness/init.sh`; injected install, fixture, and test failures each made the gate red and stopped later steps.
 - [x] feat-project-router — path to workspace id
   - Checker approved (attempt 2/3): 5/5 (TCON-ROUTE-0001..0005) pass, mutant probe killed every cited defect. Checker's own mutant probe on the just-approved code then found the `<modules>` reactor check is deletable without any of the 5 conditions failing — recorded as a FOLLOW-UP, not reopened here (see feat-prove-routing).
-- [x] feat-lsp-client — Content-Length framing + id correlation
-  - Checker phê duyệt ở lần thử 2/4. Cả hai lệnh verification đều tái lập được (4/4 unit, 1/1 integration). Oracle Level 3 spawn tiến trình con thật (pid riêng, `ps` nhìn thấy, bị thu hồi sau SIGKILL). Ba mutant do chính checker dựng trong `harness/trace/scratch/` đều bị oracle bắt: bỏ vòng lặp reject `#pending` (đỏ ~0,1 s), chỉ reject entry đầu tiên (đỏ), và ghi sai `Content-Length` thành `byteLength + 1` (đỏ tại đúng mốc timeout 10,004 s). Chạy lặp 15/15 lần đều xanh. `src/lsp/lsp-client.ts` không đổi so với commit a9306fb.
-- [x] feat-prove-routing — routing never drifts and never silently misroutes
+- [x] feat-lsp-client — Content-Length framing + id correlation- Checker approved at attempt 2/4. Both verification commands are reproducible (4/4 units, 1/1 integration). Oracle Level 3 spawns a real child process (private pid, visible `ps`, revoked after SIGKILL). Three mutants built by the checker itself in `harness/trace/scratch/` were all caught by oracle: skipping the reject loop `#pending` (red ~0.1 s), only rejecting the first entry (red), and incorrectly writing `Content-Length` to `byteLength + 1` (red at the correct timeout mark of 10.004 s). Repeat 15/15 times until green. `src/lsp/lsp-client.ts` is unchanged from commit a9306fb.
+- [x] feat-prove-routing — routing never drifts and never silent misroutes
   - Checker approved on the final attempt (3/3): independent replay 7/7 green (TCON-ROUTE-0001..0007) in 179.6 ms, source unchanged since commit 2503299, oracle diff purely additive (+64 lines, no deletions). A scratch mutant probe (deleted after use, `src/` untouched) showed the control copy green 7/7, mutant M3 (`find` instead of `findLast` — innermost instead of outermost reactor) killed by TCON-ROUTE-0007 alone, M1 killed by TCON-ROUTE-0006 alone, and M2/M13/M14/M17/M19 killed by several conditions each. FOLLOW-UP recorded for the still-surviving mutant M12.
 
-- [x] feat-workspace-pool — vòng đời JDT LS theo từng workspace
-  - Checker phê duyệt ở lần thử 1/3. Cả hai lệnh verification tái lập được (10 unit + 2 integration), `src/workspace/workspace-pool.ts` giữ nguyên byte sau khi thử mutant (sha256 `a72b2ed5…`). Bốn mutant do chính checker dựng đều bị bắt: M1 (ghi entry vào map chỉ sau khi spawn xong) làm đỏ 2 unit + 2 integration với sáu pid thật khác nhau; M2 (bỏ phần xoá entry trong nhánh catch khi spawn hỏng) làm đỏ điều kiện "a failed first spawn is never cached"; M3b (`terminate()` rỗng hoàn toàn) làm đỏ cả hai integration sau ~10,8 s; M4 (băm `path.resolve` thay vì `realpathSync`) làm đỏ điều kiện symlink ở cả hai tầng.
-  - INV-POOL-5 được chứng minh thật: cả hai oracle bắn 8 và 6 lời gọi `acquire()` song song qua `Promise.all`, oracle integration chờ thêm 400 ms trước khi đếm nên "đúng một tiến trình" không phải kết quả của một cuộc đua may rủi. Oracle integration chạy spawner mặc định, không tiêm seam: `child_process.spawn` thật, tiến trình con thật ghi `$$` và argv của chính nó, pid do pool báo được đối chiếu với pid hệ điều hành và `process.kill(pid, 0)`.
-  - Hai FOLLOW-UP ghi trong `checkerNotes`, không cản trở: (1) TCON-POOL-0003 của oracle `pool-lifecycle` đang đỏ vì lỗi của chính oracle, thuộc phạm vi `feat-prove-pool-lifecycle`; (2) chưa có điều kiện nào cố định việc `project-router` và `workspace-pool` sinh cùng một `workspaceId`.
+- [x] feat-workspace-pool — JDT LS lifecycle per workspace
+  - Checker approved at 1/3 attempt. Both verification commands are reproducible (10 units + 2 integration), `src/workspace/workspace-pool.ts` keeps the bytes intact after trying to mutate (sha256 `a72b2ed5…`). The four mutants created by the checker were all captured: M1 (recorded entry to the map only after spawning) reddened 2 units + 2 integrations with six different real pids; M2 (remove entry deletion in catch branch when spawn fails) redens the condition "a failed first spawn is never cached"; M3b (`terminate()` completely empty) reddens both integrations after ~10.8 s; M4 (hashing `path.resolve` instead of `realpathSync`) redens the symlink condition at both levels.- INV-POOL-5 is proven true: both oracles fire 8 and 6 `acquire()` calls in parallel via `Promise.all`, the integration oracle waits another 400 ms before counting so "exactly one process" is not the result of a race of luck. Oracle integration runs the default spawner, no seam injection: real `child_process.spawn`, real child process records its own `$$` and argv, pid reported by pool is checked against operating system pid, and `process.kill(pid, 0)`.
+  - Two FOLLOW-UPs recorded in `checkerNotes`, do not interfere: (1) TCON-POOL-0003 of oracle `pool-lifecycle` is red because of oracle's own error, within `feat-prove-pool-lifecycle`; (2) there is no fixed condition for `project-router` and `workspace-pool` to generate the same `workspaceId`.
 
-## Decomposition — lượt 2026-08-22 (feature-planner)
+## Decomposition — round 2026-08-22 (feature-planner)
 
-Đầu vào: ba mục FOLLOW-UP trong verdict APPROVE của `feat-workspace-pool`. Không đụng tới tính năng
-đó (giữ `done`, giữ evidence, giữ attempts 1/3). Chi tiết lý do trong `DECISIONS.md` 2026-08-22.
+Input: three FOLLOW-UP entries in verdict APPROVE of `feat-workspace-pool`. No features touched
+(hold `done`, keep evidence, keep attempts 1/3). Reason details in `DECISIONS.md` 2026-08-22.
 
-- Lỗi oracle `TCON-POOL-0003`: **không tạo scope mới.** `feat-prove-pool-lifecycle` nay đủ điều kiện
-  vì phụ thuộc đã `done`. Chẩn đoán và một sửa đổi oracle có giới hạn được cho phép trước, ghi trong
-  `checkerNotes` của chính tính năng và trong gói ngữ cảnh mới
-  `harness/loop/context-packets/feat-prove-pool-lifecycle.json` (có sha256 của tệp oracle, tệp điều
-  kiện và `src/workspace/workspace-pool.ts`, nên người nhận biết ngay gói còn tươi hay đã cũ).
-- Đường nối identity `project-router` ↔ `workspace-pool`: **tính năng prove mới**
-  `feat-prove-workspace-identity`, oracle riêng `test/integration/workspace-identity.integration.spec.ts`,
-  falsifier trích dẫn `INV-POOL-1` + `INV-ROUTE-3`, `maxAttempts` 2, `conditions` để rỗng cho lớp
-  oracle điền. Đây là việc giết mutant còn sống: hai component hôm nay khớp nhau nên lần chạy đỏ phải
-  đến từ mutant được nêu tên, không phải từ một tính năng chưa triển khai.
-- Dừng êm SIGTERM trước SIGKILL: **chỉ ghi chú.** Không invariant nào phát biểu thứ tự dừng, nên ghi
-  vào `context.note` của `feat-prove-pool-crash-handling` và mở một human checkpoint trong
-  `loop/goal.md`.
-- `feat-prove-pool-crash-handling`: **gỡ chặn** `blocked` → `not-started`. Điều kiện thoát do chính
-  ghi chú chặn nêu ra ("once feat-lsp-client and feat-workspace-pool are both done") nay đã đủ.
+- oracle error `TCON-POOL-0003`: **no new scope created.** `feat-prove-pool-lifecycle` is now qualified
+  because the dependency is `done`. Diagnostics and a limited pre-authorized oracle modification, written in
+  `checkerNotes` of the feature itself and in the new context package
+  `harness/loop/context-packets/feat-prove-pool-lifecycle.json` (with sha256 of oracle file, control file
+  package and `src/workspace/workspace-pool.ts`, so the recipient immediately knows whether the package is fresh or old).
+- Identity connection `project-router` ↔ `workspace-pool`: **new prove feature**
+  `feat-prove-workspace-identity`, private oracle `test/integration/workspace-identity.integration.spec.ts`,
+  falsifier quotes `INV-POOL-1` + `INV-ROUTE-3`, `maxAttempts` 2, `conditions` to empty for class
+  oracle fill. This is about killing the living mutant: today's two components match, so the red run is correct
+  comes from the named mutant, not from an undeployed feature.
+- Soft stop SIGTERM before SIGKILL: **note only.** None of the invariants state stop order, so note
+  Go to `context.note` of `feat-prove-pool-crash-handling` and open a human checkpoint in
+  `loop/goal.md`.- `feat-prove-pool-crash-handling`: **unblocking** `blocked` → `not-started`. Exit condition due to main
+  The block note mentioned ("once feat-lsp-client and feat-workspace-pool are both done") is now enough.
 
 ## Blocked
 
 - [ ] feat-prove-provisioner — timebox-blocked after attempt 3/3
-  - Checker replayed all 13 cases green in 562.2 s, including the real clean-cache download/install path. But TCON-PROV-0008 only compares the installed files to the same archive it handed to the implementation; it never requires checksum-mismatch rejection for corrupted downloaded bytes. A removed checksum guard would stay green, so the prove claim cannot close until the oracle adds that condition.
+  - Checker replayed all 13 green cases in 562.2 s, including the real clean-cache download/install path. But TCON-PROV-0008 only compares the installed files to the same archive it handed to the implementation; it never requires checksum-mismatch rejection for corrupted downloaded bytes. A removed checksum guard would stay green, so the prove claim cannot close until the oracle adds that condition.
 
 ## In Progress
 
-- [ ] feat-file-sync-watcher — chờ checker (`readyForCheck: true`, lần thử 2/3)
-  - **Lượt 2 (2026-08-22) — chỉ bổ sung oracle, không chạm `src/`.** Checker từ chối lượt 1 vì năm
-    mutant sống sót; bản triển khai được xác nhận đúng nên `src/workspace/file-sync-watcher.ts` giữ
-    nguyên từng byte (đối chiếu với bản sao trước khi dựng mutant, `diff` rỗng).
-  - Bốn trường hợp mới, mỗi trường hợp đỏ đúng dưới mutant nó nhắm tới:
-    1. Ghim mã số trên dây bằng literal LSP 3.17 (1/2/3), không đi qua `FileChangeType` nhập từ
-       chính module bị phán xét → giết M3 (đổi số hiệu hằng số), đỏ với `expected [1] actual [3]`.
-    2. Ghi đè giữ nguyên độ dài byte VÀ giữ nguyên mtime: cả hai bản đều bị ép mtime về một giây
-       tròn bằng `utimesSync`, độ dài byte được khẳng định bằng nhau, nên `ino` là trường duy nhất
-       phân biệt → giết M7 (xoá vế `previous.ino !== stamp.ino`).
-    3. Fixture reactor hai module (`moduleA/pom.xml` + `moduleA/src/main/java`) → giết M5 (chỉ theo
-       dõi pom gốc) ở lần chờ refresh, và M8 (bỏ luật infix trong `#isWatchedPath`) ở lần chờ thông
-       báo cho mã nguồn của module. Hai mutant chết ở hai khẳng định khác nhau.
-    4. Một trường hợp chạm `src/test/java` → giết M6 (bỏ nửa hằng số `DEFAULT_SOURCE_ROOT_PATTERNS`).
-  - Bốn mutant A/B/C/D của lượt 1 được dựng lại và vẫn chết (3, 7, 2, 1 trường hợp đỏ). Việc sửa
-    hạ tầng dùng chung không làm cùn khẳng định nào.
-  - **Một lỗi flaky có sẵn lộ ra khi thêm ca, đã sửa hoàn toàn ở tầng fixture.** Trên macOS, libuv
-    khởi động luồng FSEvents SAU khi `fs.watch()` trả về; lần ghi rơi vào cửa sổ đó không bao giờ
-    được chuyển tới. Vì watcher chỉ flush khi có sự kiện, hậu quả là im lặng tuyệt đối và trường hợp
-    treo hết 15 s. Đo được trước khi sửa: 2 trên 4 lần chạy `npm run test:integration` đỏ, nạn nhân
-    là trường hợp nào ghi trước tiên — một lần ca mới, hai lần các ca CŨ số 3/5/7. Cách sửa nằm trọn
-    trong tệp spec: `awaitWatchStreamLive()` cho các ca mới, cộng một cú hích trong `waitUntil` ghi
-    tệp mồi `.fs-watch-probe` (không phải `*.java`, không phải `pom.xml`, nên không thể xuất hiện
-    trong bất kỳ thông báo nào) và CHỈ chạy khi `watcher.lastChangeAt` còn `undefined`, tức chỉ bên
-    trong cửa sổ khởi động. Sau khi sửa: 6 trên 6 lần chạy xanh 60/60. Không khẳng định nào của 8 ca
-    cũ bị đổi hay gỡ; `makeFixture` chỉ thêm tuỳ chọn `autoStart` và chỉ ca ghi-đè-cùng-kích-thước
-    dùng nó, vì ca đó cần ảnh nền được chốt bởi lần quét lúc `start()` thay vì bởi một flush chạy đua.
-  - Nếu muốn chính bản triển khai đóng cửa sổ FSEvents (quét lại một lần ngắn sau `start()`) thì đó
-    là thay đổi `src/` và phải là một tính năng riêng, không nhét vào lượt sửa oracle này.
+- [ ] feat-file-sync-watcher — wait checker (`readyForCheck: true`, attempts 2/3)
+  - **Round 2 (2026-08-22) — add oracle only, don't touch `src/`.** Checker rejects round 1 because of year
+    mutant survival; The deployment is confirmed correct so `src/workspace/file-sync-watcher.ts` holds
+    byte-by-byte (compare with copy before mutant, `diff` is empty).
+  - Four new cases, each red under the mutant it targets:
+    1. Pin code on line using literal LSP 3.17 (1/2/3), without passing `FileChangeType` imported from
+       The module itself is judged → kill M3 (change the constant number), red with `expected [1] actual [3]`.
+    2. Overwrite preserves byte length AND preserves mtime: both versions force mtime to one second
+       rounded by `utimesSync`, the byte lengths are asserted to be equal, so `ino` is the only field
+       distinguish → kill M7 (delete the clause `previous.ino !== stamp.ino`).
+    3. Fixture reactor two modules (`moduleA/pom.xml` + `moduleA/src/main/java`) → kill M5 (follow only
+       watch original pom) on refresh wait, and M8 (remove infix rule in `#isWatchedPath`) on notify wait
+       Report the source code of the module. Two mutants died in two different confirmations.
+    4. A case of hitting `src/test/java` → killing M6 (removing half of the constant `DEFAULT_SOURCE_ROOT_PATTERNS`).
+  - Four mutants A/B/C/D of round 1 were rebuilt and still died (3, 7, 2, 1 red case). Correction
+    Shared infrastructure does not blunt either assertion.- **A built-in flaky bug was exposed when adding shifts, completely fixed in the fixture layer.** On macOS, libuv
+    start the FSEvents stream AFTER `fs.watch()` returns; Recordings fall into that window never
+    is transferred. Since the watcher only flushes when an event occurs, the consequence is absolute silence and case
+    hang for 15 seconds. Measured before fixing: 2 out of 4 runs of `npm run test:integration` red, victim
+    which case is written first - once the new case, twice the OLD cases numbered 3/5/7. How to fix it completely
+    in spec file: `awaitWatchStreamLive()` for new shifts, plus a kick in `waitUntil` write
+    bait file `.fs-watch-probe` (not `*.java`, not `pom.xml`, so cannot appear
+    in any notification) and runs ONLY when `watcher.lastChangeAt` is `undefined`, i.e. only inside
+    in the startup window. After correction: 6 out of 6 green runs 60/60. No confirmation of 8 cases
+    the old one is changed or removed; `makeFixture` only adds the `autoStart` option and only the overwrite-same-size shift
+    use it, because that case needs the background image to be latched by a scan at `start()` instead of by a racing flush.
+  - If you want the deployment itself to close the FSEvents window (a short rescan after `start()`) then that
+    is a change to `src/` and must be a separate feature, not included in this oracle edit.
 
-  Lượt 1 (giữ lại để tra cứu):
-  - Đã viết `src/workspace/file-sync-watcher.ts` và oracle Level 1 của chính nó
-    `test/workspace/file-sync-watcher.spec.ts` (tính năng `kind: build`, maker sở hữu cả hai).
-    Tám trường hợp chạy trên thư mục tạm thật và `fs.watch` thật; chỉ tầng LSP là giả, vì khẳng định
-    ở đây là "thông báo nào được phát", không phải khung Content-Length (đã chứng minh ở lsp-client).
-  - Quyết định thiết kế quan trọng: **không đọc loại thay đổi từ chuỗi sự kiện của hệ điều hành.**
-    `fs.watch` báo `rename` cho cả tạo, xoá và hai nửa của một lần đổi tên, gộp sự kiện tuỳ ý, và
-    trên macOS còn phát lại sự kiện của những lần ghi ngay TRƯỚC khi `watch()` được cài. Mỗi sự kiện
-    chỉ lên lịch một lần flush; flush so sánh một lần quét mới với ảnh chụp lần settle trước:
-    vắng → có là Created, có → vắng là Deleted, khác `(mtime, size, inode)` là Changed. Pattern
-    ghi-tạm-rồi-đổi-tên rơi vào nhánh cuối vì tệp đích giữ đường dẫn nhưng nhận inode của tệp tạm.
-  - Bản đầu tiên tin vào đường dẫn mà hệ điều hành nêu tên (có mặt ở cả hai phía ⇒ Changed) và bị
-    chính oracle bắt đỏ: `pom.xml` bị báo Changed sau một lần sửa chỉ chạm mã nguồn, do sự kiện phát
-    lại. Đây là lần đỏ có giá trị nhất của lượt này — nó chỉ ra một watcher gây làm mới project-model
-    thừa ở mỗi lần khởi động workspace.
-  - `settledAt` và "đã gửi thông báo" là hai sự kiện tách biệt: `lastChangeAt` đặt ngay khi có sự
-    kiện thô, `settledAt` chỉ nhích sau khi lô đã debounce được gửi đi, kèm `generation` tăng một
-    lần cho mỗi lô. `INV-SYNC-1` sẽ dựa vào mốc này, chưa nối dây ở giai đoạn build hiện tại.
-  - Bốn mutant tự dựng đều bị oracle giết, nguồn khôi phục nguyên byte sau đó: bỏ nhánh Deleted
-    (2 trường hợp đỏ), ghi nhận sửa đổi thành Created (3 đỏ), `pom.xml` chỉ phát thông báo
-    watched-file (đúng trường hợp `INV-SYNC-3` đỏ), và đặt `settledAt` ngay tại sự kiện thô (đúng
-    trường hợp debounce đỏ).
-  - Giới hạn đã biết, thuộc phạm vi tính năng khác: `LspClient` chưa có phương thức `notify()`, nên
-    watcher nhận một cổng `LspNotificationSink` do người gọi cung cấp. Không sửa `src/lsp/` trong
-    lượt này vì ràng buộc "không đụng tệp ngoài phạm vi tính năng"; việc nối dây thuộc
-    `feat-tool-layer-core` hoặc daemon.
+  Round 1 (keep for reference):
+  - Wrote `src/workspace/file-sync-watcher.ts` and its own Level 1 oracle
+    `test/workspace/file-sync-watcher.spec.ts` (feature `kind: build`, maker owns both).
+    Eight cases run on real temp directory and real `fs.watch`; only the LSP layer is fake, because of the assertion
+    here is "what message is broadcast", not the Content-Length frame (demonstrated in lsp-client).
+  - Important design decision: **don't read type changes from the OS event chain.**
+    `fs.watch` reports `rename` for both creation, deletion, and the two halves of a rename, optional event aggregation, and
+    on macOS also replays the events of recordings immediately BEFORE `watch()` is set. Every event
+    schedule only one flush; flush compares a new scan with a previous settle snapshot:
+    absent → present is Created, present → absent is Deleted, otherwise `(mtime, size, inode)` is Changed. Patternwrite-temp-then-rename falls in the last branch because the target file keeps the path but gets the inode of the temporary file.
+  - The first version believes in the path named by the operating system (present on both sides ⇒ Changed) and is
+    oracle itself caught red: `pom.xml` reported Changed after an edit that only touched the source code, due to an event
+    again. This is the most valuable red of this turn — it indicates a watcher causing a project-model refresh
+    redundant every time the workspace is started.
+  - `settledAt` and "notification sent" are two separate events: `lastChangeAt` sets as soon as an event occurs.
+    raw bale, `settledAt` only moves after the debounced batch is sent, with `generation` incremented by one
+    times for each lot. `INV-SYNC-1` will be based on this milestone, not wired at the current build stage.
+  - Four self-built mutants were all killed by the oracle, the source was restored to its original bytes afterwards: remove the Deleted branch
+    (2 red cases), change record to Created (3 red), `pom.xml` only emits notifications
+    watched-file (true case `INV-SYNC-3` is red), and set `settledAt` right at the raw event (true
+    red debounce case).
+  - Known limitation, covered by another feature: `LspClient` does not yet have a `notify()` method, so
+    watcher receives an `LspNotificationSink` port provided by the caller. Do not edit `src/lsp/` in
+    this turn because of the "don't touch files out of feature scope" constraint; wiring belongs
+    `feat-tool-layer-core` or daemon.
 
-- [ ] feat-prove-pool-lifecycle — chờ checker (`readyForCheck: true`, lần thử 1/3)
-  - Đỏ mới trên oracle nguyên vẹn (2026-08-22): 3 test, 2 đạt, 1 hỏng. `TCON-POOL-0003` bắn
-    `ERR_ASSERTION` tại dòng 205 của
-    `test/integration/pool-lifecycle.integration.spec.ts`, thông điệp "an evicted workspace must be
-    absent from pool.status()", giá trị thực là workspace `idle` của `project-0`. Đây là lỗi của
-    oracle, không phải của `src/workspace/workspace-pool.ts`: chuỗi fixture `[p0,p1,p0,p2,p0]`
-    acquire lại `p0` sau khi evict nên `p0` sống lại hợp lệ.
-  - Áp đúng một sửa đổi đã được cho phép trước trong `DECISIONS.md` (2026-08-22): assertion
-    vắng-mặt-khỏi-`status()` nay chỉ chạy khi `!recorder.liveProjects.has(evictedProject)`, tức thu
-    hẹp về các workspace đã evict và chưa được acquire lại. Assertion `existsSync(dataDir)` — chính
-    là falsifier của `INV-POOL-4` — giữ nguyên, chạy không điều kiện cho mọi phần tử `stopOrder`.
-    Không đụng `src/`, không đụng `TCON-POOL-0001`/`TCON-POOL-0002`, fixture và cap giữ nguyên.
-  - Xanh sau sửa: 3/3 oracle; `npm run test:integration` 48/48; `npm test` 10/10.
-  - Kiểm tra không rỗng nghĩa: với bộ đếm tạm (đã gỡ ngay sau khi đo), assertion vắng mặt sau khi
-    thu hẹp vẫn chạy 7 lần mỗi lượt — 3 lần `project-0`, 3 lần `project-1`, 1 lần `project-2`. Điều
-    kiện bảo vệ không làm tắt assertion.
+- [ ] feat-prove-pool-lifecycle — wait for checker (`readyForCheck: true`, attempts 1/3)
+  - New red on intact oracle (2026-08-22): 3 tests, 2 passed, 1 failed. `TCON-POOL-0003` fired
+    `ERR_ASSERTION` at line 205 of
+    `test/integration/pool-lifecycle.integration.spec.ts`, message "an evicted workspace must be
+    absent from pool.status()", the actual value is workspace `idle` of `project-0`. This is my fault
+    oracle, not of `src/workspace/workspace-pool.ts`: fixture string `[p0,p1,p0,p2,p0]`
+    re-acquire `p0` after evict so `p0` is valid again.
+  - Exactly apply a previously allowed edit in `DECISIONS.md` (2026-08-22): assertion
+    absent-from-`status()` now only runs when `!recorder.liveProjects.has(evictedProject)`, i.e.narrow in terms of workspaces that have been evicted and have not been reacquired. Assertion `existsSync(dataDir)` — main
+    is the falsifier of `INV-POOL-4` — remains the same, runs unconditionally for all `stopOrder` elements.
+    Do not touch `src/`, do not touch `TCON-POOL-0001`/`TCON-POOL-0002`, fixture and cap remain the same.
+  - Green after editing: 3/3 oracle; `npm run test:integration` 48/48; `npm test` 10/10.
+  - Non-empty check: with temporary counter (removed immediately after measurement), assertion is absent after
+    shrink still runs 7 times each pass — 3 times `project-0`, 3 times `project-1`, 1 time `project-2`. Article
+    guard condition does not disable assertion.
 
 ## Next
 
-0. `node harness/loop/route.mjs` sau lượt lập kế hoạch này trỏ tới **test-designer** cho
-   `feat-prove-workspace-identity`: falsifier trích dẫn `INV-POOL-1`, mà `INV-POOL-1` chưa có điều
-   kiện test nào. Đúng thứ tự mong muốn — lớp oracle thiết kế điều kiện trước, rồi test-implementer
-   viết `test/integration/workspace-identity.integration.spec.ts`, rồi mới tới maker.
-   Sau đó `feat-prove-pool-crash-handling` (vừa gỡ chặn, `conditions` TCON-POOL-0004..0006 đã có sẵn
-   trong `TP-POOL-0002`) sẽ khớp quy tắc test-implementer.
-1. `feat-prove-pool-lifecycle` (đủ điều kiện, `not-started`). **Đọc
-   `harness/loop/context-packets/feat-prove-pool-lifecycle.json` trước.** Router sẽ đưa tính năng này
-   cho maker chứ không cho lớp oracle, vì trường `evidence` không rỗng nên quy tắc test-implementer
-   không khớp. Oracle `test/integration/pool-lifecycle.integration.spec.ts` đã tồn tại và đạt 2/3 với triển khai hiện tại. TCON-POOL-0003 đỏ vì lỗi của chính oracle: vòng lặp khẳng định mọi dự án từng nằm trong `recorder.stopOrder` phải vắng mặt trong `pool.status()`, nhưng chuỗi fixture `[p0,p1,p0,p2,p0]` acquire lại `p0` sau khi evict, nên `p0` sống lại hợp lệ. Cần thu hẹp assertion về đúng các workspace đã evict và chưa được acquire lại. Phần còn lại của oracle đã được checker kiểm chứng là đúng: với mutant thêm hậu tố tick vào `dataDir`, TCON-POOL-0003 đỏ ở đúng assertion "a re-requested workspace must reuse its warm -data directory", tức INV-POOL-4 được phủ thật.
-2. Add and run a committed corrupt-download/checksum-rejection integration condition for `feat-prove-provisioner`, then return it to checker review.
-3. **CẦN NGƯỜI QUYẾT ĐỊNH — mục này router không còn nêu lại được.** `feat-prove-routing` FOLLOW-UP (surviving mutant M12): cả hai lượt dispatch `follow-up:feat-prove-routing:*` đã dùng hết, nên `loop/route.mjs` sẽ không bao giờ nhắc lại; đã mở một human checkpoint trong `loop/goal.md`. Chọn một trong hai: một tính năng oracle nhỏ mới, hoặc một dòng chấp nhận rủi ro dưới A-006 — không bao giờ là lần nới rộng tại chỗ thứ tư, vì tính năng đó đã đóng ở 3/3 và maker hết lượt thử. The recommended single condition (TCON-ROUTE-0008) closes the whole selection predicate at once: a five-level mixed ancestor chain (non-reactor top, reactor A, non-reactor middle, reactor B, leaf module), where a path under the leaf module must resolve to reactor A.
-4. ~~Feature-planner cân nhắc một điều kiện nhỏ cho đường nối `project-router` ↔ `workspace-pool`.~~
-   **Đã xử lý 2026-08-22:** cắt thành tính năng `feat-prove-workspace-identity`. Hai điểm tính hash
-   độc lập là `src/workspace/project-router.ts:47` và `src/workspace/workspace-pool.ts:171`.
+0. `node harness/loop/route.mjs` after this planning pass points to **test-designer** for
+   `feat-prove-workspace-identity`: falsifier quotes `INV-POOL-1`, which does not yet have a condition for `INV-POOL-1`
+   Which test case? Correct order — the oracle class designs the condition first, then the test-implementer
+   write `test/integration/workspace-identity.integration.spec.ts`, then maker.
+   Then `feat-prove-pool-crash-handling` (just unblocked, `conditions` TCON-POOL-0004..0006 is available
+   in `TP-POOL-0002`) will match the test-implementer rule.
+1. `feat-prove-pool-lifecycle` (fully qualified, `not-started`). **Read
+   `harness/loop/context-packets/feat-prove-pool-lifecycle.json` first.** Router will include this feature
+   for maker and not for oracle class, because the `evidence` field is not empty so the test-implementer
+   does not match. Oracle `test/integration/pool-lifecycle.integration.spec.ts` already exists and is 2/3 with current implementation. TCON-POOL-0003 is red because of oracle's own error: the loop asserts that every project that was in `recorder.stopOrder` must be absent from `pool.status()`, but the fixture string `[p0,p1,p0,p2,p0]` reacquires `p0` after evict, so `p0` is valid again. Need to narrow the assertion to exactly the workspaces that have been evicted and have not been reacquired. The rest of the oracle has been verified by the checker to be correct: with the mutant adding the tick suffix to `dataDir`, the red TCON-POOL-0003 is in the correct assertion "a re-requested workspace must reuse its warm -data directory", meaning INV-POOL-4 is covered.2. Add and run a committed corrupt-download/checksum-rejection integration condition for `feat-prove-provisioner`, then return it to checker review.
+3. **DECIDER NEEDED — this item can no longer be mentioned by the router.** `feat-prove-routing` FOLLOW-UP (surviving mutant M12): both dispatches `follow-up:feat-prove-routing:*` have been used up, so `loop/route.mjs` will never be mentioned again; opened a human checkpoint in `loop/goal.md`. Choose one of two: a new small oracle feature, or a risk-taking line under A-006 — never a fourth in-place expansion, because that feature is already closed at 3/3 and the maker is out of tries. The recommended single condition (TCON-ROUTE-0008) closes the whole selection predicate at once: a five-level mixed ancestor chain (non-reactor top, reactor A, non-reactor middle, reactor B, leaf module), where a path under the leaf module must resolve to reactor A.
+4. ~~Feature-planner considers a small condition for the connection `project-router` ↔ `workspace-pool`.~~
+   **Processed 2026-08-22:** cut to feature `feat-prove-workspace-identity`. Two hash points
+   standalone are `src/workspace/project-router.ts:47` and `src/workspace/workspace-pool.ts:171`.
 
 ## Known Issues / Risks
 
 - [ ] Eclipse snapshot downloads are slow on this network; the fetcher uses bounded parallel ranges and caches the checksum-verified archive contents.
 
-## Notes for Next Session
+## Notes for Next SessionThe prove-provisioner feature is rejected: its 13-case green replay lacks corrupt-download/checksum-rejection coverage. `feat-lsp-client` is **done** — checker approved on attempt 2/4 after constructing three mutants and confirming oracle Level 3 captured all three; Do not edit `src/lsp/lsp-client.ts` or the oracle file without a new deny. `feat-project-router` is done and must stay intact. `feat-prove-routing` is now **done**, approved by the checker on its final attempt (3/3). The recorded verification reproduced exactly (7/7 green, 179.6 ms), and a scratch mutant probe settled the question the previous verdict left open: the `outermost` clause of `INV-ROUTE-1` is truly proven, because `TCON-ROUTE-0007` is the only condition that kills the innermost-reactor mutant. One real gap remains and is recorded as a FOLLOW-UP in the feature's `checkerNotes`: mutant M12 — *if any ancestor is a reactor, take the outermost ancestor `pom.xml` even when that pom declares no `<modules>`* — survives all 7 conditions. It is proven non-equivalent: for `parent-pom-only/` (packaging=pom, no `<modules>`) containing `reactor/` (`<modules>`) containing `mod-a`, the real implementation resolves `mod-a` to `parent-pom-only/reactor` while M12 resolves it to `parent-pom-only`. No fixture places a non-reactor `pom.xml` *above* a reactor root, so `INV-ROUTE-1`'s qualifier clause is still discriminated by nothing. This must be routed as new scope, not as a fourth expansion of the closed feature. Two other surviving mutants are already documented rather than new: the loosened `<modules>` regex (the accepted no-real-Maven-parser risk in design approval 3d68e0857fbfac45) and the dropped `realpathSync` (out of scope while X-005 stays open, as the spec file's own header states).
 
-The prove-provisioner feature is rejected: its 13-case green replay lacks corrupt-download/checksum-rejection coverage. `feat-lsp-client` là **done** — checker đã phê duyệt ở lần thử 2/4 sau khi tự dựng ba mutant và xác nhận oracle Level 3 bắt được cả ba; không được sửa `src/lsp/lsp-client.ts` hay file oracle nếu không có lần từ chối mới. `feat-project-router` is done and must stay untouched. `feat-prove-routing` is now **done**, approved by the checker on its final attempt (3/3). The recorded verification reproduced exactly (7/7 green, 179.6 ms), and a scratch mutant probe settled the question the previous verdict left open: the `outermost` clause of `INV-ROUTE-1` is genuinely proven, because `TCON-ROUTE-0007` is the only condition that kills the innermost-reactor mutant. One real gap remains and is recorded as a FOLLOW-UP in the feature's `checkerNotes`: mutant M12 — *if any ancestor is a reactor, take the outermost ancestor `pom.xml` even when that pom declares no `<modules>`* — survives all 7 conditions. It is proven non-equivalent: for `parent-pom-only/` (packaging=pom, no `<modules>`) containing `reactor/` (`<modules>`) containing `mod-a`, the real implementation resolves `mod-a` to `parent-pom-only/reactor` while M12 resolves it to `parent-pom-only`. No fixture places a non-reactor `pom.xml` *above* a reactor root, so `INV-ROUTE-1`'s qualifier clause is still discriminated by nothing. This must be routed as new scope, not as a fourth widening of the closed feature. Two other surviving mutants are already documented rather than new: the loosened `<modules>` regex (the accepted no-real-Maven-parser risk in design approval 3d68e0857fbfac45) and the dropped `realpathSync` (out of scope while X-005 stays open, as the spec file's own header states).
+## 2026-08-22 — `feat-readiness-gate` (maker, turn 1/3, waiting for checker)
 
-## 2026-08-22 — `feat-readiness-gate` (maker, lượt 1/3, chờ checker)
+`src/workspace/readiness-gate.ts` + `test/workspace/readiness-gate.spec.ts` (6 cases, all present
+`{ timeout: 10_000 }`). The port only opens when `probeSemanticIndex` returns a non-empty result AND has at least one result
+a result that points back to the correct source file from which the symbol was read (`workspace/symbol`). `noteStatus()`only records `ServiceReady`/`ProjectStatus` and wakes up the probe loop early; it never opens the gate.
+`deadline` is a required parameter of type `{ at } | { withinMs }` — X-001 is still open so no default value is set
+determined. `probeSemanticIndex` is exported specifically for calling `feat-prove-sync` directly.
 
-`src/workspace/readiness-gate.ts` + `test/workspace/readiness-gate.spec.ts` (6 ca, đều có
-`{ timeout: 10_000 }`). Cổng chỉ mở khi `probeSemanticIndex` trả về kết quả không rỗng VÀ có ít nhất
-một kết quả trỏ ngược về đúng tệp nguồn mà symbol được đọc ra (`workspace/symbol`). `noteStatus()`
-chỉ ghi nhận `ServiceReady`/`ProjectStatus` và đánh thức vòng probe sớm; nó không bao giờ mở cổng.
-`deadline` là tham số bắt buộc kiểu `{ at } | { withinMs }` — X-001 còn mở nên không đặt giá trị mặc
-định. `probeSemanticIndex` được export riêng cho `feat-prove-sync` gọi trực tiếp.
+Evidence: the falsifier version running first gives red 5/5; The three self-created mutants were all killed in exactly the same case. Mutants 2
+(remove `settleBy` around probe) **survives the first time** because the deadline is tightened a second time inside
+probe; probe; added case 5 (injected probe intentionally ignored `timeoutMs` and never settled)
+rebuild the mutant — case 5 hangs and is canceled by `node --test`, meaning the mutant is captured. Entire suite unit: 41/41.
 
-Bằng chứng: bản falsifier chạy trước cho đỏ 5/5; ba mutant tự dựng đều bị giết đúng một ca. Mutant 2
-(bỏ `settleBy` quanh probe) **sống sót ở lần đầu** vì thời hạn còn được siết lần thứ hai bên trong
-probe; đã bổ sung ca 5 (probe được tiêm vào cố tình bỏ qua `timeoutMs` và không bao giờ settle) rồi
-dựng lại mutant — ca 5 treo và bị `node --test` huỷ, tức mutant bị bắt. Toàn bộ suite unit: 41/41.
+## 2026-08-22 — `feat-diagnostics-cache` (maker, turn 1/3, waiting for checker)
 
-## 2026-08-22 — `feat-diagnostics-cache` (maker, lượt 1/3, chờ checker)
+`src/lsp/diagnostics-cache.ts` + `test/lsp/diagnostics-cache.spec.ts` (13 sync shifts, no set
+`{ timeout }` because that option is disabled for synchronous callbacks — DECISIONS.md 2026-08-22). Key cache
+by `(workspaceId, uri)` with a nested map, completely independent of the open/close lifecycle: spike B gives
+see diagnostics arriving in push mode, even for files that have never been `didOpen`. `absorb()` receives the raw payload,
+check the shape, then **overwrite** the old entry of that URI — don't read the old entry again, so the empty payload is deleted
+clean old problem (INV-DIAG-2). `get()` distinguishes `reported: false` from reported
+empty (INV-DIAG-1). The save is deep frozen `structuredClone`, so no callers accumulate
+passed by reference.
 
-`src/lsp/diagnostics-cache.ts` + `test/lsp/diagnostics-cache.spec.ts` (13 ca đồng bộ, không đặt
-`{ timeout }` vì tuỳ chọn đó vô hiệu với callback đồng bộ — DECISIONS.md 2026-08-22). Cache khoá
-theo `(workspaceId, uri)` bằng map lồng nhau, hoàn toàn độc lập với vòng đời open/close: spike B cho
-thấy diagnostics tới theo kiểu đẩy, kể cả cho tệp chưa từng `didOpen`. `absorb()` nhận payload thô,
-kiểm tra hình dạng, rồi **ghi đè** mục cũ của URI đó — không đọc lại mục cũ, nên payload rỗng xoá
-sạch problem cũ (INV-DIAG-2). `get()` phân biệt `reported: false` (chưa báo cáo) với bản báo cáo
-rỗng (INV-DIAG-1). Bản lưu là `structuredClone` đã đóng băng sâu, nên không người gọi nào cộng dồn
-được qua tham chiếu.
+Wiring: narrow port declaration cache `LspNotificationSource { onNotification(method, handler) }` in
+file itself and `attach(workspaceId, source)` properly registers the string `textDocument/publishDiagnostics`
+of LSP 3.17. This is the way `file-sync-watcher` used for `LspNotificationSink` and the checker said
+is the correct boundary. **`LspClient` does not currently route notifications** — `#handleMessage` ignores all
+The message does not carry an id — so it is only structurally compatible with this port when the lsp-client feature is added
+add `onNotification`; recorded in `checkerNotes`.Proof: red first (module doesn't exist yet), then red at assertion level with `absorb` stacking first
+first (exact case of INV-DIAG-2). Eight mutants built themselves along three axes of
+`harness/memory/checker/maker-authored-mutants-cover-only-branches-he-wrote.md`: protocol constant
+(M2), self-declared load-bearing mechanism (M3 copy/freeze, M7 unregister), and fixture shape (M4 two
+workspace, M5 empty-vs-uncounted, M6 broken payload, M8 version). All eight died exactly as they were aiming; later
+revert, `diff` with pristine empty and `npm test` 41/41 green.
 
-Nối dây: cache khai báo cổng hẹp `LspNotificationSource { onNotification(method, handler) }` trong
-tệp của chính nó và `attach(workspaceId, source)` đăng ký đúng chuỗi `textDocument/publishDiagnostics`
-của LSP 3.17. Đây là lối mà `file-sync-watcher` đã dùng cho `LspNotificationSink` và checker đã phán
-là đúng ranh giới. **`LspClient` hiện chưa định tuyến notification** — `#handleMessage` bỏ qua mọi
-thông điệp không mang id — nên nó chỉ tương thích cấu trúc với cổng này khi feature của lsp-client bổ
-sung `onNotification`; ghi trong `checkerNotes`.
+## 2026-08-22 — `feat-file-sync-watcher` (maker, turn 3/3, waiting for checker)
 
-Bằng chứng: đỏ trước (module chưa tồn tại), rồi đỏ ở mức assertion với bản `absorb` cộng dồn đầu
-tiên (đúng ca INV-DIAG-2). Tám mutant tự dựng theo ba trục của
-`harness/memory/checker/maker-authored-mutants-cover-only-branches-he-wrote.md`: hằng số giao thức
-(M2), cơ chế tự khai là chịu lực (M3 bản sao/đóng băng, M7 gỡ đăng ký), và hình dạng fixture (M4 hai
-workspace, M5 rỗng-vs-chưa-tính, M6 payload hỏng, M8 version). Cả tám đều chết đúng ca nhắm tới; sau
-hoàn nguyên, `diff` với bản pristine rỗng và `npm test` 41/41 xanh.
+Last oracle fix on budget. Checker rejects the second time because the decision comparison `Changed` is based
+on the triple `(mtimeMs, size, ino)` but oracle can only pin one field: leave out `mtimeMs` (M10) or
+In the `size` (M13) clause, 12/12 is still green, and no case deleted a `pom.xml`, so the new branch for the pom was broken.
+delete (M12) and no one watches. Just touch `test/workspace/file-sync-watcher.spec.ts`; deployment version
+keep each byte intact, sha256 after duplicating the pristine copy taken before creating the mutant.
 
-## 2026-08-22 — `feat-file-sync-watcher` (maker, lượt 3/3, chờ checker)
+Three new shifts, all written **in place** with `writeFileSync` — on macOS this opens the file with `O_TRUNC` and
+no `unlink`, so the destination remains the same inode, completely separate from the temp-write-then-rename of the old case:
 
-Lượt sửa oracle cuối trong ngân sách. Checker từ chối lần 2 vì phép so sánh quyết định `Changed` dựa
-trên bộ ba `(mtimeMs, size, ino)` nhưng oracle chỉ ghim được một trường: bỏ vế `mtimeMs` (M10) hoặc
-vế `size` (M13) thì 12/12 vẫn xanh, và không ca nào xoá một `pom.xml` nên nhánh làm mới cho pom bị
-xoá (M12) cũng không ai canh. Chỉ chạm `test/workspace/file-sync-watcher.spec.ts`; bản triển khai
-giữ nguyên từng byte, sha256 sau lượt trùng bản sao pristine lấy trước khi dựng mutant.
+1. Only mtime is different. Same number of bytes, frozen background timestamp to 2023 with `utimesSync` **before**
+   `start()`, so the new mtime is always noticeably different regardless of filesystem resolution. Affirm in advance
+   equals `statSync`: `ino` and `size` are equal, only `mtimeMs` differs. Kill M10.
+2. Only the size is different. Longer content then `utimesSync` returns mtime to correct datum — simulate `cp -p`,
+   `rsync --times`, `git checkout`. The two commands are in the same synchronization block so there is no timer debounce
+   Who can squeeze in between to see the intermediate mtime? Kill M13.
+3. Delete `moduleA/pom.xml` in fixture reactor. Request `java/projectConfigurationUpdate` targeting pom
+   **root** (uri of deleted pom is no longer readable — correct deployment branch statement), with one entry
+   `Deleted` gives the pom deleted, and the original pom is not reported as changed. Kill M12, kill M5 as well.Evidence: each green case on the full version first, then red under its correct mutant and only
+red in that case (the remaining 14 cases were still green), then green again after reconstitution. Five mutants of round 2
+(M3/M7/M5/M8/M6) rebuilt after three more cases still died in the target case. Stable: verification running 5
+consecutive times 44/44 green, `npm run test:integration` 4 times 87/87 green.
 
-Ba ca mới, tất cả ghi **tại chỗ** bằng `writeFileSync` — trên macOS lệnh này mở tệp với `O_TRUNC` và
-không `unlink`, nên đích giữ nguyên inode, tách hẳn khỏi lối temp-write-then-rename của ca cũ:
+An observation about the environment, not the behavior of the test case: the first run under M12 reports the duration
+209 s for red shift, far exceeding `{ timeout: 30000 }`. Measure again four times when the machine is idle for exactly 15.14 s.
+The reason is that the machine load is due to other agents running in parallel (load average above 5), not the shift itself.
 
-1. Chỉ khác mtime. Cùng số byte, mốc thời gian nền đóng băng về năm 2023 bằng `utimesSync` **trước**
-   `start()`, nên mtime mới luôn khác rõ rệt bất kể độ phân giải của filesystem. Khẳng định trước
-   bằng `statSync`: `ino` và `size` bằng nhau, chỉ `mtimeMs` khác. Giết M10.
-2. Chỉ khác size. Nội dung dài hơn rồi `utimesSync` trả mtime về đúng mốc nền — mô phỏng `cp -p`,
-   `rsync --times`, `git checkout`. Hai lệnh nằm trong cùng một khối đồng bộ nên không timer debounce
-   nào chen được vào giữa để nhìn thấy mtime trung gian. Giết M13.
-3. Xoá `moduleA/pom.xml` trong fixture reactor. Đòi `java/projectConfigurationUpdate` nhắm vào pom
-   **gốc** (uri của pom đã xoá không còn đọc được — đúng nhánh bản triển khai tuyên bố), kèm một mục
-   `Deleted` cho pom đã xoá, và pom gốc không bị báo là thay đổi. Giết M12, giết thêm cả M5.
+Still in debt, belongs to the design class, not the maker (checker stated in round 2, no one has received it yet): update
+A-014 according to measured evidence, and a separate feature that closes the FSEvents startup window right in
+`start()` instead of letting the spec file write the primer file.
 
-Bằng chứng: mỗi ca xanh trên bản triển khai nguyên vẹn trước, rồi đỏ dưới đúng mutant của nó và chỉ
-đỏ ở ca đó (14 ca còn lại vẫn xanh), rồi xanh lại sau khi hoàn nguyên. Năm mutant của lượt 2
-(M3/M7/M5/M8/M6) dựng lại sau khi thêm ba ca vẫn chết đúng ca nhắm tới. Ổn định: verification chạy 5
-lần liên tiếp 44/44 xanh, `npm run test:integration` 4 lần 87/87 xanh.
+## Checkers run independently for four features (2026-08-22)
 
-Một quan sát về môi trường, không phải hành vi của ca kiểm thử: lần chạy đầu dưới M12 báo thời lượng
-209 s cho ca đang đỏ, vượt xa `{ timeout: 30000 }`. Đo lại bốn lần khi máy rảnh đều cho đúng 15,14 s.
-Nguyên nhân là tải máy do các agent khác chạy song song (load average trên 5), không phải ca tự treo.
+There is no `verify-harness --promote` run first, so it's all mechanical and linguistic
+The meaning is all made by the checker himself. Each feature is measured in a separate sandbox under `harness/trace/scratch/`
+(copy `src` + copy spec points to copy, reference `m0` runs first), and any sandboxes removed.
 
-Còn nợ, thuộc lớp thiết kế chứ không thuộc maker (checker đã nêu ở lượt 2, chưa ai nhận): cập nhật
-A-014 theo bằng chứng đã đo, và một tính năng riêng đóng cửa sổ khởi động FSEvents ngay trong
-`start()` thay vì để tệp spec ghi tệp mồi.
-
-## Lượt checker chạy độc lập cho bốn tính năng (2026-08-22)
-
-Không có lượt `verify-harness --promote` nào chạy trước, nên toàn bộ phần mechanical lẫn phần ngữ
-nghĩa đều do checker tự làm. Mỗi tính năng được đo trong một sandbox riêng dưới `harness/trace/scratch/`
-(bản sao `src` + bản sao spec trỏ vào bản sao, đối chứng `m0` chạy trước), và mọi sandbox đã xoá.
-
-| Tính năng | Phán quyết | Kết quả mutant do checker tự dựng |
+| Features | Verdict | Mutation results are created by the checker yourself |
 |---|---|---|
-| `feat-file-sync-watcher` | APPROVE | M10, M13, M12 đều chết đúng ca của chúng; M3 và M7 vẫn chết |
-| `feat-readiness-gate` | REJECT | RM1/RM2/RM3/RM10 chết, nhưng RM4/RM5/RM6/RM7 sống sót 6/6 xanh |
-| `feat-daemon-supervisor` | REJECT | DM1/DM2/DM4/DM9 chết, nhưng DM5/DM6/DM7 sống sót; DM10 làm móc `t.after` treo vô hạn |
-| `feat-diagnostics-cache` | APPROVE | 11 trên 12 mutant chết; chỉ CM10 (`receivedAt`) sống sót |
+| `feat-file-sync-watcher` | APPROVE | M10, M13, M12 all died on their shifts; M3 and M7 are still dead |
+| `feat-readiness-gate` | REJECT | RM1/RM2/RM3/RM10 died, but RM4/RM5/RM6/RM7 survived 6/6 green |
+| `feat-daemon-supervisor` | REJECT | DM1/DM2/DM4/DM9 die, but DM5/DM6/DM7 survive; DM10 makes `t.after` hook for infinite hanging |
+| `feat-diagnostics-cache` | APPROVE | 11 out of 12 mutants died; only CM10 (`receivedAt`) survives |
 
-Hai bài học đã ghi vào `harness/memory/checker/`: `{ timeout: N }` khai trên ca kiểm thử không che móc
-`t.after`, và các cổng hẹp khai tại chỗ đang tích luỹ nợ nối dây mà không tính năng nào sở hữu.
+Two lessons logged in `harness/memory/checker/`: `{ timeout: N }` declared on unmasked test cases
+`t.after`, and narrow ports declared in place are accumulating wiring debt that no other feature owns.
 
-Việc tồn đọng cần planner tạo phạm vi: (1) A-014 vẫn ghi `assumed` với ô bằng chứng rỗng trong khi số
-đo đã bác bỏ nó, và cửa sổ khởi động FSEvents vẫn chưa có tính năng nào đóng trong `start()`;
-(2) chưa tính năng nào sở hữu việc thêm định tuyến notification (`onNotification`) cho `LspClient`,
-nên hai cổng đã khai — `LspNotificationSink` và `LspNotificationSource` — vẫn không có đầu nối, và
-`feat-prove-diagnostics` đang blocked đúng vì lý do đó.
+Backlog needs planner to create scope: (1) A-014 still records `assumed` with empty evidence box while number
+meter has rejected it, and the FSEvents startup window still has no features closed in `start()`;(2) there is no feature to add notification routing (`onNotification`) for `LspClient`,
+so the two declared ports — `LspNotificationSink` and `LspNotificationSource` — remain connectorless, and
+`feat-prove-diagnostics` is blocking for exactly that reason.
 
-## `feat-readiness-gate` lượt 2 — vá oracle sau REJECT (2026-08-22)
+## `feat-readiness-gate` turn 2 — oracle patch after REJECT (2026-08-22)
 
-Chỉ chạm `test/workspace/readiness-gate.spec.ts`. Tệp `src/workspace/readiness-gate.ts` giữ nguyên
-từng byte: bản sao pristine được chụp trước mutant đầu tiên, khôi phục sau mỗi mutant, và `diff` cuối
-lượt rỗng. Bốn mutant checker nêu đều đã chết, mỗi mutant đúng một ca:
+Just touch `test/workspace/readiness-gate.spec.ts`. The file `src/workspace/readiness-gate.ts` remains intact
+By byte: pristine copy captured before first mutant, restored after each mutant, and `diff` last
+empty turn. The four mutant checkers mentioned are all dead, exactly one for each mutant:
 
-| Mutant | Ca giết | Thông điệp đỏ |
+| Mutants | Ca kill | Red message |
 |---|---|---|
-| RM7 `reset()` thành no-op | ca 7 | cổng trả lại ticket của tiến trình đã chết |
-| RM6 bỏ nhánh cache ticket | ca 8 | caller thứ hai probe lại và hết hạn ở 105 ms |
-| RM5 bỏ chia sẻ probe đang bay | ca 4 | ba caller đồng thời đếm được 3 lần probe |
-| RM4 hiểu `{ at }` như thời lượng | ca 10 | hạn 200 ms nhưng buông caller ở 3 ms |
+| RM7 `reset()` to no-op | case 7 | dead process ticket return port |
+| RM6 removes cache ticket branch | case 8 | The second caller probes again and expires at 105 ms |
+| RM5 unshare probe in flight | case 4 | Three callers simultaneously count probe | 3 times
+| RM4 understands `{ at }` as duration | case 10 | limit 200 ms but release caller at 3 ms |
 
-Thêm một ca ngoài yêu cầu cho RM8: lớp kẹp bên trong `#probeOnce` quan sát được qua chính cổng
-`probe` đã công khai. Ca 9 tiêm một probe, ghi lại `timeoutMs` được trao, và đòi mọi ngân sách nằm
-trong `[1, hạn của caller]` trong khi trần probe là 5000 ms. RM8 trao 5000 ms cho một lời gọi 150 ms
-nên chết. Hai lớp thời hạn giờ đều có ca riêng, không lớp nào còn che lớp nào.
+One more shift in addition to the request for RM8: the internal clamp layer `#probeOnce` is visible through the port itself
+`probe` is public. Case 9 injects a probe, records the `timeoutMs` given, and claims all remaining budgets
+in `[1, caller limit]` while probe ceiling is 5000 ms. RM8 gives 5000 ms for a 150 ms call
+should die. The two deadline classes now each have their own shifts, no class can cover the other.
 
-Một thay đổi trên ca cũ, khai báo rõ: ca 5 không còn `await` không giới hạn mà chạy đua với một
-watchdog 2000 ms rồi khẳng định caller đã được buông. Các khẳng định cũ giữ nguyên và chỉ được thêm
-vào. Lý do là dưới RM2 ca này treo hết 10 s rồi kéo theo toàn bộ ca sau vào trạng thái `cancelled`.
-Đã đo lại: RM2 vẫn chết ở ca 5, thông điệp tường minh, 0 ca bị huỷ.
+A change on the old shift, clearly declared: shift 5 no longer `await` without limit but races against a
+watchdog 2000 ms then confirms the caller has been released. The old assertions stay the same and are just added
+come in. The reason is that below RM2 this shift hangs for 10 seconds and then drags the entire following shift into the `cancelled` state.
+Measured again: RM2 still died in case 5, clear message, 0 cases canceled.
 
-Kết quả: `npm test -- test/workspace/readiness-gate.spec.ts` cho 48/48 xanh, ba lần chạy liên tiếp.
-Bốn mutant của lượt 1 (RM1, RM10, RM3, RM2) được dựng lại và vẫn chết đúng ca của chúng.
+Result: `npm test -- test/workspace/readiness-gate.spec.ts` gives 48/48 green, three consecutive runs.
+The four mutants of round 1 (RM1, RM10, RM3, RM2) were rebuilt and still died in their respective cases.
 
-## `feat-daemon-supervisor` lượt 2 — vá oracle sau REJECT (2026-08-23)
+## `feat-daemon-supervisor` turn 2 — oracle patch after REJECT (2026-08-23)
 
-Ba ca checker đòi đã có, mỗi ca giết đúng một mutant và không giết ca nào khác:
+Three checker cases are available, each of which kills exactly one mutant and no others:
 
-| Mutant | Ca giết | Thông điệp đỏ | Thời gian |
-|---|---|---|---|
-| DM5 bỏ thu hồi khoá mồ côi | ca 6 | `budget exceeded: startDaemon over an orphaned lock file ... 1000 ms` | 1288 ms |
-| DM7 shutdown delegated xoá socket của daemon | ca 7 | `a delegated shutdown must leave the daemon's socket file in place` | 246 ms |
-| DM6 bỏ cửa chặn `sun_path` | ca 8 | `Missing expected rejection` | 257 ms |
-| DM10 shutdown không destroy connection | ca 9 | `budget exceeded: shutdown() with one accepted client connection ... 1000 ms` | 8351 ms |
+| Mutants | Ca kill | Red message | Time |
+|---|---|---|---|| DM5 removes orphan key revocation | case 6 | `budget exceeded: startDaemon over an orphaned lock file ... 1000 ms` | 1288 ms |
+| DM7 shutdown delegated deletes the daemon's socket | case 7 | `a delegated shutdown must leave the daemon's socket file in place` | 246 ms |
+| DM6 removes `sun_path` | case 8 | `Missing expected rejection` | 257 ms |
+| DM10 shutdown does not destroy connection | case 9 | `budget exceeded: shutdown() with one accepted client connection ... 1000 ms` | 8351 ms |
 
-Móc dọn dẹp treo vô hạn được sửa ở **cả hai phía**, vì đo đạc cho thấy một phía là không đủ. Phía
-test có `withBudget` cấp ngân sách cho từng lời gọi shutdown, nên quá hạn thành lỗi có tên. Nhưng
-chỉ với phía test, DM10 vẫn để lại treo thật: cả 9 ca báo xong rồi tiến trình không bao giờ thoát,
-phải SIGKILL ở 120 s, vì server rò rỉ giữ event loop sống. Nên `closeServer` trong `src` nhận thêm
-hạn cưỡng bức 2000 ms: hết hạn thì destroy mọi connection còn lại để `server.close()` buộc phải
-hoàn tất. Đây là lỗi tin cậy thật của INV-SHIM-4 — trình xử lý tín hiệu gọi `shutdown()`, nên một
-`server.close()` kẹt khiến tiến trình không thoát và bỏ lại toàn bộ JVM con.
+The infinite hanging cleaning hook was fixed on **both sides**, because measurements shown that one side was not enough. side
+test has a `withBudget` budget for each shutdown call, so overdue becomes a named error. But
+Only on the test side, DM10 still leaves the problem hanging: all 9 reports are completed and the process never exits.
+must SIGKILL at 120 s, because the leak server keeps the event loop alive. So `closeServer` in `src` gets more
+Forced limit 2000 ms: when expired, destroy all remaining connections so `server.close()` is forced
+complete. complete. This is the real trust error of INV-SHIM-4 — the signal handler calls `shutdown()`, so a
+`server.close()` gets stuck, causing the process not to exit and leaving the entire child JVM behind.
 
-Ca 9 đòi shutdown xong trong 1000 ms, nằm hẳn dưới hạn cưỡng bức 2000 ms, nên hạn cưỡng bức không
-biến DM10 thành mutant tương đương: dưới DM10 nó rơi xuống đường chậm và chết đỏ.
+Case 9 requires shutdown to complete in 1000 ms, which is completely below the forced limit of 2000 ms, so the forced limit is not valid.
+Turn DM10 into the mutant equivalent: below DM10 it falls to the slow lane and dies red.
 
-Phát hiện phụ, đo trên Node 22.23.2 / macOS: chú thích cũ của `MAX_SOCKET_PATH_LENGTH` sai.
-`listen()` trên đường dẫn 234 byte **trả về thành công**, `server.listening` là true, nhưng libuv
-cắt cụt tên vào `sun_path` nên không có tệp socket nào ở đường dẫn được yêu cầu. Cửa
-`existsSync(socketPath)` của `probeDaemon` vì thế mãi mãi sai và không launcher nào sau đó thấy
-được daemon: INV-SHIM-2 hỏng trong im lặng. Chú thích đã sửa theo số đo.
+Secondary discovery, measured on Node 22.23.2 / macOS: old annotation of `MAX_SOCKET_PATH_LENGTH` is wrong.
+`listen()` on 234 byte path **returns success**, `server.listening` is true, but libuv
+truncate the name to `sun_path` so there is no socket file in the requested path. Door
+`existsSync(socketPath)` of `probeDaemon` is therefore forever false and no subsequent launcher will see
+get daemon: INV-SHIM-2 fails silently. Notes have been edited according to measurements.
 
-Kết quả: `npm test -- test/daemon/daemon-supervisor.spec.ts` cho 57/57 xanh; riêng tệp 9/9 xanh,
-năm lần chạy liên tiếp đều 256-259 ms và exit 0; `npm run test:integration` cho 95/95 xanh.
+Result: `npm test -- test/daemon/daemon-supervisor.spec.ts` gives 57/57 green; only green 9/9 files,
+five consecutive runs all 256-259 ms and exit 0; `npm run test:integration` gives 95/95 green.Open, out of scope: `test/daemon/*.spec.ts` is not in glob of script `npm test` in
+`package.json`. The file is shared across the project, for feature-planner to handle.
 
-Còn mở, ngoài phạm vi: `test/daemon/*.spec.ts` không nằm trong glob của script `npm test` trong
-`package.json`. Tệp dùng chung toàn dự án, để feature-planner xử lý.
+## 2026-08-23 — maker: feat-lsp-notifications (turn 1/3, waiting for checker)
 
-## 2026-08-23 — maker: feat-lsp-notifications (lượt 1/3, chờ checker)
+`LspClient` carries messages without `id` in both directions; suite unit 57/57, integrated 105/105.
 
-`LspClient` mang được thông điệp không có `id` ở cả hai chiều; suite unit 57/57, tích hợp 105/105.
+Three branches are added to `src/lsp/lsp-client.ts`, leaving `#write` or `#drainFrames` untouched:
 
-Ba nhánh được thêm vào `src/lsp/lsp-client.ts`, không đụng tới `#write` hay `#drainFrames`:
+| What to add | Why |
+|---|---|| `notify(method, params?)` | Write frames without `id`, don't get number from `#nextId`, don't put cell in `#pending`. A notification carrying `id` is considered a request by JDT LS and the cell is never settled. |
+| `onNotification(method, handler)` | Registers cumulatively by array, returns the remove function. `DiagnosticsCache.attach()` calls this port every time and there is no debugging at the source, so overriding the method will silently kill the previous subscriber. |
+| Notification branch in `#handleMessage` | The line `if (typeof message.id !== "number") return;` previously dropped any frames without an `id`, including `textDocument/publishDiagnostics`. The new branch comes after the request server→client branch, so the correlation behavior by `id` remains the same. |
 
-| Thêm gì | Vì sao |
-|---|---|
-| `notify(method, params?)` | Ghi khung không có `id`, không lấy số từ `#nextId`, không đặt ô vào `#pending`. Một notification mang `id` bị JDT LS coi là request và ô đó không bao giờ settle. |
-| `onNotification(method, handler)` | Đăng ký cộng dồn theo mảng, trả về hàm gỡ. `DiagnosticsCache.attach()` gọi cổng này mỗi lần và không có đường gỡ ở phía nguồn, nên ghi đè theo method sẽ huỷ subscriber trước trong im lặng. |
-| Nhánh notification trong `#handleMessage` | Dòng `if (typeof message.id !== "number") return;` trước đây bỏ rơi mọi khung không có `id`, kể cả `textDocument/publishDiagnostics`. Nhánh mới đứng sau nhánh request server→client, nên hành vi tương quan theo `id` giữ nguyên. |
+Three mutants built themselves, each mutant only killed the group they were targeting, the rest remained green:
 
-Ba mutant tự dựng, mỗi mutant chỉ giết đúng nhóm ca nhắm tới, phần còn lại vẫn xanh:
-
-| Mutant | Ca giết | Dòng đỏ |
+| Mutants | Ca kill | Red line |
 |---|---|---|
-| A: `notify()` cấp `id` và đặt ô vào `#pending` | 2 ca chiều gửi | `hasOwn id` expected false actual true; request kế tiếp nhận `id: 3` thay vì `2` |
-| B: `#handleMessage` bỏ rơi lại khung không có `id` | 3 ca chiều nhận | `the notification was dropped instead of dispatched` |
-| C: `onNotification` ghi đè theo method | 2 ca cộng dồn | `[ 'third' ]` thay vì `[ 'first', 'second', 'third' ]` |
+| A: `notify()` grants `id` and puts the cell in `#pending` | 2 afternoon shifts sent | `hasOwn id` expected false actual true; The next request receives `id: 3` instead of `2` |
+| B: `#handleMessage` leaves behind a frame without `id` | 3 afternoon shifts receiving | `the notification was dropped instead of dispatched` |
+| C: `onNotification` overrides method | 2 cumulative cases | `[ 'third' ]` instead of `[ 'first', 'second', 'third' ]` |
 
-Sau mỗi mutant, tệp nguồn được khôi phục từ bản pristine chép ra ngoài cây nguồn; `diff` cuối lượt
-rỗng. Tương thích cấu trúc với hai cổng được chứng minh bằng `tsc` trên một tệp gán tạm
-(`LspClient` gán được vào cả `LspNotificationSource` lẫn `LspNotificationSink`), tệp đó đã xoá.
+After each mutation, the source file is restored from the pristine copy copied out of the source tree; `diff` end of turn
+empty. Structural compatibility with two ports is demonstrated with `tsc` on a temporary assignment file
+(`LspClient` is assignable to both `LspNotificationSource` and `LspNotificationSink`), that file has been deleted.
 
-Ba quyết định đã ghi vào `checkerNotes` để checker phán, không giấu trong mã: kiểu trả về của
-`onNotification`, việc nuốt lỗi ném ra từ handler, và việc `notify()` ném lại lỗi thoát tiến trình.
+Three decisions are recorded in `checkerNotes` for the checker to judge, not hidden in the code: return type of
+`onNotification`, swallowing the error thrown from the handler, and `notify()` throwing back the process exit error.
 
-Còn mở, ngoài phạm vi: nối dây production (pool trao `lease.client` cho `cache.attach()` và cho
-sink của watcher) thuộc `feat-tool-layer-core`/`feat-mcp-shim`. Chưa có test tích hợp nào dùng
-`LspClient` thật cho notification — cả `diagnostics-cache.spec.ts` lẫn `file-sync-watcher.spec.ts`
-vẫn dùng cổng giả lập riêng.
+Still open, out of scope: production wiring (pool hands `lease.client` to `cache.attach()` and lets
+watcher sink) belongs to `feat-tool-layer-core`/`feat-mcp-shim`. There are no integration tests used yet
+The real `LspClient` for notifications — both `diagnostics-cache.spec.ts` and `file-sync-watcher.spec.ts`
+Still using separate emulator port.
 
-## 2026-08-23 — `feat-lsp-notifications` lượt 2: đóng hai khe hở oracle checker chỉ ra
+## 2026-08-23 — `feat-lsp-notifications` turn 2: close the two gaps oracle checker pointed outChecker REJECT turn 1 because the two mutants built by the checker survived with 9/9 green cases. Deployment version
+`src/lsp/lsp-client.ts` contains no errors; The defect lies in oracle. This round only adds test cases.
 
-Checker REJECT lượt 1 vì hai mutant do chính checker dựng sống sót với 9/9 ca xanh. Bản triển khai
-`src/lsp/lsp-client.ts` không có lỗi nào; khiếm khuyết nằm ở oracle. Lượt này chỉ thêm ca kiểm thử.
-
-| Mutant sống ở lượt 1 | Câu thiết kế không ai chứng minh | Ca mới đóng khe hở |
+| Mutant lives on turn 1 | Design sentence no one can prove | New case closes the gap |
 |---|---|---|
-| F: thân hàm gỡ đăng ký đổi thành `return () => {};` | "Hàm trả về gỡ đúng subscriber này" — không ca nào từng gọi giá trị `onNotification()` trả về | `the function returned by onNotification really unsubscribes that handler` |
-| E: bỏ ảnh chụp, `for (const handler of handlers)` | Chú thích dòng 158: một handler có thể gỡ đăng ký ngay trong lúc dispatch | `a handler unsubscribing itself mid-dispatch does not make its siblings be skipped` |
+| F: deregister function body changed to `return () => {};` | "The function returned correctly removed this subscriber" — no case ever called `onNotification()` returned value | `the function returned by onNotification really unsubscribes that handler` |
+| E: remove snapshot, `for (const handler of handlers)` | Note line 158: a handler can be unregistered during dispatch | `a handler unsubscribing itself mid-dispatch does not make its siblings be skipped` |
 
-Ca thứ nhất bắn một khung **trước** khi gọi hàm gỡ và đòi `calls === 1`. Không có bước này, số 0 ở
-khẳng định cuối cũng đúng khi handler chưa bao giờ được nối vào dispatch, tức ca sẽ xanh vì lý do
-sai. Ca thứ hai đăng ký ba handler cho cùng method, handler thứ nhất gọi hàm gỡ của chính nó trong
-thân callback; khung đầu đòi cả ba chạy, khung sau đòi chỉ còn `[second, third]`.
+The first shift fires a frame **before** calling the remove function and requires `calls === 1`. Without this step, the number is 0
+The last statement is also true as the handler has never been connected to dispatch, which means the shift will be green for a reason
+wrong. The second case registers three handlers for the same method, the first handler calls its own remove function inside
+callback body; The first frame requires all three to run, the second frame requires only `[second, third]`.
 
-Khả năng phân biệt được đo riêng cho từng mutant chứ không suy diễn: E chỉ giết ca thứ hai (58/59
-ca còn lại xanh, kể cả ca thứ nhất), F giết cả hai ca mới. Dưới cả hai mutant, chín ca cũ vẫn xanh —
-tái hiện đúng phát hiện của checker. Nguồn được khôi phục từ bản pristine chép ra ngoài cây nguồn;
-`diff` rỗng và sha256 `f48e5974…` khớp bản chụp trước khi dựng mutant, nên `src/` không đổi một byte.
+Discrimination ability was measured individually for each mutant and not inferred: E only killed the second case (58/59
+the remaining cases are green, including the first case), F kills both new cases. Under both mutants, the old nine cases remained green —Correctly reproduces the checker's findings. The source is restored from the pristine copy copied out of the source tree;
+`diff` is empty and sha256 `f48e5974…` matches the snapshot before constructing the mutant, so `src/` is left unchanged by one byte.
 
-Suite sau lượt này: `npm test` 59 pass 0 fail (11 ca của spec notification, bốn ca cũ của
-`test/lsp/lsp-client.spec.ts` không vỡ), `npm run test:integration` 107 pass 0 fail, `./harness/init.sh`
-xanh. Tính năng đặt `readyForCheck: true`, `attempts` 2/3, `status` giữ `in-progress`.
+Suite after this turn: `npm test` 59 passes 0 fails (11 cases of spec notification, four old cases of
+`test/lsp/lsp-client.spec.ts` does not break), `npm run test:integration` 107 pass 0 fail, `./harness/init.sh`
+green. Feature set `readyForCheck: true`, `attempts` 2/3, `status` keep `in-progress`.
 
-## 2026-08-23 — `feat-mcp-shim` lượt 1: front end stdio, cổng chặn stdout và tái kết nối trong suốt
+## 2026-08-23 — `feat-mcp-shim` pass 1: front end stdio, port blocking stdout and transparent reconnection
 
-Hai tệp mới: `src/shim/mcp-shim.ts` (triển khai) và `test/shim/mcp-shim.spec.ts` (7 ca oracle).
-Không sửa một dòng nào ngoài phạm vi tính năng; `src/daemon/daemon-supervisor.ts` giữ nguyên.
+Two new files: `src/shim/mcp-shim.ts` (deployment) and `test/shim/mcp-shim.spec.ts` (7 oracle cases).
+Do not edit a line outside the scope of the feature; `src/daemon/daemon-supervisor.ts` remains the same.
 
-**Quyết định thiết kế lớn nhất: shim KHÔNG phải một pipe byte thô.** `INV-SHIM-1` là thuộc tính của
-stdout, và shim là thứ cuối cùng đứng trước stdout của client. Một `socket.pipe(process.stdout)`
-chuyển thẳng mọi thứ phía daemon phát ra — stack trace, dòng cảnh báo — vào bộ phân tích của client,
-trái với câu trong MCP spec: server "MUST NOT write anything to its stdout that is not a valid MCP
-message". Vì vậy mỗi dòng lấy từ socket đều được ghép khung rồi qua cổng `isMcpMessage`; dòng không
-phải MCP đi ra stderr kèm nội dung để còn gỡ lỗi. Lý do thứ hai: `INV-SHIM-3` cần độ hạt là **cả một
-thông điệp**. Một pipe byte mất socket giữa chừng đã trao nửa thông điệp cho daemon vừa chết, nửa
-còn lại sẽ sang daemon thay thế. Đệm theo dòng trọn vẹn khiến một lần khởi động lại chỉ tốn các lời
-gọi đang bay, không bao giờ làm hỏng khung.
+**Biggest design decision: shim is NOT a raw byte pipe.** `INV-SHIM-1` is an attribute of
+stdout, and shim is the last thing before the client's stdout. A `socket.pipe(process.stdout)`
+passes everything the daemon emits — stack traces, warning lines — straight into the client's analyzer,
+contrary to the statement in the MCP spec: server "MUST NOT write anything to its stdout that is not a valid MCP
+message". So each stream from the socket is deframed and then passed through the `isMcpMessage` port; line no
+MCP must output to stderr with content for debugging. Second reason: `INV-SHIM-3` needs a granularity of **even one
+message**. A byte pipe that lost its socket midway gave half the message to the daemon that just died, half
+The rest will go to daemon instead. Full stream buffering makes a restart a waste of words
+call on the fly, never damage the frame.
 
-**Auto-spawn nghĩa là gì ở đây.** Shim gọi `startDaemon` của `daemon-supervisor`, không tự dựng lại
-giao thức probe/lock. Khi chưa ai phục vụ đường dẫn, chính tiến trình shim bind socket
-(`role: "daemon"`); khi đã có daemon, handle là `delegated` và mang sẵn connection. Đây là cơ chế duy
-nhất mà phụ thuộc đã `done` trao ra; không tài liệu thiết kế nào nói tới một daemon tách rời chạy
-detached, nên điều này được ghi vào `checkerNotes` thay vì tự bịa ra.
+**What does auto-spawn mean here.** Shim calls `startDaemon` of `daemon-supervisor`, does not rebuild itself
+probe/lock protocol. When no one is serving the path, the shim process binds the socket
+(`role: "daemon"`); Once there is a daemon, the handle is `delegated` and the connection is available. This is the only mechanism
+most that the dependency has `done` given; None of the design documents mention a separate running daemon
+detached, so this gets recorded in `checkerNotes` instead of making it up.
 
-**Oracle chia hai mức, có lý do đo được.** Hai ca `INV-SHIM-1` chạy shim như một tiến trình con thật
-và đọc byte trên stdout thật, vì một `console.log` ghi vào `process.stdout` mà oracle giữ `Writable`
-tiêm vào không bao giờ thấy. Mutant M1 chứng minh đúng điều đó: nó giết **chỉ** ca ở biên tiến trình,
-sáu ca trong tiến trình vẫn xanh.
+**Oracle is divided into two levels, there is a measurable reason.** Two cases of `INV-SHIM-1` run shim as a real child processand read bytes on real stdout, because a `console.log` writes to `process.stdout` which oracle keeps `Writable`
+injection never seen. Mutant M1 proves it right: it kills **only** shifts at the process edge,
+six cases in progress are still green.
 
-Ca `INV-SHIM-3` dùng hai tiến trình daemon thật, gắn thẻ câu trả lời bằng pid của chính nó, và
-SIGKILL cái thứ nhất. Cổng `launch` được **chặn nhịp chứ không giả lập**: `startDaemon` thật vẫn
-chạy, test chỉ quyết định *khi nào* shim được phép chạy lại nó. Không có nhịp chặn đó, lần giết
-daemon sẽ chạy đua với việc shim tự bind socket đang trống, và ca sẽ không chứng minh được gì về một
-lần khởi động lại thật.
+Ca `INV-SHIM-3` uses two real daemon processes, tags the response with its own pid, and
+SIGKILL the first one. The `launch` port is **switched, not emulated**: the real `startDaemon` remains
+run, test only decides *when* shim is allowed to run it again. Without that blocking rhythm, the kill times
+The daemon will race against shim binding the empty socket, and ca will prove nothing about one
+real reboot.
 
-| Mutant | Ca bị giết | Dòng đỏ |
+| Mutants | Ca was killed | Red line |
 |---|---|---|
-| M1 `console.log` trong `establish()` | chỉ ca biên tiến trình | `real stdout line 1 is not a valid MCP message: "shim linked: role=daemon"` |
-| M2 bỏ `reconnect()` ở handler `close` | chỉ ca `INV-SHIM-3` | quá hạn 10 s chờ câu trả lời thứ hai sau khởi động lại |
-| M3 bỏ cổng `isMcpMessage` | cả hai ca `INV-SHIM-1` | `stdout line 1 is not a valid MCP message: "Error: java.lang.IllegalStateException…"` |
-| M4 vứt thông điệp thay vì đệm khi mất link | chỉ ca `INV-SHIM-3` | quá hạn 5 s chờ shim giữ lời gọi như một thông điệp trọn vẹn |
-| M5 `LineFramer` phát một khung mỗi chunk | chỉ ca ghép khung | thông điệp 200 KB chia 7 lần ghi tới nơi thành 7 dòng thay vì 1 |
+| M1 `console.log` in `establish()` | process shift only | `real stdout line 1 is not a valid MCP message: "shim linked: role=daemon"` |
+| M2 removes `reconnect()` from handler `close` | just ca `INV-SHIM-3` | 10 s overdue wait for second answer after reboot |
+| M3 drops port `isMcpMessage` | both cases `INV-SHIM-1` | `stdout line 1 is not a valid MCP message: "Error: java.lang.IllegalStateException..."` |
+| M4 dumps message instead of buffering when link is lost | just ca `INV-SHIM-3` | 5 s overdue wait shim holds the call as a complete message |
+| M5 `LineFramer` transmits one frame per chunk | frame transplant only | 200 KB message splits 7 write arrivals into 7 lines instead of 1 |
 
-Nguồn được khôi phục từ bản sao pristine để ngoài cây nguồn; `diff` rỗng, và `grep` xác nhận trong
-`src/shim/mcp-shim.ts` không còn `console.log` nào, chỉ một tham chiếu `process.stdout` duy nhất là
-giá trị mặc định của tuỳ chọn tiêm.
+The source is restored from the pristine copy outside the source tree; `diff` is empty, and `grep` confirms in
+`src/shim/mcp-shim.ts` no longer has any `console.log`, just a single `process.stdout` reference
+default value of injection option.
 
-Kết quả: `npm test -- test/shim/mcp-shim.spec.ts` 66 pass 0 fail; spec shim chạy riêng 5 lần liên
-tiếp 5/5 xanh (không flaky ở ca giết daemon); `npm run test:integration` 114 pass 0 fail;
-`./harness/init.sh` xanh. Tính năng đặt `readyForCheck: true`, `attempts` 1/4, `status`
+Result: `npm test -- test/shim/mcp-shim.spec.ts` 66 pass 0 fail; spec shim runs separately 5 times in a row
+continue 5/5 green (no flaky in daemon kill case); `npm run test:integration` 114 pass 0 fail;
+`./harness/init.sh` green. Feature set `readyForCheck: true`, `attempts` 1/4, `status`
 `in-progress`.
 
-Còn mở, ngoài phạm vi: glob `test` mặc định trong `package.json` giữ nguyên theo tiền lệ của
-`daemon-supervisor` — spec được với tới qua lệnh verification của chính tính năng và qua
-`npm run test:integration`. Việc nối dây tầng tool (`onConnection` thật của daemon) thuộc
-`feat-tool-layer-core`; ở tính năng này `onConnection` chỉ là tham số truyền suốt.
+Still open, out of scope: default `test` glob in `package.json` remains the same according to the precedent of
+`daemon-supervisor` — spec is accessed via the feature's own verification command and passed
+`npm run test:integration`. The wiring of the tool layer (the actual `onConnection` of the daemon) belongs`feat-tool-layer-core`; In this feature `onConnection` is just a passed parameter.
 
-## 2026-08-23 — `feat-mcp-shim`, lượt 2: đóng ba khoảng trống oracle sau REJECT
+## 2026-08-23 — `feat-mcp-shim`, turn 2: close three oracle spaces after REJECT
 
-Checker trả lại lượt 1 vì bản triển khai đúng nhưng oracle thiếu ca. Lượt này không sửa `src/`:
-`src/shim/mcp-shim.ts` giữ nguyên từng byte (sha256 `1e9b1128…`, `diff` với bản sao pristine rỗng
-sau toàn bộ đợt dựng mutant). Chỉ `test/shim/mcp-shim.spec.ts` thay đổi, từ 7 lên 11 ca.
+Checker returns 1 because the implementation is correct but oracle is missing a shift. This pass does not fix `src/`:
+`src/shim/mcp-shim.ts` preserves each byte (sha256 `1e9b1128…`, `diff` with empty pristine copy
+after the entire mutant build). Only `test/shim/mcp-shim.spec.ts` changed, from 7 to 11 cases.
 
-| Mutant | Ca bị giết | Dòng đỏ |
+| Mutants | Ca was killed | Red line |
 |---|---|---|
-| C7 dùng chung một `LineFramer` cho mọi link | không ca nào (11/11 xanh) | — |
-| C4 bỏ `framer.flush` ở handler `close` | ca nửa-thông-điệp | `exactly the one truncated tail must have been diverted` |
-| C4+C7 cùng lúc | ca nửa-thông-điệp | quá hạn 10 s chờ câu trả lời `id=2`; stdout chỉ còn `id=1` — câu trả lời biến mất hẳn |
-| C3 `console.log` ở dòng link-closed | hai ca recorder | `INV-SHIM-1 violated: the reconnect/stop path wrote to the process's own stdout` |
-| C3b `console.log` ở nhánh reconnect thất bại | hai ca recorder | như trên |
-| C8 `console.log` ở nhánh stop-shutdown thất bại | ca recorder thứ nhất | như trên |
-| C11 từ chối lên vai daemon khi `links > 0` | đúng ca đổi role, không ca nào khác | quá hạn 15 s chờ `the shim to answer call 2 after adopting the daemon role` |
+| C7 uses the same `LineFramer` for all links | no cases (blue 11/11) | — |
+| C4 removes `framer.flush` from handler `close` | half-message song | `exactly the one truncated tail must have been diverted` |
+| C4+C7 at the same time | half-message song | 10 s overdue waiting for answer `id=2`; stdout only has `id=1` — the answer is gone |
+| C3 `console.log` in line link-closed | two shift recorder | `INV-SHIM-1 violated: the reconnect/stop path written to the process's own stdout` |
+| C3b `console.log` in branch reconnect failed | two shift recorder | as above |
+| C8 `console.log` in branch stop-shutdown failed | first recorder shift | as above |
+| C11 refuses to shoulder daemon when `links > 0` | correct role change shift, no other shift | 15 s overdue wait `the shim to answer call 2 after adopting the daemon role` |
 
-Ca nửa-thông-điệp gửi mảnh JSON cụt trong **cùng một lần ghi socket** với câu trả lời `id=1`, nên
-thứ tự thành xác định thay vì dựa vào một khoảng chờ: câu trả lời có mặt trên stdout là bằng chứng
-mảnh cụt đã nằm trong framer.
+The half-message case sends the truncated JSON fragment in **same socket write** with response `id=1`, so
+order to be deterministic instead of relying on a wait: the answer is present on stdout as proof
+The truncated piece is already in the framer.
 
-Cạm bẫy phải trả giá một lần: recorder ngây thơ trên `process.stdout.write` không dùng được, vì
-`node --test` chạy mỗi tệp spec trong tiến trình con và báo cáo kết quả qua **chính**
-`process.stdout` bằng bộ tuần tự V8. Recorder chỉ ghi chunk kiểu chuỗi, kèm khẳng định
-`NODE_TEST_CONTEXT === "child-v8"` và một mỏ neo dương tự chứng minh recorder đang sống. Chi tiết ở
+One-time pitfall: naive recorder on `process.stdout.write` cannot be used, because
+`node --test` runs each spec file in child process and reports results via **main**
+`process.stdout` using the V8 serializer. Recorder only records string chunks, with confirmation
+`NODE_TEST_CONTEXT === "child-v8"` and a positive anchor prove the recorder is alive. Details at
 `harness/memory/maker/stdout-recorder-must-ignore-the-runner-channel.md`.
 
-Kết quả: `npm test -- test/shim/mcp-shim.spec.ts` 70 pass 0 fail; spec shim chạy riêng 5 lần liên
-tiếp 11/11; `npm test` 59 pass; `npm run test:integration` 118 pass 0 fail; `./harness/init.sh`
-xanh. `attempts` 2/4, `readyForCheck: true`.
+Result: `npm test -- test/shim/mcp-shim.spec.ts` 70 pass 0 fail; spec shim runs separately 5 times in a row
+next 11/11; `npm test` 59 passes; `npm run test:integration` 118 pass 0 fail; `./harness/init.sh`green. `attempts` 2/4, `readyForCheck: true`.
 
-Không đụng tới điểm 4 của checker (client sở hữu daemon chết kéo theo pool của client khác) — đó là
-câu hỏi tầng thiết kế, cần một dòng assumption có chủ sở hữu, không phải việc của lượt maker.
+Doesn't touch checker's point 4 (the client owning the daemon dies, taking the other client's pool with it) — that is
+Design level questions require an assumption that has an owner, not the maker's job.
 
-### Checker — feat-mcp-shim lượt 2: REJECT
+### Checker — feat-mcp-shim turn 2: REJECT
 
-Ba khoảng trống của lượt 1 đã đóng thật. Checker tự dựng lại toàn bộ mutant trong sandbox riêng
-(bản đối chứng `m0` xanh 11/11 trước mọi kết luận): `C4` một mình giết ca nửa-thông-điệp, `C7` một
-mình sống, `C4+C7` giết đúng với triệu chứng "câu trả lời `id=2` biến mất hẳn". Năm vị trí gọi
-`log()` trên đường reconnect/stop đều bị recorder bắt — ba biến thể của maker chết sớm ở mỏ neo
-stderr nên checker dựng thêm ba biến thể *cộng-thêm* để chứng minh chính recorder. `C11` giết đúng
-một ca. Bằng chứng tái hiện đủ: 70/70, 59/59, 118/118, 5 lần chạy liên tiếp không dao động,
-sha256 của `src/shim/mcp-shim.ts` khớp báo cáo.
+The three spaces of turn 1 are completely closed. Checker rebuilds all mutants in its own sandbox
+(green `m0` reference 11/11 before any conclusion): `C4` alone kills half-message, `C7` alone
+I live, `C4+C7` kills exactly with the symptom "the answer `id=2` disappears completely". Five calling positions
+`log()` on the reconnect/stop line is all caught by the recorder — three variants of maker die prematurely at the anchor
+stderr should checker construct three *plus-plus* variations to demonstrate the recorder itself. `C11` kills correctly
+one shift. Sufficient reproducible evidence: 70/70, 59/59, 118/118, 5 consecutive runs without fluctuation,
+sha256 of `src/shim/mcp-shim.ts` matches reported.
 
-Vẫn trả lại vì bảy mutant do checker thiết kế sống sót 11/11, trong đó bốn cái phá đúng một câu mà
-chú thích trong `src` gọi là chịu lực:
+Still returning it because seven mutants designed by checker survived 11/11, of which four cracked exactly one sentence.
+annotation in `src` called bearing:
 
-| Mutant | Phá cái gì | Kết quả |
+| Mutants | Break something | Results |
 |---|---|---|
-| `D1` | `StringDecoder` → `chunk.toString("utf8")` | 11/11 xanh — fixture của ca framing không hề cắt giữa ký tự (tiền tố 42 byte, bước 30.000 byte, mọi ranh giới rơi đúng đầu ký tự) |
-| `CE1` | thêm `console.log` vào `socket.on("error")` | 11/11 xanh — probe ghi file chứng minh handler không chạy lần nào |
-| `CE1del` | xoá hẳn listener `error` | 11/11 xanh — một bản thiếu listener làm chết tiến trình shim mà suite không thấy |
-| `D3` | `while` → `if` trong `flushPending` | 11/11 xanh — mọi ca chỉ đệm đúng một dòng |
-| `D2` | `pending.push` → `pending.unshift` | 11/11 xanh — thứ tự nạp lại không ca nào phán xét |
-| `D4` | rò rỉ stdout dạng `Buffer` | 11/11 xanh — giới hạn đã biết của recorder, ghi nhận, không bắt buộc sửa lượt này |
+| `D1` | `StringDecoder` → `chunk.toString("utf8")` | 11/11 green — ca framing fixture does not cut between characters at all (42 byte prefix, 30,000 byte step, all boundaries fall at the beginning of the character) |
+| `CE1` | add `console.log` to `socket.on("error")` | 11/11 green — probe records file to prove handler does not run once |
+| `CE1del` | completely remove the `error` | listener 11/11 blue — a version missing a listener kills the shim process but suite doesn't see it |
+| `D3` | `while` → `if` in `flushPending` | 11/11 green — all shifts only pad one line |
+| `D2` | `pending.push` → `pending.unshift` | 11/11 green — reload order no one judges |
+| `D4` | stdout leak of form `Buffer` | 11/11 green — known limits of the recorder, recorded, no editing required this turn |
 
-Hai phép đo làm cho yêu cầu trở nên khả thi thay vì suông: `resetAndDestroy()` **ném**
-`ERR_INVALID_HANDLE_TYPE` trên Unix socket, nhưng phá socket phía daemon rồi ghi ngay một message
-lớn từ phía client cho ra đúng một sự kiện `error` mã `EPIPE`; và với điểm cắt giữa ký tự,
-`chunk.toString()` sinh ra văn bản khác bản gốc mà **vẫn** parse được thành JSON — đúng kịch bản xấu
-nhất mà chú thích của `LineFramer` mô tả.
+Two measurements make the request possible instead of empty: `resetAndDestroy()` **throws**
+`ERR_INVALID_HANDLE_TYPE` on Unix socket, but breaks the socket on the daemon side and immediately writes a message
+large from the client side correctly outputs an `error` event code `EPIPE`; and with the mid-character cutoff,`chunk.toString()` produces different text that **still** can be parsed into JSON — bad scenario
+that the `LineFramer` annotation describes.
 
-### Maker — feat-mcp-shim lượt 3: đóng cả bốn mutant sống sót
+### Maker — feat-mcp-shim turn 3: play all four mutant survivors
 
-`src/shim/mcp-shim.ts` không đổi một byte (sha256 `1e9b1128…ff80`, `diff` với bản sao pristine
-rỗng). Chỉ `test/shim/mcp-shim.spec.ts` thay đổi: 11 → 13 ca.
+`src/shim/mcp-shim.ts` one-byte constant (sha256 `1e9b1128…ff80`, `diff` with pristine copy
+empty). Only `test/shim/mcp-shim.spec.ts` changes: 11 → 13 shifts.
 
-| Mutant | Ca đóng nó | Dòng đỏ |
+| Mutants | Ca close it | Red line |
 |---|---|---|
-| `D1` | ca framing viết lại | `differs at character 74 — expected "𝄞-ü\"}}", got "����-ü\"}}"` (vẫn parse được thành JSON) |
-| `CE1` | ca 12 mới | `INV-SHIM-1 violated: the daemon link error path wrote to the process own stdout` |
-| `CE1del` | ca 12 mới | `timed out … waiting for: a real error event on the daemon link` |
-| `D3` | ca 13 mới | `answered: [1,2], still buffered: 2, daemon saw: 2` |
-| `D2` | ca 13 mới | `actual [1,4,3,2]` vs `expected [1,2,3,4]` |
+| `D1` | ca framing rewritten | `differs at character 74 — expected "𝄞-ü\"}}", got "����-ü\"}}"` (still parsed into JSON) |
+| `CE1` | new case 12 | `INV-SHIM-1 violated: the daemon link error path written to the process own stdout` |
+| `CE1del` | new case 12 | `timed out … waiting for: a real error event on the daemon link` |
+| `D3` | new case 13 | `answered: [1,2], still buffered: 2, daemon saw: 2` |
+| `D2` | new case 13 | `actual [1,4,3,2]` vs `expected [1,2,3,4]` |
 
-Ba điểm đáng ghi lại:
+Three points worth noting:
 
-1. **Điểm cắt giữa ký tự phải được chứng minh, không được tuyên bố.** `midCharacterCut()` lấy byte
-   thứ hai của ký tự 4 byte `𝄞` và khẳng định `(byte & 0xc0) === 0x80`. Việc chunk thật sự tới
-   thành hai lần đọc cũng được chứng minh: một thông điệp neo đi chung chunk với phần đầu, nên
-   thấy thông điệp neo nghĩa là framer đã nuốt xong phần đầu; phần đuôi chỉ được ghi sau đó cộng
-   một khoảng lắng 100 ms nên không thể bị gộp chunk. Cả hai chiều giết `D1` độc lập.
-2. **`CE1del` không làm chết tiến trình như chú thích trong `src` nói.** Đo được:
-   `daemon-supervisor.probeDaemon` để lại một `socket.once("error", …)` đã settled trên chính
-   connection trao cho shim; listener đó nuốt sự kiện `error` đầu tiên rồi trả về im lặng. Nhánh
-   vẫn chịu lực (thiếu nó thì lỗi biến mất không dấu vết) nhưng lý do trong chú thích chưa đúng
-   trên đường `delegated`. Ghi vào `checkerNotes`, không sửa `src` ở lượt này.
-3. **Thứ tự thao tác quyết định có sinh được `EPIPE` hay không.** Phá socket phía daemon *rồi* ghi
-   ngay một call 1 MB: 5/5 lần có `error`. Ghi trước rồi phá sau với thông điệp nhỏ: 0/5.
+1. **The mid-character cut point must be demonstrated, not declared.** `midCharacterCut()` takes bytes
+   second of the 4-byte character `𝄞` and assert `(byte & 0xc0) === 0x80`. The chunking really comes
+   into two readings is also proven: an anchor message shares the same chunk as the header, so
+   Seeing the anchor message means the framer has finished swallowing the header; the tail is only recorded then added
+   a 100 ms delay so it cannot be chunked. Both directions kill `D1` independently.
+2. **`CE1del` does not kill the process as the comment in `src` says.** Measured:
+   `daemon-supervisor.probeDaemon` leaves a settled `socket.once("error", …)` on main
+   connection given to shim; That listener swallows the first `error` event and returns silently. Branch
+   still bear the force (without it, the error disappears without a trace) but the reason in the comment is not correct
+   on the `delegated` line. Write to `checkerNotes`, do not edit `src` this time.
+3. **The order of operations determines whether an `EPIPE` is generated or not.** Destroy the socket on the daemon side *then* write
+   even a 1 MB call: 5/5 times there will be `error`. Record first and destroy later with a small message: 0/5.
 
-Suite: 13/13 (5 lần liên tiếp), thêm 10 lần chạy riêng ba ca nhạy timing đều xanh;
-`npm test -- test/shim/mcp-shim.spec.ts` 72/72; `npm test` 59/59; `npm run test:integration` 120/120;
-`./harness/init.sh` xanh.
+Suite: 13/13 (5 times in a row), plus 10 separate runs with three timing shifts all green;
+`npm test -- test/shim/mcp-shim.spec.ts` 72/72; `npm test` 59/59; `npm run test:integration` 120/120;`./harness/init.sh` green.
 
-## 2026-08-24 — `feat-tool-layer-core` (maker, lượt 1/3)
+## 2026-08-24 — `feat-tool-layer-core` (maker, turn 1/3)
 
-Lõi `mcp-tool-layer` (`src/tools/tool-layer.ts`, MỚI) cộng phần nối dây production của đường
-notification trong `workspace-pool.ts`, đúng phạm vi mà feature-planner cấp cho tính năng này ở
-lượt 2 ngày 2026-08-23.
+Core `mcp-tool-layer` (`src/tools/tool-layer.ts`, NEW) plus production line wiring
+notification in `workspace-pool.ts`, the exact scope that feature-planner gives this feature in
+Round 2 on 2026-08-23.
 
-**Ranh giới toạ độ.** Toàn tệp có đúng hai hàm chạm vào phép cộng trừ chỉ số: `fromLspPosition`
-(LSP 0-based UTF-16 → 1-based của X-007) và `toLspPosition` cho chiều ngược lại. `fromLspRange`,
-hover, completion và mọi capability sau này đều đi qua chúng — đó là toàn bộ nội dung của
-`INV-TOOL-1`. Không có đường tắt nào tự cộng lấy, và mutant `M1` dựng một đường thứ hai cho
-completion bị giết ngay bằng khẳng định `completionRange` phải bằng `hoverRange`.
+**Coordinate boundary.** The entire file has exactly two functions that touch index addition and subtraction: `fromLspPosition`
+(LSP 0-based UTF-16 → 1-based of X-007) and `toLspPosition` for the reverse. `fromLspRange`,
+hover, completion, and any subsequent capabilities that pass through them — that's what it's all about
+`INV-TOOL-1`. There is no shortcut that adds itself, and mutant `M1` builds a second one for it
+completion is immediately killed by asserting that `completionRange` must be equal to `hoverRange`.
 
-**Thứ tự các bước trong `callPositionalTool` là nội dung của hai bất biến, không phải sở thích:**
-hỏi readiness → đọc nội dung hiện tại → xác thực line/column → chỉ khi đó mới phát LSP request.
-Facade giả đếm số lời gọi, nên "chưa gọi LSP lần nào" là một đại lượng đo được chứ không phải suy
-đoán; ca `INV-TOOL-5` có mỏ neo dương (vị trí hợp lệ sinh đúng 2 lời gọi) trước khi khẳng định 0.
+**The order of steps in `callPositionalTool` is a matter of two invariants, not preferences:**
+ask readiness → read current content → validate line/column → only then issue LSP request.
+The fake facade counts the number of calls, so "LSP has not been called yet" is a measured quantity, not an inference
+guess; case `INV-TOOL-5` has a positive anchor (a valid position generates exactly 2 calls) before asserting 0.
 
-**Vòng đời attach là spawn ↔ evict, không phải acquire ↔ release.** `WorkspaceAttachment` chạy đúng
-một lần cho mỗi tiến trình JDT LS, trong `#startWorkspace` sau khi `spawnWorkspace` trả về; hàm
-detach chạy đúng một lần trong `#evict`, TRƯỚC `spawned.stop()`. `diagnosticsAttachment(cache)` gỡ
-đăng ký trước rồi mới `cache.forget()` — thứ tự ngược lại để một publish tới muộn dựng lại đúng mục
-vừa bị xoá, và đó chính là mutant `M5`.
+**The attach lifecycle is spawn ↔ evict, not acquire ↔ release.** `WorkspaceAttachment` runs correctly
+once per JDT LS process, in `#startWorkspace` after `spawnWorkspace` returns; function. function
+detach runs exactly once in `#evict`, BEFORE `spawned.stop()`. `diagnosticsAttachment(cache)` remove
+register first then `cache.forget()` — reverse order so that a late publish rebuilds the correct item
+has just been deleted, and it is the mutant `M5`.
 
-| Mutant | Ca đóng nó | Dòng đỏ |
+| Mutants | Ca close it | Red line |
 |---|---|---|
-| `M1` INV-TOOL-1 | hover+completion cùng response | `completionRange` lệch `hoverRange` |
-| `M2` INV-TOOL-5 | toạ độ vượt giới hạn | `expected true, actual false` (isError) |
-| `M3` INV-TOOL-4 | not-ready + taxonomy X-003 | 2 ca đỏ, `expected true, actual false` |
-| `M4` attach theo lease | attach một lần mỗi tiến trình | `expected 1, actual 6` |
-| `M5` forget không detach | publish sau evict | `expected false, actual true` |
-| `M6` không detach lúc evict | forget + đóng watcher | 2 ca đỏ |
+| `M1` INV-TOOL-1 | hover+completion with response | `completionRange` offset `hoverRange` |
+| `M2` INV-TOOL-5 | coordinates beyond the limit | `expected true, actual false` (isError) |
+| `M3` INV-TOOL-4 | not-ready + taxonomy X-003 | 2 red cases, `expected true, actual false` |
+| `M4` attach by lease | attach once per process | `expected 1, actual 6` |
+| `M5` forget not detach | publish after evict | `expected false, actual true` |
+| `M6` does not detach at evict | forget + close watcher | 2 red cases |**A lesson that comes at the price of a hang.** `M6` the first time did not give any red line: it leaked a
+handle `fs.watch` persistent, `node --test` does not exit, and even the spec file hangs instead of red flags. That song
+You have to budget yourself — cleanup closes every watcher OUTSIDE the evict line — to get it back
+The red line has the name. Write to maker's memory.
 
-**Một bài học phải trả giá bằng một lần treo.** `M6` lần đầu không cho dòng đỏ nào: nó làm rò một
-handle `fs.watch` persistent, `node --test` không thoát, và cả tệp spec treo thay vì báo đỏ. Ca đó
-phải tự cấp ngân sách cho mình — cleanup đóng mọi watcher NGOÀI đường evict — thì mới lấy lại được
-dòng đỏ có tên. Ghi vào memory của maker.
+Suite: `npm test -- test/tools/tool-layer.spec.ts` red 10 cases with skeleton, green 75/75 after deployment
+declare; declare; The 6 mutants are all killed and `diff` with an empty pristine copy after reverting; `npm test` 75/75;
+`npm run test:integration` 139/139; `tsc --noEmit --strict` clean; `./harness/init.sh` green.
 
-Suite: `npm test -- test/tools/tool-layer.spec.ts` đỏ 10 ca với skeleton, xanh 75/75 sau khi triển
-khai; 6 mutant đều bị giết và `diff` với bản pristine rỗng sau khi hoàn nguyên; `npm test` 75/75;
-`npm run test:integration` 139/139; `tsc --noEmit --strict` sạch; `./harness/init.sh` xanh.
+## 2026-08-24 — `feat-tool-references` (maker, turn 1/3)
 
-## 2026-08-24 — `feat-tool-references` (maker, lượt 1/3)
+`java_references` was the first thin tool to have a list of results, so it is where `INV-TOOL-3` first appeared
+body: any overcap list must come out in truncated form INCLUDING `truncated: true` and the REAL total.
+Just touch `src/tools/references.ts` (new) and `test/tools/references.spec.ts` (new).
 
-`java_references` là tool mỏng đầu tiên có danh sách kết quả, nên nó là chỗ `INV-TOOL-3` lần đầu có
-thân xác: mọi danh sách vượt cap phải đi ra ở dạng đã cắt KÈM `truncated: true` và tổng số THỰC.
-Chỉ chạm `src/tools/references.ts` (mới) và `test/tools/references.spec.ts` (mới).
+**Red first, and red in the right place.** The first version of `references.ts` intentionally omitted the cutting step — it was
+falsifier written into code. Oracle reports red 12/3 with the line `expected 200, actual 250`, which means the red falls on
+confirm, not compile error or missing fixture. After adding four cut lines: 12/12 green.
 
-**Đỏ trước, và đỏ đúng chỗ.** Bản đầu tiên của `references.ts` cố tình bỏ bước cắt — nó chính là
-falsifier viết thành mã. Oracle báo đỏ 3/12 với dòng `expected 200, actual 250`, tức lần đỏ rơi vào
-khẳng định chứ không vào lỗi biên dịch hay thiếu fixture. Sau khi thêm bốn dòng cắt: 12/12 xanh.
+**Cap does not lie firmly on the cut line.** X-008 is still open so the number 200 only appears once, in
+The constant is named `DEFAULT_REFERENCE_CAP`, and `ReferencesOptions.cap` is overridable. Test case changes cap
+via option (10 and 300 on the same 250-element answer) is mechanical proof: if there is some remaining
+200 hard somewhere, these two cases cannot be green together.
 
-**Cap không nằm cứng trên đường cắt.** X-008 còn mở nên con số 200 chỉ xuất hiện đúng một lần, ở
-hằng số có tên `DEFAULT_REFERENCE_CAP`, và `ReferencesOptions.cap` ghi đè được. Ca kiểm thử đổi cap
-qua tuỳ chọn (10 và 300 trên cùng một câu trả lời 250 phần tử) là bằng chứng cơ học: nếu còn một số
-200 cứng đâu đó, hai ca này không thể cùng xanh.
+**`callPositionalTool` has not received capability `references`**, and the tool-layer is under review by the checker
+so it can't be fixed this time. `references.ts` thus reassembles the correct four-step sequence from the functions
+tool-layer output — workspace → readFile → validatePosition → request — and for EVERY location to pass through
+`fromLspRange`; There are no coordinate additions in this file. The price is that the `fail()` function is duplicated because
+tool-layer does not export it; Record it in `checkerNotes` for later merging.
 
-**`callPositionalTool` chưa nhận capability `references`**, và tool-layer đang bị checker xem xét
-nên không được sửa ở lượt này. `references.ts` vì vậy lắp lại đúng trình tự bốn bước từ các hàm
-tool-layer xuất ra — workspace → readFile → validatePosition → request — và cho MỌI location đi qua
-`fromLspRange`; không có phép cộng toạ độ nào trong tệp này. Cái giá là hàm `fail()` bị nhân bản vì
-tool-layer không xuất nó; ghi trong `checkerNotes` để lượt sau gộp lại.
+| Mutants | Ca close it | Red line |
+|---|---|---|| `M1` completely removes the cutting operation | over cap, cap threshold, cap-from-configuration | 3 red — true falsifier `INV-TOOL-3` |
+| `M2` `total` gets the number after cutting | exceed cap + threshold cap | 3 red, `total` says 200 instead of 250 |
+| `M3` `total >= cap` (skew-one) | correct threshold cap | 1 red — indicates dead ca border |
+| `M4` cap hard-code, skip configuration | under cap, cap threshold, cap-from-configuration | 3 red |
 
-| Mutant | Ca đóng nó | Dòng đỏ |
+Suite: `node --test test/tools/references.spec.ts` red 3/12 before clipping, green 12/12 after; four mutants
+are killed and `diff` with an empty pristine copy after reverting; `test/integration` 41/41 green;
+`tsc` with correct clean project configuration for both new files. `npm test` all reports 108/116 — 8 errors
+contained in `hover.spec.ts` and `diagnostics.spec.ts` of two makers running in parallel, out of scope
+this turn; `references`, `tool-layer` and `definition` are all green.
+
+## 2026-08-24 — maker — `feat-tool-hover`: `java_hover` with range is never absent
+
+The feature's falsifier has two sides: a hover result whose position has not passed through the unique transition boundary
+Most of the tool layer should be silently 0-based [INV-TOOL-1], or a SUCCESS result omits the field
+`range` [INV-TOOL-6]. Touch only `src/tools/hover.ts` (new) and `test/tools/hover.spec.ts` (new);
+`src/tools/tool-layer.ts` is only read because the checker is reviewing it in parallel.
+
+**Red first, and red in the right place.** The first version of `hover.ts` is the falsifier written in code: result
+success has no `range`, and `position` subtracts 1 from itself instead of receiving it from the tool layer. Oracle reported red
+5/10, all red lines fall into the affirmative (`successful hover never misses range`, `expected
+'String demo.Rocket.greet(String name)'`), did not result in module loading error. After actual implementation: November 11
+green.
+
+**Thin wrapper means no coordinate addition or subtraction.** `hover.ts` calls `hover()` of
+tool-layer then transition intact `answer.position` and `shaped.range`. Case `INV-TOOL-1` called together
+one input via two routes — `javaHover` and `callPositionalTool` — then `deepEqual` two results; deviation
+a unit anywhere is a failure. Ca astral-plane targets the `dynamic` token AFTER `🚀` on the same line, with
+The facade returns hover WITHOUT range (the actual path of the JDT LS), then cuts back the string from the file content using it
+The range itself reports back.**Two shaping decisions recorded in `checkerNotes`.** First, "no element solved" is
+explicit no-result branch `{ resolved: false, reason }` in a SUCCESSFUL outcome, not
+a code X-003 — that taxonomy is closed and no code describes "no symbol here"; style
+`JavaHoverResolved` forces `range` to be present so the "success missing range" status is not displayed
+okay. Second, the tool table says `java_hover` returns "signature + javadoc" but the tool-layer bundles the content
+hover into ONE string, so `hover.ts` only separates the presentation (the head or body of a markdown code block is
+signature, the rest is javadoc) and always keep `contents` raw.
+
+| Mutants | Ca close it | Red line |
 |---|---|---|
-| `M1` bỏ hẳn phép cắt | vượt cap, ngưỡng cap, cap-từ-cấu-hình | 3 đỏ — đúng falsifier `INV-TOOL-3` |
-| `M2` `total` lấy số sau khi cắt | vượt cap + ngưỡng cap | 3 đỏ, `total` báo 200 thay vì 250 |
-| `M3` `total >= cap` (lệch-một) | đúng ngưỡng cap | 1 đỏ — chỉ ca biên chết |
-| `M4` cap hard-code, bỏ qua cấu hình | dưới cap, ngưỡng cap, cap-từ-cấu-hình | 3 đỏ |
+| `M1` completely omits the `range` | field 6 cases, of which `INV-TOOL-6: all successful hovers carry range` | 6 red — correct second part of falsifier |
+| `M2` wrapper subtracts 1 from `position` | basic shift + two-way `INV-TOOL-1` | 2 red — correct side one of falsifier |
+| `M3` no-result masquerades as a result with `range` | `INV-TOOL-6: no-result explicitly` | 1 red — only ca aiming for death |
 
-Suite: `node --test test/tools/references.spec.ts` đỏ 3/12 trước khi cắt, xanh 12/12 sau; bốn mutant
-đều bị giết và `diff` với bản pristine rỗng sau khi hoàn nguyên; `test/integration` 41/41 xanh;
-`tsc` với đúng cấu hình dự án sạch cho cả hai tệp mới. `npm test` toàn bộ báo 108/116 — 8 lỗi nằm
-trọn trong `hover.spec.ts` và `diagnostics.spec.ts` của hai maker đang chạy song song, ngoài phạm vi
-lượt này; `references`, `tool-layer` và `definition` đều xanh hết.
+Suite: `node --test test/tools/hover.spec.ts` red 5/10 on stub, green 11/11 after deployment;
+three mutants are all killed and `diff` with an empty pristine copy after reverting; `npm test` 117/117 green;
+`npm run test:integration` 181/181 green.
 
-## 2026-08-24 — maker — `feat-tool-hover`: `java_hover` với range không bao giờ vắng mặt
+## Maker 2026-08-24 — `feat-tool-definition` (in-progress, 1/3, waiting for checker)
 
-Falsifier của tính năng có hai vế: một hover result mà vị trí chưa đi qua ranh giới chuyển đổi duy
-nhất của tầng tool nên âm thầm 0-based [INV-TOOL-1], hoặc một kết quả THÀNH CÔNG bỏ sót trường
-`range` [INV-TOOL-6]. Chỉ chạm `src/tools/hover.ts` (mới) và `test/tools/hover.spec.ts` (mới);
-`src/tools/tool-layer.ts` chỉ được đọc vì đang có checker xem xét song song.
+New files: `src/tools/definition.ts` (implementation) and `test/tools/definition.spec.ts` (13 conditions).
+Do not touch any other files — `src/tools/tool-layer.ts` is read-only.
 
-**Đỏ trước, và đỏ đúng chỗ.** Bản đầu tiên của `hover.ts` chính là falsifier viết thành mã: kết quả
-thành công không có `range`, và `position` tự trừ đi 1 thay vì nhận từ tầng tool. Oracle báo đỏ
-5/10, mọi dòng đỏ rơi vào khẳng định (`hover thành công không bao giờ bỏ sót range`, `expected
-'String demo.Rocket.gréet(String tên)'`), không vào lỗi nạp module. Sau khi triển khai thật: 11/11
-xanh.
+**Reuse rather than copy.** `definition()` calls `callPositionalTool(facade, request, [])`: list
+An empty capability list executes the three common steps of the tool layer — ask workspace for availability, read content
+Currently, line/column validation — without issuing any requests. Thanks to that `invalid-position`, `unroutable`
+and X-003's five workspace branches come straight from feat-tool-layer-core. The private part of the file is just playing
+`textDocument/definition` and create location.
 
-**Wrapper mỏng nghĩa là không có một phép cộng trừ toạ độ nào.** `hover.ts` gọi `hover()` của
-tool-layer rồi chuyển tiếp nguyên vẹn `answer.position` và `shaped.range`. Ca `INV-TOOL-1` gọi cùng
-một đầu vào qua hai đường — `javaHover` và `callPositionalTool` — rồi `deepEqual` hai kết quả; lệch
-một đơn vị ở bất kỳ đâu là hỏng. Ca astral-plane nhắm token `động` nằm SAU `🚀` trên cùng dòng, với
-facade trả hover KHÔNG kèm range (đường đi thật của JDT LS), rồi cắt lại chuỗi từ nội dung tệp bằng
-chính range báo về.
+**There is no addition or subtraction of coordinates in the file.** Downward direction uses `toLspPosition`, upward direction uses
+`fromLspRange`, both of the tool-layer, and applied to EVERY element in the list. A cross comparison condition`java_definition` result with hover result on same range LSP: one unit difference anywhere is
+broken.
 
-**Hai quyết định tạo hình đã ghi vào `checkerNotes`.** Thứ nhất, "không giải được phần tử nào" là
-nhánh no-result tường minh `{ resolved: false, reason }` trong một outcome THÀNH CÔNG, không phải
-một mã X-003 — taxonomy đó đóng và không mã nào mô tả "ở đây không có symbol"; kiểu
-`JavaHoverResolved` buộc `range` có mặt nên trạng thái "thành công thiếu range" không biểu diễn
-được. Thứ hai, bảng tool nói `java_hover` trả "signature + javadoc" nhưng tool-layer gộp nội dung
-hover thành MỘT chuỗi, nên `hover.ts` chỉ tách trình bày (khối đầu hoặc thân khối mã markdown là
-signature, phần còn lại là javadoc) và luôn giữ `contents` thô.
+**Four LSP response shapes normalized to an array:** `Location`, `Location[]`,
+`LocationLink[]` and `null`. With `LocationLink`, the result gets `targetSelectionRange` (range of main
+identifier) and only fallback to `targetRange` when the server does not send. The empty array or `null` is the branch
+`resolved: false` with a readable reason, not an ambiguous empty list (INV-TOOL-4).
 
-| Mutant | Ca đóng nó | Dòng đỏ |
+| Mutants | Ca close it | Red line |
 |---|---|---|
-| `M1` bỏ hẳn trường `range` | 6 ca, trong đó `INV-TOOL-6: mọi hover thành công đều mang range` | 6 đỏ — đúng vế hai của falsifier |
-| `M2` wrapper tự trừ 1 cho `position` | ca cơ bản + `INV-TOOL-1` hai đường | 2 đỏ — đúng vế một của falsifier |
-| `M3` no-result giả dạng kết quả có `range` | `INV-TOOL-6: no-result tường minh` | 1 đỏ — chỉ ca nhắm tới chết |
+| `M1` only converts the first location | ca array multiple declarations + ca `LocationLink[]` | 2 red — exactly the mutant that falsifier is targeting |
+| `M2` replaces `fromLspRange` with the raw mapping | 5 shifts, in which shift is cross-referenced with hover | 5 red |
+| `M3` drops the no-result | branch ca empty array + ca `null` | 2 red |
+| `M4` prioritizes `targetRange` | ca `LocationLink[]` | 1 red — only ca aiming for death |
+| `M5` swallowed request error | ca `workspace-crashed` | 1 red |
 
-Suite: `node --test test/tools/hover.spec.ts` đỏ 5/10 trên bản stub, xanh 11/11 sau khi triển khai;
-ba mutant đều bị giết và `diff` với bản pristine rỗng sau khi hoàn nguyên; `npm test` 117/117 xanh;
-`npm run test:integration` 181/181 xanh.
+Suite: red 6/13 on falsifier stub, green 13/13 after deployment, `diff` with
+pristine is empty after reverting the mutant; `node --test test/integration/*.spec.ts` 41/41 green. Run
+`npm test` has all 8 items in `test/tools/hover.spec.ts` and `test/tools/diagnostics.spec.ts` of
+makers are running in parallel, none of them belong to `definition.spec.ts`.
 
-## Lượt maker 2026-08-24 — `feat-tool-definition` (in-progress, 1/3, chờ checker)
+## feat-tool-diagnostics — java_diagnostics reads push cache (2026-08-24, maker)
 
-Tệp mới: `src/tools/definition.ts` (triển khai) và `test/tools/definition.spec.ts` (13 điều kiện).
-Không chạm tệp nào khác — `src/tools/tool-layer.ts` chỉ đọc.
-
-**Tái dùng thay vì chép lại.** `definition()` gọi `callPositionalTool(facade, request, [])`: danh
-sách capability rỗng chạy đúng ba bước chung của tầng tool — hỏi workspace sẵn sàng, đọc nội dung
-hiện tại, xác thực line/column — mà không phát request nào. Nhờ đó `invalid-position`, `unroutable`
-và năm nhánh workspace của X-003 tới thẳng từ feat-tool-layer-core. Phần riêng của tệp chỉ là phát
-`textDocument/definition` và tạo hình location.
-
-**Không một phép cộng trừ toạ độ nào trong tệp.** Chiều xuống dùng `toLspPosition`, chiều lên dùng
-`fromLspRange`, cả hai của tool-layer, và áp cho MỌI phần tử trong danh sách. Một điều kiện so chéo
-kết quả `java_definition` với kết quả hover trên cùng một range LSP: lệch một đơn vị ở bất kỳ đâu là
-hỏng.
-
-**Bốn hình dạng phản hồi LSP được chuẩn hoá về một mảng:** `Location`, `Location[]`,
-`LocationLink[]` và `null`. Với `LocationLink`, kết quả lấy `targetSelectionRange` (range của chính
-định danh) và chỉ lùi về `targetRange` khi server không gửi. Mảng rỗng hoặc `null` là nhánh
-`resolved: false` kèm lý do đọc được, không phải một danh sách rỗng mập mờ (INV-TOOL-4).
-
-| Mutant | Ca đóng nó | Dòng đỏ |
-|---|---|---|
-| `M1` chỉ chuyển đổi location đầu tiên | ca mảng nhiều khai báo + ca `LocationLink[]` | 2 đỏ — đúng mutant mà falsifier nhắm tới |
-| `M2` thay `fromLspRange` bằng ánh xạ thô | 5 ca, trong đó ca so chéo với hover | 5 đỏ |
-| `M3` bỏ nhánh no-result | ca mảng rỗng + ca `null` | 2 đỏ |
-| `M4` ưu tiên `targetRange` | ca `LocationLink[]` | 1 đỏ — chỉ ca nhắm tới chết |
-| `M5` nuốt lỗi request | ca `workspace-crashed` | 1 đỏ |
-
-Suite: đỏ 6/13 trên bản stub hiện thân falsifier, xanh 13/13 sau khi triển khai, `diff` với bản
-pristine rỗng sau khi hoàn nguyên mutant; `node --test test/integration/*.spec.ts` 41/41 xanh. Chạy
-`npm test` toàn bộ có 8 đỏ thuộc `test/tools/hover.spec.ts` và `test/tools/diagnostics.spec.ts` của
-các maker đang chạy song song, không ca nào thuộc `definition.spec.ts`.
-
-## feat-tool-diagnostics — java_diagnostics đọc cache đẩy (2026-08-24, maker)
-
-`src/tools/diagnostics.ts` (mới) + `test/tools/diagnostics.spec.ts` (mới). Đây là item 4 trong build
-order và là tool đầu tiên KHÔNG phát LSP request nào: nó đọc lại `diagnostics-cache`, nên cổng
-`DiagnosticsFacade` cố ý không có `request()`, chỉ có `workspace()`, `scopeOf()` và
+`src/tools/diagnostics.ts` (new) + `test/tools/diagnostics.spec.ts` (new). This is item 4 in the build
+order and is the first tool to NOT issue any LSP requests: it reads back `diagnostics-cache`, so the port
+`DiagnosticsFacade` intentionally does not have `request()`, only `workspace()`, `scopeOf()` and
 `projectFiles()`.
 
-**Hình dạng giữ INV-DIAG-1 sống:** `FileDiagnostics` là union hai nhánh —
-`{uri, status: "not-reported"}` và `{uri, status: "reported", problems, receivedAt, version?}`.
-Nhánh "chưa báo cáo" KHÔNG mang trường `problems`, kể cả một mảng rỗng: một người gọi đọc
-`problems.length === 0` sẽ đọc "chưa index xong" thành "mã nguồn sạch", đúng câu trả lời sai mà
-falsifier mô tả.
+**The shape that keeps INV-DIAG-1 alive:** `FileDiagnostics` is a two-branch union —
+`{uri, status: "not-reported"}` and `{uri, status: "reported", problems, receivedAt, version?}`.
+The "unreported" branch does NOT carry a `problems` field, including an empty array: a caller reads
+`problems.length === 0` will read "not indexed yet" as "clean source code", which is a wrong answer.
+falsifier description.
 
-**Phạm vi toàn project hợp nhất hai tập:** danh sách tệp của project và khoá của cache. Bảng tool
-nói `java_diagnostics` trả lời cho "every file in the project"; một tệp chưa được index vắng mặt
-khỏi cache, nên nếu chỉ liệt kê khoá cache thì tệp đó biến mất và câu trả lời đọc ra y hệt "tệp đó
-sạch". Vế ngược lại giữ cho problem ở URI mà danh sách tệp không nêu tên (mã sinh) không bị bỏ rơi.
+**The project-wide scope merges two sets:** the project's file list and the cache key. Tools panelsay `java_diagnostics` responds to "every file in the project"; an unindexed file is absent
+from the cache, so if you only list the cache key, the file disappears and the answer reads the same as "that file
+clean". The reverse side keeps the problem at URIs that list unnamed files (generators) from being abandoned.
 
-**Thứ tự bước là nội dung của bất biến:** readiness đứng trước mọi lần chạm cache. Một workspace
-đang index có cache trống, và cache trống đọc ra y hệt một project không lỗi (INV-TOOL-4). Ca kiểm
-thử đo thẳng đại lượng đó bằng bộ đếm `reads()` phải bằng 0.
+**The step order is the content of the invariant:** readiness precedes every cache hit. A workspace
+indexing has an empty cache, and the empty cache reads exactly the same as an error-free project (INV-TOOL-4). Test case
+Try measuring that quantity directly with the counter `reads()` which should be 0.
 
-| Mutant | Ca đóng nó | Dòng đỏ |
+| Mutants | Ca close it | Red line |
 |---|---|---|
-| `M1` gộp "chưa báo cáo" vào "đã báo cáo rỗng" | 3 ca INV-DIAG-1 | 3 đỏ — đúng falsifier |
-| `M2` gắn `problems: []` vào mốc "chưa báo cáo" | ca URI chưa publish + ca toàn project | 2 đỏ |
-| `M3` phạm vi project chỉ lấy khoá cache | ca toàn project | 1 đỏ |
-| `M4` phạm vi project bỏ URI ngoài danh sách tệp | ca toàn project | 1 đỏ |
-| `M5` bỏ bước kiểm tra readiness | ca INV-TOOL-4 | 1 đỏ |
-| `M6` bỏ ranh giới `fromLspRange` | ca toạ độ 1-based | 1 đỏ |
+| `M1` merges "unreported" into "empty reported" | 3 cases of INV-DIAG-1 | 3 red — true falsifier |
+| `M2` appends `problems: []` to the "unreported" | unpublished URI ca + entire project ca | 2 red |
+| `M3` project scope only takes the cache key | ca entire project | 1 red |
+| `M4` project scope omit URIs beyond file list | ca entire project | 1 red |
+| `M5` removes readiness check | ca INV-TOOL-4 | 1 red |
+| `M6` removes boundary `fromLspRange` | ca coordinates 1-based | 1 red |
 
-Suite: đỏ 3/6 trên bản đầu hiện thân falsifier, xanh 6/6 sau khi sửa, `diff` với bản pristine rỗng
-sau khi hoàn nguyên mutant. `npm test` 117/117 xanh; `npm run test:integration` 181/181 xanh — lần
-chạy trước đó 5 ca `feat-001` đỏ vì suite unit đang đỏ tạm thời do maker song song đang sửa
-`src/tools/hover.ts`, chạy lại sau khi họ xanh thì sạch.
+Suite: red 3/6 on falsifier initial version, blue 6/6 after editing, `diff` with empty pristine version
+after reverting the mutant. `npm test` 117/117 green; `npm run test:integration` 181/181 green — times
+previous run 5 shifts `feat-001` red because suite unit is temporarily red due to parallel maker being repaired
+`src/tools/hover.ts`, run again after they are green and clean.
 
 ---
 
-## 2026-08-24 — `feat-tool-layer-core` lượt 2 (sửa sau REJECT), attempts 2/3
+## 2026-08-24 — `feat-tool-layer-core` round 2 (edited after REJECT), attempts 2/3
 
-Ba điểm chặn của checker đều là lỗi thật trong mã sản xuất, không phải chỉ thiếu ca kiểm thử.
+The checker's three blocking points are all real errors in the production code, not just missing test cases.
 
-**R1 — rò handle ở `#evict` (nghiêm trọng nhất).** `#evict` chạy `#runDetachments(victim)` trước
-`await victim.started`. Mảng `detachments` chỉ đầy đủ SAU khi `#startWorkspace` chạy xong, nên một
-evict rơi vào giữa cold start gỡ trên một mảng còn rỗng. `close()` evict MỌI entry, kể cả entry
-đang ở trạng thái "starting", nên đây là đường đi thường ngày của một SIGTERM tới daemon trong
-khoảng ~2,3 giây cold start — không phải trường hợp biên. Hậu quả đo được: `attachFileSync` giữ một
-handle `fs.watch` không bao giờ đóng, tiến trình node không thoát sau `pool.close()`.
+**R1 — handle leak in `#evict` (most serious).** `#evict` runs `#runDetachments(victim)` first
+`await victim.started`. The `detachments` array is only full AFTER `#startWorkspace` has finished running, so one
+evict falls in the middle of cold start disassembly on an empty array. `close()` evict EVERY entry, including entry
+is in the "starting" state, so this is the normal route of a SIGTERM to the internal daemon
+~2.3 seconds cold start — not a boundary case. Measured consequence: `attachFileSync` keeps one
+handle `fs.watch` never closes, node process does not exit after `pool.close()`.Edit: `#evict` waits for `victim.started` to settle (success or failure) first, then uninstall, then
+`stop()`. The old intent remains the same — detach still runs BEFORE killing the process.
 
-Sửa: `#evict` chờ `victim.started` settle (thành công hay thất bại) trước, rồi mới gỡ, rồi mới
-`stop()`. Ý định cũ được giữ nguyên — detach vẫn chạy TRƯỚC khi giết tiến trình.
+**Why don't six mutants M1–M6 of round 1 see this error:** all cases `await pool.acquire()` completed
+then closed, so the "starting" status has never had any cases enter. The new shift set up two roadblocks
+around the spawn seam to turn that window into a defined event, and use the actual `attachFileSync` to
+handle `fs.watch` becomes the observable.
 
-**Vì sao sáu mutant M1–M6 của lượt 1 không thấy lỗi này:** mọi ca đều `await pool.acquire()` xong
-rồi mới đóng, nên trạng thái "starting" chưa từng có ca nào bước vào. Ca mới dựng hai chốt chặn
-quanh spawn seam để biến cửa sổ đó thành một sự kiện xác định, và dùng `attachFileSync` thật để
-handle `fs.watch` trở thành đại lượng quan sát được.
+**R2 — third coordinate transformation boundary.** `shapeHover` automatically adds `POSITION_BASE` in the template
+string construct `HoverAnswer.reason`. A coordinate that goes out in prose is still a coordinate; old song
+only requires `reason.length > 0` so the 0-based mutant survives. Now `reason` goes through `fromLspPosition`.
 
-**R2 — ranh giới chuyển đổi toạ độ thứ ba.** `shapeHover` tự cộng `POSITION_BASE` trong template
-string dựng `HoverAnswer.reason`. Một toạ độ đi ra ngoài dưới dạng văn xuôi vẫn là một toạ độ; ca cũ
-chỉ đòi `reason.length > 0` nên mutant 0-based sống sót. Nay `reason` đi qua `fromLspPosition`.
+**R3 — branch cleanup error in `#startWorkspace`.** New case builds three attachments, second one throws error,
+and requires all five things: acquire rejects the original message correctly, the third attachment does not run, detach of
+The first attachment has run, `stop()` has run, and the failed start cannot be cached.
 
-**R3 — nhánh cleanup lỗi trong `#startWorkspace`.** Ca mới dựng ba attachment, cái thứ hai ném lỗi,
-và đòi đủ năm điều: acquire reject đúng thông điệp gốc, attachment thứ ba không chạy, detach của
-attachment thứ nhất đã chạy, `stop()` đã chạy, và start hỏng không được cache.
-
-| Mutant | Ca đóng nó | Dòng đỏ |
+| Mutants | Ca close it | Red line |
 |---|---|---|
-| `R1-revert` gỡ trước khi start xong | ca `close()` giữa spawn | 1 đỏ, đúng ca đó |
-| `C1` reason theo hệ 0-based | ca toạ độ trong `reason` | 1 đỏ |
-| `C3` `splitLines` chỉ theo `\n` | ca CRLF/CR | 1 đỏ |
-| `C4f`/`C4b` ép `width = 1` | ca định danh chứa chữ cái astral | mỗi cái 1 đỏ |
-| `C8` bỏ khối dọn dẹp trong `catch` | ca attachment ném lỗi | 1 đỏ |
-| `C8b` nuốt hẳn lỗi attachment | ca attachment ném lỗi | 1 đỏ |
-| `C10` bỏ `.reverse()` | ca thứ tự gỡ ngược | 1 đỏ |
-| `M5`/`M6` (dựng lại) | ca cũ | 1 và 4 đỏ — ca cũ không bị cùn đi |
+| `R1-revert` removed before start finished | ca `close()` between spawn | 1 red, that's right |
+| `C1` reason is 0-based | ca coordinates in `reason` | 1 red |
+| `C3` `splitLines` only follows `\n` | ca CRLF/CR | 1 red |
+| `C4f`/`C4b` casts `width = 1` | The identifier contains the letters astral | 1 red each |
+| `C8` drops the cleanup block in `catch` | ca attachment throws error | 1 red |
+| `C8b` swallows the attachment error | ca attachment throws error | 1 red |
+| `C10` remove `.reverse()` | shift reverse order | 1 red |
+| `M5`/`M6` (rebuild) | old song | 1 and 4 red — old shift not dulled |
 
-**Một lỗi thật lộ ra nhờ ca C4:** quét ngược trong `tokenBoundsAt` dùng `codePointAt(start - 1)`,
-mà ở đúng một cặp surrogate vị trí đó là nửa sau chứ không phải cả cặp. Token vì thế dừng sớm ngay
-trước một chữ cái astral-plane. Bề rộng nay suy từ dải trail surrogate. Fixture cũ chỉ có emoji —
-không phải identifier part — nên hai nhánh `width` không bao giờ phân biệt được.
+**A real bug revealed by shift C4:** backscan in `tokenBoundsAt` using `codePointAt(start - 1)`,
+But in exactly one surrogate pair, that position is the second half, not the whole pair. The token therefore stopped early
+before an astral-plane letter. This width is derived from the trail surrogate band. Old Fixture only had emojis —
+not identifier part — so the two `width` branches can never be distinguished.
 
-`C11` được xác nhận là mutant tương đương; chú thích trong `diagnosticsAttachment`, câu ở đầu spec
-và tên ca thứ ba đã hạ cấp xuống đúng thứ đã chứng minh: cả hai việc phải chạy, thứ tự thì chưa.
+`C11` was confirmed to be the equivalent mutant; comment in `diagnosticsAttachment`, sentence at the beginning of the specand the third shift name has been downgraded to exactly what has been proven: both jobs must run, the order must not.
 
-`npx tsc --noEmit` theo đúng `tsconfig.json` của dự án (có `noUncheckedIndexedAccess`) nay sạch cho
-cả hai tệp src. Suite: `npm test` 123/123, `npm run test:integration` 187/187. Bốn tính năng phụ
-thuộc chạy riêng từng tệp: 42/42 xanh, không chữ ký export nào đổi.
+`npx tsc --noEmit` according to the project's `tsconfig.json` (with `noUncheckedIndexedAccess`) is now clean
+both src files. Suite: `npm test` 123/123, `npm run test:integration` 187/187. Four extra features
+Runs each file separately: 42/42 green, no export signature changed.
 
-## 2026-08-25 — `feat-prove-diagnostics`: lượt xác nhận lại, môi trường đã phục hồi (maker, attempt 3/3)
+## 2026-08-25 — `feat-prove-diagnostics`: commits again, environment recovered (maker, attempt 3/3)
 
-Lượt cuối trong ngân sách thử lại, và nó **không sửa một dòng mã nào**. Attempt 2 đã kết luận
-implementation xanh nhưng baseline đỏ vì `EMFILE` từ `fs.watch()` ở ngoài phạm vi repo; lượt này chỉ
-đo lại xem hạn ngạch theo dõi thư mục của host còn cạn hay không.
+The last pass in the budget tried again, and it **didn't fix a single line of code**. Attempt 2 concluded
+implementation is green but baseline is red because `EMFILE` from `fs.watch()` is outside the repo; This turn only
+Check to see if the host's directory monitoring quota is still exhausted or not.
 
-| Phép đo | Lệnh | Kết quả |
+| Measurement | Command | Results |
 |---|---|---|
-| Chẩn đoán EMFILE | tiến trình Node độc lập, `fs.watch()` thư mục temp trống + thư mục repo + 200 thư mục con mới | không còn `EMFILE`, cả 202 lần theo dõi đều thành công |
-| Oracle của tính năng | `npm run test:integration -- test/integration/diagnostics.integration.spec.ts` | 3/3 pass, 0 fail, 0 cancelled, 10,64 s |
-| Baseline đầy đủ | `./harness/init.sh` | 124/124 pass, in `=== Baseline green ===` |
+| EMFILE Diagnostics | standalone Node process, `fs.watch()` empty temp folder + repo folder + 200 new subfolders | no more `EMFILE`, all 202 trace attempts were successful |
+| Oracle of features | `npm run test:integration -- test/integration/diagnostics.integration.spec.ts` | 3/3 passes, 0 failed, 0 canceled, 10.64 s |
+| Full Baseline | `./harness/init.sh` | 124/124 pass, print `=== Baseline green ===` |
 
-Chẩn đoán của attempt 2 được xác nhận là đúng. Nguyên nhân gốc là hạn ngạch theo dõi thư mục của
-macOS bị cạn tạm thời khi nhiều tiến trình test chạy song song, không phải khiếm khuyết trong
-`DiskFileSyncWatcher` hay trong thay đổi canonical-URI của `DiagnosticsCache`. Hạn ngạch tự giải
-phóng sau khi các tiến trình đó kết thúc, nên không có thay đổi mã nào cần thực hiện.
+The diagnosis of attempt 2 was confirmed to be correct. The root cause is the folder's tracking quota
+macOS runs out temporarily when multiple test processes run in parallel, not an internal defect
+`DiskFileSyncWatcher` or in the canonical-URI change of `DiagnosticsCache`. Self-released quota
+launch after those processes terminate, so no code changes need to be made.
 
-`attempts` lên 3/3, `readyForCheck` thành `true`, `status` giữ `in-progress` — quyền đặt `done`
-thuộc checker.
+`attempts` to 3/3, `readyForCheck` to `true`, `status` to keep `in-progress` — permission to set `done`
+belongs to checker.

@@ -1,31 +1,31 @@
-# Lớp trong "không quan sát được" thường lộ ra ngay ở cổng tiêm được
+# The "invisible" inner layer is often exposed right at the injection port
 
-**Khi nào áp dụng:** lượt vá oracle sau khi checker liệt kê mutant sống sót, và checker tự nhận rằng
-một mutant "không đòi ca vì hiệu ứng không quan sát được qua seam hiện tại". Gặp ở
-`feat-readiness-gate`, lượt 2, mutant RM8.
+**When to apply:** oracle patch after the checker lists the mutant as alive, and the checker himself acknowledges that
+a mutant "does not require ca because the effect is not observable through the current seam". Meet at
+`feat-readiness-gate`, pass 2, mutant RM8.
 
-## Bài học chính
+## Key takeaways
 
-RM8 bỏ kẹp `Math.min(#probeTimeoutMs, Math.max(1, at - Date.now()))` trong `#probeOnce`. Hiệu ứng
-theo mô tả — một request bị bỏ rơi sống lâu hơn ngân sách của caller — đúng là không đo được từ phía
-caller, vì caller đã được lớp `settleBy` bên ngoài buông đúng hạn rồi. Nhưng đại lượng bị mutant làm
-sai **được trao qua một tham số của cổng công khai**: `ReadinessGateOptions.probe` nhận
-`ProbeOptions.timeoutMs`. Tiêm một probe, ghi lại `timeoutMs` mỗi lần được trao, rồi khẳng định mọi
-ngân sách nằm trong `[1, hạn của caller]` trong khi trần probe là 5000 ms — RM8 trao 5000 ms cho một
-lời gọi 150 ms và chết ngay.
+RM8 unclamps `Math.min(#probeTimeoutMs, Math.max(1, at - Date.now()))` in `#probeOnce`. Effects
+according to the description — an abandoned request outlives the caller's budget — which is truly unmeasurable from the side
+caller, because the caller has already been released on time by the outer `settleBy` class. But a lot of it is done by mutants
+false **passed via a public gateway parameter**: `ReadinessGateOptions.probe` received
+`ProbeOptions.timeoutMs`. Inject a probe, record `timeoutMs` each time it is given, then assert every time
+budget is in `[1, caller limit]` while probe ceiling is 5000 ms — RM8 gives 5000 ms to a
+call 150 ms and die immediately.
 
-Quy tắc rút ra: trước khi chấp nhận "không quan sát được", liệt kê mọi giá trị mà thành phần **trao
-ra ngoài** qua cổng tiêm được, không chỉ giá trị nó **trả về**. Một tham số truyền cho collaborator
-là hành vi công khai y như giá trị trả về, và nó thường là chỗ duy nhất lớp trong hiện hình. Điều
-kiện để khẳng định này không phải là kiểm thử nội bộ: cổng đó phải đã công khai vì một lý do khác
-(ở đây `probeSemanticIndex` được `feat-prove-sync` gọi trực tiếp).
+Takeaway rule: before accepting "unobservable", list every value that the **component confers
+out** through the injectable port, not just the value it **returns**. A parameter passed to the collaborator
+is the same public behavior as the return value, and it is often the only place the inner class is visible. Article
+The condition for this assertion is not internal testing: the port must have been made public for another reason
+(Here `probeSemanticIndex` is called directly by `feat-prove-sync`).
 
-## Bài học phụ: ca treo là bằng chứng đỏ yếu
+## Side lesson: suspended cases are weak evidence
 
-Dưới mutant RM2, ca 5 treo hết 10 s rồi `node:test` huỷ (`cancelled`) toàn bộ ca đứng sau. Mutant vẫn
-bị giết, nhưng lượt đo đó không nói gì về các ca còn lại, và thông điệp chỉ là "test timed out".
+Under mutant RM2, case 5 hangs for 10 seconds and then `node:test` cancels (`cancelled`) all subsequent cases. Mutant still
+was killed, but the test said nothing about the remaining cases, and the message was just "test timed out".
 
-Cách sửa không làm yếu ca: giữ nguyên mọi khẳng định cũ, chỉ thay `await` không giới hạn bằng
-`Promise.race` với một watchdog dài gấp hơn mười lần hạn đang kiểm, rồi thêm một khẳng định "caller
-vẫn còn chờ sau N ms". Bất biến được kiểm không đổi, nhưng vi phạm trở thành một dòng đỏ nêu đúng
-tên bất biến, và 0 ca bị huỷ nên cùng một lần chạy vẫn đo được các mutant khác.
+How to fix it without weakening the case: keep all the old assertions, just replace `await` with no limit
+`Promise.race` with a watchdog more than ten times longer than the term being tested, then add a "caller" assertion
+still waiting after N ms". The invariant is checked unchanged, but the violation becomes a red line stating true
+The names are invariant, and 0 cases are canceled so the same run can still measure other mutants.

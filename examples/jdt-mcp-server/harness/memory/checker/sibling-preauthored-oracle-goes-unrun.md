@@ -1,37 +1,37 @@
-# Một oracle chị em viết trước có thể đỏ mà không ai chạy tới
+# A sister oracle written first can be red without anyone running to it
 
-Bối cảnh: feat-workspace-pool (build) dựng `src/workspace/workspace-pool.ts`. Lệnh verification của
-tính năng chỉ chạy hai file test của chính nó và đều xanh.
+Context: feat-workspace-pool (build) builds `src/workspace/workspace-pool.ts`. Verification command of
+The feature only runs its two test files and both are green.
 
-## Vấn đề
+## Problem
 
-Tầng test-design đã viết trước `test/integration/pool-lifecycle.integration.spec.ts` cho một tính năng
-`prove` khác (feat-prove-pool-lifecycle, khi đó `not-started`). File này nhắm đúng vào module mà
-tính năng build vừa tạo ra, và nó nạp module bằng `await import(...)`. Trước khi có triển khai, nó đỏ
-vì thiếu module — nên nó nằm ngoài baseline gate. Sau khi có triển khai, nó chạy được thật, và
-một trong ba điều kiện đỏ.
+The test-design layer has prewritten `test/integration/pool-lifecycle.integration.spec.ts` for a feature
+`prove` else (feat-prove-pool-lifecycle, then `not-started`). This file is aimed right at the module
+The build feature has just been created, and it loads the module with `await import(...)`. Before there was a deployment, it was red
+Because it lacks a module — it is outside the baseline gate. After deployment, it works really well, and
+one of the three red conditions.
 
-Không có gì trong quy trình chạm tới nó: lệnh verification của tính năng build không gọi nó,
-`npm test` không bắt được thư mục `test/integration`, baseline gate cũng không.
+Nothing in the process touches it: the build feature's verification command doesn't call it,
+`npm test` does not capture the `test/integration` directory, nor does baseline gate.
 
-## Cách phát hiện
+## How to detect
 
-Liệt kê toàn bộ cây test (`find test -type f`) thay vì chỉ đọc các file tính năng khai báo trong
-`touches`. Bất kỳ file test nào đã tồn tại mà nhắc tên module vừa được triển khai đều phải chạy một
-lượt, kể cả khi nó thuộc tính năng khác.
+List the entire test tree (`find test -type f`) instead of just reading the feature files declared in
+`touches`. Any existing test files that mention the newly deployed module name must be run
+turn, even if it belongs to another feature.
 
-## Kết luận rút ra
+## Conclusion drawn
 
-Khi một tính năng `build` tạo module lần đầu, hãy tìm mọi oracle viết trước nhắm vào module đó và
-chạy chúng. Kết quả rơi vào một trong ba nhóm, và cần phân loại rõ trong `checkerNotes`:
+When a `build` feature creates a module for the first time, look for any prewritten oracles targeting that module and
+run them. Results fall into one of three groups, and should be clearly classified in `checkerNotes`:
 
-| Kết quả | Ý nghĩa | Xử lý |
+| Results | Meaning | Processing |
 |---|---|---|
-| Xanh | Tính năng prove kế tiếp đã sẵn bằng chứng | Ghi nhận, không cản trở |
-| Đỏ do lỗi triển khai | Falsifier của tính năng build chưa đủ rộng | REJECT |
-| Đỏ do lỗi bản thân oracle | Tính năng prove kế tiếp sẽ vấp phải | APPROVE kèm `FOLLOW-UP:` nêu rõ dòng assertion sai |
+| Green | The next prove feature has proof available | Noted, not hindered |
+| Red due to deployment error | Falsifier of the build feature is not broad enough | REJECT |
+| Red due to oracle's own error | The next prove feature will encounter | APPROVE with `FOLLOW-UP:` clearly states that the assertion line is wrong |
 
-Ở lần này kết quả thuộc nhóm ba: oracle khẳng định mọi workspace từng bị evict phải vắng mặt vĩnh
-viễn trong `pool.status()`, nhưng chính fixture của nó lại acquire lại workspace đó, nên workspace
-xuất hiện trở lại một cách hợp lệ. Phân loại sai nhóm này thành lỗi triển khai sẽ khiến maker sửa
-code đang đúng.
+This time the results are in group three: oracle confirms that all workspaces that have been evicted must be permanently absent
+permanent in `pool.status()`, but its fixture itself acquires that workspace, so workspace
+duly reappeared. Misclassifying this group as an implementation error will cause the maker to fix it
+code is correct.

@@ -31,7 +31,7 @@ build the same thing you meant?
 | D8 | **Non-goals and casualties are explicit.** What this does *not* do, and which existing features it changes or invalidates. | Silence about the ten features already in `feature_list.json` covering the same ground |
 | D9 | **Premises that may be false are surfaced, not smoothed over.** If the requirement rests on something the design suspects is untrue, it says so and stops. | A design that quietly works around a broken premise and never names it |
 
-**"Tính trong sáng" (D2 + D6 + D9) is where most designs actually fail.** They are readable and
+**Transparency (D2 + D6 + D9) is where most designs actually fail.** They are readable and
 still opaque: you cannot tell which sentence would collapse the rest. A design is transparent when
 a reader can point at one assumption and say what dies with it.
 

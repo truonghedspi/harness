@@ -45,7 +45,7 @@ const exists = (p) => { try { statSync(p); return true; } catch { return false; 
 const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return false; } };
 
 // Unicode-aware on purpose. The old form stripped everything outside [a-z0-9], which turns a
-// Vietnamese entry into consonant rubble ("kh ng" for "không") — so every text comparison in this
+// A diacritic-stripped entry into consonant rubble (for example, "a-b-c" for "abc") — so every text comparison in this
 // file was silently comparing noise on any project that does not write in English.
 function normalize(s) {
   return String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -55,7 +55,7 @@ function normalize(s) {
 // score toward the middle, which is what makes a threshold impossible to set.
 const STOP = new Set(["that", "this", "with", "from", "have", "does", "when", "then", "than",
   "which", "what", "will", "would", "there", "their", "been", "were", "into", "onto", "only",
-  "cua", "duoc", "khong", "nhung", "trong", "phai", "nay", "mot", "cho", "hai", "voi"]);
+]);
 function tokens(text) {
   return new Set(normalize(text).split(" ").filter((w) => w.length >= 4 && !STOP.has(w)));
 }

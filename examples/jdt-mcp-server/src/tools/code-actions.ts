@@ -1,10 +1,11 @@
-// code-actions — tool `java_code_actions` của tầng MCP (harness/docs/design/tool-surface.md, mục 7).
+// code-actions — the MCP-layer `java_code_actions` tool (harness/docs/design/tool-surface.md, item 7).
 //
-// JDT LS trả action ở dạng CHƯA giải (`edit`/`command` undefined, chỉ `data` mờ đục — spike D). Tool
-// này KHÔNG đưa blob đó ra ngoài: nó đúc một `actionId` mờ đục trói vào (workspaceId, sync generation)
-// hiện tại và giữ blob phía server trong `CodeActionStore` (INV-CA-2). Caller chỉ thấy `title` + `actionId`.
+// JDT LS returns unresolved actions (`edit`/`command` undefined, with only opaque `data`—spike D).
+// This tool does NOT expose that blob: it mints an opaque `actionId` bound to the current
+// (workspaceId, sync generation) and retains the blob server-side in `CodeActionStore` (INV-CA-2).
+// The caller sees only `title` and `actionId`.
 //
-// Thứ tự xác thực thừa hưởng nguyên vẹn từ tool-layer (INV-TOOL-5 trước mọi lời gọi LSP).
+// It inherits tool-layer's validation order unchanged (INV-TOOL-5 before every LSP call).
 
 import {
   callPositionalTool,

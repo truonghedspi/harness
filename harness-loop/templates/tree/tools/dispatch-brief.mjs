@@ -185,9 +185,9 @@ function verificationWarnings(routerOutput, root) {
   const cmd = String(f.verification);
   if (/verify-harness/.test(cmd) && /&&/.test(cmd)) {
     warnings.push(
-      `verification command ghép verify-harness với lệnh khác qua &&. ` +
-      `verify-harness kiểm tra trạng thái toàn repo (bao gồm chính feature này), ` +
-      `có thể tạo phụ thuộc tuần hoàn. Cân nhắc tách thành lệnh chỉ kiểm tra behavior của feature.`
+      `verification command chains verify-harness with another command via &&. ` +
+      `verify-harness checks the entire repository state (including this feature), ` +
+      `which can create a circular dependency. Consider separating a command that verifies only this feature's behavior.`
     );
   }
   return warnings;

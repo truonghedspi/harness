@@ -1,36 +1,36 @@
-# Decision Table — kỹ thuật cho shape `decision`
+# Decision Table — technique for the `decision` shape
 
-Dùng khi behavior là tổ hợp N điều kiện → M outcome (order validation, routing,
-phân loại). Mục tiêu: mọi cột của bảng có test, và bảng chứng minh được là
-**đầy đủ** và **không mâu thuẫn**.
+Use when behavior combines N conditions into M outcomes (order validation, routing, or
+classification). The goal is a test for every table column and a table that is **complete** and
+**non-contradictory**.
 
-## Quy trình
+## Workflow
 
-1. **Trích bảng từ spec** — điều kiện làm hàng, mỗi tổ hợp có ý nghĩa làm cột,
-   outcome ở đáy cột. Nếu spec không cho đủ để điền một ô → đó là spec gap,
-   ghi vào `spec_gaps` của test plan, không tự suy diễn.
-2. **Rút gọn bằng "—" (don't care)** chỉ khi spec nói rõ điều kiện đó không
-   ảnh hưởng trong ngữ cảnh cột. "—" vì tiện là nguồn bug che khuất rule.
-3. **Kiểm tính chất bảng trước khi sinh test:**
-   - Đầy đủ: mọi tổ hợp khả dĩ rơi vào đúng ít nhất một cột.
-   - Không mâu thuẫn: không tổ hợp nào rơi vào hai cột có outcome khác nhau.
-     Nếu spec dùng thứ tự ưu tiên rule để phá mâu thuẫn → thứ tự đó phải có
-     trong spec và có test riêng cho từng cặp rule chồng lấn.
-4. **Một cột = một test case**, tên test nêu cột và outcome.
+1. **Extract the table from the specification**: conditions are rows, meaningful combinations are
+   columns, and outcomes sit at the bottom of each column. If the specification cannot fill a cell,
+   it is a specification gap: record it in the test plan's `spec_gaps`; do not infer it.
+2. **Reduce with "—" (don't care)** only when the specification explicitly says the condition
+   does not matter in that column's context. A convenient "—" hides rules and creates bugs.
+3. **Check table properties before producing tests:**
+   - Complete: every possible combination falls in at least one column.
+   - Non-contradictory: no combination falls in two columns with different outcomes. If the
+     specification resolves conflict with rule precedence, that order must be in the specification
+     and each pair of overlapping rules needs a dedicated test.
+4. **One column = one test case**, named for its column and outcome.
 
-## Ví dụ — validation lệnh mới (rút gọn)
+## Example — new-order validation (reduced)
 
-| Điều kiện | C1 | C2 | C3 | C4 | C5 |
+| Condition | C1 | C2 | C3 | C4 | C5 |
 |---|---|---|---|---|---|
 | Trading phase = CONTINUOUS | Y | Y | Y | N | Y |
-| Price trong biên trần/sàn | Y | Y | N | — | Y |
-| Quantity là bội lot size | Y | N | — | — | Y |
-| Buying power đủ | Y | — | — | — | N |
+| Price within ceiling/floor band | Y | Y | N | — | Y |
+| Quantity is a multiple of lot size | Y | N | — | — | Y |
+| Buying power sufficient | Y | — | — | — | N |
 | **Outcome** | ACCEPT | REJ_LOT_SIZE | REJ_PRICE_BAND | REJ_PHASE | REJ_BUYING_POWER |
 
-Thứ tự ưu tiên reject (phase > price > lot > buying power) phải lấy từ spec —
-đây chính là loại chi tiết mà hai implementation "đều hợp lý" sẽ lệch nhau,
-và là ứng viên `ESCALATE_SPEC` nếu spec im lặng.
+Reject precedence (phase > price > lot > buying power) must come from the specification. This is
+exactly the kind of detail where two "reasonable" implementations diverge, and it warrants
+`ESCALATE_SPEC` when the specification is silent.
 
 ```java
 class NewOrderValidationDecisionTableTest {
@@ -56,15 +56,13 @@ class NewOrderValidationDecisionTableTest {
 }
 ```
 
-Quy tắc fixture: mỗi cột chỉ vi phạm ĐÚNG điều kiện của cột đó, mọi điều kiện
-khác giữ hợp lệ — nếu fixture C2 vừa lệch lot vừa lệch price, test không phân
-biệt được outcome đến từ rule nào.
+Fixture rule: each column violates ONLY its own condition; every other condition remains valid.
+If fixture C2 violates both lot size and price, the test cannot tell which rule caused the outcome.
 
-## Nâng lên MC/DC khi nào
+## When to elevate to MC/DC
 
-Khi một điều kiện của bảng bản thân nó là biểu thức boolean ≥ 3 toán hạng
-(`phase == CONTINUOUS || (phase == ATO && type == LO) || override`), decision
-table coi nó là một ô Y/N là chưa đủ. Áp MC/DC cho riêng biểu thức đó: mỗi
-toán hạng phải có một cặp test chỉ khác nhau ở toán hạng đó và outcome đổi —
-chứng minh từng toán hạng độc lập ảnh hưởng kết quả. Ghi condition riêng với
-`technique: mcdc`.
+When a table condition is itself a Boolean expression with three or more operands
+(`phase == CONTINUOUS || (phase == ATO && type == LO) || override`), treating it as one Y/N cell
+is insufficient. Apply MC/DC to that expression: every operand needs a test pair differing only in
+that operand and with a changed outcome, proving that each independently affects the result.
+Record a separate condition with `technique: mcdc`.

@@ -1,52 +1,42 @@
-# Designer Checklist — chạy TOÀN BỘ trước khi output test plan
+# Designer Checklist — run all items before outputting a test plan
 
-Mục nào fail → quay lại bước tương ứng của SKILL.md sửa, rồi chạy lại từ đầu
-checklist. Chỉ output khi mọi mục pass.
+Correct every failed item in the relevant SKILL.md step, then run the checklist again. Output only when every item passes.
 
-## D1 — Traceability & coverage
-- [ ] Mọi requirement priority P0 trong spec có ≥ 1 condition tham chiếu tới.
-- [ ] Mọi `requirement_id` trong plan tồn tại trong spec_refs đã khai báo.
-- [ ] Không condition nào "mồ côi" — behavior không tìm được câu spec tương ứng.
-      (Nếu behavior đáng test mà spec thiếu → chuyển sang `spec_gaps`, không giữ
-      làm condition.)
+## D1 — Traceability and coverage
 
-## D2 — Phân loại shape
-- [ ] Mỗi condition đúng một `behavior_shape`; không behavior nào bị ép chung
-      hai shape (nếu có → đã tách).
-- [ ] Không có shape `concurrent` gán cho code chạy trong single-threaded
-      event loop (Aeron Cluster logic → `stateful` + deterministic_replay).
+- [ ] Every P0 requirement has at least one referenced condition.
+- [ ] Every `requirement_id` exists in declared `spec_refs`.
+- [ ] No condition is orphaned from a specification sentence. Missing-but-testable behavior belongs in `spec_gaps`.
 
-## D3 — Khớp technique với shape (tra strategy-matrix.md)
-- [ ] Shape `mapping`: có ĐỦ cả condition `round_trip` VÀ `field_sensitivity`.
-- [ ] Shape `stateful`: có ≥ 1 condition `property_kind: invariant`;
-      nếu reference model khả thi → có condition `model_based`.
-- [ ] Shape `decision`: condition `decision_table`; biểu thức boolean ≥ 3
-      toán hạng → thêm condition `mcdc`.
-- [ ] Shape `fixed_rule`: technique `example`, không property hóa gượng ép.
-- [ ] `property_kind` hiện diện khi và chỉ khi `technique = property`.
+## D2 — Shape classification
 
-## D4 — Chất lượng từng condition
-- [ ] `behavior` là một câu kiểm chứng được (có chủ thể, hành vi, kết quả
-      quan sát được) — không phải mô tả chung chung kiểu "test order book".
-- [ ] `rationale` giải thích vì sao technique khớp shape — không lặp lại
-      behavior.
+- [ ] Every condition has exactly one `behavior_shape`; split mixed behavior.
+- [ ] Do not label single-threaded event-loop code `concurrent`; Aeron Cluster logic is `stateful` plus deterministic replay.
 
-## D5 — Spec gaps
-- [ ] Mọi điểm spec mơ hồ gặp trong quá trình design đã ghi vào `spec_gaps`
-      kèm cả hai cách hiểu — KHÔNG tự chọn một cách hiểu.
-- [ ] Field `spec_gaps` hiện diện kể cả khi rỗng (schema bắt buộc — buộc
-      Designer xác nhận đã cân nhắc).
+## D3 — Technique matches shape
 
-## D6 — Ranh giới thông tin
-- [ ] Toàn bộ plan sinh được mà không tham chiếu implementation body.
-      Nếu trong context có implementation (do lỗi cấu hình), đã báo harness
-      thay vì sử dụng.
+- [ ] `mapping` has both `round_trip` and `field_sensitivity` conditions.
+- [ ] `stateful` has an invariant property and a feasible `model_based` condition.
+- [ ] `decision` uses a decision table; boolean expressions with three or more terms also have MC/DC coverage.
+- [ ] `fixed_rule` uses `example`, not a forced property.
+- [ ] `property_kind` exists if and only if `technique = property`.
 
-## D7 — Schema & layout
-- [ ] `plan.json` hợp lệ theo `schemas/test-plan.schema.json`; TỪNG file
-      condition hợp lệ theo `schemas/test-condition.schema.json` — đủ required
-      fields, đúng pattern ID, không field ngoài schema.
-- [ ] Layout sharded đúng: tên file trùng `id`, `plan_id` trong mỗi condition
-      trùng thư mục cha, không file nào gộp nhiều condition (R-T10).
-- [ ] Mọi mutation thực hiện qua operation của harness hoặc ghi đè nguyên tử
-      file shard — không text-edit cục bộ (R-T10).
+## D4 — Condition quality
+
+- [ ] Each `behavior` is a verifiable sentence with a subject, action, and observable result.
+- [ ] Each `rationale` explains technique-to-shape fit rather than restating behavior.
+
+## D5 — Specification gaps
+
+- [ ] Every discovered ambiguity appears in `spec_gaps` with both interpretations; none was chosen silently.
+- [ ] `spec_gaps` is present even when empty.
+
+## D6 — Information boundary
+
+- [ ] The plan does not refer to implementation bodies. Report accidentally supplied implementation context instead of using it.
+
+## D7 — Schema and layout
+
+- [ ] `plan.json` and every condition validate against their schemas with required fields, matching IDs, and no unknown fields.
+- [ ] The layout is sharded: filename equals `id`, `plan_id` equals its parent directory, and no file combines conditions (R-T10).
+- [ ] Mutations use harness operations or atomic shard replacement, never local JSON text edits (R-T10).

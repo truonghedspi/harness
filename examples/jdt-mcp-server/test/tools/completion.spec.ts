@@ -1,16 +1,17 @@
-// Oracle mức 1 cho feat-tool-completion.
+// Level-1 oracle for feat-tool-completion.
 //
-// Falsifier đang bị kiểm chứng: "một kết quả completion trong một phạm vi lớn được trả về KHÔNG bị cắt
-// thay vì `truncated: true` cộng tổng số thực [INV-TOOL-3]".
+// Falsifier under test: "a completion result from a large domain is returned UNTRUNCATED instead of
+// with `truncated: true` and its true total [INV-TOOL-3]".
 //
-// Cách đo: facade giả sinh ra một số lượng completion item tuỳ ý, nên "vượt cap" là một đại lượng
-// dựng được chính xác chứ không phải tình huống may rủi. Ba mốc được ghim riêng — dưới cap, đúng
-// bằng cap, trên cap — vì một lỗi lệch-một ở biên chỉ lộ ra khi cả ba cùng bị hỏi. Cap đọc từ tuỳ
-// chọn, không hard-code (X-008 mở), nên ca "đổi cap thì hành vi đổi theo" là bằng chứng cơ học cho
-// điều đó.
+// Measurement: the fake facade generates an arbitrary number of completion items, so “over cap” is
+// an exact constructed quantity rather than luck. The three boundaries—below cap, exactly cap, and
+// above cap—are pinned separately because an off-by-one error appears only when all three are
+// queried. The cap comes from options rather than being hard-coded (X-008 remains open), so the
+// “changing cap changes truncation behavior” case is direct evidence for that policy.
 //
-// Bước xác thực vị trí (INV-TOOL-5) và tạo hình item (INV-TOOL-1) nằm trong tool-layer và đã được
-// chứng minh ở `tool-layer.spec.ts`; tệp này chỉ kiểm phần cap/truncation mà wrapper mỏng gánh thêm.
+// Position validation (INV-TOOL-5) and item shaping (INV-TOOL-1) belong to tool-layer and are
+// proved by `tool-layer.spec.ts`; this file tests only the cap/truncation responsibility added by
+// the thin wrapper.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -26,19 +27,19 @@ import { COMPLETION_METHOD, type LspFacade, type ToolOutcome, type WorkspaceAvai
 const CASE_TIMEOUT = 5_000;
 
 const FIXTURE_LINES = [
-  "package demo;", // dòng LSP 0
+  "package demo;", // LSP line 0
   "", // 1
   "public class Greeter {", // 2
-  '  private final String prefix = "Xin chào 🚀";', // 3
-  "  String gréet(String tên) {", // 4
-  "    return prefix + tên;", // 5
+  '  private final String prefix = "Hello 🚀";', // 3
+  "  String grēet(String name) {", // 4
+  "    return prefix + name;", // 5
   "  }", // 6
   "}", // 7
 ];
 const FIXTURE = FIXTURE_LINES.join("\n");
 const FIXTURE_PATH = "/tmp/demo/src/main/java/demo/Greeter.java";
 
-/** Vị trí hỏi: dòng 5, cột 10 trong hệ 1-based — ngay trên token `gréet`. */
+/** Queried position: line 5, column 10 in the 1-based system—on token `grēet`. */
 const REQUEST = { path: FIXTURE_PATH, line: 5, column: 10 };
 
 interface RecordedRequest {
@@ -71,8 +72,8 @@ function makeFacade(options: FakeFacadeOptions = {}): {
 }
 
 /**
- * `count` completion item giả, mỗi cái có `range` riêng trên cùng một dòng nên danh tính của từng
- * phần tử đọc được từ chính toạ độ của nó — ca vượt cap khẳng định ĐÚNG phần tử nào được giữ.
+ * `count` fake completion items, each with a distinct `range` on the same line, so each item's
+ * identity is readable from its coordinates—the over-cap case asserts EXACTLY which items remain.
  */
 function makeItems(count: number): unknown[] {
   return Array.from({ length: count }, (_unused, index) => ({
@@ -86,7 +87,7 @@ function makeItems(count: number): unknown[] {
 }
 
 function expectSuccess(outcome: ToolOutcome<JavaCompletionResult>): JavaCompletionResult {
-  assert.equal(outcome.isError, false, `mong đợi kết quả thành công, nhận: ${JSON.stringify(outcome)}`);
+  assert.equal(outcome.isError, false, `expected a successful result, got: ${JSON.stringify(outcome)}`);
   if (outcome.isError) throw new Error("unreachable");
   return outcome.value;
 }
@@ -97,10 +98,10 @@ async function callWith(completions: unknown, options?: JavaCompletionOptions): 
 }
 
 // -------------------------------------------------------------------------------------------
-// INV-TOOL-3 — ba mốc quanh cap
+// INV-TOOL-3 — three boundaries around the cap
 // -------------------------------------------------------------------------------------------
 
-test("dưới cap: mọi item được trả về, truncated false, total đúng số thực", { timeout: CASE_TIMEOUT }, async () => {
+test("below cap: every item is returned, truncated is false, and total is exact", { timeout: CASE_TIMEOUT }, async () => {
   const answer = await callWith(makeItems(3), { cap: 5 });
 
   assert.equal(answer.items.length, 3);
@@ -108,40 +109,40 @@ test("dưới cap: mọi item được trả về, truncated false, total đúng
   assert.equal(answer.total, 3);
   assert.equal(answer.cap, 5);
 
-  // Toạ độ công bố là 1-based: range LSP dòng 0 cột 0 phải hiện ra là dòng 1 cột 1.
+  // Published coordinates are 1-based: LSP range line 0 column 0 must become line 1 column 1.
   assert.deepEqual(answer.items[0], {
     label: "item-0",
     detail: "detail-0",
     range: { start: { line: 1, column: 1 }, end: { line: 1, column: 5 } },
   });
   assert.deepEqual(answer.items[2]?.range.start, { line: 1, column: 3 });
-  // Vị trí được hỏi cũng echo lại trong cùng hệ 1-based.
+  // The queried position is also echoed in the same 1-based system.
   assert.deepEqual(answer.position, { line: 5, column: 10 });
 });
 
 test(
-  "VƯỢT cap: kết quả chỉ còn đúng cap item, truncated true, total là tổng THỰC trước khi cắt",
+  "OVER cap: the result has exactly cap items, truncated is true, and total is the TRUE pre-truncation count",
   { timeout: CASE_TIMEOUT },
   async () => {
     const answer = await callWith(makeItems(250));
 
     assert.equal(answer.cap, DEFAULT_COMPLETION_CAP);
-    assert.equal(answer.items.length, DEFAULT_COMPLETION_CAP, "một danh sách vượt cap không được rời khỏi tool với nhiều hơn cap item");
-    assert.equal(answer.truncated, true, "kết quả bị cắt phải tự khai báo là đã bị cắt");
-    assert.equal(answer.total, 250, "total phải là tổng số thực trước khi cắt, không phải số item còn lại");
+    assert.equal(answer.items.length, DEFAULT_COMPLETION_CAP, "an over-cap list must not leave the tool with more than cap items");
+    assert.equal(answer.truncated, true, "a truncated result must declare that it was truncated");
+    assert.equal(answer.total, 250, "total must be the true pre-truncation count, not the remaining item count");
     assert.notEqual(answer.total, answer.items.length);
 
-    // Phần được giữ là đoạn đầu theo đúng thứ tự LSP trả về.
+    // The retained section is the prefix in the exact order returned by LSP.
     assert.equal(answer.items[0]?.label, "item-0");
     assert.equal(answer.items[DEFAULT_COMPLETION_CAP - 1]?.label, `item-${DEFAULT_COMPLETION_CAP - 1}`);
   },
 );
 
-test("đúng ngưỡng cap: không lệch-một — bằng cap thì chưa bị cắt", { timeout: CASE_TIMEOUT }, async () => {
+test("at cap: no off-by-one—exactly cap is not truncated", { timeout: CASE_TIMEOUT }, async () => {
   const answer = await callWith(makeItems(7), { cap: 7 });
 
   assert.equal(answer.items.length, 7);
-  assert.equal(answer.truncated, false, "đúng bằng cap là vừa đủ, không phải là vượt");
+  assert.equal(answer.truncated, false, "exactly at cap fits; it is not over cap");
   assert.equal(answer.total, 7);
 
   const overByOne = await callWith(makeItems(8), { cap: 7 });
@@ -150,7 +151,7 @@ test("đúng ngưỡng cap: không lệch-một — bằng cap thì chưa bị c
   assert.equal(overByOne.total, 8);
 });
 
-test("cap đọc TỪ cấu hình: cùng một câu trả lời LSP, đổi cap thì hành vi cắt đổi theo", { timeout: CASE_TIMEOUT }, async () => {
+test("cap comes FROM configuration: changing cap changes truncation for the same LSP response", { timeout: CASE_TIMEOUT }, async () => {
   const completions = makeItems(250);
 
   const tight = await callWith(completions, { cap: 10 });
@@ -167,10 +168,10 @@ test("cap đọc TỪ cấu hình: cùng một câu trả lời LSP, đổi cap 
 });
 
 // -------------------------------------------------------------------------------------------
-// Hình dạng lời gọi LSP và hình dạng câu trả lời
+// LSP call shape and response shape
 // -------------------------------------------------------------------------------------------
 
-test("lời gọi phát ra đúng textDocument/completion, vị trí hạ về 0-based", { timeout: CASE_TIMEOUT }, async () => {
+test("the call emits textDocument/completion with a position lowered to 0-based", { timeout: CASE_TIMEOUT }, async () => {
   const { facade, requests } = makeFacade({ completions: makeItems(2) });
   expectSuccess(await javaCompletion(facade, REQUEST));
 
@@ -182,14 +183,14 @@ test("lời gọi phát ra đúng textDocument/completion, vị trí hạ về 0
   });
 });
 
-test("câu trả lời LSP dạng CompletionList { items: [...] } cũng được tạo hình đúng", { timeout: CASE_TIMEOUT }, async () => {
+test("an LSP CompletionList { items: [...] } response is also shaped correctly", { timeout: CASE_TIMEOUT }, async () => {
   const answer = await callWith({ items: makeItems(2) }, { cap: 5 });
 
   assert.equal(answer.items.length, 2);
   assert.equal(answer.items[0]?.label, "item-0");
 });
 
-test("item không đọc được label bị bỏ qua, không làm hỏng cả danh sách", { timeout: CASE_TIMEOUT }, async () => {
+test("an item without a readable label is skipped without corrupting the list", { timeout: CASE_TIMEOUT }, async () => {
   const answer = await callWith([{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } } }, ...makeItems(2)], { cap: 5 });
 
   assert.equal(answer.total, 2);
@@ -197,10 +198,10 @@ test("item không đọc được label bị bỏ qua, không làm hỏng cả d
 });
 
 // -------------------------------------------------------------------------------------------
-// Taxonomy X-003 / INV-TOOL-4 — không thất bại nào biến thành một danh sách rỗng thành công
+// X-003 taxonomy / INV-TOOL-4 — no failure becomes a successful empty list
 // -------------------------------------------------------------------------------------------
 
-test("workspace chưa sẵn sàng: lỗi có tên, và LSP chưa hề bị gọi", { timeout: CASE_TIMEOUT }, async () => {
+test("workspace not ready: named error and LSP is never called", { timeout: CASE_TIMEOUT }, async () => {
   const { facade, requests } = makeFacade({
     availability: { status: "not-ready", detail: "indexing 40%", progress: { percent: 40 } },
     completions: makeItems(3),
@@ -211,11 +212,11 @@ test("workspace chưa sẵn sàng: lỗi có tên, và LSP chưa hề bị gọi
   if (!outcome.isError) throw new Error("unreachable");
   assert.equal(outcome.code, "not-ready");
   assert.match(outcome.message, /^not-ready: /);
-  assert.equal(requests.length, 0, "workspace chưa trả lời được thì không được phát request nào");
-  assert.equal("value" in outcome, false, "envelope lỗi không bao giờ mang theo value");
+  assert.equal(requests.length, 0, "no request may be emitted while the workspace is unavailable");
+  assert.equal("value" in outcome, false, "an error envelope never carries a value");
 });
 
-test("workspace đang resync được báo đúng tên của nó", { timeout: CASE_TIMEOUT }, async () => {
+test("a resyncing workspace is reported by its proper name", { timeout: CASE_TIMEOUT }, async () => {
   const { facade } = makeFacade({ availability: { status: "resyncing", detail: "pom.xml changed" } });
 
   const outcome = await javaCompletion(facade, REQUEST);
@@ -224,7 +225,7 @@ test("workspace đang resync được báo đúng tên của nó", { timeout: CA
   assert.equal(outcome.code, "resyncing");
 });
 
-test("line/column vượt giới hạn tệp bị từ chối TRƯỚC khi gọi LSP (INV-TOOL-5)", { timeout: CASE_TIMEOUT }, async () => {
+test("line/column outside file bounds is rejected BEFORE the LSP call (INV-TOOL-5)", { timeout: CASE_TIMEOUT }, async () => {
   const { facade, requests } = makeFacade({ completions: makeItems(3) });
 
   const outcome = await javaCompletion(facade, { path: FIXTURE_PATH, line: 999, column: 1 });
@@ -234,7 +235,7 @@ test("line/column vượt giới hạn tệp bị từ chối TRƯỚC khi gọi
   assert.equal(requests.length, 0);
 });
 
-test("không đọc được nội dung tệp: unroutable, không phải danh sách rỗng", { timeout: CASE_TIMEOUT }, async () => {
+test("unreadable file content: unroutable, not an empty list", { timeout: CASE_TIMEOUT }, async () => {
   const { facade, requests } = makeFacade({ content: undefined, completions: makeItems(3) });
 
   const outcome = await javaCompletion(facade, REQUEST);
@@ -244,7 +245,7 @@ test("không đọc được nội dung tệp: unroutable, không phải danh s�
   assert.equal(requests.length, 0);
 });
 
-test("workspace chết giữa lời gọi: workspace-crashed", { timeout: CASE_TIMEOUT }, async () => {
+test("workspace dies during the call: workspace-crashed", { timeout: CASE_TIMEOUT }, async () => {
   const { facade } = makeFacade({ rejectWith: new Error("socket closed") });
 
   const outcome = await javaCompletion(facade, REQUEST);
@@ -254,7 +255,7 @@ test("workspace chết giữa lời gọi: workspace-crashed", { timeout: CASE_T
   assert.match(outcome.message, /socket closed/);
 });
 
-test("không có completion item nào là một kết quả thành công rỗng hợp lệ, không phải lỗi", { timeout: CASE_TIMEOUT }, async () => {
+test("no completion items is a valid successful empty result, not an error", { timeout: CASE_TIMEOUT }, async () => {
   const answer = await callWith([]);
 
   assert.deepEqual(answer.items, []);

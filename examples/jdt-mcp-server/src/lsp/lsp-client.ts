@@ -11,8 +11,8 @@ export type ServerRequestHandler = (
 ) => unknown | Promise<unknown>;
 
 /**
- * Handler cho thông điệp đẩy từ server. Notification không có ai để trả lời, nên nó không trả về
- * giá trị — chữ ký này khớp đúng cổng `LspNotificationSource` mà diagnostics-cache khai báo.
+ * Handler for push messages from the server. Notification has no one to reply to, so it doesn't return
+ * value — this signature matches the `LspNotificationSource` port declared by diagnostics-cache.
  */
 export type NotificationHandler = (params: unknown) => void;
 
@@ -47,13 +47,12 @@ export class LspClient {
   }
 
   /**
-   * Đăng ký một subscriber cho notification server→client. Đăng ký cộng dồn, không ghi đè: nhiều
-   * thành phần (cache diagnostics, theo dõi trạng thái) cùng nghe một method, và không thành phần
-   * nào được huỷ đăng ký của thành phần khác chỉ vì đăng ký sau. Hàm trả về gỡ đúng subscriber này.
+   * Register a subscriber for notification server→client. Subscriptions accumulate, do not overwrite: many
+   * components (cache diagnostics, status monitoring) listen to the same method, and are not components
+   * can unsubscribe from another component just because of a later subscription. The returned function correctly removes this subscriber.
    */
   public onNotification(method: string, handler: NotificationHandler): () => void {
-    const handlers = this.#notificationHandlers.get(method);
-    if (handlers === undefined) this.#notificationHandlers.set(method, [handler]);
+    const handlers = this.#notificationHandlers.get(method);if (handlers === undefined) this.#notificationHandlers.set(method, [handler]);
     else handlers.push(handler);
 
     return () => {
@@ -66,9 +65,9 @@ export class LspClient {
   }
 
   /**
-   * Gửi một notification client→server. Khác request ở đúng một điểm trên dây: khung không mang
-   * `id`. Vì vậy phương thức này không lấy số từ #nextId và không đặt ô nào vào bảng tương quan —
-   * một notification mang id sẽ bị JDT LS coi là request, và ô đó không bao giờ được giải quyết.
+   * Send a notification to client→server. Another request is at exactly one point on the wire: the frame is empty
+   * `id`. So this method doesn't get the number from #nextId and doesn't put any cells in the correlation table —
+   * a notification carrying an id will be considered a request by JDT LS, and the cell will never be resolved.
    */
   public notify(method: string, params?: unknown): void {
     if (this.#exited) throw this.#exited;
@@ -112,8 +111,7 @@ export class LspClient {
         return;
       }
 
-      const bodyLength = Number.parseInt(match[1], 10);
-      const frameLength = separator + 4 + bodyLength;
+      const bodyLength = Number.parseInt(match[1], 10);const frameLength = separator + 4 + bodyLength;
       if (this.#readBuffer.byteLength < frameLength) return;
 
       const body = this.#readBuffer.subarray(separator + 4, frameLength);
@@ -150,18 +148,18 @@ export class LspClient {
       return;
     }
 
-    // Notification server→client: có method, không có id. Trước đây nhánh này rơi vào lệnh return
-    // bên dưới và bị bỏ im lặng, nên textDocument/publishDiagnostics không bao giờ tới cache.
+    // Notification server→client: has method, no id. Previously this branch fell into the return statement
+    // below and silenced, so textDocument/publishDiagnostics never reaches the cache.
     if (typeof message.method === "string") {
       const handlers = this.#notificationHandlers.get(message.method);
       if (handlers === undefined) return;
-      // Chụp lại danh sách: một handler có thể đăng ký hoặc gỡ đăng ký ngay trong lúc dispatch.
+      // List capture: a handler can register or unregister during dispatch.
       for (const handler of [...handlers]) {
         try {
           handler(message.params);
         } catch {
-          // Notification là đường một chiều, không có kênh nào để trả lỗi về. Một subscriber hỏng
-          // không được chặn subscriber còn lại, cũng không được làm chết vòng đọc khung.
+          // Notification is a one-way street, there is no channel to return errors. A broken subscriber
+          // Do not block other subscribers, nor kill the frame reading loop.
         }
       }
       return;
@@ -169,8 +167,7 @@ export class LspClient {
 
     if (typeof message.id !== "number") return;
     const pending = this.#pending.get(message.id);
-    if (!pending) return;
-    this.#pending.delete(message.id);
+    if (!pending) return;    this.#pending.delete(message.id);
     if (message.error !== undefined) {
       const error = message.error as { message?: unknown };
       pending.reject(new Error(String(error.message ?? "LSP request failed")));

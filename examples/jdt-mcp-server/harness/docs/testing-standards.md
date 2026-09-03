@@ -70,25 +70,25 @@ trip that gate before the feature's own maker/checker cycle closes it. Wire `npm
 `typecheck` script, `tsc --noEmit`) once the first Level 1/2 test-design plan exists — do not add
 either preemptively, for the same reason.
 
-### Công cụ hệ thống mà bộ tích hợp phụ thuộc
+### System tools required by the integration suite
 
-`test/integration/daemon-lifecycle.integration.spec.ts` là tệp duy nhất gọi công cụ ngoài Node:
-`lsof -t <socket>` (TCON-SHIM-0002, đếm daemon đang giữ đường dẫn socket) và `ps -o pid= -p <pids>`
-(TCON-SHIM-0003, tìm process con mồ côi sau shutdown). Máy phát triển macOS có sẵn cả hai
-(`/usr/sbin/lsof`, `/bin/ps`). Image Linux tối giản thì không: debian-slim và alpine đều thiếu
-`lsof`, còn `ps` của busybox không nhận tổ hợp `-o pid= -p`.
+`test/integration/daemon-lifecycle.integration.spec.ts` is the only file that calls tools outside Node:
+`lsof -t <socket>` (TCON-SHIM-0002, counts daemons holding the socket path) and `ps -o pid= -p <pids>`
+(TCON-SHIM-0003, finds orphaned child processes after shutdown). macOS developer machines include both
+(`/usr/sbin/lsof`, `/bin/ps`). Minimal Linux images do not: debian-slim and alpine both lack
+`lsof`, and busybox `ps` does not accept the `-o pid= -p` combination.
 
-Thiếu công cụ luôn cho kết quả ĐỎ, không bao giờ xanh giả — checker đã đo bằng cách chạy lại oracle
-với PATH cắt bớt, ghi tại `harness/DECISIONS.md` ngày 2026-08-23. Hai hàm trợ giúp nuốt lỗi của
-`execFileSync` thành chuỗi rỗng, nên khẳng định phía sau vỡ và in ra `lsof trả về []`. Đó là dấu
-hiệu thiếu công cụ, không phải dấu hiệu vỡ invariant.
+Missing tools always produce a RED result, never a false green — the checker measured this by rerunning the oracle
+with a reduced PATH, recorded in `harness/DECISIONS.md` on 2026-08-23. The two helpers swallow
+`execFileSync` errors into an empty string, so the following assertion fails and prints `lsof returned []`. That is a
+sign of a missing tool, not a broken invariant.
 
-Trước khi chạy `npm run test:integration` trên Linux, cài `lsof` và `procps`
-(`apt-get install -y lsof procps`). Khi dự án thêm job CI trên Linux, bước cài này thuộc về chính
-job đó. Cổng baseline không bị ảnh hưởng: `npm test` và `npm run test:baseline` không nạp tệp này.
+Before running `npm run test:integration` on Linux, install `lsof` and `procps`
+(`apt-get install -y lsof procps`). When the project adds a Linux CI job, this installation step belongs in that
+job. The baseline gate is unaffected: `npm test` and `npm run test:baseline` do not load this file.
 
-Không thay `ps` bằng `process.kill(pid, 0)` trong tệp trên. Tiến trình đã chết nhưng chưa được reap
-vẫn hiện trong bảng tiến trình, nên `ps` chặt hơn đúng ở trường hợp INV-SHIM-4 quan tâm.
+Do not replace `ps` with `process.kill(pid, 0)` in that file. A process that has exited but has not been reaped
+still appears in the process table, so `ps` is stricter in exactly the case INV-SHIM-4 concerns.
 
 ## Level 4 — Distributed Business Journey
 

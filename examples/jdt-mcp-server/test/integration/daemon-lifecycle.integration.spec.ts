@@ -1,42 +1,41 @@
 // Traceability (skills/test-design/SKILL.md, role: Test-Implementer).
 //
-// Conditions:   TCON-SHIM-0001, TCON-SHIM-0002, TCON-SHIM-0003
+// Conditions: TCON-SHIM-0001, TCON-SHIM-0002, TCON-SHIM-0003
 // Requirements: INV-SHIM-1, INV-SHIM-2, INV-SHIM-4
-// Plan:         TP-SHIM-0001 | Feature: feat-prove-daemon-lifecycle
+// Plan: TP-SHIM-0001 | Feature: feat-prove-daemon-lifecycle
 //
-// Ba invariant được chứng minh ở đây đều là thuộc tính của TIẾN TRÌNH THẬT, không phải của giá trị
-// trả về, nên mọi "launch" trong tệp này là một tiến trình `node` con nạp thẳng `startShim` /
-// `startDaemon` từ `src/`. Dự án không khai `bin` trong package.json và oracle này không cần một CLI:
-// ranh giới cần đo là stdout thật, bảng tiến trình thật và ổ khoá single-instance thật, cả ba đều
-// quan sát được từ một tiến trình con nạp module trực tiếp. Khẳng định nào thật sự đòi một CLI entry
-// point thuộc về feat-prove-cross-process-integration, không thuộc tệp này.
+// The three invariants proven here are all properties of TRUE PROCESS, not of value
+// returns, so every "launch" in this file is a child `node` process that loads directly into `startShim` /
+// `startDaemon` from `src/`. The project does not declare `bin` in package.json and this oracle does not need a CLI:
+// The boundaries to measure are real stdout, real process table and real single-instance lock, all three
+// observed from a child process that loads the module directly. Which assertion actually requires a CLI entry
+// point belongs to feat-prove-cross-process-integration, not this file.
 //
-// Bốn lựa chọn thiết kế, và lý do:
+// Four design choices, and why:
 //
-//  1. INV-SHIM-1 đo stdout của CHÍNH tiến trình shim. Một `Writable` tiêm qua `McpShimOptions.stdout`
-//     không bao giờ nhìn thấy một `console.log` lạc, mà đó lại đúng là dòng phá vỡ hợp đồng
-//     một-message-một-dòng của client. Phiên ở đây có hai shim: shim thứ nhất khởi động nguội và
-//     auto-spawn daemon, shim thứ hai hội tụ vào daemon ấy — nên nhiễu mà shim thứ hai lọc đến từ
-//     một TIẾN TRÌNH KHÁC, qua socket Unix thật.
-//  2. INV-SHIM-2 đếm daemon bằng `lsof` trên đúng đường dẫn socket, chứ không chỉ bằng `role` mà các
-//     launcher tự khai. `lsof -t <socket>` chỉ liệt kê tiến trình đang GIỮ (bind) đường dẫn đó —
-//     client đã kết nối không xuất hiện — nên đó là phép đếm daemon trực tiếp trên bảng tiến trình.
-//     Bốn launcher chờ ở một hàng rào (barrier) rồi mới cùng gọi `startDaemon`, để chúng thật sự
-//     tranh khoá thay vì bị chính thời gian nạp module xếp thành tuần tự.
-//  3. INV-SHIM-4 đo bằng `ps` sau shutdown. Các process con JDT LS ở đây là process Node thật do
-//     fixture spawn (quy ước của dự án trong pool-crash-handling / pool-lifecycle: "real child
-//     process" nghĩa là process con thật đóng vai giả lập, không phải nạp JDT LS binary thật), và
-//     chúng là CHÁU của tiến trình test. Nếu shutdown bỏ sót một cháu, cháu ấy được reparent chứ
-//     không chết theo daemon — đúng kiểu JVM mồ côi mà invariant này cấm, và `ps` nhìn thấy.
-//  4. Không có khẳng định nào về việc tiến trình chết khi socket lỗi. `startDaemon` trả
-//     `handle.connection` mang sẵn listener "error" thừa của `probeDaemon` (quyết định có chủ ý,
-//     DECISIONS.md 2026-08-23), nên lỗi link biến mất im lặng chứ không ném. Hành vi đúng khi link
-//     hỏng là ghi stderr rồi reconnect trong suốt (INV-SHIM-3) — nằm ngoài ba điều kiện của kế hoạch
-//     này (xem spec_gaps của TP-SHIM-0001) và không được kiểm ở đây.
+// 1. INV-SHIM-1 measures stdout of the shim process ITSELF. A `Writable` injected via `McpShimOptions.stdout`
+// never see a stray `console.log`, which is literally the line that breaks the deal
+// one-message-one-line client. The session here has two shims: the first shim is cold start and
+// auto-spawn daemon, the second shim converges on that daemon — so the noise that the second shim filters comes from
+// ANOTHER PROCESS, via real Unix socket.
+// 2. INV-SHIM-2 counts daemons with `lsof` on the correct socket path, not just with `role` but the
+// self-declared launcher. `lsof -t <socket>` lists only the process that is HOLDING (bind) that path —
+// connected clients don't appear — so it's a live daemon count on the process table.
+// The four launchers wait at a barrier before calling `startDaemon` together, making them real
+// compete for locks instead of being sequentially ranked by module loading time.
+// 3. INV-SHIM-4 measured in `ps` after shutdown. The JDT LS child processes here are the real Node processes
+// fixture spawn (project convention in pool-crash-handling / pool-lifecycle: "real child
+//process" means a real child process acting as an emulator, not loading the real JDT LS binary), and
+// they are the grandchildren of the test process. If shutdown misses a child, will that child be reparented?// don't die with the daemon — exactly the kind of orphaned JVM that this invariant prohibits, and `ps` sees.
+// 4. There is no assertion that the process dies when the socket fails. `startDaemon` returns
+// `handle.connection` carries `probeDaemon`'s redundant "error" listener (intentional decision,
+// DECISIONS.md 2026-08-23), so the link error disappears silently rather than being thrown. Correct behavior when linking
+// failure is to write stderr then reconnect transparently (INV-SHIM-3) — outside the three conditions of the plan
+// this (see spec_gaps of TP-SHIM-0001) and is not tested here.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { executeFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { tmpdir } from "node:os";
@@ -44,12 +43,12 @@ import path from "node:path";
 
 import { SOCKET_FILE_NAME } from "../../src/daemon/daemon-supervisor.ts";
 
-/** Đường dẫn tuyệt đối, để tiến trình con nạp đúng bản mã đang được kiểm thử. */
+/** Absolute path, so that the child process loads the correct ciphertext being tested. */
 const SHIM_MODULE = path.resolve(import.meta.dirname, "../../src/shim/mcp-shim.ts");
 const SUPERVISOR_MODULE = path.resolve(import.meta.dirname, "../../src/daemon/daemon-supervisor.ts");
 const POOL_MODULE = path.resolve(import.meta.dirname, "../../src/workspace/workspace-pool.ts");
 
-/** Tiền tố ngắn có chủ ý: sun_path chỉ có 104 byte trên macOS và tmpdir() đã ăn mất ~50 byte. */
+/** Prefix is ​​intentionally short: sun_path is only 104 bytes on macOS, and tmpdir() eats ~50 bytes. */
 function makeRoot(): string {
   return mkdtempSync(path.join(tmpdir(), "jdt-l-"));
 }
@@ -63,8 +62,8 @@ interface Child {
 }
 
 /**
- * `detached` để mỗi tiến trình con là một process group riêng: lúc dọn dẹp ta giết được cả nhóm,
- * kể cả các process cháu, thay vì bỏ lại daemon hay JDT LS mồ côi giữ socket.
+ * `detached` so that each child process is a separate process group: when cleaning up, we can kill the whole group,
+ * including grandchild processes, instead of leaving the orphaned daemon or JDT LS to hold the socket.
  */
 function spawnScript(scriptPath: string, args: readonly string[]): Child {
   const child = spawn(process.execPath, ["--experimental-strip-types", scriptPath, ...args], {
@@ -72,8 +71,7 @@ function spawnScript(scriptPath: string, args: readonly string[]): Child {
     detached: true,
   });
   let stdout = "";
-  let stderr = "";
-  child.stdout?.on("data", (chunk: Buffer) => (stdout += chunk.toString("utf8")));
+  let stderr = "";child.stdout?.on("data", (chunk: Buffer) => (stdout += chunk.toString("utf8")));
   child.stderr?.on("data", (chunk: Buffer) => (stderr += chunk.toString("utf8")));
   return {
     child,
@@ -91,7 +89,7 @@ function spawnScript(scriptPath: string, args: readonly string[]): Child {
   };
 }
 
-/** `describe` có thể là thunk: chuỗi dựng sẵn chỉ kể lại trạng thái lúc bắt đầu chờ, tức trạng thái vô ích. */
+/** `describe` can be thunk: a builtin string that only recounts the state at the beginning of the wait, i.e. the useless state. */
 async function waitFor(predicate: () => boolean, budgetMs: number, describe: string | (() => string)): Promise<void> {
   const deadline = Date.now() + budgetMs;
   while (!predicate()) {
@@ -113,30 +111,28 @@ function request(id: number, method: string): string {
 }
 
 /**
- * Bảng tiến trình thật. `ps -o pid= -p ...` liệt kê đúng những pid còn tồn tại; một process đã chết
- * nhưng chưa được reap (zombie) VẪN xuất hiện ở đây, nên phép đo này chặt hơn `kill(pid, 0)` chứ
- * không lỏng hơn — không có cách nào để một JVM mồ côi lọt qua.
+ * Real progress table. `ps -o pid= -p ...` lists the correct pids that exist; a process has died
+ * but not yet reaped (zombie) STILL appears here, so this measurement is stricter than `kill(pid, 0)`
+ * is not looser — there is no way for an orphaned JVM to get through.
  */
 function livePids(pids: readonly number[]): number[] {
   if (pids.length === 0) return [];
   let output = "";
   try {
-    output = execFileSync("ps", ["-o", "pid=", "-p", pids.join(",")], { encoding: "utf8" });
+    output = executeFileSync("ps", ["-o", "pid=", "-p", pids.join(",")], { encoding: "utf8" });
   } catch {
-    // `ps` thoát khác 0 khi KHÔNG pid nào còn sống; đó là một kết quả hợp lệ, không phải lỗi công cụ.
+    // `ps` exits non-zero when NO pid is alive; that's a valid result, not a tool error.
     output = "";
   }
   return output
     .split("\n")
     .map((line) => Number.parseInt(line.trim(), 10))
     .filter((pid) => Number.isInteger(pid) && pids.includes(pid));
-}
-
-/** Những tiến trình đang GIỮ đường dẫn socket, tức những daemon đang lắng nghe trên nó. */
+}/** Processes HOLDING the socket path, meaning daemons are listening on it. */
 function pidsListeningOn(socketPath: string): number[] {
   let output = "";
   try {
-    output = execFileSync("lsof", ["-t", socketPath], { encoding: "utf8" });
+    output = executeFileSync("lsof", ["-t", socketPath], { encoding: "utf8" });
   } catch {
     output = "";
   }
@@ -146,19 +142,19 @@ function pidsListeningOn(socketPath: string): number[] {
     .filter((pid) => Number.isInteger(pid));
 }
 
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------
 // TCON-SHIM-0001 [INV-SHIM-1]
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------
 
 /**
- * Kịch bản của một tiến trình shim thật. Phía daemon của nó cố tình phát ra đúng những gì INV-SHIM-1
- * cấm lọt tới client: banner lúc accept, stack trace Java, dòng WARN, một `null` và một `42` (hai
- * chuỗi JSON hợp lệ nhưng KHÔNG phải message MCP), rồi mới tới câu trả lời thật. Câu trả lời được
- * ghi làm ba lần ghi tách rời và mang một trường lớn, nên nếu khung message không nguyên vẹn theo
- * từng message thì stdout sẽ có dòng vỡ.
+ * Scenario of a real shim process. Its daemon side intentionally emits exactly what INV-SHIM-1 does
+ * prohibit reaching the client: acceptance banner, Java stack trace, WARN line, one `null` and one `42` (two
+ * valid JSON string but NOT MCP message), then the actual answer. The answer is yes
+ * written in three separate writes and carrying one large field, so if the message frame is not intact
+ * For each message, stdout will have a broken line.
  *
- * Mốc sẵn sàng đi ra STDERR chứ không phải stdout: stdout là thứ đang được đo, một mốc trên đó sẽ tự
- * làm hỏng phép đo.
+ * The ready datum comes out to STDERR, not stdout: stdout is what is being measured, a datum on it will automatically
+ * corrupts the measurement.
  */
 function shimProcessScript(): string {
   return `import { startShim } from ${JSON.stringify(SHIM_MODULE)};
@@ -167,7 +163,7 @@ const [socketPath] = process.argv.slice(2);
 const NEWLINE = String.fromCharCode(10);
 const NOISE = [
   "Error: java.lang.IllegalStateException: workspace index not ready",
-  "    at org.eclipse.jdt.ls.core.internal.Handler.handle(Handler.java:42)",
+  " at org.eclipse.jdt.ls.core.internal.Handler.handle(Handler.java:42)",
   "[jdt-mcp daemon] WARN resync in progress",
   "null",
   "42",
@@ -177,14 +173,13 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function daemonSide(socket) {
   socket.write("[jdt-mcp daemon] INFO accepted a client connection" + NEWLINE);
-  // Hàng đợi tuần tự: mỗi câu trả lời được ghi làm ba lần ghi tách rời, nên hai câu trả lời chạy
-  // song song sẽ trộn byte của nhau. Đó là lỗi của phía daemon chứ không phải hazard mà shim có
-  // trách nhiệm sửa, nên fixture ghi từng message một, trọn vẹn.
+  // Sequential queue: each response is written in three separate writes, so two responses run
+  //parallel will mix each other's bytes. That's the daemon's fault, not the hazard that shim has
+  // responsible for editing, so fixture records each message one by one, completely.
   const queue = [];
   let pumping = false;
   async function pump() {
-    if (pumping) return;
-    pumping = true;
+    if (pumping) return;pumping = true;
     while (queue.length > 0) {
       const message = queue.shift();
       for (const noise of NOISE) socket.write(noise + NEWLINE);
@@ -193,8 +188,8 @@ function daemonSide(socket) {
         id: message.id,
         result: {
           servedBy: process.pid,
-          // Một newline THẬT bên trong giá trị chuỗi: JSON.stringify thoát nó thành hai ký tự, nên
-          // message vẫn phải nằm gọn trên một dòng.
+          // A REAL newline inside the string value: JSON.stringify escapes it to two characters, so
+          // message must still fit on one line.
           note: "first" + NEWLINE + "second",
           pad: "p".repeat(50000),
         },
@@ -237,28 +232,27 @@ interface McpLine {
 }
 
 /**
- * Một lượt duy nhất trên toàn bộ những gì shim đã ghi ra stdout của chính nó: tách theo newline, mỗi
- * dòng phải parse thành ĐÚNG MỘT message MCP hợp lệ. Ba cách hỏng bị bắt ở đây — dòng log của daemon
- * lọt qua, message bị cắt ngang giữa hai lần ghi, và một giá trị JSON hợp lệ nhưng không phải object.
+ * A single pass over everything shim has written to its own stdout: split by newline, each
+ * line must parse to EXACTLY ONE valid MCP message. Three failures are caught here — the daemon's log line
+ * gets through, the message is cut off between two writes, and a valid JSON value but not an object.
  */
 function assertEveryStdoutLineIsOneMcpMessage(label: string, child: Child): McpLine[] {
   const raw = child.stdout();
   const lines = raw.split("\n").filter((line) => line.length > 0);
-  assert.ok(lines.length > 0, `${label}: stdout rỗng, không có gì để kiểm — oracle sẽ vô nghĩa`);
-  assert.equal(raw.endsWith("\n"), true, `${label}: mọi message trên stdout phải kết thúc bằng newline`);
+  assert.ok(lines.length > 0, `${label}: empty stdout, nothing to check — oracle would be meaningless`);assert.equal(raw.endsWith("\n"), true, `${label}: every message on stdout must end with newline`);
   return lines.map((line, index) => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(line);
     } catch (error) {
       assert.fail(
-        `${label}: INV-SHIM-1 vỡ — dòng ${index + 1} của stdout không parse được thành JSON: ` +
+        `${label}: INV-SHIM-1 broken — line ${index + 1} of stdout could not be parsed into JSON: ` +
           `${JSON.stringify(line.slice(0, 300))} (${(error as Error).message})`,
       );
     }
     assert.ok(
       typeof parsed === "object" && parsed !== null,
-      `${label}: INV-SHIM-1 vỡ — dòng ${index + 1} parse được nhưng không phải một message MCP: ` +
+      `${label}: INV-SHIM-1 broken — line ${index + 1} parsable but not an MCP message: ` +
         `${JSON.stringify(line.slice(0, 300))}`,
     );
     return { raw: line, parsed: parsed as McpLine["parsed"] };
@@ -266,9 +260,9 @@ function assertEveryStdoutLineIsOneMcpMessage(label: string, child: Child): McpL
 }
 
 test(
-  "TCON-SHIM-0001: qua một phiên shim+daemon thật có nhiễu phía daemon, mọi dòng trên stdout của shim là đúng một message MCP [INV-SHIM-1]",
+  "TCON-SHIM-0001: across a real shim+daemon session with daemon-side interference, every line on shim's stdout is exactly one MCP message [INV-SHIM-1]",
   { timeout: 60_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const scriptPath = path.join(root, "shim-child.mjs");
@@ -279,35 +273,34 @@ test(
       rmSync(root, { recursive: true, force: true });
     });
 
-    assert.equal(existsSync(socketPath), false, "tiền đề: chưa có gì phục vụ đường dẫn socket này");
+    assert.equal(existsSync(socketPath), false, "premise: nothing is serving this socket path yet");
 
-    // Shim thứ nhất khởi động nguội: không có daemon nào trên đường dẫn, nên nó phải auto-spawn.
+    // First shim cold start: there are no daemons on the path, so it must auto-spawn.
     const host = spawnScript(scriptPath, [socketPath]);
     children.push(host);
     await waitFor(
       () => host.stderr().includes("shim-ready role="),
       20_000,
-      () => `shim thứ nhất khởi động xong (stderr: ${JSON.stringify(host.stderr().slice(-300))})`,
+      () => `first shim finished booting (stderr: ${JSON.stringify(host.stderr().slice(-300))})`,
     );
     assert.match(
       host.stderr(),
       /shim-ready role=daemon/,
-      `khởi động nguội phải đưa shim thứ nhất vào vai daemon, stderr: ${JSON.stringify(host.stderr().slice(-300))}`,
+      `cold boot must inject the first shim into the daemon role, stderr: ${JSON.stringify(host.stderr().slice(-300))}`,
     );
-    assert.ok(statSync(socketPath).isSocket(), "auto-spawn phải để lại một socket thật ở đúng đường dẫn");
+    assert.ok(statSync(socketPath).isSocket(), "auto-spawn must leave a real socket in the correct path");
 
-    // Shim thứ hai hội tụ vào daemon đó: từ đây, nhiễu mà nó phải lọc đến từ một TIẾN TRÌNH KHÁC.
-    const joiner = spawnScript(scriptPath, [socketPath]);
+    // The second shim converges on that daemon: from here, the noise it must filter comes from ANOTHER PROCESS.const joiner = spawnScript(scriptPath, [socketPath]);
     children.push(joiner);
     await waitFor(
       () => joiner.stderr().includes("shim-ready role="),
       20_000,
-      () => `shim thứ hai khởi động xong (stderr: ${JSON.stringify(joiner.stderr().slice(-300))})`,
+      () => `second shim finished booting (stderr: ${JSON.stringify(joiner.stderr().slice(-300))})`,
     );
     assert.match(
       joiner.stderr(),
       /shim-ready role=delegated/,
-      `shim thứ hai phải hội tụ vào daemon đang chạy, stderr: ${JSON.stringify(joiner.stderr().slice(-300))}`,
+      `The second shim must converge to the running daemon, stderr: ${JSON.stringify(joiner.stderr().slice(-300))}`,
     );
 
     const hostIds = [1, 2, 3];
@@ -319,48 +312,47 @@ test(
       () => host.lines().length >= hostIds.length && joiner.lines().length >= joinerIds.length,
       30_000,
       () =>
-        `cả hai shim trả lời đủ (host: ${host.lines().length}, joiner: ${joiner.lines().length}, ` +
+        `both shim answer enough (host: ${host.lines().length}, joiner: ${joiner.lines().length}, ` +
         `host stderr: ${JSON.stringify(host.stderr().slice(-300))})`,
     );
-    // Cho mọi dòng rò rỉ đủ thời gian tới nơi TRƯỚC khi khẳng định là không có dòng nào.
+    // Give any leaks enough time to arrive BEFORE asserting there are no flows.
     await sleep(400);
 
     const noise = [
       "[jdt-mcp daemon] INFO accepted a client connection",
       "Error: java.lang.IllegalStateException: workspace index not ready",
-      "    at org.eclipse.jdt.ls.core.internal.Handler.handle(Handler.java:42)",
+      " at org.eclipse.jdt.ls.core.internal.Handler.handle(Handler.java:42)",
       "[jdt-mcp daemon] WARN resync in progress",
     ];
     const hostPid = host.child.pid;
-    assert.ok(hostPid !== undefined, "tiền đề: fixture phải biết pid của tiến trình giữ vai daemon");
+    assert.ok(hostPid !== undefined, "premise: fixture must know the pid of the process holding the daemon role");
 
     for (const [label, child, ids, expectedServer] of [
       ["shim auto-spawn", host, hostIds, hostPid],
-      ["shim hội tụ", joiner, joinerIds, hostPid],
+      ["convergence shim", joiner, joinerIds, hostPid],
     ] as const) {
-      // Một lượt quét duy nhất trên toàn bộ capture, đứng trước mọi khẳng định khác: đây là chính
-      // falsifier của điều kiện, nên nó phải là thứ vỡ đầu tiên khi có dòng lạ trên stdout.
+      // A single scan of the entire capture, before all other assertions: this is it
+      // falsifier of the condition, so it must be the first thing to break when there is a strange line on stdout.
       const messages = assertEveryStdoutLineIsOneMcpMessage(label, child);
       assert.equal(
         messages.length,
         ids.length,
-        `${label}: stdout chỉ được mang đúng ${ids.length} câu trả lời, nhận ${messages.length} dòng`,
-      );
-      assert.deepEqual(
+        `${label}: stdout can only carry ${ids.length} responses, get ${messages.length} lines`,
+      );assert.deepEqual(
         messages.map((message) => message.parsed.id),
         ids,
-        `${label}: các câu trả lời phải tới đúng thứ tự và không bị méo`,
+        `${label}: answers must arrive in the correct order and without distortion`,
       );
       for (const line of noise) {
         assert.ok(
           !child.stdout().includes(line),
-          `${label}: INV-SHIM-1 vỡ — stdout mang dòng nhiễu ${JSON.stringify(line)}`,
+          `${label}: INV-SHIM-1 broken — stdout carries noise line ${JSON.stringify(line)}`,
         );
-        // Không rỗng nghĩa: nhiễu THẬT SỰ đã đi qua kênh daemon rồi bị chuyển sang stderr. Nếu
-        // thiếu khẳng định này, "stdout sạch" chỉ nói rằng không có gì xảy ra cả.
+        // Not empty: noise ACTUALLY went through the daemon channel and was passed to stderr. If
+        // lacking this assertion, "clean stdout" just says that nothing happens.
         assert.ok(
           child.stderr().includes(JSON.stringify(line)),
-          `${label}: dòng nhiễu phải hiện trên stderr để còn gỡ lỗi được: ${JSON.stringify(line)} ` +
+          `${label}: noisy line must appear on stderr to be debugging: ${JSON.stringify(line)} ` +
             `(stderr: ${JSON.stringify(child.stderr().slice(-500))})`,
         );
       }
@@ -368,37 +360,36 @@ test(
         assert.equal(
           message.parsed.result?.servedBy,
           expectedServer,
-          `${label}: câu trả lời ${index + 1} phải do đúng tiến trình daemon phục vụ`,
+          `${label}: answer ${index + 1} must be served by the correct daemon process`,
         );
         assert.equal(
           message.parsed.result?.pad?.length,
           50_000,
-          `${label}: câu trả lời ${index + 1} phải nguyên vẹn, không mất byte nào ở ranh giới các lần ghi`,
+          `${label}: response ${index + 1} must be intact, no bytes lost at the boundary of writes`,
         );
-        // Message mang một newline thoát bên trong chuỗi: sau khi parse phải có newline thật, còn
-        // dòng thô thì không — tức không message nào trải dài quá một dòng.
+        // Message carries an escaped newline inside the string: after parsing there must be a real newline, also
+        // raw lines do not — meaning no message spans more than one line.
         assert.ok(
           message.parsed.result?.note?.includes("\n"),
-          `${label}: câu trả lời ${index + 1} phải giữ nguyên newline đã thoát bên trong giá trị chuỗi`,
+          `${label}: ${index + 1} response must preserve escaped newline inside string value`,
         );
         assert.ok(
           !message.raw.includes("\n"),
-          `${label}: câu trả lời ${index + 1} không được trải dài quá một dòng trên wire`,
+          `${label}: the answer ${index + 1} cannot span more than one line on the wire`,
         );
       }
     }
   },
 );
 
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------
 // TCON-SHIM-0002 [INV-SHIM-2]
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------
 
 /**
- * Một launcher độc lập. Nó nạp xong module rồi DỪNG ở hàng rào và báo "armed" qua stderr; chỉ khi
- * nhận được "go" trên stdin nó mới gọi `startDaemon`. Nếu không có hàng rào này, thời gian nạp module
- * của N tiến trình khác nhau tự xếp chúng thành tuần tự và cửa sổ tranh khoá — thứ duy nhất mà
- * INV-SHIM-2 tồn tại để đóng lại — không bao giờ mở ra.
+ * An independent launcher. It finishes loading the module, then STOPS at the fence and reports "armed" via stderr; only if* receives "go" on stdin then calls `startDaemon`. Without this barrier, module loading time
+ * of N different processes arrange themselves sequentially and lock contention windows — the only thing that
+ * INV-SHIM-2 exists to close — never to open.
  */
 function launcherProcessScript(): string {
   return `import { startDaemon } from ${JSON.stringify(SUPERVISOR_MODULE)};
@@ -422,7 +413,7 @@ const handle = await startDaemon({
   onConnection: (socket) => socket.write(JSON.stringify({ servedBy: process.pid }) + NEWLINE),
 });
 console.log(JSON.stringify({ label, self: process.pid, role: handle.role, daemonPid: handle.daemonPid ?? null }));
-// Giữ tiến trình sống để bảng tiến trình còn quan sát được lúc test khẳng định.
+// Keep the process alive so that the process table can still be observed during positive testing.
 setInterval(() => {}, 1000);
 `;
 }
@@ -431,13 +422,13 @@ interface LauncherReport {
   label: string;
   self: number;
   role: string;
-  daemonPid: number | null;
+  daemonPid: number | null; null;
 }
 
 test(
-  "TCON-SHIM-0002: bốn launcher độc lập chạy đồng thời hội tụ về đúng một daemon duy nhất [INV-SHIM-2]",
+  "TCON-SHIM-0002: four independent launchers running simultaneously converging on a single daemon [INV-SHIM-2]",
   { timeout: 60_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const scriptPath = path.join(root, "launcher-child.mjs");
@@ -451,26 +442,25 @@ test(
     });
 
     const N = 4;
-    assert.ok(N >= 3, "điều kiện đòi N >= 3 launcher đồng thời");
-    assert.equal(existsSync(socketPath), false, "tiền đề: chưa có daemon nào chạy trên đường dẫn này");
+    assert.ok(N >= 3, "condition requires N >= 3 launchers at the same time");
+    assert.equal(existsSync(socketPath), false, "premise: no daemons running on this path yet");
 
     for (let index = 0; index < N; index += 1) {
       children.push(spawnScript(scriptPath, [socketPath, `launcher-${index}`]));
     }
-    await waitFor(
-      () => children.every((child) => child.stderr().includes("armed")),
+    await waitFor(() => children.every((child) => child.stderr().includes("armed")),
       30_000,
-      () => `cả ${N} launcher tới hàng rào (stderr: ${JSON.stringify(children.map((child) => child.stderr()))})`,
+      () => `both ${N} launcher to fence (stderr: ${JSON.stringify(children.map((child) => child.stderr()))})`,
     );
 
-    // Mở hàng rào trong một vòng lặp đồng bộ duy nhất: cả N đều được thả gần như cùng lúc.
+    // Open the fence in a single synchronous loop: all N are released at approximately the same time.
     for (const child of children) child.child.stdin?.write("go\n");
 
     await waitFor(
       () => children.every((child) => child.lines().length >= 1),
       30_000,
       () =>
-        `cả ${N} launcher báo cáo kết quả hội tụ (stdout: ${JSON.stringify(children.map((child) => child.stdout()))}, ` +
+        `both ${N} launchers report convergent results (stdout: ${JSON.stringify(children.map((child) => child.stdout()))}, ` +
         `stderr: ${JSON.stringify(children.map((child) => child.stderr().slice(-200)))})`,
     );
 
@@ -480,54 +470,52 @@ test(
         return JSON.parse(line) as LauncherReport;
       } catch (error) {
         return assert.fail(
-          `launcher ${index} không báo cáo được: ${JSON.stringify(line.slice(0, 300))} (${(error as Error).message})`,
+          `launcher ${index} failed to report: ${JSON.stringify(line.slice(0, 300))} (${(error as Error).message})`,
         );
       }
     });
 
-    // 1. Mọi launcher phải gọi tên CÙNG MỘT daemon pid.
+    // 1. Every launcher must call the SAME pid daemon.
     const namedPids = new Set(reports.map((report) => report.daemonPid));
     assert.equal(
       namedPids.size,
       1,
-      `cả ${N} launcher phải gọi tên cùng một daemon pid, nhận ${JSON.stringify([...namedPids])}`,
+      `all ${N} launchers must call the same pid daemon, receiving ${JSON.stringify([...namedPids])}`,
     );
     const daemonPid = reports[0]?.daemonPid;
-    assert.ok(typeof daemonPid === "number", "daemon pid mà các launcher gọi tên phải là một pid thật");
+    assert.ok(typeof daemonPid === "number", "the daemon pid named by launchers must be a real pid");
 
-    // 2. Đúng một launcher bind, phần còn lại delegate — không launcher nào được phép thất bại.
+    // 2. Exactly one launcher bind, the rest delegate — no launcher is allowed to fail.
     const bound = reports.filter((report) => report.role === "daemon");
     const delegated = reports.filter((report) => report.role === "delegated");
     assert.equal(
       bound.length,
       1,
-      `đúng một launcher được phép bind socket, có ${bound.length} (${JSON.stringify(reports)})`,
+      `exactly one launcher is allowed to bind socket, with ${bound.length} (${JSON.stringify(reports)})`,
     );
-    assert.equal(delegated.length, N - 1, `${N - 1} launcher còn lại phải delegate, không được hỏng`);
-    assert.equal(bound[0]?.self, daemonPid, "pid được gọi tên phải chính là tiến trình đã bind socket");
-
-    // 3. Bảng tiến trình: đúng MỘT daemon đang lắng nghe trên đường dẫn socket đó. `lsof -t` chỉ
-    //    liệt kê tiến trình giữ chính đường dẫn ấy, nên đây là phép đếm daemon trực tiếp.
+    assert.equal(delegated.length, N - 1, `${N - 1} remaining launchers must delegate, cannot fail`);
+    assert.equal(bound[0]?.self, daemonPid, "the named pid must be the same process that bound the socket");// 3. Progress table: yes ONE daemon is listening on that socket path. `lsof -t` only
+    // lists the process holding the same path, so this is a direct daemon count.
     const listening = pidsListeningOn(socketPath);
     assert.ok(
       listening.includes(daemonPid),
-      `phép đo bảng tiến trình phải nhìn thấy daemon ${daemonPid} trên ${socketPath}, lsof trả về ${JSON.stringify(listening)}`,
+      `process table measurement must see daemon ${daemonPid} on ${socketPath}, lsof returns ${JSON.stringify(listening)}`,
     );
     assert.deepEqual(
-      listening,
+      listening
       [daemonPid],
-      `INV-SHIM-2 vỡ: bảng tiến trình có ${listening.length} daemon lắng nghe trên ${socketPath}`,
+      `INV-SHIM-2 broken: progress table has ${listening.length} daemon listening on ${socketPath}`,
     );
-    assert.ok(statSync(socketPath).isSocket(), "và đúng một tệp socket tồn tại ở đường dẫn đã hẹn");
+    assert.ok(statSync(socketPath).isSocket(), "and indeed a socket file exists at the specified path");
 
-    // 4. Ổ khoá single-instance mang đúng pid đó — không có launcher thứ hai nào từng giữ nó.
+    // 4. The single-instance lock carries that exact pid — no second launcher ever holds it.
     assert.equal(
       readFileSync(`${socketPath}.lock`, "utf8").trim(),
       String(daemonPid),
-      "ổ khoá single-instance phải mang pid của đúng daemon đang chạy",
+      "single-instance lock must carry the pid of the correct running daemon",
     );
 
-    // 5. Đối chứng động: tiến trình thật sự phục vụ đường dẫn này là chính pid đó.
+    // 5. Dynamic control: the process that actually serves this path is the pid itself.
     const probe = await new Promise<Socket>((resolve, reject) => {
       const socket = connect(socketPath);
       socket.once("connect", () => resolve(socket));
@@ -535,37 +523,36 @@ test(
     });
     sockets.push(probe);
     const greeting = await new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("daemon không chào lại trong 10 s")), 10_000);
+      const timer = setTimeout(() => reject(new Error("daemon did not greet again within 10 s")), 10_000);
       probe.once("data", (chunk: Buffer) => {
         clearTimeout(timer);
         resolve(chunk.toString("utf8").split("\n")[0] ?? "");
       });
     });
     assert.equal(
-      (JSON.parse(greeting) as { servedBy?: number }).servedBy,
+      (JSON.parse(greeting) as {servedBy?: number }).servedBy,
       daemonPid,
-      "tiến trình đang phục vụ đường dẫn socket phải chính là daemon duy nhất mà cả bốn launcher gọi tên",
+      "the process serving the socket path must be the only daemon that all four launchers call",
     );
   },
 );
 
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------
 // TCON-SHIM-0003 [INV-SHIM-4]
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------
 
-/** Process con đóng vai JDT LS: sống cho tới khi bị giết, và báo "alive" để fixture khỏi phải ngủ. */
-const FAKE_JDTLS_SCRIPT = `process.stdout.write("alive" + String.fromCharCode(10));
+/** The child process plays the role of JDT LS: lives until killed, and says "alive" to keep the fixture from sleeping. */const FAKE_JDTLS_SCRIPT = `process.stdout.write("alive" + String.fromCharCode(10));
 setInterval(() => {}, 1000);
 `;
 
 /**
- * Một daemon thật nuôi ba process con JDT LS thật, chia trên HAI pool: pool thứ nhất được trao lúc
- * khởi tạo, pool thứ hai được `adopt` sau đó. Hai pool và ba con là có chủ ý — một cài đặt chỉ giết
- * con đầu tiên, chỉ giết con dùng gần nhất, hay chỉ đóng pool khởi tạo mà bỏ pool nhận nuôi đều vẫn
- * qua được một phép thử một-con, trong khi vẫn bỏ lại JVM mồ côi.
+ * A real daemon supports three real JDT LS child processes, divided into TWO pools: the first pool is given at once
+ * initialized, second pool is `adopt` later. Two pools and three fish is intentional — a kill-only setting
+ * the first child, just kill the most recently used child, or just close the initialization pool and leave the adoption pool
+ * passes a one-child test, while leaving the JVM orphaned.
  *
- * Các process con là CHÁU của tiến trình test, nên nếu shutdown bỏ sót một con, con đó được reparent
- * và tiếp tục sống — đúng dạng hỏng mà `ps` ở phía test nhìn thấy.
+ * Child processes are grandchildren of the test process, so if shutdown misses one, that child will be reparented
+ * and continues to live — exactly the same type of failure seen by `ps` on the test side.
  */
 function workspaceDaemonScript(): string {
   return `import { spawn } from "node:child_process";
@@ -605,8 +592,7 @@ handle.adopt(adopted);
 const pids = [];
 for (let index = 0; index < roots.length; index += 1) {
   const pool = index === roots.length - 1 ? adopted : constructed;
-  const lease = await pool.acquire(roots[index]);
-  pids.push(lease.pid);
+  const lease = await pool.acquire(roots[index]);pids.push(lease.pid);
   await lease.release();
 }
 console.log("children " + pids.join(","));
@@ -622,9 +608,9 @@ process.stdin.on("data", (chunk) => {
 }
 
 test(
-  "TCON-SHIM-0003: shutdown của daemon chấm dứt MỌI process con JDT LS nó đã spawn, không chỉ con đầu tiên [INV-SHIM-4]",
+  "TCON-SHIM-0003: daemon shutdown terminates EVERY JDT LS child process it has spawned, not just the first child [INV-SHIM-4]",
   { timeout: 60_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const daemonScript = path.join(root, "workspace-daemon.mjs");
@@ -645,7 +631,7 @@ test(
         try {
           process.kill(pid, "SIGKILL");
         } catch {
-          // Đã chết — đó chính là kết quả mong đợi của ca này.
+          // Died — that is the expected result of this case.
         }
       }
       for (const child of children) child.kill();
@@ -664,20 +650,19 @@ test(
       () => /children \d+(,\d+)*/.test(daemon.stdout()),
       30_000,
       () =>
-        `daemon dựng xong các workspace (stdout: ${JSON.stringify(daemon.stdout())}, ` +
+        `daemon finished building workspaces (stdout: ${JSON.stringify(daemon.stdout())}, ` +
         `stderr: ${JSON.stringify(daemon.stderr().slice(-400))})`,
     );
-    workspacePids = (/children ([\d,]+)/.exec(daemon.stdout())?.[1] ?? "")
+    workspacePids = (/children ([\d,]+)/.exec(daemon.stdout())?.[1] ??" "")
       .split(",")
       .map((value) => Number.parseInt(value, 10));
 
-    // Tiền đề: HAI HOẶC NHIỀU workspace khác nhau đang thật sự sống dưới một daemon.
-    assert.equal(workspacePids.length, 3, `daemon phải nuôi ba workspace, nhận ${JSON.stringify(workspacePids)}`);
-    assert.equal(new Set(workspacePids).size, 3, "ba workspace phải là ba process con khác nhau");
+    // Premise: TWO OR MORE different workspaces are actually living under one daemon.assert.equal(workspacePids.length, 3, `daemon must support three workspaces, receives ${JSON.stringify(workspacePids)}`);
+    assert.equal(new Set(workspacePids).size, 3, "the three workspaces must be three different child processes");
     assert.deepEqual(
       livePids(workspacePids),
       workspacePids,
-      "tiền đề: cả ba process con JDT LS phải đang sống trong bảng tiến trình trước khi shutdown",
+      "premise: all three JDT LS child processes must be alive in the process table before shutdown",
     );
 
     daemon.child.stdin?.write("shutdown\n");
@@ -685,7 +670,7 @@ test(
       () => daemon.stdout().includes("shutdown-resolved"),
       30_000,
       () =>
-        `shutdown() của daemon settle (stdout: ${JSON.stringify(daemon.stdout())}, ` +
+        `shutdown() of daemon settle (stdout: ${JSON.stringify(daemon.stdout())}, ` +
         `stderr: ${JSON.stringify(daemon.stderr().slice(-400))})`,
     );
 
@@ -699,9 +684,9 @@ test(
     assert.deepEqual(
       survivors,
       [],
-      `INV-SHIM-4 vỡ: sau shutdown bảng tiến trình còn ${survivors.length}/${workspacePids.length} ` +
-        `process con JDT LS: ${JSON.stringify(survivors)} (tất cả: ${JSON.stringify(workspacePids)})`,
+      `INV-SHIM-4 broken: after shutdown the progress table still has ${survivors.length}/${workspacePids.length} ` +
+        `JDT LS child process: ${JSON.stringify(survivors)} (all: ${JSON.stringify(workspacePids)})`,
     );
-    assert.equal(existsSync(socketPath), false, "shutdown cũng không được bỏ lại tệp socket của chính nó");
+    assert.equal(existsSync(socketPath), false, "shutdown must also not leave its own socket file behind");
   },
 );

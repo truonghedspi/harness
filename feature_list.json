@@ -62,7 +62,7 @@
         "note": "This is the repository's authoritative regression gate; do not replace it with root-level structural coverage."
       },
       "status": "blocked",
-      "checkerNotes": "Tạm hoãn — ưu tiên feat-readme-standardize để đánh giá dispatch brief contract. Mở lại sau.",
+      "checkerNotes": "Deferred — prioritize feat-readme-standardize to evaluate the dispatch-brief contract. Reopen afterward.",
       "readyForCheck": false,
       "evidence": [],
       "attempts": 0,
@@ -88,7 +88,7 @@
         "note": "Root files are target-owned dogfood state; reusable fixes still belong under harness-loop/."
       },
       "status": "blocked",
-      "checkerNotes": "Phụ thuộc feat-dogfood-baseline (đang tạm hoãn).",
+      "checkerNotes": "Depends on feat-dogfood-baseline (currently deferred).",
       "readyForCheck": false,
       "evidence": [],
       "attempts": 0,
@@ -114,7 +114,7 @@
         "note": "Regenerate with tools/gen-agents.mjs; never reconcile generated files by hand."
       },
       "status": "blocked",
-      "checkerNotes": "Phụ thuộc feat-dogfood-structure (đang tạm hoãn).",
+      "checkerNotes": "Depends on feat-dogfood-structure (currently deferred).",
       "readyForCheck": false,
       "evidence": [],
       "attempts": 0,
@@ -269,15 +269,15 @@
     },
     {
       "id": "feat-readme-standardize",
-      "name": "README.md chuẩn hóa cho người dùng mới",
-      "behavior": "README.md trình bày có cấu trúc: harness làm gì, bắt đầu từ đâu, cách mở rộng, file quan trọng, ví dụ. Mỗi mục có heading riêng. Người đọc lần đầu nắm được giá trị và cách dùng trong 2 phút đọc.",
+      "name": "README.md standardized for new users",
+      "behavior": "README.md presents a clear structure: what the harness does, where to start, how to extend it, important files, and examples. Each section has its own heading. A first-time reader understands its value and use within two minutes.",
       "verification": "node tools/verify-readme-structure.mjs",
-      "falsifier": "README.md vẫn là một đoạn văn duy nhất không có heading, hoặc thiếu hướng dẫn bắt đầu nhanh, hoặc không nêu được cách mở rộng harness.",
+      "falsifier": "README.md remains a single paragraph without headings, lacks quick-start guidance, or does not explain how to extend the harness.",
       "kind": "build",
       "dependencies": [],
       "context": {
         "touches": ["README.md"],
-        "note": "Chỉ sửa README.md. Không thay đổi hành vi nào khác. Nội dung dựa trên SKILL.md, AGENTS.md, docs/INDEX.md đã có."
+        "note": "Change only README.md. Do not change any other behavior. Base the content on the existing SKILL.md, AGENTS.md, and docs/INDEX.md."
       },
       "status": "done",
       "readyForCheck": false,
@@ -295,46 +295,46 @@
           "result": "PASS: README has 5 structured sections with required content"
         }
       ],
-      "checkerNotes": "ACCEPTED: README.md đã được chuẩn hóa thành cấu trúc 5 mục rõ ràng với nội dung đầy đủ. Verification command đã được sửa để chỉ kiểm tra README.md độc lập, không phụ thuộc vào trạng thái repo. Evidence hoàn chỉnh với red→green run. ReviewPacket đạt tất cả tiêu chí admission.",
+      "checkerNotes": "ACCEPTED: README.md was standardized into five clear sections with complete content. The verification command was fixed to check README.md independently, without depending on repository state. Evidence includes a complete red→green run. The reviewPacket meets every admission criterion.",
       "attempts": 1,
       "maxAttempts": 3
     },
     {
       "id": "feat-prompt-centralize",
-      "name": "Tất cả prompt quản lý tập trung trong prompts/",
-      "behavior": "Mọi agent prompt nằm trong prompts/ duy nhất. agents.manifest.json trỏ đến prompts/ cho tất cả agents. gen-agents.mjs sinh config đúng từ vị trí mới.",
+      "name": "All prompts are centrally managed in prompts/",
+      "behavior": "Every agent prompt lives only in prompts/. agents.manifest.json points all agents to prompts/. gen-agents.mjs generates the correct configuration from the new location.",
       "verification": "node tools/gen-agents.mjs --target . --runtime claude --check && bash harness-loop/scripts/demo.sh",
-      "falsifier": "Prompt nằm ở hai thư mục khác nhau (loop/ và prompts/), hoặc manifest trỏ đến path không tồn tại, hoặc gen-agents sinh agent thiếu prompt.",
+      "falsifier": "Prompts live in two different directories (loop/ and prompts/), the manifest points to a nonexistent path, or gen-agents generates an agent without a prompt.",
       "kind": "build",
       "dependencies": [],
       "context": {
         "touches": ["prompts/", "loop/", "agents.manifest.json", "harness-loop/templates/tree/"],
-        "note": "Di chuyển maker-prompt.md và checker-prompt.md từ loop/ sang prompts/. Cập nhật cả template và dogfood target."
+        "note": "Move maker-prompt.md and checker-prompt.md from loop/ to prompts/. Update both the template and the dogfood target."
       },
       "status": "passing",
       "readyForCheck": true,
-      "evidence": ["prompts/maker.md và prompts/checker.md tồn tại; loop/maker-prompt.md và loop/checker-prompt.md đã xoá. agents.manifest.json trỏ 9 dòng 'prompts/', 0 dòng 'loop/*-prompt'. demo.sh xanh."],
-      "reviewPacket": "Prompt di chuyển từ loop/ sang prompts/. Manifest, verify-harness, check-coverage, demo.sh đều cập nhật. Template tree đồng bộ.",
+      "evidence": ["prompts/maker.md and prompts/checker.md exist; loop/maker-prompt.md and loop/checker-prompt.md were removed. agents.manifest.json has 9 'prompts/' lines and 0 'loop/*-prompt' lines. demo.sh is green."],
+      "reviewPacket": "Prompts moved from loop/ to prompts/. The manifest, verify-harness, check-coverage, and demo.sh were all updated. The template tree is synchronized.",
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3
     },
     {
       "id": "feat-claude-code-acp",
-      "name": "Harness dùng Claude Code ACP với claude-opus-4-6",
-      "behavior": "dispatch.mjs ưu tiên Claude Code runtime. Tất cả agents chạy trên model claude-opus-4-6. Kiro agents giữ lại nhưng không còn là runtime mặc định.",
+      "name": "Harness uses Claude Code ACP with claude-opus-4-6",
+      "behavior": "dispatch.mjs prioritizes the Claude Code runtime. All agents run on the claude-opus-4-6 model. Kiro agents remain but are no longer the default runtime.",
       "verification": "HARNESS_RUNTIME=claude node loop/dispatch.mjs maker --dry-run 2>&1 | grep -q claude",
-      "falsifier": "dispatch.mjs vẫn chọn kiro trước claude, hoặc agents chạy trên model khác claude-opus-4-6.",
+      "falsifier": "dispatch.mjs still chooses Kiro before Claude, or agents run on a model other than claude-opus-4-6.",
       "kind": "build",
       "dependencies": ["feat-prompt-centralize"],
       "context": {
         "touches": ["agents.manifest.json", ".claude/agents/", "loop/run-loop.mjs"],
-        "note": "Model claude-opus-4-6 cho tất cả agents. HARNESS_RUNTIME=claude đặt trong run-loop.mjs."
+        "note": "Use claude-opus-4-6 for every agent. Set HARNESS_RUNTIME=claude in run-loop.mjs."
       },
       "status": "passing",
       "readyForCheck": true,
-      "evidence": ["agents.manifest.json: tất cả agents dùng claude-opus-4-6. run-loop.mjs mặc định HARNESS_RUNTIME=claude. .claude/agents/*.md sinh đúng model. demo.sh xanh."],
-      "reviewPacket": "Model claude-opus-4-6 cho 8 agents. run-loop.mjs đặt HARNESS_RUNTIME=claude khi chưa có env. Kiro agents giữ lại với prompt path mới.",
+      "evidence": ["agents.manifest.json: every agent uses claude-opus-4-6. run-loop.mjs defaults HARNESS_RUNTIME=claude. .claude/agents/*.md generates the correct model. demo.sh is green."],
+      "reviewPacket": "claude-opus-4-6 is used for eight agents. run-loop.mjs sets HARNESS_RUNTIME=claude when no environment value exists. Kiro agents remain with the new prompt path.",
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3

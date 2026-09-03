@@ -1,47 +1,47 @@
-# Chạy một lượt dựng mutant tạm: khôi phục bằng bản sao, không bằng git
+# Run a temporary mutant build: restore with clone, not with git
 
-**Khi nào áp dụng:** lượt maker được giao "oracle để sống mutant, hãy thêm ca kiểm thử", nơi bản
-triển khai đã được checker xác nhận đúng và ta phải tạm làm hỏng nó để chứng minh ca mới có răng.
-Gặp ở `feat-file-sync-watcher`, lượt 2.
+**When to apply:** The creator is assigned "oracle to live mutant, add test cases", in version
+The implementation has been confirmed by the checker correctly and we have to temporarily break it to prove that the new case has teeth.
+Found in `feat-file-sync-watcher`, turn 2.
 
-## Ba điều dễ làm sai, xếp theo mức thiệt hại
+## Three things that are easy to do wrong, ranked by level of damage
 
-### 1. `git checkout` không cứu được tệp chưa từng được commit
+### 1. `git checkout` cannot save files that have never been committed
 
-Bản triển khai của một tính năng đang chờ checker thường vẫn ở trạng thái untracked (`??` trong
-`git status`). Lệnh khôi phục theo phản xạ — `git checkout -- <file>` — với tệp untracked không
-khôi phục gì cả, và nếu lỡ dùng `git clean` thì mất trắng toàn bộ công sức của lượt trước.
+The deployment of a feature awaiting a checker often remains in an untracked state (`??` in
+`git status`). Reflex restore command — `git checkout -- <file>` — with untracked files does not
+restore nothing, and if you accidentally use `git clean`, all the effort from the previous round will be lost.
 
-Cách làm đúng: **chạy `git status --porcelain` trước khi dựng mutant đầu tiên.** Nếu tệp là
-untracked, sao nó ra một chỗ ngoài cây nguồn, rồi cho mọi lệnh dựng mutant khởi đi từ bản sao đó
-(sao đè lại, rồi mới thay chuỗi). Kết thúc lượt, `diff` bản sao với tệp nguồn phải rỗng — đây là
-bằng chứng cơ học duy nhất chứng minh không còn mutant sót lại, mạnh hơn mọi lời khẳng định.
+Correct way: **run `git status --porcelain` before building the first mutant.** If the file is
+untracked, copy it to a place outside the source tree, then have all mutant build commands start from that copy
+(copy it again, then replace the string). End of turn, `diff` copy with source file must be empty — this is
+The only mechanical proof that there are no mutants left, stronger than any assertion.
 
-### 2. "Bằng chứng đỏ" của lượt này không cùng nghĩa với lượt xây tính năng
+### 2. This turn's "red evidence" does not have the same meaning as the feature build turn
 
-Ở lượt xây, đỏ nghĩa là chạy oracle trước khi có mã nguồn. Ở lượt sửa oracle, mã nguồn đã đúng, nên
-một ca mới **phải** xanh ngay. Bằng chứng đỏ hợp lệ duy nhất là đỏ dưới đúng mutant mà ca đó nhắm
-tới. Ghi vào evidence theo cặp: đỏ-dưới-mutant-X, rồi xanh-sau-khi-hoàn-nguyên.
+In the build phase, red means running oracle before the source code is available. In the oracle edit, the source code is correct, so
+a new case **must** be green immediately. The only valid red evidence is red under the exact mutant that the case is targeting
+come. Record evidence in pairs: red-under-mutant-X, then green-after-restitution.
 
-Kèm một khẳng định phụ đáng giá: mutant X chỉ được giết đúng ca nhắm tới, các ca khác vẫn xanh. Nó
-tái hiện đúng phát hiện của checker và chứng minh ca mới là thứ đóng khe hở, không phải trùng lặp
-với ca sẵn có.
+With a valuable side assertion: mutant X can only be killed in the targeted case, the other cases remain green. It
+correctly recreated the checker's findings and proved that the new case was the one that closed the gap, not a duplicate
+with available shifts.
 
-### 3. Ca xanh và đỏ đúng chỗ vẫn có thể là ca có chạy đua
+### 3. Green and red cases in the right place can still be raced cases
 
-Ca "chỉ còn một trường phân biệt" (ở đây: cùng size, cùng mtime, khác inode) chỉ chứng minh được
-điều nó tuyên bố nếu ảnh nền được chốt một cách xác định. Bản đầu tiên của tôi chuẩn bị ảnh nền
-**sau** `start()`; nó vẫn xanh trên mã đúng và đỏ dưới mutant, tức là đạt mọi tiêu chí bề mặt.
-Nhưng một lần flush chen giữa `writeFileSync` và `utimesSync` sẽ khiến ảnh nền giữ mtime thật, và
-khi đó mutant sống sót còn ca vẫn xanh. Tôi chỉ phát hiện nhờ đi truy nguyên nhân một lỗi flaky
-khác, không phải nhờ thiết kế.
+The case "only one distinct field remains" (here: same size, same mtime, different inode) can only be proven
+which it declares if the background image is pegged deterministically. My first version prepared the background image
+**after** `start()`; it is still green under the correct code and red under mutant, meaning it meets all surface criteria.
+But a flush inserted between `writeFileSync` and `utimesSync` will cause the background image to keep the actual mtime, and
+At that time, the mutant survived and the case remained green. I only discovered it by tracing the cause of a flaky error
+different, not by design.
 
-Quy tắc rút ra: đặt toàn bộ phần chuẩn bị **trước** khi bật thành phần quan sát, để lần quét khởi
-động chốt ảnh nền. Và khẳng định thẳng bằng `statSync` rằng đúng một trường khác biệt — nếu không,
-ca đang nói về một cơ chế khác với cơ chế nó tưởng.
+Rule of thumb: set all preparations **before** turning on the observer component, so that the scan starts
+Dynamic latching background image. And confirm directly with `statSync` that exactly one field is distinct — otherwise,
+Ca is talking about a different mechanism than it seems.
 
-## Dấu hiệu nhận biết đã làm đủ
+## Signs that you've done enough
 
-Cuối lượt phải có đồng thời: `diff` với bản sao pristine rỗng, mỗi mutant kèm một dòng đỏ nêu đúng
-tên khẳng định hoặc đúng chuỗi timeout, và các mutant của lượt trước được dựng lại để chứng minh
-thay đổi hạ tầng dùng chung không làm cùn ca cũ.
+At the end of the turn there must be at the same time: `diff` with an empty pristine copy, each mutant with a red line stating it is correct
+The name confirms or is the correct timeout sequence, and the mutants from the previous turn are reconstructed to prove it
+Changing shared infrastructure does not blunt old shifts.

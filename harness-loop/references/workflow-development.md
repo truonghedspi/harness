@@ -58,21 +58,21 @@ flowchart LR
 
 ## Layers — precedence order
 
-| Layer | Depth | Mô tả |
+| Layer | Depth | Description |
 |---|---|---|
-| spec | 1 | Yêu cầu và giả định cần người xác nhận |
-| baseline | 2 | Verification gate đỏ — phải sửa trước khi làm tính năng |
-| design | 3 | Thiết kế thiếu seam hoặc invariant |
-| decomposition | 4 | Cắt tính năng sai hoặc thiếu cập nhật sau thiết kế |
-| oracle | 5 | Falsifier, điều kiện kiểm thử, bài kiểm thử oracle |
-| integration | 6 | Triển khai và kiểm thử trên cluster thật |
-| implementation | 7 | Triển khai tính năng — chỉ khi mọi lớp trên đã thông |
-| diagnosis | 7 | Chẩn đoán nguyên nhân trước khi sửa (cùng lớp implementation) |
-| final-acceptance | 8 | Checker duyệt lần cuối — chỉ checker đặt done |
-| unknown | 0 | Router không xác định được layer — mọi rule đều từ chối nhưng vẫn còn tính năng mở |
+| spec | 1 | Requirements and assumptions awaiting human confirmation |
+| baseline | 2 | A failing verification gate that must be fixed before feature work |
+| design | 3 | A missing design seam or invariant |
+| decomposition | 4 | Incorrect feature slicing or missing post-design updates |
+| oracle | 5 | Falsifier, test conditions, and oracle tests |
+| integration | 6 | Deployment and testing on a real cluster |
+| implementation | 7 | Feature implementation — only after every higher layer is clear |
+| diagnosis | 7 | Diagnose the cause before fixing it (same layer as implementation) |
+| final-acceptance | 8 | Final checker approval — only the checker sets `done` |
+| unknown | 0 | The router cannot identify a layer — every rule declines while open work remains |
 
-Layer sâu hơn (depth thấp hơn) có mức ưu tiên cao hơn trong routing.
-Router kiểm tra từ spec → baseline → design → ... → implementation.
+Deeper layers (lower depth) have higher routing priority.
+The router checks spec → baseline → design → ... → implementation.
 
 `passing` remains open while `readyForCheck: true`; only checker may set `status: done`. Kubernetes
 work is the `test-agent` integration mode and deploys only through `tools/k8s-test-env.sh`. A red

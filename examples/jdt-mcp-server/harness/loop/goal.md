@@ -56,17 +56,17 @@ doesn't reproduce.
   invisible to the loop from here on and only a person can put it back. The second of the two
   branches (accept the risk) is itself a human call, which is why the 2026-08-22 planner pass did not
   pick one. Detail and the proposed `TCON-ROUTE-0008` fixture are in `progress.md` → Next, item 3.
-- Hai workspace sống đồng thời có bao giờ giữ CÙNG một URI tệp đã canonical hoá không? Không dòng
-  nào trong `docs/assumptions.md` phát biểu tiền đề này, mà nó quyết định `INV-DIAG-3` phải được
-  chứng minh ở mức nào. Nếu CÓ (root lồng nhau, thư mục nguồn dùng chung qua symlink, reactor ngoài
-  và module trong theo `A-006`), fixture phải mạnh lên thành hai JDT LS thật cùng publish trên một
-  URI canonical. Nếu KHÔNG BAO GIỜ, thì một điều kiện `INV-DIAG-3` ở mức integration là không thể
-  làm sai được và nội dung thực chất của nó nằm ở mức unit — khi đó `TCON-DIAG-0003` phải được hạ
-  cấp chứ không giữ nguyên như một P0 mù. Nêu bởi checker của `feat-prove-diagnostics` (2026-08-25,
-  mục 7). Dù chọn nhánh nào, tiền đề phải trở thành một dòng trong `docs/assumptions.md` — đó là
-  việc của design-facilitator cùng một người, không phải của người lập kế hoạch.
-  KHÔNG chặn `feat-prove-diagnostics-identity`: trục phân biệt của tính năng đó phán xét khoá cache
-  (hai `workspaceId` va vào cùng một URI), không phán xét hai tiến trình JDT LS.
+- Can two concurrently live workspaces ever hold THE SAME canonicalized file URI? No line in
+  `docs/assumptions.md` states this premise, yet it determines the level at which `INV-DIAG-3` must
+  be proved. If YES (nested roots, shared source directories through symlinks, an outer reactor
+  and inner module under `A-006`), the fixture must become two real JDT LS instances publishing on
+  one canonical URI. If NEVER, an integration-level `INV-DIAG-3` condition cannot be falsified and
+  its substantive content is at unit level — then `TCON-DIAG-0003` must be demoted rather than
+  retained as a blind P0. Raised by the `feat-prove-diagnostics` checker (2026-08-25, item 7).
+  Whichever branch is chosen, the premise must become a line in `docs/assumptions.md` — that is
+  work for the design-facilitator and a person, not the planner.
+  It does NOT block `feat-prove-diagnostics-identity`: that feature’s distinguishing axis judges the cache key
+  (two `workspaceId` values colliding on one URI), not two JDT LS processes.
 - Whether graceful stop (SIGTERM before the SIGKILL escalation) is a required behavior of
   `workspace-pool.terminate()`. Raised by the `feat-workspace-pool` checker on 2026-08-22: a mutant
   removing only `child.kill("SIGTERM")` leaves the whole suite green, because the 5 s SIGKILL
@@ -85,5 +85,5 @@ doesn't reproduce.
   own — a person decides whether to raise it upstream (`DECISIONS.md` 2026-08-22, first entry).
 - Whether to build the flagged Streamable HTTP front door (`A-003`) before `docs/cross-cutting.md`
   `X-010` (Origin validation / localhost binding / auth) gets an `INV-` id — see
-  `DECISIONS/2026-08-20.md`, "Streamable HTTP front door deferred out of this cut" (chuyển vào kho
-  lưu trữ ngày 2026-08-23).
+  `DECISIONS/2026-08-20.md`, "Streamable HTTP front door deferred out of this cut" (archived on
+  2026-08-23).

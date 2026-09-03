@@ -1,55 +1,55 @@
-# Điểm cắt giữa ký tự UTF-8 phải được chứng minh bằng byte, không được tuyên bố bằng chú thích
+# UTF-8 character cutoffs must be justified in bytes, not declared in comments
 
-**Khi nào áp dụng:** ca kiểm thử cần phân biệt `StringDecoder` với `chunk.toString("utf8")`, hoặc
-bất kỳ ca nào tuyên bố "dữ liệu bị cắt ở chỗ khó". Gặp ở `feat-mcp-shim`, mutant `D1` sống sót hai
-lượt liền.
+**When applicable:** test cases need to distinguish `StringDecoder` from `chunk.toString("utf8")`, or
+any case that claims "data is cut off in a difficult place". Encountered in `feat-mcp-shim`, mutant `D1` survived two
+consecutive turns.
 
-## Vì sao ca cũ vô hại dù nhìn rất thuyết phục
+## Why is the old case harmless even though it looks very convincing?
 
-Ca framing cũ có chú thích "a non-ASCII identifier straddling the chunk boundaries" và fixture đầy
-ký tự đa byte. Nhưng phép chia là `Math.ceil(length / 7)` trên **chỉ số chuỗi**, còn chiều ngược lại
-chia theo bước 30.000 byte với tiền tố JSON dài 42 byte — mọi ranh giới đều rơi đúng đầu một ký tự.
-Khi mọi ranh giới là ranh giới ký tự, hai bộ giải mã cho ra **cùng một chuỗi**, nên mutant sống.
+The old framing case had the comment "a non-ASCII identifier straddling the chunk boundaries" and the fixture was full
+multibyte characters. But the division is `Math.ceil(length / 7)` on **string index**, and the other way around
+split in 30,000-byte steps with a 42-byte JSON prefix — every boundary falls at the beginning of a character.
+When all boundaries are character boundaries, the two decoders output the **same string**, so the mutant lives.
 
-Bài học: fixture *chứa* ký tự đa byte không chứng minh gì. Thứ cần chứng minh là **ranh giới nằm
-trong lòng một ký tự**, và điều đó kiểm tra được bằng một phép so bit:
+Lesson: fixture *contains* multibyte characters that prove nothing. What needs to be proven is **the boundary lies
+inside a character**, and that can be checked with a bit comparison:
 
 ```ts
 const cut = buffer.indexOf(Buffer.from("𝄞", "utf8")) + 1;
-assert.equal((buffer[cut] as number) & 0xc0, 0x80); // byte continuation ⇒ cắt giữa ký tự
+assert.equal((buffer[cut] as number) & 0xc0, 0x80); // byte continuation ⇒ cut between characters
 ```
 
-Chọn ký tự 4 byte để có ba byte continuation kẹt lại trong decoder, thay vì một.
+Choose a 4-byte character to have three continuation bytes stuck in the decoder, instead of one.
 
-## Cắt đúng chỗ vẫn chưa đủ: phải chứng minh chunk tới thành hai lần đọc
+## Cutting in the right place is not enough: we must prove that the incoming chunk is read twice
 
-Trên socket, người viết test **không** chọn được ranh giới đọc: kernel gộp nhiều lần `write()` nhỏ
-vào một lần `read()`, và với `PassThrough` thì `Readable.read()` cũng nối các chunk đang nằm trong
-buffer. Ghi hai lần liên tiếp rồi tin rằng bên kia thấy hai chunk là một giả định không có bằng
-chứng — đúng loại giả định đã làm hỏng ca cũ.
+On sockets, the test writer **doesn't** get to choose the read boundary: the kernel bundles many small `write()`s
+into one `read()`, and with `PassThrough`, `Readable.read()` also concatenates the chunks in
+buffer. buffer. Recording twice in a row and then believing that the other party saw two chunks is an unwarranted assumption
+proof — exactly the kind of assumption that ruined the old case.
 
-Cách chứng minh, dùng được cho cả hai chiều:
+Proof that can be used in both directions:
 
-1. Ghép một **thông điệp neo** (một dòng hoàn chỉnh, có `\n`) vào *cùng một lần ghi* với phần đầu bị
-   cắt. Framer xử lý trọn một chunk trong một lời gọi `push()`, nên thấy thông điệp neo ở đầu ra
-   nghĩa là phần đầu đã nằm trong decoder — bằng chứng cơ học, không phải `setTimeout`.
-2. Chỉ ghi phần đuôi **sau** khi thông điệp neo đã tới, cộng một khoảng lắng ~100 ms. Khoảng lắng
-   loại nốt trường hợp kernel tự tách chunk thứ nhất rồi mới giao phần đầu.
-3. So sánh **toàn văn** chuỗi nhận được với bản gốc. "Parse được thành JSON" là khẳng định rỗng ở
-   đây: `chunk.toString()` trên điểm cắt giữa ký tự sinh ra `����` nằm trong một string value, JSON
-   vẫn hợp lệ — đúng kịch bản xấu nhất, không throw, không đỏ, chỉ âm thầm sai.
+1. Concatenate an **anchor message** (a complete line, with `\n`) into *the same write* with the missing beginning
+   cut. Framer processes an entire chunk in a single `push()` call, so the anchor message is seen in the output
+   meaning the header is already in the decoder — mechanical proof, not `setTimeout`.
+2. Write only the tail **after** the anchor message has arrived, plus a ~100 ms delay. Settling interval
+   Node type is the case where the kernel separates the first chunk and then delivers the first part.
+3. Compare the **full text** received string with the original. "Parse into JSON" is an empty assertion
+   Here: `chunk.toString()` on the character cutoff point produces `����` in a string value, JSON
+   still valid — correct worst case scenario, no throw, no red, just silently false.
 
-Kèm một tiện ích nhỏ đáng có: so sánh hai chuỗi 200 KB bằng `assert.equal` in ra một khối vô nghĩa;
-hàm so sánh riêng báo **chỉ số ký tự lệch đầu tiên** cùng 24 ký tự quanh đó thì đọc được ngay.
+Includes a nice little utility: comparing two 200 KB strings with `assert.equal` prints a meaningless block;
+The separate comparison function reports **the first offset character index** and the 24 surrounding characters so it can be read immediately.
 
-## Framer của chính oracle không được là cái hỏng
+## Oracle's own Framer cannot be broken
 
-Ca này còn ẩn một bẫy ngược: phía daemon trong test tự ghép chunk bằng `chunk.toString("utf8")`. Khi
-shim ghi một dòng 200 KB trong một lần `write()`, kernel trả về theo ranh giới của nó, và một ranh
-giới rơi giữa ký tự sẽ làm hỏng **thứ oracle đo được** chứ không phải thứ nó kiểm thử. Bộ ghép chunk
-của test phải dùng `StringDecoder` trước khi nói bất cứ điều gì về byte-exact.
+This case also hides a reverse trap: the daemon side in the test automatically assembles the chunks with `chunk.toString("utf8")`. When
+shim writes a 200 KB line in one `write()` pass, the kernel returns according to its boundary, and a
+Borders falling between characters will break **what oracle measures**, not what it tests. Chunk assembler
+of test must use `StringDecoder` before saying anything about byte-exact.
 
-## Dấu hiệu nhận biết đã làm đủ
+## Signs that you've done enough
 
-Mutant đổi `StringDecoder` thành `toString()` phải đỏ ở **từng chiều một cách độc lập** (đo riêng
-bằng một spec tạm chỉ giữ một chiều), và dòng đỏ phải nêu chỉ số ký tự lệch, không phải một timeout.
+Mutant changes `StringDecoder` to `toString()` must be red in **each dimension independently** (measured separately
+with a temporary spec that only holds one direction), and the red line must state the offset character index, not a timeout.

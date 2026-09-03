@@ -1,21 +1,21 @@
-// references — tool `java_references`: các vị trí tham chiếu tới symbol tại `path/line/column`
-// (harness/docs/design/tool-surface.md bảng tool, mục "Result shaping — Size").
+// references — `java_references` tool: positions referencing the symbol at `path/line/column`
+// (harness/docs/design/tool-surface.md tool table, "Result shaping — Size").
 //
-// Bất biến sở hữu tại đây:
-//   INV-TOOL-3  mọi danh sách vượt cap đã cấu hình luôn được trả về ở dạng đã cắt KÈM
-//               `truncated: true` và tổng số THỰC — không bao giờ bị cắt im lặng, không bao giờ
-//               trả về nguyên vẹn không giới hạn.
+// Invariant owned here:
+//   INV-TOOL-3  every list exceeding its configured cap is returned truncated WITH
+//               `truncated: true` and its REAL total—never silently truncated and never returned
+//               unbounded in full.
 //
-// Tệp này là một tool mỏng: nó không tự cộng trừ một chỉ số dòng hay cột nào. Mọi vị trí đi ra đều
-// qua `fromLspRange` của tool-layer, và vị trí đi vào qua `validatePosition` — đúng một ranh giới
-// chuyển đổi cho toàn hệ thống (INV-TOOL-1). Thứ tự các bước cũng lấy nguyên của tool-layer:
-// hỏi workspace → đọc nội dung hiện tại → xác thực toạ độ → chỉ khi đó mới phát LSP request.
-// `callPositionalTool` chưa nhận capability `references`, mà tệp tool-layer đang được checker xem
-// xét nên không được sửa ở nhánh này; vì vậy đường đi được lắp lại từ chính các hàm nó xuất ra.
+// This is a thin tool: it performs no line or column arithmetic. Every outgoing position crosses
+// tool-layer's `fromLspRange`, and every incoming position crosses `validatePosition`—one conversion
+// boundary for the whole system (INV-TOOL-1). Step order is inherited from tool-layer: ask workspace
+// → read current content → validate coordinates → only then send an LSP request. `callPositionalTool`
+// does not yet accept `references`, and tool-layer is under checker review and must not change on this
+// branch, so this flow is assembled from the functions it exports.
 //
-// Vì sao cap không phải một hằng số cứng trên đường cắt: X-008 CÒN MỞ. Con số 200 hiện chỉ là
-// khuyến nghị, nên nó nằm ở đúng một chỗ có tên (`DEFAULT_REFERENCE_CAP`) và bị `ReferencesOptions.cap`
-// ghi đè được. Khi X-008 chốt, chỉ một dòng đổi giá trị; không có nhánh logic nào phải đọc lại.
+// Why the cap is not a hard-coded cutoff: X-008 remains OPEN. The current value, 200, is only a
+// recommendation, so it lives in one named location (`DEFAULT_REFERENCE_CAP`) and can be overridden
+// by `ReferencesOptions.cap`. When X-008 closes, one line changes value; no logic branch must be revisited.
 
 import {
   fromLspRange,
@@ -32,9 +32,9 @@ import {
 export const REFERENCES_METHOD = "textDocument/references";
 
 /**
- * Cap mặc định cho danh sách reference. Đây là khuyến nghị của X-008 khi quyết định đó còn mở —
- * điểm duy nhất trong tệp mang con số này. Logic cắt bên dưới chỉ đọc biến `cap`, không bao giờ đọc
- * hằng số này trực tiếp.
+ * Default cap for reference lists. This is X-008's recommendation while that decision remains open:
+ * the only place in this file that carries this number. The cutoff logic below reads only `cap`,
+ * never this constant directly.
  */
 export const DEFAULT_REFERENCE_CAP = 200;
 
@@ -51,24 +51,24 @@ export interface ReferenceLocation {
 }
 
 /**
- * `total` và `truncated` KHÔNG bao giờ là trường tuỳ chọn. Một trường vắng mặt khi danh sách vừa
- * đủ và có mặt khi bị cắt sẽ khiến người đọc phải suy đoán, và một lỗi cắt im lặng trông y hệt một
- * câu trả lời đầy đủ. Luôn có mặt, kể cả khi `truncated === false`.
+ * `total` and `truncated` are NEVER optional fields. A field absent when a list fits but present
+ * when truncated forces readers to infer state, and a silent truncation looks exactly like a full
+ * answer. They are always present, even when `truncated === false`.
  */
 export interface ReferencesAnswer {
   path: string;
   workspaceId: string;
   position: SourcePosition;
-  /** Cap thực sự đã áp dụng cho lời gọi này — người gọi đọc được mình đang bị giới hạn ở đâu. */
+  /** The cap actually applied to this call—callers can see where they are limited. */
   cap: number;
-  /** Tổng số reference TRƯỚC khi cắt. Bằng `references.length` khi và chỉ khi `truncated === false`. */
+  /** Total references BEFORE truncation; equals `references.length` exactly when `truncated === false`. */
   total: number;
   truncated: boolean;
   references: ReferenceLocation[];
 }
 
 export interface ReferencesOptions {
-  /** Ghi đè cap của lời gọi này. Bỏ trống thì dùng `DEFAULT_REFERENCE_CAP`. */
+  /** Override the cap for this call. Omit it to use `DEFAULT_REFERENCE_CAP`. */
   cap?: number;
 }
 
@@ -121,9 +121,9 @@ export async function references(
     return fail("workspace-crashed", error instanceof Error ? error.message : String(error));
   }
 
-  // INV-TOOL-3. `total` được chốt TRƯỚC khi cắt: sau `slice` thì tổng số thực không còn tồn tại ở
-  // đâu nữa, nên đọc `references.length` ra làm tổng là cách hỏng kinh điển của bất biến này.
-  // `truncated` so bằng `>` chứ không phải `>=`: đúng bằng cap là vừa đủ, chưa mất phần tử nào.
+  // INV-TOOL-3. Fix `total` BEFORE truncation: after `slice`, the real total no longer exists, so
+  // reading `references.length` as total is the classic failure of this invariant.
+  // Compare `truncated` with `>`, not `>=`: exactly the cap fits and loses no item.
   const found = shapeLocations(raw);
   const total = found.length;
   const truncated = total > cap;

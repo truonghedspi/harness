@@ -1,39 +1,39 @@
-# Cửa sổ khởi động FSEvents nuốt lần ghi đầu tiên — và biểu hiện là im lặng, không phải sai
+# The FSEvents startup window swallows the first write — and shows up as silent, not false
 
-**Khi nào áp dụng:** mọi trường hợp kiểm thử điều khiển một thư mục tạm thật qua
-`fs.watch(dir, { recursive: true })` trên macOS. Gặp ở `feat-file-sync-watcher`, lượt 2, khi thêm
-bốn ca mới làm lộ ra lỗi vốn đã nằm sẵn trong tám ca cũ.
+**When applicable:** All test cases that control a temporary directory pass
+`fs.watch(dir, { recursive: true })` on macOS. Found in `feat-file-sync-watcher`, turn 2, when added
+The four new cases revealed errors that were already present in the eight old cases.
 
-## Điều trông như lỗi mã nguồn nhưng thật ra là môi trường
+## What looks like a source code error is actually an environmental problem
 
-libuv khởi động luồng FSEvents trên một thread khác, **sau** khi `fs.watch()` đã trả về. Lần ghi
-rơi vào khoảng giữa hai mốc đó không được chuyển tới muộn — nó không bao giờ được chuyển tới. Vì
-watcher chỉ flush khi có sự kiện đánh thức, hậu quả không phải một thông báo sai mà là im lặng
-tuyệt đối: trường hợp treo hết ngân sách chờ rồi báo timeout, đúng dạng thất bại mà người đọc dễ
-quy cho bản triển khai.
+libuv starts the FSEvents stream on another thread, **after** after `fs.watch()` has returned. Recorded times
+falling between those two marks is not delivered late — it is never delivered. Because
+The watcher only flushes when there is a wakeup event, resulting not in a false positive but in silence
+Absolutely: the case of hanging up all the waiting budget and then reporting a timeout, exactly the type of failure that is easy for readers to read
+attributed to the implementation.
 
-Số đo cụ thể trước khi sửa: 2 trên 4 lần chạy `npm run test:integration` đỏ. Chạy riêng một tệp
-spec thì 12 trên 12 lần xanh — cửa sổ chỉ đủ rộng khi máy đang tải, mà `--test` chạy song song mọi
-tệp spec. Nạn nhân là **trường hợp nào ghi trước tiên**, không cố định, nên hai lần liên tiếp đổ vào
-hai ca khác nhau. Đó là dấu hiệu nhận dạng: nếu mỗi lần đỏ lại là một ca khác và luôn ở lần chờ đầu
-tiên của ca đó, hãy nghi cửa sổ khởi động trước khi nghi phần diff.
+Specific measurements before editing: 2 out of 4 runs of `npm run test:integration` red. Run a file separately
+spec is 12 out of 12 times green — the window is only wide enough when the machine is loading, but `--test` runs every
+spec file. The victim is **whichever case is listed first**, not fixed, so it is added twice in a row
+two different cases. That's the identifying sign: if every time it turns red, it's a different case and always in the first wait
+First of that case, test the boot window before testing the diff.
 
-## Cách sửa, nằm trọn trong tệp spec
+## How to fix it, it's all in the spec file
 
-1. Ghi một tệp mồi mà watcher bỏ qua **theo cấu trúc** — ở đây `.fs-watch-probe`, không phải
-   `*.java`, không phải `pom.xml` — nên nó không thể xuất hiện trong bất kỳ thông báo nào. Nó chỉ
-   dùng để đánh thức luồng sự kiện.
-2. Chỉ hích khi `watcher.lastChangeAt` còn `undefined`, tức chỉ bên trong cửa sổ khởi động. Khi một
-   sự kiện bất kỳ đã được chuyển tới, luồng đã sống và cú hích chỉ còn làm nhiễu thời điểm.
-3. Cú hích không thể che một thông báo thiếu: đánh thức watcher khiến nó quét lại và so toàn bộ cây
-   được theo dõi, nên thay đổi mà bản triển khai vốn không báo thì vẫn không được báo. Đây là lý do
-   cách sửa này không làm yếu oracle — đã kiểm chứng bằng cách dựng lại cả chín mutant sau khi sửa,
-   tất cả vẫn chết.
-4. Ca nào cần ảnh nền chính xác thì đặt toàn bộ phần chuẩn bị **trước** `start()`, để lần quét khởi
-   động chốt ảnh nền, thay vì để một flush chạy đua với thao tác chuẩn bị.
+1. Write a decoy file that the watcher ignores **in structure** — here `.fs-watch-probe`, not
+   `*.java`, not `pom.xml` — so it cannot appear in any notifications. It just
+   used to wake up the event stream.
+2. Only kicks when `watcher.lastChangeAt` is `undefined`, i.e. only inside the startup window. When one
+   Any event has been delivered, the stream is live, and the push just disturbs the timing.
+3. A nudge cannot cover a missing message: waking up the watcher causes it to rescan and compare the entire tree
+   is tracked, so changes that are not reported in the implementation are still not reported. Here's why
+   This fix does not weaken the oracle — verified by rebuilding all nine mutants after correction,
+   all are still dead.
+4. If you need an accurate background image, put all the preparation **before** `start()`, so that the scan starts
+   dynamically latch the background image, instead of having a flush race through the prepare operation.
 
-## Đường ranh cần giữ
+## Boundaries need to be kept
 
-Nếu muốn chính bản triển khai đóng cửa sổ này (quét lại một lần ngắn sau `start()`) thì đó là thay
-đổi `src/`, phải đi thành tính năng riêng. Trong một lượt sửa oracle mà checker đã xác nhận bản
-triển khai đúng, sửa `src/` là cách nhanh nhất để bị từ chối lần nữa.
+If you want the deployment itself to close this window (a short rescan after `start()`) then that's fine
+change `src/`, must go as separate feature. During an oracle edit, the checker confirmed the version
+Correct implementation, fixing `src/` is the fastest way to get rejected again.

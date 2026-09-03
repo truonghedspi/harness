@@ -1,67 +1,66 @@
-# Cấp ngân sách ở lớp test mới chặn được nửa cơn treo
+# Allocating budget in the testing class can only prevent half of the suspension
 
-**Khi nào áp dụng:** checker báo một mutant làm bộ chạy TREO thay vì đỏ, và yêu cầu bạn biến nó
-thành một ca đỏ có kiểm soát. Gặp ở `feat-daemon-supervisor` lượt 2, mutant DM10 (shutdown không
-`destroy()` các connection đã accept, nên `server.close()` không bao giờ gọi callback).
+**When to apply:** Checker reports a mutant that appears to run HANG instead of red, and asks you to turn it
+into a controlled red shift. Encountered in `feat-daemon-supervisor` turn 2, mutant DM10 (shutdown no
+`destroy()` accepted connections, so `server.close()` never calls the callback).
 
-## 1. Ngân sách trong móc `t.after` chữa triệu chứng, không chữa nguyên nhân
+## 1. The budget in the `t.after` hook treats the symptom, not the cause
 
-`node --test` áp `{ timeout }` cho **thân** hàm kiểm thử, không áp cho móc `t.after`. Nên bước đầu
-tiên ai cũng nghĩ tới là bọc `shutdown()` trong `Promise.race` với một bộ đếm giờ. Việc đó có tác
-dụng: cả 9 ca đều báo đỏ với thông điệp có tên, trong vài giây.
+`node --test` applies `{ timeout }` to the **body** of the test function, not the `t.after` hook. Should be the first step
+The first thing that comes to mind is to wrap `shutdown()` in `Promise.race` with a timer. That worked
+application: all 9 cases reported red with a message named, within a few seconds.
 
-Nhưng tiến trình **vẫn không bao giờ thoát**. Đo được: mọi ca đã in kết quả, rồi bộ chạy đứng im
-cho tới khi tôi SIGKILL ở 120 giây. Lý do là tài nguyên rò rỉ không phải một promise — nó là một
-`net.Server` còn listening với connection còn mở, và nó giữ event loop sống sau khi test kết thúc.
-Ngân sách phía test buông promise ra chứ không đóng được server, vì tập connection là riêng tư của
-bản triển khai.
+But the process **still never exits**. Measuring: all cases have printed results, then the machine runs still
+until I SIGKILL at 120 seconds. The reason is that the leaked resource is not a promise — it is one
+`net.Server` is still listening with the connection open, and it keeps the event loop alive after the test ends.
+The test side releases the promise but cannot close the server, because the connection file is private
+deployment version.
 
-Quy tắc rút ra: **hỏi tài nguyên nào đang giữ event loop, đừng chỉ hỏi lời `await` nào đang treo.**
-Nếu tài nguyên đó nằm trong `src`, hạn chót phải nằm trong `src`.
+Takeaway rule: **ask which resource is holding the event loop, don't just ask which `await` statement is hanging.**
+If the resource is in `src`, the deadline must be in `src`.
 
-Ở đây lời sửa là cho `closeServer` một hạn cưỡng bức: hết `FORCE_CLOSE_AFTER_MS` thì `destroy()`
-mọi connection còn lại, buộc `close()` hoàn tất. Đây không phải nới lỏng gì cả — nó chính là bất
-biến đang xét: trình xử lý tín hiệu gọi `shutdown()`, nên một `server.close()` kẹt khiến daemon
-không bao giờ thoát và bỏ lại toàn bộ tiến trình con, tức đúng điều INV-SHIM-4 cấm.
+Here the fix is to give `closeServer` a forced limit: when `FORCE_CLOSE_AFTER_MS` expires, `destroy()`
+any remaining connections, force `close()` to complete. This is not laxity at all — it is just illegal
+variable in question: signal handler calls `shutdown()`, so a stuck `server.close()` causes daemon
+never exit and leave all child processes behind, which is exactly what INV-SHIM-4 prohibits.
 
-Lưu ý API: `net.Server` **không** có `closeAllConnections()`; đó là API của `http.Server`. Tập
-connection do chính component ghi nhận là cách kế toán duy nhất.
+API Note: `net.Server` **does** not have `closeAllConnections()`; which is the API of `http.Server`. Vol
+connection recorded by the component itself is the only way of accounting.
 
-## 2. Hạn cưỡng bức sẽ giết chết chính ca vừa dựng, nếu không tách hai con số
+## 2. The forced limit will kill the song you just created, if you don't separate the two numbers
 
-Thêm đường cưỡng bức vào `src` làm mutant hết treo — nhưng cũng suýt làm nó hết đỏ. Dưới DM10, mã
-rơi xuống đường chậm, connection vẫn bị đóng, mọi khẳng định về kết quả vẫn đúng. Mutant trở thành
-**tương đương**, và ca vừa viết mất sạch sức phân biệt.
+Adding forced sugar to `src` stopped the mutant from crashing — but also nearly stopped it from turning red. Below DM10, code
+falls on the slow line, the connection is still closed, all assertions about the result are still true. Mutant becomes
+**equivalent**, and the case just written loses all power of distinction.
 
-Cách giữ: cho ca đòi hỏi shutdown xong trong một ngân sách nằm **hẳn dưới** hạn cưỡng bức (1000 ms
-so với 2000 ms). Đường nhanh phải xong trong vài ms; chạm tới đường cưỡng bức tự nó đã là thoái
-hoá. Đường cưỡng bức là lưới an toàn, không phải đường đi thường, và ca phải nói đúng điều đó.
+How to keep: let the shutdown request complete within a budget that is **well below** the forcing limit (1000 ms
+compared to 2000 ms). The fast path must complete in a few ms; touching the forced line is itself a withdrawal
+chemistry. The forced path is a safety net, not a normal path, and you have to say that correctly.
 
-Tổng quát: mỗi khi thêm một fallback để chặn treo, tìm ngay con số phân biệt fallback với đường
-thường, rồi khẳng định con số đó. Nếu không tìm được, fallback vừa che mất một mutant.
+In general: every time you add a fallback to prevent crashes, immediately find the number that distinguishes the fallback from the path
+usually, then confirm that number. If you can't find it, the fallback has just hidden a mutant.
 
-## 3. Mutant làm cạn event loop huỷ cả tệp, không đỏ một ca
+## 3. Mutant exhausts the event loop and destroys the entire file, not a single shift
 
-Bản đầu của ca khoá mồ côi không bọc ngân sách. Dưới mutant DM5, `startDaemon` lặp chờ khoá, và
-`sleep()` trong vòng lặp đó dùng timer đã `unref()`. Không còn gì ref, event loop cạn, và
-`node --test` huỷ **bốn ca** với `Promise resolution is still pending but the event loop has
-already resolved` — 4 cancelled, 0 fail, không ca nào nêu tên khẳng định của nó.
+The first version of the orphan lock case did not cover the budget. Under mutant DM5, `startDaemon` loops waiting for a lock, and
+The `sleep()` in that loop uses the timer already `unref()`. There are no more refs left, the event loop is exhausted, and
+`node --test` cancels **four cases** with `Promise resolution is still pending but the event loop has
+already resolved` — 4 canceled, 0 failed, none of the cases named their assertions.
 
-Đây trông như lỗi hạ tầng nhưng là hệ quả trực tiếp của mã nguồn: mọi vòng chờ dựng trên timer đã
-unref đều biến "chờ lâu" thành "tiến trình thoát sớm". Bộ đếm giờ **có ref** của `withBudget` giữ
-event loop sống đủ để hạn của nó nổ, và kết quả trở thành đúng một ca đỏ có tên.
+This looks like an infrastructure error but is a direct consequence of the source code: every waiting loop builds on the timer
+unref turns "long wait" into "early exit process". The timer **has ref** of `withBudget` kept
+The event loop lives long enough for its limit to explode, and the result becomes exactly one named case.
 
-Dấu hiệu nhận biết: `# cancelled` khác 0 trong khi `# fail` bằng 0. Đừng đọc nó là "flaky"; đọc nó
-là "có ai đó vừa để event loop cạn".
+Tell-tale signs: `# canceled` is non-zero while `# failed` is zero. Don't read it as "flaky"; read it
+is "someone just let the event loop dry".
 
-## 4. Chú thích "cửa chặn này tồn tại vì X" đáng để đo lại
+## 4. The comment "this gate exists because of X" is worth repeating
 
-Chú thích của `MAX_SOCKET_PATH_LENGTH` nói đường dẫn quá dài "fails deep inside libuv with an opaque
-error". Đo trên Node 22.23.2 / macOS: sai hẳn. `listen()` trên đường dẫn 234 byte **trả về thành
-công**, `server.listening` là true, `address()` trả lại nguyên đường dẫn dài — nhưng libuv cắt cụt
-tên vào `sun_path` nên không có tệp socket nào ở đường dẫn được yêu cầu. Vì `probeDaemon` mở đầu
-bằng `existsSync(socketPath)`, cửa đó mãi mãi sai và không launcher nào sau đó thấy được daemon.
+The comment of `MAX_SOCKET_PATH_LENGTH` says the path is too long "fails deep inside libuv with an opaque
+error". Measured on Node 22.23.2 / macOS: completely wrong. `listen()` on 234 byte path **returns to
+public**, `server.listening` is true, `address()` returns the full long path — but libuv truncate
+name into `sun_path` so there is no socket file in the requested path. Because `probeDaemon` opens
+with `existsSync(socketPath)`, the door is forever wrong and no subsequent launcher can see the daemon.
 
-Hệ quả thật nguy hiểm hơn nhiều so với điều chú thích mô tả, và nó chỉ lộ ra khi dựng mutant bỏ cửa
-chặn rồi hỏi "chuyện gì thật sự xảy ra". Khi một ca phải chứng minh cửa chặn chịu lực, hãy đo hành
-vi khi vượt ngưỡng trước, đừng tin lời chú thích viết cạnh nó.
+The consequences are much more dangerous than the caption describes, and it only becomes apparent when the mutant leaves the door
+stopped and asked "what really happened". When a case must prove that the door can withstand pressure, measure iten when you cross the previous threshold, don't believe the legend written next to it.

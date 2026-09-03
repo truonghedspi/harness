@@ -126,7 +126,7 @@ One entry per decision. Newest first.
   stop exercising the collector configuration.
 - **Constraint it satisfies:** `TCON-COLLECTOR-0001` through `0004` now have a typed source whose
   fields can be varied independently and whose eligibility intersection is explicit.
-- **Provenance:** project owner answered “duyệt JSONL fixture” in the project conversation on
+- **Provenance:** project owner answered “approve the JSONL fixture” in the project conversation on
   2026-08-27 after seeing the complete example and the Level-3 boundary.
 - **Approval receipt:** bound to design digest `c206b89185ec03cd` in
   `loop/design-approval.json`; changing the fixture contract invalidates it.
@@ -147,14 +147,14 @@ One entry per decision. Newest first.
 - **Lifecycle policy included in the question:** mount `/fixtures` read-only, wait for the health
   endpoint within the configured readiness deadline, and force-stop after the shutdown deadline
   while reporting cleanup failure.
-- **Rejected alternative:** A pinned local binary. The owner answered “dùng docker/oci” in the
+- **Rejected alternative:** A pinned local binary. The owner answered “use Docker/OCI” in the
   project conversation on 2026-08-27.
 - **Constraint it satisfies:** An unavailable Docker runtime or pinned image remains an explicit
   environment checkpoint; it may not be replaced by a fake collector.
 - **Provenance:** human decision, project conversation on 2026-08-27; scope `feat-009`, collector
   contract runtime and lifecycle.
 - **Digest provenance:** official OpenTelemetry release `v0.159.0`; Docker Hub tag metadata read on
-  2026-08-27 returned the approved multi-platform manifest-list digest. The owner answered “duyệt
+  2026-08-27 returned the approved multi-platform manifest-list digest. The owner answered “approve
   digest” after seeing the complete reference.
 - **Approval receipt:** the owner-approved launcher revision is bound to design digest
   `9cdc628124487918` in `loop/design-approval.json`; changing any design file invalidates it.

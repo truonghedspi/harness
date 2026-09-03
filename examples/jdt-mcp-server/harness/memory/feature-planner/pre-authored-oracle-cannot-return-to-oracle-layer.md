@@ -1,24 +1,24 @@
-# Một oracle viết sẵn không thể quay lại lớp oracle sau khi đã có evidence
+# A prewritten oracle cannot return to the oracle class after obtaining evidence
 
-**Bối cảnh.** 2026-08-22, xử lý FOLLOW-UP của `feat-workspace-pool`. Checker phát hiện
-`TCON-POOL-0003` trong `test/integration/pool-lifecycle.integration.spec.ts` đỏ vì lỗi của chính
-oracle, không phải của bản triển khai. Phản xạ đầu tiên là đúng theo sách vở: lỗi oracle của một
-tính năng `prove` thuộc về test-designer/test-implementer, không phải người lập kế hoạch.
+**Context.** 2026-08-22, handle FOLLOW-UP of `feat-workspace-pool`. Checker detected
+`TCON-POOL-0003` in `test/integration/pool-lifecycle.integration.spec.ts` is red because of main error
+oracle, not the implementation's. The first reflex is by the book: one's oracle error
+The `prove` feature belongs to test-designer/test-implementer, not the planner.
 
-**Điều làm phản xạ đó sai trong dự án này.** Quy tắc test-implementer trong `loop/route.mjs` chỉ khớp
-khi `evidence` rỗng — đó là cách nó phân biệt "oracle chưa viết" với "oracle đã viết". Nhưng dự án
-này viết oracle TRƯỚC khi có bản triển khai, và mỗi lần viết xong lại ghi một lần chạy đỏ vào
-`evidence`. Từ giây phút đó, tính năng `prove` ấy vĩnh viễn không quay lại được lớp oracle: nó chỉ
-còn khớp quy tắc maker. Đồng thời maker-prompt cấm maker viết lại test do lớp oracle tạo ra. Kết quả
-là một cái bẫy im lặng — không nút nào trong đồ thị được phép sửa tệp đó.
+**What makes that reflection wrong in this project.** The test-implementer rule in `loop/route.mjs` only matches
+when `evidence` is empty — that's how it distinguishes "unwritten oracles" from "written oracles". But project
+This oracle writes BEFORE there is a deployment, and each time it is written, a red run is recorded
+`evidence`. From that moment on, that `prove` feature never returned to the oracle layer: it just
+also matches maker rules. At the same time, maker-prompt prohibits maker from rewriting tests created by the oracle class. Results
+is a silent trap — no node in the graph is allowed to edit that file.
 
-**Cách xử lý đã dùng.** Không xoá `evidence` để ép router đổi hướng (làm sai lịch sử). Thay vào đó,
-cho phép trước đúng một sửa đổi có giới hạn, ghi trong `checkerNotes` và trong gói ngữ cảnh, kèm căn
-cứ là văn bản đã thẩm định của chính điều kiện — sửa oracle để khớp lại điều kiện của nó thì không
-phải thiết kế điều kiện mới, nên không cần một lượt test-designer. Đồng thời chốt rõ phần KHÔNG được
-đụng (khẳng định mang sức mạnh falsifier), để quyền sửa không biến thành quyền làm yếu test.
+**Workaround used.** Do not remove `evidence` to force the router to change direction (wrong history). Instead,
+Allows exactly one limited edit in advance, recorded in `checkerNotes` and in the context package, with justification
+just the qualified text of the condition itself — editing the oracle to match its condition does not
+must design new conditions, so there is no need for a test-designer. At the same time, clearly state the NO part
+impact (affirmation carries the power of falsifier), so that the right to correct does not turn into the right to weaken the test.
 
-**Dấu hiệu nhận biết lần sau.** Bất cứ khi nào một tính năng `prove` có `evidence` không rỗng nhưng
-oracle của nó cần sửa, đừng chờ router đưa nó về lớp oracle — router sẽ không làm thế. Hoặc viết
-quyền sửa có giới hạn vào chính entry của tính năng, hoặc cắt hẳn một tính năng oracle mới với tệp
-riêng.
+**Tell you later.** Whenever a `prove` feature has `evidence` that is not empty but
+Its oracle needs fixing, don't wait for the router to return it to the oracle layer — the router won't. Or write
+Limited editing rights to the feature entry itself, or completely cut a new oracle feature from the file
+private.

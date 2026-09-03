@@ -1,43 +1,43 @@
-# Sinh một sự kiện `error` thật trên socket, và vì sao xoá listener lại **không** làm chết tiến trình
+# Generates a real `error` event on the socket, and why deleting the listener **doesn't** kill the process
 
-**Khi nào áp dụng:** cần một ca chạm vào nhánh `socket.on("error", …)` bằng lỗi thật, không mock.
-Gặp ở `feat-mcp-shim`, mutant `CE1`/`CE1del` sống sót hai lượt.
+**When to apply:** requires a case that hits the `socket.on("error", …)` branch with a real error, not a mock.
+Encountered in `feat-mcp-shim`, mutant `CE1`/`CE1del` survives two turns.
 
-## Thứ tự thao tác quyết định có `EPIPE` hay không
+## The order of operations determines whether to `EPIPE` or not
 
-Đo bằng probe 5 lần cho mỗi tổ hợp, trên Unix socket:
+Measure with probe 5 times for each combination, on Unix socket:
 
-| Kịch bản | Kết quả |
+| Script | Results |
 |---|---|
-| Phá socket phía daemon, rồi **ngay trong cùng khối đồng bộ** ghi một call 1 MB từ phía client | 5/5 có `error: write EPIPE` |
-| Phá trước, ghi ngay một call 64 byte | 5/5 có `EPIPE` |
-| Ghi trước (64 byte) rồi mới phá | 0/5 — không sự kiện nào |
-| Ghi trước (4 MB) rồi mới phá | 5/5 có `EPIPE` |
+| Destroy the socket on the daemon side, then **in the same synchronization block** write a 1 MB call from the client side | 5/5 has `error: write EPIPE` |
+| Break first, immediately record a 64 byte call | 5/5 has `EPIPE` |
+| Write first (64 bytes) then destroy | 0/5 — no events |
+| Record first (4 MB) then destroy | 5/5 has `EPIPE` |
 
-Cơ chế: lỗi chỉ phát sinh khi còn một lệnh ghi **đang dở** lúc peer biến mất. Ghi lớn giữ cho lệnh
-ghi còn dở qua nhiều vòng event loop; ghi nhỏ sau khi peer đã biến mất thì gặp ngay ống gãy. Cách an
-toàn nhất là kết hợp cả hai: phá trước, ghi lớn ngay sau.
+Mechanism: error only occurs when there is a write command **in progress** when the peer disappears. Remember the big hold for the command
+unfinished recording through many event loops; After the peer disappeared, I immediately encountered a broken pipe. How safe
+The best way is to combine both: break first, score big later.
 
-`resetAndDestroy()` không dùng được: nó **ném** `ERR_INVALID_HANDLE_TYPE` trên Unix socket.
+`resetAndDestroy()` fails: it **throws** `ERR_INVALID_HANDLE_TYPE` on Unix sockets.
 
-Cửa sổ này có thật trong vận hành — một MCP client không chờ shim nhận ra daemon đã chết rồi mới gọi
-tiếp — nên ca không phải tình huống dựng.
+This window is real in operation — an MCP client does not wait for the shim to recognize that the daemon is dead before calling
+continued — so the song is not a staged situation.
 
-## Xoá hẳn listener `error` không hề làm chết tiến trình
+## Removing the `error` listener completely does not kill the process
 
-Chú thích trong `src` nói "a socket with no `error` listener throws", và đó là quy tắc chung của
-Node. Nhưng trên đường `delegated`, `daemon-supervisor.probeDaemon` để lại một
-`socket.once("error", …)` **đã settled** trên chính connection được trao cho shim. Listener đó vẫn
-gắn suốt vòng đời socket, nuốt sự kiện `error` đầu tiên rồi `return` im lặng vì `settled === true`.
+The comment in `src` says "a socket with no `error` listener throws", and that's the general rule of thumb
+Node. But on the `delegated` line, `daemon-supervisor.probeDaemon` leaves one
+`socket.once("error", …)` **settled** on the connection given to the shim. That listener is still there
+attached throughout the socket lifecycle, swallowing the first `error` event and then `returning` silently because `settled === true`.
 
-Hệ quả cho người viết oracle: **không được trông chờ mutant `CE1del` làm sập tiến trình**. Ca phải có
-một mỏ neo dương chủ động — chờ `stderr` khớp `/daemon link error: \S/` — thì mới phát hiện được
-listener biến mất; nếu chỉ khẳng định "tiến trình còn sống" thì mutant sống nhăn.
+Implications for oracle writers: **don't expect the `CE1del` mutant to crash the process**. Ca must have
+an active positive anchor — waits for `stderr` to match `/daemon link error: \S/` — to detect
+listener disappears; If we only confirm that "the process is alive", then the mutant is alive.
 
-Hệ quả cho thiết kế: một listener probe còn sót là chỗ nuốt lỗi im lặng. Đã ghi vào `checkerNotes`
-để checker/planner quyết định, không sửa trong lượt maker.
+Consequence for design: a missing listener probe is a silent error swallower. Recorded to `checkerNotes`
+Let the checker/planner decide, do not edit during the maker turn.
 
-## Dấu hiệu nhận biết đã làm đủ
+## Signs that you've done enough
 
-Ca phải giết được **cả hai** biến thể: thêm `console.log` vào handler (chết ở recorder
-`process.stdout`) và xoá hẳn handler (chết ở mỏ neo `stderr`). Chỉ một trong hai là chưa đóng nhánh.
+Ca must kill **both** variants: add `console.log` to handler (kill at recorder
+`process.stdout`) and delete the handler completely (dead at anchor `stderr`). Only one of the two has not yet closed its branches.

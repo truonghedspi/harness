@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://harness.tcbs.vn/schemas/test-condition/v1",
   "title": "Test Condition",
-  "description": "Một condition = một file tại plans/<plan_id>/conditions/<id>.json. Sharded theo ID để mọi mutation là ghi đè nguyên tử một file nhỏ, không bao giờ patch file lớn.",
+  "description": "One condition per file at plans/<plan_id>/conditions/<id>.json. Sharding by ID makes every mutation an atomic replacement of a small file, never a patch to a large file.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,12 +19,12 @@
     "id": {
       "type": "string",
       "pattern": "^TCON-[A-Z]+-\\d{4}$",
-      "description": "Phải trùng tên file (không tính .json) — harness kiểm"
+      "description": "Must match the filename excluding .json — checked by the harness"
     },
     "plan_id": {
       "type": "string",
       "pattern": "^TP-[A-Z]+-\\d{4}$",
-      "description": "Phải trùng plan.json của thư mục cha — harness kiểm referential integrity"
+      "description": "Must match the parent directory's plan.json — the harness checks referential integrity"
     },
     "requirement_id": {
       "type": "string",
@@ -35,7 +35,7 @@
       "type": "string",
       "minLength": 10,
       "maxLength": 500,
-      "description": "Một câu kiểm chứng được, given/when/then hoặc bất biến"
+      "description": "One testable sentence: given/when/then or an invariant"
     },
     "behavior_shape": {
       "enum": [
@@ -74,7 +74,7 @@
         "field_sensitivity",
         "algebraic"
       ],
-      "description": "Bắt buộc khi technique = property, cấm khi khác"
+      "description": "Required when technique = property; forbidden otherwise"
     },
     "priority": {
       "enum": [
@@ -87,7 +87,7 @@
       "type": "string",
       "minLength": 10,
       "maxLength": 500,
-      "description": "Vì sao technique này khớp behavior_shape này"
+      "description": "Why this technique fits this behavior_shape"
     }
   },
   "if": {

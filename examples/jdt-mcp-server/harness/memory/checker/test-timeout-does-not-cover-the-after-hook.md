@@ -1,36 +1,36 @@
-# `{ timeout: N }` khai trên ca kiểm thử không che móc `t.after`
+# `{ timeout: N }` declared on the test case does not cover the `t.after` hook
 
-**Khi nào áp dụng:** mọi tính năng có tài nguyên phải đóng lại trong móc dọn dẹp — server, socket,
-tiến trình con, watcher — và spec dọn dẹp bằng `t.after(async () => ...)`. Gặp lần đầu ở
+**When applicable:** any feature with resources must be closed in a cleanup hook — server, socket,
+child process, watcher — and spec cleanup with `t.after(async () => ...)`. First meeting here
 `feat-daemon-supervisor` (2026-08-22).
 
-## Điều trông như đã có ràng buộc thời gian
+## It looks like there was a time constraint
 
-Cả bốn ca của spec đều khai `{ timeout: 15_000 }`. Bước 5 của checker-prompt đọc lướt qua sẽ tính là
-đạt: có con số, có giới hạn, có vẻ không thể treo.
+All four cases of the spec declare `{ timeout: 15_000 }`. Step 5 of checker-prompt skimming will count as
+pass: has a number, has a limit, seems impossible to hang.
 
-Phép đo nói khác. Dưới mutant "shutdown không destroy các connection đã accept", bộ chạy đi được 60
-giây mà mới chỉ báo xong ca 1; lần đo trước đó tôi để nó chạy hơn 8 phút cũng không có gì thêm. Thân
-hàm của ca 2 đã chạy xong hết khẳng định; thứ treo là `t.after` gọi `handle.shutdown()` →
-`server.close()`, và `server.close()` không bao giờ gọi callback khi vẫn còn connection mở.
+Measurements say otherwise. Under the mutant "shutdown does not destroy accepted connections", the runtime is 60
+seconds that only indicates the completion of shift 1; Last time I measured it, I let it run for more than 8 minutes and nothing happened. Dear
+The function of case 2 has finished running all confirmations; The thing that hangs is `t.after` calling `handle.shutdown()` →
+`server.close()`, and `server.close()` never call callbacks while the connection is still open.
 
-Nguyên nhân: `node --test` áp `timeout` cho **thân hàm ca kiểm thử**, không áp cho móc. Móc có cấu
-hình timeout riêng, mặc định không giới hạn. Một `await` không chặn trong `t.after` do đó treo vô hạn
-và không sinh ra một dòng lỗi nào.
+Cause: `node --test` applies `timeout` to **test case function body**, not hooks. Structured hook
+separate timeout configuration, unlimited by default. An `await` does not block in `t.after` thus hanging indefinitely
+and doesn't generate a single error line.
 
-## Vì sao đây là việc của checker chứ không phải chuyện nhỏ
+## Why is this a checker's job and not a small matter?
 
-`npm run test:integration` quét toàn bộ cây spec. Một lần thoái hoá ở nhánh shutdown sẽ nuốt trọn
-ngân sách baseline trong im lặng — đúng thứ bước 5 tồn tại để chặn. Và nó chỉ lộ ra dưới mutant, nên
-một lượt kiểm tra chỉ chạy bản pristine sẽ không bao giờ thấy.
+`npm run test:integration` scans the entire spec tree. One degeneration in the shutdown branch will swallow it whole
+Baseline budget in silence — exactly what step 5 exists to block. And it only shows up under mutants, so
+A test run that only runs the pristine version will never see it.
 
-## Cách kiểm rẻ
+## Cheap way to check
 
-Khi dựng mutant cho một component có vòng đời, thêm một mutant **vào đúng đường dọn dẹp** (bỏ
-`destroy()`, bỏ `close()`, bỏ `kill()`), rồi chạy với đồng hồ treo tường và một lệnh `pkill` dự
-phòng. Nếu bộ chạy không kết thúc trong ngân sách đã khai của ca, móc dọn dẹp là chỗ không có ràng
-buộc — bất kể mỗi ca khai timeout bao nhiêu.
+When constructing a mutant for a lifecycle component, add a mutant **to the correct cleanup path** (remove
+`destroy()`, omit `close()`, omit `kill()`), then run with a wall clock and a backup `pkill` command
+room. If the run does not end within the shift's declared budget, the cleanup hook is empty
+forced — regardless of each shift's timeout.
 
-Yêu cầu ghi vào `checkerNotes`: móc dọn dẹp phải tự mang ngân sách (`Promise.race` với bộ đếm giờ
-làm ca đỏ khi quá hạn), hoặc phải tháo tài nguyên phía client trước khi gọi shutdown. Bằng chứng cần
-có là **một ca đỏ trong ngân sách dưới mutant**, không phải một lần chạy xanh.
+Requires writing to `checkerNotes`: the cleanup hook must carry its own budget (`Promise.race` with timer
+red shift when overdue), or must remove client-side resources before calling shutdown. Evidence needed
+there is **a red shift in the budget under mutant**, not a green run.

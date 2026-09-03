@@ -1,7 +1,7 @@
 // Traceability (harness/skills/test-design/SKILL.md, role: Test-Implementer).
 //
 // Requirements: INV-SYNC-1, INV-ROUTE-1
-// Feature:      feat-prove-cross-process-integration
+// Feature: feat-prove-cross-process-integration
 //
 // Level 3 (process-boundary, end to end) oracle: the real shim -> daemon -> JDT LS pipeline. The
 // production daemon composition root does not yet exist as a shipped artifact, so this file builds it
@@ -29,11 +29,10 @@ const DEFINITION_MODULE = path.join(ROOT, "src/tools/definition.ts");
 
 const JDTLS_FIXTURE_HOME = path.resolve(".cache/jdtls-fixture/1.61.0.202607231254");
 
-const GREETER_SOURCE = 'package fixture;\npublic class Greeter {\n    public String greet(String name) { return "hi " + name; }\n}\n';
-const APP_SOURCE = 'package fixture;\npublic class App {\n    public static void main(String[] a) { Greeter g = new Greeter(); System.out.println(g.greet("w")); }\n}\n';
+const GREETER_SOURCE = 'package fixture;\npublic class Greeter {\n public String greet(String name) { return "hi " + name; }\n}\n';
+const APP_SOURCE = 'package fixture;\npublic class App {\n public static void main(String[] a) { Greeter g = new Greeter(); System.out.println(g.greet("w")); }\n}\n';
 
-/** Vị trí 1-based của token `greet` trong lời gọi (App.java). */
-function greetCallPosition(): { line: number; column: number } {
+/** 1-based location of the `greet` token in the call (App.java). */function greetCallPosition(): { line: number; column: number } {
   const lines = APP_SOURCE.split("\n");
   const lineIndex = lines.findIndex((line) => line.includes("g.greet("));
   assert.ok(lineIndex >= 0, "fixture must call g.greet(...)");

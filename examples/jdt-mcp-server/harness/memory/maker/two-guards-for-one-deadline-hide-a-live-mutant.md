@@ -1,37 +1,37 @@
-# Hai lớp canh gác cho cùng một thời hạn làm mutant sống sót mà oracle vẫn xanh
+# Two layers guard for the same time limit so that mutants can survive while the oracle remains green
 
-**Khi nào áp dụng:** thành phần nào có một thời hạn (deadline) được siết ở nhiều hơn một chỗ —
-readiness-gate, lsp-client, mọi vòng lặp poll có timeout riêng cho từng request. Gặp ở
-`feat-readiness-gate`, lượt 1.
+**When to apply:** Any component has a deadline that is tightened in more than one place —
+readiness-gate, lsp-client, every poll loop has its own timeout for each request. Meet at
+`feat-readiness-gate`, turn 1.
 
-## Triệu chứng
+## Symptoms
 
-Mutant nhắm đúng falsifier của `INV-READY-3` — xoá `settleBy(probe, at)` và `await` thẳng vào probe —
-chạy ra **6/6 xanh**. Không phải oracle viết ẩu: bốn ca kia đều giết mutant khác đúng như thiết kế.
+Mutant targets the correct falsifier of `INV-READY-3` — remove `settleBy(probe, at)` and `await` directly into probe —
+runs out **6/6 green**. It's not that the oracle wrote carelessly: the other four cases all killed other mutants as designed.
 
-## Nguyên nhân gốc
+## Root cause
 
-Bản triển khai siết thời hạn ở hai chỗ độc lập:
+The implementation of deadline tightening is in two independent places:
 
-1. vòng lặp trong `awaitReady` đua probe với thời hạn của người gọi (`settleBy`);
-2. `#probeOnce` kẹp `timeoutMs` của chính request về `min(probeTimeoutMs, at - Date.now())`.
+1. loop in `awaitReady` races probe to caller's deadline (`settleBy`);
+2. `#probeOnce` clamps the request's own `timeoutMs` to `min(probeTimeoutMs, at - Date.now())`.
 
-Với probe mặc định, lớp 2 một mình đã đủ làm mọi ca settle đúng hạn, nên xoá lớp 1 không đổi hành vi
-quan sát được. Oracle không yếu — nó chỉ không có ca nào đi qua vùng mà **chỉ lớp 1** phủ.
+With the default probe, layer 2 alone is enough to do all settlements on time, so removing layer 1 doesn't change the behavior.
+observable. Oracle isn't weak — it just doesn't have any cases going through the area that **only layer 1** covers.
 
-Vùng đó có thật và nguy hiểm: `probe` là tham số tiêm được (`ReadinessGateOptions.probe`), nên một
-probe do thành phần khác cung cấp có toàn quyền bỏ qua `timeoutMs`. Khi đó chỉ còn lớp 1 giữ lời hứa
-`INV-READY-3`, và mutant đã xoá đúng nó.
+That zone is real and dangerous: `probe` is an injectable parameter (`ReadinessGateOptions.probe`), so a
+probe provided by another component has the discretion to ignore `timeoutMs`. At that time, only class 1 remained to keep their promise
+`INV-READY-3`, and the mutant correctly deleted it.
 
-## Quy tắc rút ra
+## Rule of thumb
 
-Khi một mutant nhắm đúng falsifier mà vẫn sống, **đừng vội kết luận mutant tương đương**. Hỏi ngược:
-cơ chế bị xoá có phải là cơ chế duy nhất giữ bất biến đó không? Nếu không, tìm đầu vào làm cơ chế còn
-lại mất hiệu lực — thường là đúng cái seam mà thành phần cho phép tiêm từ ngoài — rồi viết ca cho
-đúng đầu vào đó. Ca mới ở đây là một probe tiêm vào không bao giờ settle và cố tình bỏ qua ngân sách
-thời gian; dựng lại mutant thì ca đó treo và bị `node --test` huỷ, tức mutant bị bắt.
+When a mutant targets the right falsifier and still lives, **don't rush to conclude that mutants are equivalent**. Ask back:
+Is the deleted mechanism the only mechanism that keeps that invariant? If not, find the input as the remaining mechanism
+lapse again — usually at the exact seam where the component allows injection from outside — then write a shift for it
+correct input. The new case here is an injected probe that never settled and intentionally ignored the budget
+time; Rebuilding the mutant will cause the case to hang and be canceled by `node --test`, meaning the mutant is captured.
 
-Dấu hiệu đọc kết quả: `node --test` báo mutant kiểu treo bằng `pass N / cancelled M` kèm
-`Promise resolution is still pending but the event loop has already resolved`, chứ không phải bằng
-một `ERR_ASSERTION`. Đó vẫn là bằng chứng đỏ hợp lệ cho một bất biến về "phải settle trong hạn" —
-treo chính là hành vi mà bất biến cấm.
+Signs of reading results: `node --test` reports suspended mutant with `pass N / canceled M` attached
+`Promise resolution is still pending but the event loop has already resolved`, not equal
+an `ERR_ASSERTION`. That's still valid red evidence for a constant about "must settle in due course" —
+hanging is the behavior that immutability prohibits.

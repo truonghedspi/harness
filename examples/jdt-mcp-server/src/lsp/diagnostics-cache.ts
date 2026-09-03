@@ -1,29 +1,29 @@
-// diagnostics-cache — nơi giữ bản báo cáo publishDiagnostics gần nhất của mỗi URI, theo mỗi
+// diagnostics-cache — which holds the most recent publishDiagnostics report of each URI, per
 // workspace (harness/docs/design/runtime-model.md, harness/docs/design/tool-surface.md).
 //
-// Bất biến sở hữu tại đây:
-//   INV-DIAG-1  đọc lại luôn trả về payload gần nhất, hoặc mốc "chưa báo cáo" tường minh; danh
-//               sách rỗng không bao giờ đứng thay cho "chưa tính".
-//   INV-DIAG-2  một publish sau cho cùng URI luôn thay thế HOÀN TOÀN publish trước; problem không
-//               bao giờ được cộng dồn qua các lần publish.
-//   INV-DIAG-3  diagnostics luôn được quy về workspace của instance đã đẩy chúng về; một URI không
-//               bao giờ được phục vụ từ cache của workspace khác.
+// Immutable ownership here:
+// INV-DIAG-1 readback always returns the closest payload, or an explicit "unreported" landmark; name
+// Empty books never stand for "uncounted".
+// INV-DIAG-2 a later publication for the same URI always COMPLETELY replaces the previous publication; problem no
+// is never cumulative across publications.
+// INV-DIAG-3 diagnostics are always referred to the workspace of the instance that pushed them; a URI does not
+// is never served from another workspace's cache.
 //
-// Vì sao cache tồn tại: spike B (harness/docs/design/evidence.md) cho thấy diagnostics tới theo kiểu
-// đẩy, không được yêu cầu, kể cả cho tệp client chưa từng didOpen. Không có lời gọi nào để "hỏi lại"
-// diagnostics, nên thứ duy nhất trả lời được java_diagnostics là bản đã bắt lấy lúc nó tới. Do đó
-// khoá là (workspaceId, uri), độc lập hoàn toàn với vòng đời open/close.
+// Why does the cache exist: spike B (harness/docs/design/evidence.md) shows incoming diagnostics as
+// push, unsolicited, even for client files that have never didOpen. There is no call to "ask again"
+// diagnostics, so the only thing that answers java_diagnostics is the version that caught it when it arrived. Therefore
+// the key is (workspaceId, uri), completely independent of the open/close lifecycle.
 //
-// Cổng LspNotificationSource là ranh giới với lsp-client, cùng lối viết mà file-sync-watcher dùng
-// cho LspNotificationSink: component khai báo cổng hẹp trong tệp của chính nó, daemon nối dây sau.
-// LspClient trở nên tương thích cấu trúc ngay khi có phương thức onNotification cùng chữ ký này;
-// hiện tại LspClient chưa định tuyến notification (thông điệp không mang id bị bỏ qua), nên phần
-// nối dây thật thuộc về feature của lsp-client, không phải tệp này.
+// The LspNotificationSource port is the boundary for lsp-client, the same syntax used by file-sync-watcher
+// for LspNotificationSink: component declares narrow port in its own file, wiring daemon later.
+// LspClient becomes structurally compatible as soon as it has an onNotification method with this signature;
+// Currently LspClient does not route notifications (messages without id are ignored), so part
+// the actual wiring belongs to the lsp-client feature, not this file.
 
 import { realpathSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-/** Chuỗi method của LSP 3.17 cho notification diagnostics đẩy về từ server. */
+/** LSP 3.17 method string for notification diagnostics pushed back from the server. */
 export const PUBLISH_DIAGNOSTICS_METHOD = "textDocument/publishDiagnostics";
 
 export interface Position {
@@ -36,7 +36,7 @@ export interface Range {
   end: Position;
 }
 
-/** Hình dạng tối thiểu của một Diagnostic theo LSP; các trường khác được giữ nguyên vẹn. */
+/** Minimum shape of a Diagnostic according to LSP; Other fields were kept intact. */
 export interface Diagnostic {
   range: Range;
   message: string;
@@ -44,15 +44,13 @@ export interface Diagnostic {
   source?: string;
   code?: string | number;
   [key: string]: unknown;
-}
-
-export interface PublishDiagnosticsParams {
+}export interface PublishDiagnosticsParams {
   uri: string;
   version?: number;
   diagnostics: Diagnostic[];
 }
 
-/** Một bản báo cáo đã được bắt lấy, kèm thời điểm nó tới. */
+/** A report has been captured, with its arrival date. */
 export interface DiagnosticsReport {
   readonly uri: string;
   readonly version?: number;
@@ -61,39 +59,39 @@ export interface DiagnosticsReport {
 }
 
 /**
- * Kết quả đọc lại. INV-DIAG-1: `reported: false` là mốc "chưa báo cáo", khác hẳn một bản báo cáo
- * hợp lệ có `diagnostics` rỗng, tức "đã tính xong và không còn vấn đề".
+ * Re-read results. INV-DIAG-1: `reported: false` is an "unreported" milestone, which is different from a report
+ * valid with empty `diagnostics`, i.e. "calculated and no more problems".
  */
 export type DiagnosticsLookup =
   | ({ readonly reported: true } & DiagnosticsReport)
   | { readonly reported: false; readonly uri: string };
 
 /**
- * Cổng tới nguồn notification của một workspace. LspClient thoả cổng này ngay khi có
- * onNotification(method, handler); cache không bao giờ tự phân tích khung LSP.
+ * Port to a workspace's notification source. LspClient responds to this port as soon as it becomes available
+ * onNotification(method, handler); cache never parses the LSP frame itself.
  */
 export interface LspNotificationSource {
   onNotification(method: string, handler: (params: unknown) => void): void;
 }
 
 export interface DiagnosticsCacheOptions {
-  /** Đồng hồ tiêm vào để test đóng dấu thời gian tất định. */
+  /** Clock injected to test deterministic time stamp. */
   now?: () => number;
 }
 
 export interface DiagnosticsCache {
   /**
-   * Nhận một payload publishDiagnostics thô cho một workspace và LƯU ĐÈ hoàn toàn mục cũ của URI
-   * đó. Trả về false khi payload không đúng dạng — khi đó cache giữ nguyên trạng thái trước.
+   * Receives a raw publishDiagnostics payload for a workspace and completely SAVES the old entry of the URI
+   * there. Returns false when the payload is malformed — then the cache remains in its previous state.
    */
   absorb(workspaceId: string, params: unknown): boolean;
-  /** Đọc lại bản báo cáo gần nhất của một URI trong một workspace. */
+  /** Read back the most recent report of a URI in a workspace. */
   get(workspaceId: string, uri: string): DiagnosticsLookup;
-  /** Toàn bộ URI đã có báo cáo của một workspace, kể cả các URI đang rỗng. */
+  /** All URIs reported for a workspace, including empty URIs. */
   list(workspaceId: string): readonly DiagnosticsReport[];
-  /** Quên sạch một workspace (dùng khi pool evict nó). */
+  /** Forgets a workspace (used when pool evicts it). */
   forget(workspaceId: string): void;
-  /** Đăng ký cache làm subscriber notification của một workspace; trả về hàm gỡ đăng ký. */
+  /** Register cache as a notification subscriber of a workspace; returns the deregister function. */
   attach(workspaceId: string, source: LspNotificationSource): () => void;
 }
 
@@ -103,9 +101,7 @@ class PushDiagnosticsCache implements DiagnosticsCache {
 
   public constructor(options: DiagnosticsCacheOptions = {}) {
     this.#now = options.now ?? Date.now;
-  }
-
-  public absorb(workspaceId: string, params: unknown): boolean {
+  }public absorb(workspaceId: string, params: unknown): boolean {
     const payload = readPublishDiagnostics(params);
     if (payload === undefined) return false;
 
@@ -117,8 +113,8 @@ class PushDiagnosticsCache implements DiagnosticsCache {
       this.#byWorkspace.set(workspaceId, workspace);
     }
 
-    // INV-DIAG-2: mô hình publish của LSP là thay-thế, không phải nối-thêm. Mục cũ của URI này
-    // biến mất hoàn toàn ở đây, kể cả khi payload mới rỗng — không đọc lại mục cũ, không hợp nhất.
+    // INV-DIAG-2: LSP's publishing model is substitution, not append. Old entry of this URI
+    // completely disappears here, even if the new payload is empty — no re-reading of the old item, no merging.
     workspace.set(uri, {
       uri,
       version: payload.version,
@@ -162,8 +158,7 @@ class PushDiagnosticsCache implements DiagnosticsCache {
  * and a directory symlink lets a caller spell one existing file two ways on any POSIX host. Cache
  * identity follows filesystem identity so a live publish remains queryable through either spelling.
  *
- * Exported because the cache's key space IS the identity space of a diagnostics URI: any caller that
- * unions its own URI list with this cache's keys must fold both sides through this one function, or
+ * Exported because the cache's key space IS the identity space of a diagnostics URI: any caller that* unions its own URI list with this cache's keys must fold both sides through this one function, or
  * one physical file lands in the union twice. There must be exactly one such function.
  */
 export function canonicalFileUri(uri: string): string {
@@ -175,8 +170,8 @@ export function canonicalFileUri(uri: string): string {
 }
 
 /**
- * Kiểm tra hình dạng payload trước khi nó chạm vào cache. Một notification hỏng bị bỏ qua thay vì
- * ghi đè một bản báo cáo hợp lệ: đây là đường đẩy một chiều, không có ai để trả lỗi về.
+ * Check the payload shape before it hits the cache. A failed notification is ignored instead
+ * override a valid report: this is a one-way push, there is no one to return errors to.
  */
 function readPublishDiagnostics(params: unknown): PublishDiagnosticsParams | undefined {
   if (typeof params !== "object" || params === null) return undefined;
@@ -190,7 +185,7 @@ function readPublishDiagnostics(params: unknown): PublishDiagnosticsParams | und
   };
 }
 
-/** Đóng băng sâu bản sao đã lưu: không người gọi nào cộng dồn được vào cache qua tham chiếu. */
+/** Deep freeze the saved copy: no caller will cache via reference. */
 function freezeDeep<T>(value: T): T {
   if (Array.isArray(value)) {
     for (const item of value) freezeDeep(item);

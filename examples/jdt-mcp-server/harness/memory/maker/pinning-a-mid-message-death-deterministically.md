@@ -1,40 +1,40 @@
-# Ghim "peer chết giữa một thông điệp" bằng một lần ghi socket duy nhất
+# Pin "peer dies in the middle of a message" with a single socket write
 
-**Khi nào áp dụng:** ca kiểm thử phải dựng kịch bản peer bị giết khi một thông điệp mới đi được nửa
-chừng — chưa đủ một dòng kết thúc bằng newline. Gặp ở `feat-mcp-shim` lượt 2 (`INV-SHIM-3`).
+**When to apply:** The test case must create a scenario where the peer is killed when a message is halfway through
+approximately — not enough of a line ending in newline. Found in `feat-mcp-shim` turn 2 (`INV-SHIM-3`).
 
-## Vấn đề
+## Problem
 
-Giết peer *giữa hai thông điệp trọn vẹn* là ca dễ và không chứng minh được điều mà chú thích thiết
-kế tuyên bố ("một lần khởi động lại có thể mất lời gọi đang bay nhưng không bao giờ làm hỏng khung").
-Ca khó đòi một điều kiện thời điểm: mảnh cụt phải **đã** nằm trong bộ đệm ghép khung của thành phần
-đang kiểm thử, **trước** khi peer chết. Cách phản xạ là ghi mảnh cụt rồi `setTimeout` một khoảng
-ngắn rồi mới SIGKILL. Khoảng chờ đó không phải bằng chứng: nếu nó ngắn hơn thực tế, ca xanh vì lý do
-khác và mutant sống sót mà không ai biết.
+Killing the peer *between two complete messages* is an easy case and doesn't prove what the comment states
+next statement ("a reboot may lose calls in flight but never damage frames").
+The difficult case requires a timing condition: the truncated fragment must **already** be in the component's frame buffer
+testing, **before** peer died. The reflective way is to write the truncated fragment and then `setTimeout` an interval
+It's short and then SIGKILL. That waiting period is not proof: if it's shorter than it actually is, it's green for a reason
+Others and mutants survived without anyone knowing.
 
-## Cách làm đúng
+## Correct way
 
-Cho peer ghi mảnh cụt trong **cùng một lần `socket.write()`** với câu trả lời của thông điệp trước
-đó:
+Have the peer write the truncated fragment in **the same `socket.write()`** as the previous message's response
+there:
 
 ```
 payload = JSON.stringify(response) + "\n" + trailingFragment
 socket.write(payload)
 ```
 
-Ca chờ câu trả lời đó xuất hiện trên stdout. Vì hai phần đi chung một lần ghi, câu trả lời có mặt
-trên stdout là bằng chứng cơ học rằng mảnh cụt đã nằm trong framer. Không còn khoảng chờ nào phải
-đoán. (Vẫn giữ một khoảng lắng ngắn sau đó, phòng trường hợp nhân tách lần ghi ấy thành hai lần đọc
-— nhưng đó là dây an toàn, không phải cơ chế chính.)
+Ca wait for that answer to appear on stdout. Since the two parts go together in one recording, the answer is present
+on stdout is mechanical proof that the truncated piece is in the framer. There's no more waiting
+guess. (There is still a short pause afterward, in case the kernel splits the write into two reads
+— but that's the seat belt, not the main mechanism.)
 
-## Vì sao đáng công
+## Why is it worth it?
 
-Hai cơ chế dư thừa trong `mcp-shim.ts` cùng thực thi một lời tuyên bố: `LineFramer` được tạo mới ở
-mỗi `attach()`, và `framer.flush()` chạy ở handler `close`. Phá từng cái một thì cái còn lại đỡ.
-Chỉ với ca ghim được đúng thời điểm ở trên, mutant kép mới lộ nguyên hình: câu trả lời cho lời gọi
-sau khi khởi động lại **biến mất hẳn**, stdout rỗng, client treo vĩnh viễn. Ca cũ giết peer giữa hai
-thông điệp trọn vẹn vẫn xanh dưới đúng mutant đó.
+Two redundant mechanisms in `mcp-shim.ts` execute the same statement: `LineFramer` is newly created at
+each `attach()`, and `framer.flush()` runs on the `close` handler. Break each one and the remaining one will be fine.
+Only with the above well-timed pinning operation did the double mutant reveal his true form: the answer to the call
+after reboot **disappeared completely**, stdout is empty, client hangs forever. The old ca killed the peer between the two
+The complete message is still there under that mutant.
 
-Ca nên đòi thêm rằng mảnh cụt được **ghi sổ đúng một lần** (`divertedLines === 1`) và hiện trên
-stderr, không chỉ "không rò ra stdout". Nếu thiếu, một bản triển khai nuốt im lặng mảnh cụt cũng
-xanh, mà nuốt im lặng chính là lỗi khó truy nhất về sau.
+You should also insist that the truncated line be **recorded exactly once** (`divertedLines === 1`) and appear on
+stderr, not just "don't leak stdout". If missing, an implementation silently swallows the missing piece as well
+blue, but keeping silent is the most difficult mistake to trace later.

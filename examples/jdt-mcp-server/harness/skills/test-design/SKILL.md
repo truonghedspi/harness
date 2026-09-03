@@ -1,194 +1,186 @@
 ---
 name: test-design
-description: Sinh test plan, test conditions, property-based tests và example tests chất lượng cao từ spec — theo quy trình 5 bước với ma trận chọn chiến lược theo hình dạng logic (logic shape). BẮT BUỘC dùng skill này mỗi khi được yêu cầu viết test plan, test case, test conditions, property test, unit test, hoặc review chất lượng test — kể cả khi yêu cầu chỉ là "viết test cho class X" hay "bổ sung test để kill surviving mutants". Cũng dùng khi cần phân xử (arbitrate) test fail là do code sai, test sai hay spec mơ hồ.
+description: Produce high-quality test plans, test conditions, property-based tests, and example tests from a specification through a five-step workflow and a logic-shape strategy matrix. This skill is REQUIRED whenever asked to write a test plan, test case, test condition, property test, unit test, or review test quality—including requests such as "write tests for class X" or "add tests to kill surviving mutants." Also use it to arbitrate whether a failed test is caused by incorrect code, an incorrect test, or an ambiguous specification.
 ---
 
 # Test Design
 
-Skill này định nghĩa quy trình sinh test plan và test case cho harness. Vai trò của agent
-được xác định bởi harness khi giao task: **Test-Designer** (sinh test plan/conditions từ spec),
-**Test-Implementer** (hiện thực hóa conditions thành test code), hoặc **Reviewer**
-(thẩm định output của hai vai trò trên). Đọc phần tương ứng với vai trò được giao.
+This skill defines the harness workflow for producing test plans and test cases. The harness
+assigns the agent role: **Test-Designer** (produces test plans/conditions from the specification),
+**Test-Implementer** (implements conditions as test code), or **Reviewer**
+(evaluates the output of the other two roles). Read the section for your assigned role.
 
-Nguyên lý nền, áp dụng cho mọi vai trò:
+Foundational principles for every role:
 
-1. **Spec là nguồn sự thật duy nhất.** Test đo "code PHẢI làm gì" (theo spec),
-   không đo "code ĐANG làm gì" (theo implementation). Test không truy vết được
-   về requirement là test vô giá trị và sẽ bị harness reject.
-2. **Kỹ thuật test chọn theo hình dạng logic (logic shape), không theo thói quen.**
-   Phân loại behavior trước, tra ma trận chiến lược sau. Không mặc định example-based
-   cho mọi thứ.
-3. **Property test và example test ngang hàng nhau** — cùng là hiện thực hóa của
-   test condition, mỗi loại đúng cho một hình dạng logic.
-4. **Mọi output là artifact có schema.** Không output văn xuôi tự do. Output không
-   pass schema validation sẽ bị trả lại kèm lỗi; sửa theo lỗi, không diễn giải lại.
+1. **The specification is the only source of truth.** Tests measure what code MUST do
+   according to the specification, not what the implementation DOES. A test that cannot be
+   traced to a requirement is worthless and the harness rejects it.
+2. **Choose test techniques by logic shape, not habit.** Classify behavior first, then consult
+   the strategy matrix. Do not default everything to example-based testing.
+3. **Property and example tests are peers**—both implement a test condition, and each suits a
+   particular logic shape.
+4. **Every output is a schema-backed artifact.** Do not output free prose. Output that fails
+   schema validation is returned with an error; fix the error rather than reinterpreting it.
 
 ---
 
-## Ranh giới thông tin (information asymmetry) — KHÔNG ĐƯỢC VI PHẠM
+## Information boundary (information asymmetry) — MUST NOT BE VIOLATED
 
-| Vai trò | Được đọc | KHÔNG được đọc |
+| Role | May read | Must not read |
 |---|---|---|
-| Test-Designer | spec, interface/API signature, schema | implementation body, test code hiện có của component đang design |
-| Test-Implementer | test conditions, interface, `references/`, surviving-mutant report | implementation body (trừ khi task là kill mutant — chỉ đọc đúng dòng được chỉ định) |
-| Reviewer | tất cả | — |
+| Test-Designer | specification, interface/API signature, schema | implementation body; existing test code for the component being designed |
+| Test-Implementer | test conditions, interface, `references/`, surviving-mutant report | implementation body (except for a mutant-killing task, where read only the specified line) |
+| Reviewer | everything | — |
 
-Lý do: nếu Designer đọc implementation, test suy biến thành bản chép lại hành vi
-của code — kể cả hành vi sai — và toàn bộ giá trị oracle độc lập sụp đổ. Nếu nhận
-được nội dung implementation trong context mà vai trò không cho phép, dừng lại và
-báo harness thay vì sử dụng nó.
+Why: if the Designer reads the implementation, tests collapse into a copy of code behavior,
+including incorrect behavior, and their independent-oracle value disappears. If implementation
+content appears in a context where the role is not permitted to read it, stop and report it to the
+harness rather than using it.
 
 ---
 
-## Quy trình 5 bước (vai trò Test-Designer)
+## Five-step workflow (Test-Designer role)
 
-### Bước 1 — Liệt kê behaviors từ spec
+### Step 1 — List behaviors from the specification
 
-Đọc spec, tách thành danh sách behavior nguyên tử. Mỗi behavior:
-- Một câu, dạng kiểm chứng được (given/when/then hoặc "X luôn/không bao giờ Y").
-- Gắn `requirement_id` — `REQ-<AREA>-<NNN>` nếu spec dùng requirement doc riêng, hoặc
-  `INV-<AREA>-<N>` nếu trích thẳng từ bảng invariant của design
-  (`docs/reference/invariant-contract.md`) — cả hai đều hợp lệ, dùng đúng cái spec
-  thực sự tạo ra. Behavior không có requirement_id trong spec → ghi vào mục
-  `spec_gaps` của test plan, KHÔNG tự bịa id.
-- Nếu spec mơ hồ (hai cách hiểu hợp lệ), ghi vào `spec_gaps` kèm cả hai cách hiểu.
-  Không tự chọn một cách hiểu rồi đi tiếp.
+Read the specification and break it into atomic behaviors. Each behavior:
+- Is one testable sentence (given/when/then or "X always/never Y").
+- Has a `requirement_id`: `REQ-<AREA>-<NNN>` if the specification has a requirements document,
+  or `INV-<AREA>-<N>` if it is taken directly from the design invariant table
+  (`docs/reference/invariant-contract.md`). Both are valid; use the one the specification actually
+  provides. Put a behavior without a specification requirement ID in the test plan's `spec_gaps`;
+  NEVER invent an ID.
+- If the specification is ambiguous (two valid interpretations), record both in `spec_gaps`.
+  Do not choose one interpretation and continue.
 
-### Bước 2 — Phân loại hình dạng logic (logic shape)
+### Step 2 — Classify the logic shape
 
-Với mỗi behavior, gán đúng một `behavior_shape` theo bảng nhận diện nhanh dưới đây.
-Khi có dấu hiệu của nhiều shape, tách behavior nhỏ hơn cho đến khi mỗi behavior
-một shape. Chi tiết nhận diện và ví dụ: đọc `references/strategy-matrix.md`.
+Assign exactly one `behavior_shape` to each behavior using the quick-recognition table below.
+When a behavior shows more than one shape, split it until every behavior has one shape. For
+recognition detail and examples, read `references/strategy-matrix.md`.
 
-| behavior_shape | Dấu hiệu nhận diện nhanh |
+| behavior_shape | Quick recognition signal |
 |---|---|
-| `mapping` | field-to-field giữa hai representation (DTO↔SBE, entity↔message), không branch nghiệp vụ |
-| `stateful` | kết quả phụ thuộc lịch sử thao tác (order book, session, FSM) |
-| `computational` | công thức, làm tròn, đơn vị, tích lũy số học (fee, interest, risk metric) |
-| `decision` | nhiều điều kiện kết hợp quyết định output (validation, routing, phân loại) |
-| `parsing` | nhận byte/text không tin cậy từ bên ngoài |
-| `concurrent` | đúng đắn phụ thuộc thread interleaving / memory visibility |
-| `integration` | phối hợp nhiều component/service theo thứ tự và contract |
-| `fixed_rule` | "nếu X thì đúng bằng Y" — giá trị chốt cứng, quy định pháp lý |
+| `mapping` | Field-to-field conversion between representations (DTO↔SBE, entity↔message), without business branches |
+| `stateful` | Result depends on operation history (order book, session, FSM) |
+| `computational` | Formulae, rounding, units, or arithmetic accumulation (fee, interest, risk metric) |
+| `decision` | Multiple conditions combine to decide output (validation, routing, classification) |
+| `parsing` | Receives untrusted external bytes/text |
+| `concurrent` | Correctness depends on thread interleaving or memory visibility |
+| `integration` | Coordinates several components/services by sequence and contract |
+| `fixed_rule` | "if X, then exactly Y"—fixed values or statutory rules |
 
-### Bước 3 — Tra chiến lược từ ma trận
+### Step 3 — Look up a strategy in the matrix
 
-Với mỗi `(behavior, shape)`, tra `references/strategy-matrix.md` để lấy chiến lược
-chủ lực + bổ trợ, sinh một hoặc nhiều test condition. Quy tắc:
-- Shape `mapping` → BẮT BUỘC có cả round-trip property và field-sensitivity
-  property (template trong `references/property-catalog.md`, mục 2 và mục kèm theo).
-- Shape `stateful` → BẮT BUỘC có ít nhất một invariant property trên command
-  sequence; model-based property nếu spec đủ để viết reference model.
-- Shape `fixed_rule` → example test, một test case cho mỗi giá trị chốt.
-- Mọi requirement priority P0 → tối thiểu 1 condition. Không có ngoại lệ.
+For each `(behavior, shape)`, consult `references/strategy-matrix.md` for the primary and
+supporting strategy, then produce one or more test conditions. Rules:
+- `mapping` MUST include both a round-trip property and a field-sensitivity property
+  (templates in `references/property-catalog.md`, section 2 and its companion section).
+- `stateful` MUST include at least one invariant property over a command sequence; use a
+  model-based property when the specification supports a reference model.
+- `fixed_rule` uses example tests, one test case for every fixed value.
+- Every P0-priority requirement needs at least one condition. No exceptions.
 
-### Bước 4 — Sinh test plan theo sharded layout
+### Step 4 — Produce a test plan in the sharded layout
 
-Output theo layout sharded (xem mục "Artifact layout & mutation protocol"):
-`plan.json` hợp lệ theo `schemas/test-plan.schema.json` + mỗi condition một
-file riêng hợp lệ theo `schemas/test-condition.schema.json`. Điền `technique`
-từ enum của schema, `rationale` giải thích ngắn vì sao technique khớp shape.
-Tự validate từng file trước khi output (đủ required fields, đúng pattern ID,
-không field lạ — schema đặt `additionalProperties: false`). Ghi qua operation
-của harness, không ghi file trực tiếp (R-T10).
+Output the sharded layout (see "Artifact layout & mutation protocol"): a `plan.json` valid
+against `schemas/test-plan.schema.json`, plus one separate condition file valid against
+`schemas/test-condition.schema.json`. Set `technique` from the schema enum and briefly explain
+in `rationale` why it fits the shape. Validate every file before output (required fields present,
+correct ID pattern, no extra fields—schemas set `additionalProperties: false`). Write through a
+harness operation rather than directly to files (R-T10).
 
-### Bước 5 — Tự kiểm bằng checklist
+### Step 5 — Self-check with the checklist
 
-Chạy qua `checklists/designer-checklist.md` từng mục. Mục nào fail → quay lại
-bước tương ứng sửa. Chỉ output khi toàn bộ checklist pass.
+Work through every item in `checklists/designer-checklist.md`. If an item fails, return to the
+corresponding step and fix it. Output only when the full checklist passes.
 
 ---
 
-## Quy trình vai trò Test-Implementer
+## Test-Implementer workflow
 
-1. Nhận test conditions (JSON đã validate) + interface. Với mỗi condition,
-   đọc đúng reference tương ứng với `technique`:
-   - `property` → `references/property-catalog.md` (chọn đúng loại property
-     theo `property_kind` của condition) + `references/generators.md`
+1. Receive validated JSON test conditions and the interface. For each condition, read the
+   reference for its `technique`:
+   - `property` → `references/property-catalog.md` (choose the property type from the condition's
+     `property_kind`) + `references/generators.md`
    - `decision_table` → `references/decision-table.md`
    - `boundary_value`, `equivalence_partition`, `state_transition`, `example`
-     → template trong `references/strategy-matrix.md`
-2. Điền vào template — không sáng tác cấu trúc test mới khi template đã có.
-   Stack: Java 21, JUnit 5, jqwik 1.8+, AssertJ. Test đặt tên theo behavior
-   (`quantityIsConservedAcrossAnyCommandSequence`), không theo method
-   (`testApply1`).
-3. Mỗi test file mở đầu bằng comment khối liệt kê `condition_id` và
-   `requirement_id` mà file hiện thực hóa — đây là mắt xích traceability
-   mà Reviewer và harness đối chiếu.
-4. Trước khi output, đối chiếu `references/anti-patterns.md` (rules R-T1…R-T9).
-   Vi phạm bất kỳ rule nào → Reviewer sẽ reject kèm mã rule, nên tự sửa trước.
-5. **Task kill surviving mutant:** input là mutant report (class, line, mutator).
-   Xác định behavior tại dòng đó *từ spec/conditions*, viết test assert behavior
-   đó. KHÔNG viết test "assert giá trị hiện tại của code" chỉ để kill mutant —
-   đó là tautology hợp pháp hóa (vi phạm R-T3).
-6. **Property fail → regression:** khi jqwik shrink ra counterexample, tạo thêm
-   một example test cố định từ counterexample đã shrink, gắn
-   `technique: regression_from_property` và giữ vĩnh viễn.
+     → template in `references/strategy-matrix.md`
+2. Fill in the template—do not invent a new test structure when a template exists.
+   Stack: Java 21, JUnit 5, jqwik 1.8+, AssertJ. Name tests after behavior
+   (`quantityIsConservedAcrossAnyCommandSequence`), not methods (`testApply1`).
+3. Start every test file with a block comment listing the `condition_id` and `requirement_id`
+   implemented by the file. This is the traceability link the Reviewer and harness compare.
+4. Before output, check `references/anti-patterns.md` (rules R-T1…R-T9). A violation of any
+   rule makes the Reviewer reject it with the rule ID, so fix it first.
+5. **Surviving-mutant task:** input is a mutant report (class, line, mutator). Identify the
+   behavior at that line *from the specification/conditions* and write a test asserting it. NEVER
+   assert the code's current value merely to kill the mutant—that legitimizes a tautology (R-T3).
+6. **Property failure → regression:** when jqwik shrinks a counterexample, add a permanent,
+   fixed example test from that shrunk counterexample with `technique: regression_from_property`.
 
 ---
 
-## Quy trình vai trò Reviewer
+## Reviewer workflow
 
-1. Đọc `checklists/reviewer-checklist.md` và `references/anti-patterns.md` TRƯỚC
-   khi đọc artifact cần review. Review là đối chiếu checklist, không phải cảm nhận.
-2. Verdict chỉ có ba giá trị: `APPROVE`, `REJECT`, `ESCALATE_SPEC`. Mỗi REJECT
-   phải trích dẫn mã rule (R-T*) hoặc mục checklist cụ thể + vị trí vi phạm.
-   Không reject bằng nhận xét chung chung; không approve kèm "nhưng nên…" —
-   nếu có "nhưng" chặn được bug thì đó là REJECT.
-3. Chống sycophancy: số lượng test lớn, coverage cao, code đẹp KHÔNG phải
-   bằng chứng chất lượng. Bằng chứng duy nhất được chấp nhận: test truy vết
-   về spec + không vi phạm anti-pattern + kill được mutant tương ứng.
-4. **Arbitration** (khi test fail): phân loại nguyên nhân bằng cách đối chiếu
-   cả code và test với spec — bên nào lệch spec bên đó sai. Nếu cả hai đều
-   là cách đọc hợp lệ của spec → verdict `ESCALATE_SPEC`, trích dẫn đoạn spec
-   mơ hồ và hai cách hiểu. Reviewer KHÔNG tự sửa code hay test.
+1. Read `checklists/reviewer-checklist.md` and `references/anti-patterns.md` BEFORE reading
+   the artifact under review. Review compares against a checklist; it is not intuition.
+2. There are only three verdicts: `APPROVE`, `REJECT`, `ESCALATE_SPEC`. Each REJECT must cite a
+   rule ID (R-T*) or a specific checklist item and the violation location. Do not reject with
+   vague feedback or approve with a "but should..."; a "but" that prevents a bug is REJECT.
+3. Resist sycophancy: many tests, high coverage, and attractive code are NOT quality evidence.
+   The only accepted evidence is tests traceable to the specification, without anti-patterns,
+   that kill the corresponding mutant.
+4. **Arbitration** (when a test fails): classify the cause by comparing both code and test to the
+   specification—the side that diverges is wrong. If both are valid readings, return
+   `ESCALATE_SPEC` and cite the ambiguous passage and both readings. Reviewers do NOT fix code or tests.
 
 ---
 
 ## Artifact layout & mutation protocol
 
-Artifact được **shard theo ID** — không bao giờ tồn tại file monolithic dài:
+Artifacts are **sharded by ID**—there is never one long monolithic file:
 
 ```
 plans/TP-OB-0001/
 ├── plan.json                  # metadata + spec_gaps (test-plan.schema.json)
 └── conditions/
-    ├── TCON-OB-0001.json      # một condition = một file (test-condition.schema.json)
+    ├── TCON-OB-0001.json      # one condition per file (test-condition.schema.json)
     └── TCON-OB-0002.json
 cases/
-└── TC-OB-0001.json            # metadata mỗi test case (test-case.schema.json)
+└── TC-OB-0001.json            # metadata for each test case (test-case.schema.json)
 ```
 
-Quy tắc bất biến: tên file trùng field `id`; `plan_id` trong condition trùng
-thư mục cha; thư mục `conditions/` là nguồn sự thật về danh sách condition
-(không duy trì danh sách trùng lặp trong plan.json).
+Invariants: the filename equals the `id` field; a condition's `plan_id` equals its parent
+directory; `conditions/` is the source of truth for the condition list (do not maintain a duplicate
+list in plan.json).
 
-Quy tắc mutation, theo thứ tự ưu tiên:
-1. **Operation của harness** (khi được cấp tool): `upsert_condition`,
-   `delete_condition`, `add_spec_gap`, `upsert_case`. Mỗi operation tự
-   validate schema + referential integrity trước khi ghi; lỗi trả về có
-   cấu trúc — sửa theo lỗi rồi gọi lại, tối đa 3 lần rồi báo harness.
-2. **Ghi đè nguyên tử một file shard** (khi không có tool operation):
-   regenerate TOÀN BỘ nội dung file nhỏ đó và ghi đè — không patch cục bộ.
-3. **JSON Patch (RFC 6902)** — chỉ dùng làm ngôn ngữ *đề xuất* thay đổi
-   trong luồng review (Reviewer đề xuất, harness áp và re-validate).
+Mutation rules, in priority order:
+1. **Harness operations** (when the tool is available): `upsert_condition`,
+   `delete_condition`, `add_spec_gap`, `upsert_case`. Each operation validates schema and
+   referential integrity before writing; errors are structured—fix the error and call it again,
+   up to three times, then report to the harness.
+2. **Atomic replacement of one shard** (when no operation is available): regenerate the ENTIRE
+   small file and overwrite it; do not patch it locally.
+3. **JSON Patch (RFC 6902)**—use only as the *proposal* language for changes in review flows
+   (the Reviewer proposes; the harness applies and revalidates).
 
-CẤM (R-T10): sửa artifact bằng string-replace/text-edit trên nội dung JSON,
-hoặc output một file gộp nhiều condition.
+FORBIDDEN (R-T10): mutate artifacts by string replacement/text editing of JSON content, or output
+a single file containing multiple conditions.
 
 ---
 
-## Bản đồ tài liệu
+## Documentation map
 
-| File | Đọc khi nào |
+| File | Read when |
 |---|---|
-| `references/strategy-matrix.md` | Bước 2–3 của Designer; Implementer cần template example-based |
-| `references/property-catalog.md` | Implementer hiện thực hóa condition `technique: property`; Designer cần chọn `property_kind` |
-| `references/generators.md` | LUÔN đọc kèm property-catalog — generator kém là lý do số một khiến property vô dụng |
-| `references/decision-table.md` | Condition `technique: decision_table` |
-| `references/anti-patterns.md` | Implementer trước khi output; Reviewer trước khi review |
-| `schemas/test-plan.schema.json` | Designer, Bước 4 — validate `plan.json` |
-| `schemas/test-condition.schema.json` | Designer, Bước 4 — validate từng file condition |
-| `schemas/test-case.schema.json` | Implementer khi output metadata cho từng test case |
-| `checklists/designer-checklist.md` | Designer, Bước 5 |
-| `checklists/reviewer-checklist.md` | Reviewer, luôn luôn |
+| `references/strategy-matrix.md` | Designer steps 2–3; Implementer needs example-based templates |
+| `references/property-catalog.md` | Implementer uses `technique: property`; Designer selects `property_kind` |
+| `references/generators.md` | ALWAYS read with the property catalog—poor generators are the leading reason properties are useless |
+| `references/decision-table.md` | A condition with `technique: decision_table` |
+| `references/anti-patterns.md` | Implementer before output; Reviewer before review |
+| `schemas/test-plan.schema.json` | Designer, step 4—validate `plan.json` |
+| `schemas/test-condition.schema.json` | Designer, step 4—validate each condition file |
+| `schemas/test-case.schema.json` | Implementer when outputting metadata for each test case |
+| `checklists/designer-checklist.md` | Designer, step 5 |
+| `checklists/reviewer-checklist.md` | Reviewer, always |

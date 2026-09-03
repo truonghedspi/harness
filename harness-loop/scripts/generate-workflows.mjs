@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// generate-workflows.mjs — sinh workflow-*.md từ workflow-model.json.
+// generate-workflows.mjs — generates workflow-*.md from workflow-model.json.
 //
-// Nguồn sự thật duy nhất: workflow-model.json khai báo node, edge, layer và contract.
-// Script này đọc model và sinh ra Mermaid diagram + bảng contract cho mỗi workflow.
-// check-workflow-diagram.mjs kiểm tra output khớp model thay vì grep tên.
+// Single source of truth: workflow-model.json declares nodes, edges, layers, and contracts.
+// This script reads the model and generates a Mermaid diagram and contract table for each workflow.
+// check-workflow-diagram.mjs verifies that output matches the model rather than grepping names.
 //
 // Usage:
-//   node scripts/generate-workflows.mjs                    sinh và ghi đè workflow-*.md
-//   node scripts/generate-workflows.mjs --check            so sánh, exit 1 nếu khác
-//   node scripts/generate-workflows.mjs --dry-run          in ra stdout, không ghi
+//   node scripts/generate-workflows.mjs                    generates and overwrites workflow-*.md
+//   node scripts/generate-workflows.mjs --check            compares; exits 1 if different
+//   node scripts/generate-workflows.mjs --dry-run          prints to stdout without writing
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,7 +36,7 @@ const layerMap = new Map(model.layers.map((l) => [l.id, l]));
 
 // ── Mermaid rendering ──────────────────────────────────────────────────────────
 
-// Mermaid node id: chỉ chữ cái, số, gạch dưới
+// Mermaid node ID: letters, digits, and underscores only.
 const mid = (id) => id.replace(/[^a-zA-Z0-9]/g, "_");
 
 function mermaidLabel(node) {
@@ -50,7 +50,7 @@ function renderDevelopmentMermaid() {
 
   const lines = ["flowchart LR"];
 
-  // Nhóm edge theo (from, to) để gộp label
+  // Group edges by (from, to) to combine labels.
   const grouped = new Map();
   for (const e of edges) {
     const key = `${e.from}→${e.to}`;
@@ -58,7 +58,7 @@ function renderDevelopmentMermaid() {
     grouped.get(key).push(e);
   }
 
-  // Khai báo node
+  // Declare nodes.
   const usedNodes = new Set();
   for (const e of edges) { usedNodes.add(e.from); usedNodes.add(e.to); }
 
@@ -72,7 +72,7 @@ function renderDevelopmentMermaid() {
     lines.push(`    ${mid(nid)}${shape}`);
   }
 
-  // Cạnh
+  // Edges.
   for (const [, group] of grouped) {
     const from = group[0].from;
     const to = group[0].to;
@@ -83,7 +83,7 @@ function renderDevelopmentMermaid() {
       if (e.trigger) parts.push(e.trigger.length > 60 ? e.trigger.slice(0, 57) + "..." : e.trigger);
       return parts.join("\\n");
     });
-    // Nếu nhiều cạnh cùng (from, to), gộp label bằng ký tự xuống dòng
+    // When multiple edges share (from, to), join their labels with a newline.
     const combinedLabel = labels.join("\\n---\\n");
     lines.push(`    ${mid(from)} -->|"${combinedLabel}"| ${mid(to)}`);
   }
@@ -92,7 +92,7 @@ function renderDevelopmentMermaid() {
 }
 
 function renderOnboardingMermaid() {
-  // Onboarding không driven bởi route.mjs — giữ diagram đơn giản
+  // Onboarding is not driven by route.mjs — keep the diagram simple.
   return `flowchart LR
     U["human requirement"] -->|"decision contract\\nintent + known constraints"| O["orchestrator\\nfront door"]
     O --> E{"existing harness?"}
@@ -150,15 +150,15 @@ function renderLayerTable() {
     "",
     "## Layers — precedence order",
     "",
-    "| Layer | Depth | Mô tả |",
+    "| Layer | Depth | Description |",
     "|---|---|---|",
   ];
   for (const l of model.layers) {
     lines.push(`| ${l.id} | ${l.depth} | ${l.description} |`);
   }
   lines.push("");
-  lines.push("Layer sâu hơn (depth thấp hơn) có mức ưu tiên cao hơn trong routing.");
-  lines.push("Router kiểm tra từ spec → baseline → design → ... → implementation.");
+  lines.push("Deeper layers (lower depth) have higher routing priority.");
+  lines.push("The router checks spec → baseline → design → ... → implementation.");
   return lines.join("\n");
 }
 

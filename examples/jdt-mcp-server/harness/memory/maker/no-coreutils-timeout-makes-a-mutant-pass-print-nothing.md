@@ -1,42 +1,42 @@
-# Máy này không có `timeout`, và một lượt mutant thiếu nó im lặng hoàn toàn
+# This machine has no `timeout`, and a mutant turn without it is completely silent
 
-**Khi nào áp dụng:** mọi script dựng mutant chạy trên máy phát triển hiện tại (macOS, không cài
-GNU coreutils). Gặp ở `feat-tool-references`.
+**When to apply:** All mutant build scripts run on the current development machine (macOS, do not install
+GNU coreutils). Found in `feat-tool-references`.
 
-Memory entry `a-leaked-handle-turns-a-red-mutant-into-a-hang.md` khuyên mỗi lần chạy mutant phải có
-`timeout` + `killSignal` riêng. Lời khuyên đúng, nhưng cách thực hiện theo phản xạ thì hỏng ở đây:
-
-```
-command -v timeout gtimeout   # → không có gì, exit 1
-```
-
-Cả `timeout` lẫn `gtimeout` đều không tồn tại. Nếu script viết
-`timeout -s KILL 120 node --test ... 2>&1 | grep -E "^(not ok|# tests)"`, dòng
-`command not found` đi vào stderr, bị `2>&1` gộp vào ống, rồi bị chính `grep` lọc bỏ. Đầu ra là:
+Memory entry `a-leaked-handle-turns-a-red-mutant-into-a-hang.md` advises that each mutant run must have
+private `timeout` + `killSignal`. Good advice, but the reflexive approach breaks down here:
 
 ```
-=== M1 bỏ hẳn phép cắt ===
-=== M2 total báo bằng số sau khi cắt ===
+command -v timeout gtimeout # → nothing, exit 1
 ```
 
-Bốn tiêu đề mutant, không một dòng kết quả nào. Trạng thái này **không phân biệt được** với "mọi
-mutant đều sống sót" nếu chỉ liếc qua, và một lượt maker đang vội sẽ đọc nó theo hướng thuận lợi
-cho mình.
-
-## Cách làm đúng
-
-Lấy hạn chót từ chính `node --test`, đây là thứ luôn có mặt:
+Neither `timeout` nor `gtimeout` exists. If the script writes
+`timeout -s KILL 120 node --test ... 2>&1 | grep -E "^(not ok|# tests)"`, line
+`command not found` goes into stderr, gets piped by `2>&1`, and then gets filtered out by `grep` itself. Output is:
 
 ```
-node --experimental-strip-types --test --test-timeout=30000 test/<vùng>/<tên>.spec.ts
+=== M1 completely eliminates cutting ===
+=== M2 total reported in numbers after cutting ===
 ```
 
-cộng với `{ timeout: N }` khai báo ở từng ca. Một mutant làm treo khi đó vẫn kết thúc bằng một dòng
-`not ok` có tên ca, chứ không phải bằng sự im lặng.
+Four mutant headers, not a single result line. This state is **indistinguishable** from "every
+mutants all survive" at a glance, and a maker in a hurry will read it favorably
+for yourself.
 
-## Hai lưới an toàn rẻ tiền cho script mutant
+## Correct way
 
-- Luôn để `# tests` / `# pass` / `# fail` trong mẫu `grep`. Vắng ba dòng đó nghĩa là lệnh không hề
-  chạy, chứ không phải mutant sống sót.
-- Khẳng định chuỗi cần thay xuất hiện **đúng một lần** trước khi thay (một đoạn `python3` ba dòng là
-  đủ). Một mutant không dựng được mà vẫn chạy test sẽ cho một lượt xanh vô nghĩa.
+Get the deadline from `node --test` itself, which is always present:
+
+```
+node --experimental-strip-types --test --test-timeout=30000 test/<region>/<name>.spec.ts
+```
+
+plus `{ timeout: N }` declared in each shift. A suspended mutant still ends up with a line
+`not ok` has a song name, not with silence.
+
+## Two cheap safety nets for mutant scripts
+
+- Always put `# tests` / `# pass` / `# fail` in the `grep` pattern. Absence of those three lines means the command is absent
+  run, not mutants survive.
+- Assert that the string to be replaced appears **exactly once** before being replaced (a three-line `python3` is
+  enough). A mutant that cannot build but still runs the test will give a meaningless green turn.

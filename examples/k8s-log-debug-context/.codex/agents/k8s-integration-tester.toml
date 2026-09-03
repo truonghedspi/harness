@@ -16,7 +16,7 @@ For a full command-to-business-outcome flow, follow `skills/business-journey/SKI
 public input/observation seams, isolation, convergence invariants and fault recovery are not.
 
 You stand up the project's Level 3 (microservice integration / contract) tests against a real
-Kubernetes namespace, write the tests themselves, and run them — the full "dựng, viết, chạy" cycle
+Kubernetes namespace, write the tests themselves, and run them — the full "deploy, write, run" cycle
 for cross-service testing without Docker. Full reasoning behind every rule below:
 `docs/reference/k8s-integration-testing.md` (read it before your first run — this prompt
 is the operational checklist, that doc is the why).

@@ -1,43 +1,43 @@
-# Cô lập từng trường của bộ ba `(mtimeMs, size, ino)`: ghi tại chỗ, không temp+rename
+# Isolate each field of the triple `(mtimeMs, size, ino)`: write in place, not temp+rename
 
-**Khi nào áp dụng:** oracle phải chứng minh một phép so sánh nhiều vế thật sự cần từng vế. Gặp ở
-`feat-file-sync-watcher`, lượt 3, sau khi checker chỉ ra rằng mười hai ca chỉ ghim được một trong ba
-vế của phép quyết định `Changed`.
+**When to apply:** The oracle must prove that a multiple comparison actually requires each side. Meet at
+`feat-file-sync-watcher`, turn 3, after checker indicates that twelve shifts only pin one out of three
+side of the decision `Changed`.
 
-## Vì sao ca temp-write-then-rename không bao giờ ghim được mtime hay size
+## Why can temp-write-then-rename never pin mtime or size
 
-Lối ghi `writeFileSync(temp) → renameSync(temp, đích)` đổi inode ở **mọi** trường hợp. Ca dùng lối đó
-luôn có ít nhất một vế đủ để làm phép hợp đúng, nên xoá vế `mtimeMs` hay vế `size` khỏi mã nguồn
-không làm ca nào đỏ. Muốn cô lập một trường thì phải bỏ hẳn lối rename.
+The write path `writeFileSync(temp) → renameSync(temp, destination)` changes the inode in **all** cases. I use that way
+There is always at least one sufficient clause to make the union correct, so remove the `mtimeMs` clause or the `size` clause from the source code.
+Don't do any red shifts. If you want to isolate a field, you must completely abandon the rename method.
 
-Đòn bẩy là hành vi của `writeFileSync` lên một đường dẫn **đã tồn tại**: trên macOS nó mở tệp với
-`O_TRUNC` và không `unlink`, nên inode giữ nguyên. Đo được:
+The leverage is on the behavior of `writeFileSync` to an **already existing** path: on macOS it opens the file with
+`O_TRUNC` and not `unlink`, so the inode remains the same. Measured:
 
-| Thao tác | ino | size | mtimeMs |
+| Operation | ino | size | mtimeMs |
 |---|---|---|---|
-| `writeFileSync(p, nội dung cùng số byte)` | giữ nguyên | giữ nguyên | đổi |
-| `writeFileSync(p, nội dung khác số byte)` rồi `utimesSync(p, mốc cũ, mốc cũ)` | giữ nguyên | đổi | giữ nguyên |
+| `writeFileSync(p, content same number of bytes)` | keep | keep | change |
+| `writeFileSync(p, content different number of bytes)` then `utimesSync(p, old mark, old mark)` | keep | change | keep |
 
-Hai dòng đó là hai ca, mỗi ca giết đúng một mutant. Đây cũng là lối ghi phổ biến nhất trong thực tế,
-không phải trường hợp biên: một editor sửa tại chỗ, và `cp -p` / `rsync --times` / `git checkout` đều
-khôi phục mtime cũ.
+Those two lines are two shifts, each killing exactly one mutant. This is also the most common recording method in practice.
+not a borderline case: an in-place editor, and `cp -p` / `rsync --times` / `git checkout` both
+restore old mtime.
 
-## Hai chi tiết khiến ca xác định thay vì may rủi
+## Two details make the case determined instead of chance
 
-1. **Đóng băng mốc nền vào quá khứ, trước khi bật thành phần quan sát.** Nếu mốc nền là "bây giờ" thì
-   ca chỉ đúng khi filesystem có độ phân giải mtime đủ mịn. Đặt `utimesSync(p, new Date(1_700_000_000_000), ...)`
-   **trước** `start()` khiến mtime mới (năm hiện tại) khác mốc nền hàng năm trời, đúng với mọi độ
-   phân giải, và để lần quét khởi động chốt ảnh nền thay vì đua với một flush.
-2. **`writeFileSync` rồi `utimesSync` phải nằm trong cùng một khối đồng bộ.** Không có `await` ở giữa
-   thì không callback `setTimeout` nào chen vào được, nên watcher chỉ có thể quét trạng thái đã hoàn
-   tất — mtime đã được trả về. Nếu để lọt một `await` vào giữa, một lần flush chen ngang sẽ thấy mtime
-   trung gian, ca vẫn xanh, còn mutant "bỏ vế size" thì sống.
+1. **Freeze the baseline into the past, before enabling the observable component.** If the baseline is "now" then
+   ca is only true when the filesystem has a fine enough mtime resolution. Set `utimesSync(p, new Date(1_700_000_000_000), ...)`
+   **before** `start()` causes the new mtime (current year) to be years off from the baseline, true for all degrees
+   resolution, and let the initial scan latch the background image instead of racing to a flush.
+2. **`writeFileSync` then `utimesSync` must be in the same sync block.** No `await` in between
+   then no `setTimeout` callback can intervene, so the watcher can only scan for completed status
+   all — mtime has been returned. If an `await` gets caught in the middle, an intervening flush will see mtime
+   In the intermediate case, the case is still green, while the "ignoring size" mutant is alive.
 
-Luôn khẳng định trực tiếp bằng `statSync` trước/sau rằng đúng một trường khác biệt. Không có khẳng
-định đó, ca đang nói về một cơ chế khác với cơ chế nó tưởng.
+Always confirm directly with `statSync` before/after that exactly one field is distinct. There is no confirmation
+That being said, I'm talking about a different mechanism than the one I thought.
 
-## Bẫy đo lường: thời lượng ca không phải bằng chứng về ca
+## Measurement trap: case duration is not evidence of the case
 
-Một lần chạy dưới mutant báo 209 s cho ca đang đỏ, vượt xa `{ timeout: 30000 }`. Bốn lần đo lại khi
-máy rảnh đều cho đúng 15,14 s. Nguyên nhân là load average trên 5 do các agent khác chạy suite song
-song. Trước khi đi tìm lỗi treo trong tệp spec, hãy chạy lại lúc máy rảnh và xem `uptime`.
+A run under mutant reported 209 s for the red case, far exceeding `{ timeout: 30000 }`. Measure again four times
+The machine is idle for exactly 15.14 s. The reason is that the load average is above 5 due to other agents running the parallel suite
+song. Before looking for crashes in the spec file, run it again when the computer is idle and look at the `uptime`.

@@ -54,7 +54,7 @@ function makeSpawnRecorder(): {
     children,
     spawnWorkspace: async (args) => {
       await new Promise((resolve) => setTimeout(resolve, 1));
-      const child: FakeChild = { pid: nextPid++, stopped: false, dataDir: args.dataDir };
+const child: FakeChild = { pid: nextPid++, stopped: false, dataDir: args.dataDir };
       children.push(child);
       return {
         pid: child.pid,
@@ -100,29 +100,28 @@ function connectOnce(socketPath: string): Promise<Socket> {
   });
 }
 
-/** Ngân sách mặc định cho mọi lời gọi dọn dẹp; xem chú thích của `withBudget`. */
+/** Default budget for all cleanup calls; see `withBudget` annotation. */
 const CLEANUP_BUDGET_MS = 5_000;
 
 /**
- * `node --test` áp `{ timeout }` cho THÂN hàm kiểm thử, không áp cho móc `t.after`. Một `await`
- * lên promise không bao giờ settle trong móc dọn dẹp vì thế treo vô hạn: bộ chạy không báo lỗi,
- * không kết thúc, và nuốt trọn ngân sách của baseline. `server.close()` chính là một promise như
- * vậy — nó chỉ gọi callback khi mọi connection đã accept được đóng.
+ * `node --test` applies `{ timeout }` to the test function BODY, not the `t.after` hook. An `await`
+ * Up to promise never settles in the cleanup hook so it hangs indefinitely: the runtime doesn't report any errors,
+ * doesn't end, and eats up baseline's budget. `server.close()` is a promise like
+ * so — it only calls the callback when all accepted connections are closed.
  *
- * Mọi lời gọi shutdown, dù trong móc hay trong thân ca, phải đi qua đây để quá hạn trở thành một
- * lỗi có kiểm soát thay vì một lần treo im lặng.
+ * Every shutdown call, whether in the hook or in the body, must go through here so that the overdue becomes one
+ * controlled error instead of a silent hang.
  */
-async function withBudget<T>(label: string, budgetMs: number, work: () => Promise<T>): Promise<T> {
-  const expired = Symbol("budget-expired");
+async function withBudget<T>(label: string, budgetMs: number, work: () => Promise<T>): Promise<T> {const expired = Symbol("budget-expired");
   let timer: NodeJS.Timeout | undefined;
   const outcome = await Promise.race([
     work().then(
       (value) => ({ ok: true as const, value }),
       (error: unknown) => ({ ok: false as const, error }),
     ),
-    // Cố ý KHÔNG unref(): bộ đếm giờ này còn phải giữ event loop sống. `startDaemon` chờ khoá bằng
-    // timer đã unref, nên nếu không có gì ref, event loop cạn và node --test huỷ cả tệp với
-    // "Promise resolution is still pending" thay vì báo đúng ca nào quá hạn.
+    // Intentionally NOT unref(): this timer must also keep the event loop alive. `startDaemon` waits for lock
+    // timer has been unrefed, so if there are no refs, the event loop is exhausted and node --test destroys the entire file
+    // "Promise resolution is still pending" instead of properly reporting which cases are overdue.
     new Promise<typeof expired>((resolve) => {
       timer = setTimeout(() => resolve(expired), budgetMs);
     }),
@@ -135,7 +134,7 @@ async function withBudget<T>(label: string, budgetMs: number, work: () => Promis
   return outcome.value;
 }
 
-/** Mỗi handle có ngân sách riêng, nên một handle kẹt không chặn phần dọn dẹp còn lại. */
+/** Each handle has its own budget, so a stuck handle does not block the remaining cleanup. */
 async function shutdownAll(handles: readonly DaemonHandle[]): Promise<void> {
   const failures: unknown[] = [];
   for (const [index, handle] of handles.entries()) {
@@ -162,11 +161,10 @@ test("resolveSocketPath uses $XDG_RUNTIME_DIR and falls back to the temp dir (A-
 test(
   "INV-SHIM-2: N concurrent launches converge on exactly one daemon, the rest delegate to it",
   { timeout: 15_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
-    const accepted: Socket[] = [];
-    const handles: DaemonHandle[] = [];
+    const accepted: Socket[] = [];    const handles: DaemonHandle[] = [];
     t.after(async () => {
       await shutdownAll(handles);
       rmSync(root, { recursive: true, force: true });
@@ -276,9 +274,9 @@ test(
 );
 
 test(
-  "shutdown releases the socket and the lock, so the next launcher becomes the daemon",
+"shutdown releases the socket and the lock, so the next launcher becomes the daemon",
   { timeout: 15_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const handles: DaemonHandle[] = [];
@@ -300,9 +298,9 @@ test(
 );
 
 test(
-  "INV-SHIM-2: a lock file orphaned by a killed daemon is reclaimed at once, not honoured until timeout",
+  "INV-SHIM-2: a lock file orphaned by a killed daemon is reclaimed at once, not honored until timeout",
   { timeout: 15_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const lockPath = `${socketPath}.lock`;
@@ -312,8 +310,8 @@ test(
       rmSync(root, { recursive: true, force: true });
     });
 
-    // Một pid chắc chắn đã chết: chạy một tiến trình node thoát ngay, chờ sự kiện exit (Node đã
-    // reap nó ở thời điểm đó), rồi dùng lại chính pid ấy làm chủ sở hữu khoá.
+    // A pid is definitely dead: run a node process that exits now, waiting for the exit event (Node has
+    // reap it at that time), then reuse the same pid as the key owner.
     const dead = spawn(process.execPath, ["-e", "process.exit(0)"], { stdio: "ignore" });
     const deadPid = dead.pid;
     await new Promise<void>((resolve) => dead.once("exit", () => resolve()));
@@ -325,11 +323,10 @@ test(
       "precondition: the only leftover is lock garbage — no socket file, so the probe cannot short-circuit",
     );
 
-    // Ngân sách đòi hỏi (1 s) đặt hẳn dưới ngân sách khởi chạy (2 s): thu hồi khoá mồ côi phải xảy
-    // ra ngay ở lần thử đầu. Nếu nhánh thu hồi bị vô hiệu hoá, startDaemon lặp cho tới hết
-    // startTimeoutMs rồi ném lỗi — tức mọi lần khởi chạy sau một lần crash đều hỏng vĩnh viễn.
+    // The required budget (1 s) is set well below the initialization budget (2 s): orphan key revocation must occur// came out on the first try. If the revocation branch is disabled, startDaemon loops until the end
+    // startTimeoutMs then throws an error — meaning every launch after a crash is permanently broken.
     const startTimeoutMs = 2_000;
-    const startedAt = Date.now();
+    const startsAt = Date.now();
     const handle = await withBudget("startDaemon over an orphaned lock file", 1_000, () =>
       startDaemon({ socketPath, shutdownOnSignals: [], startTimeoutMs }),
     );
@@ -351,9 +348,9 @@ test(
 );
 
 test(
-  "INV-SHIM-2: shutting a delegated launcher down must not tear down the daemon it converged on",
+  "INV-SHIM-2: shutting down a delegated launcher down must not tear down the daemon it converged on",
   { timeout: 15_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const accepted: Socket[] = [];
@@ -376,9 +373,7 @@ test(
     assert.ok(daemon !== undefined, "precondition: exactly one launcher must have bound the socket");
     assert.equal(delegated.length, 4, "precondition: the other four launchers must have delegated");
 
-    await delegated[0]!.shutdown();
-
-    // Cả ba khẳng định dưới đây nói cùng một điều: handle delegated chỉ sở hữu connection của nó.
+    await delegated[0]!.shutdown();// All three statements below say the same thing: the delegated handle only owns its connection.
     assert.equal(
       existsSync(socketPath),
       true,
@@ -395,7 +390,7 @@ test(
     );
     assert.ok(client.writable, "the daemon must still serve new clients");
 
-    // Đối chứng: chỉ shutdown của chính handle daemon mới gỡ được socket.
+    // Counterexample: only shutdown of the daemon handle itself can remove the socket.
     await withBudget("the daemon's own shutdown", CLEANUP_BUDGET_MS, () => daemon.shutdown());
     assert.equal(existsSync(socketPath), false, "only the daemon's own shutdown removes the socket file");
   },
@@ -404,11 +399,11 @@ test(
 test(
   "startDaemon refuses a socket path longer than sun_path instead of failing inside libuv",
   { timeout: 15_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
-    // Nếu cửa chặn bị vô hiệu hoá, startDaemon vẫn trả về một handle đang listen. Handle đó phải
-    // được thu về đây, nếu không server rò rỉ giữ event loop sống và cả tệp spec treo ở lúc thoát
-    // thay vì báo một ca đỏ.
+    // If the gate is disabled, startDaemon still returns a listening handle. That handle is right
+    // is collected here, otherwise the leak server keeps the event loop alive and the spec file hanging on exit
+    // instead of reporting a red case.
     const leaked: DaemonHandle[] = [];
     t.after(async () => {
       await shutdownAll(leaked);
@@ -422,12 +417,11 @@ test(
       `precondition: the path must exceed the guard (${actualBytes} vs ${MAX_SOCKET_PATH_LENGTH})`,
     );
 
-    // Đo trên Node 22.23.2 / macOS: bỏ cửa chặn KHÔNG cho một lỗi. `listen()` báo thành công,
-    // `server.listening` là true, nhưng libuv cắt cụt tên vào sun_path nên KHÔNG có tệp socket nào
-    // ở đường dẫn được yêu cầu. Cửa `existsSync(socketPath)` của probe vì thế mãi mãi sai, và mọi
-    // launcher sau đó không bao giờ nhìn thấy daemon để hội tụ vào — INV-SHIM-2 hỏng trong im lặng.
+    // Measured on Node 22.23.2 / macOS: remove the blocking gate NOT giving an error. `listen()` reports success,
+    // `server.listening` is true, but libuv truncates the name to sun_path so there is NO socket file// at the requested path. probe's `existsSync(socketPath)` door is therefore forever false, and every
+    // the launcher then never sees the daemon to converge on — INV-SHIM-2 crashes silently.
     await assert.rejects(
-      async () => {
+      async() => {
         leaked.push(await startDaemon({ socketPath: tooLongPath, shutdownOnSignals: [], startTimeoutMs: 1_000 }));
       },
       (error: NodeJS.ErrnoException) => {
@@ -439,23 +433,23 @@ test(
         assert.match(
           error.message,
           new RegExp(`\\b${actualBytes}\\b`),
-          `the refusal must name the actual byte length ${actualBytes}, got: ${error.message}`,
+          `the refuses must name the actual byte length ${actualBytes}, got: ${error.message}`,
         );
         assert.match(
           error.message,
           new RegExp(`\\b${MAX_SOCKET_PATH_LENGTH}\\b`),
-          `the refusal must name the limit ${MAX_SOCKET_PATH_LENGTH}, got: ${error.message}`,
+          `the refuses must name the limit ${MAX_SOCKET_PATH_LENGTH}, received: ${error.message}`,
         );
         assert.equal(
           error.code,
           undefined,
-          `an explicit refusal carries no errno; an opaque libuv failure does (${String(error.code)})`,
+          `an explicit carries no errno; an opaque libuv failure does (${String(error.code)})`,
         );
         return true;
       },
     );
 
-    // Từ chối phải xảy ra TRƯỚC mọi tác dụng phụ trên hệ tệp.
+    // Rejection must occur BEFORE any side effects on the filesystem.
     assert.equal(existsSync(path.dirname(tooLongPath)), false, "a refused path must not create its directory");
     assert.equal(existsSync(`${tooLongPath}.lock`), false, "a refused path must not leave a lock file behind");
   },
@@ -464,7 +458,7 @@ test(
 test(
   "INV-SHIM-4: shutdown destroys the connections it accepted, so the server close actually completes",
   { timeout: 15_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const handles: DaemonHandle[] = [];
@@ -477,12 +471,10 @@ test(
     handles.push(handle);
     const client = await connectOnce(socketPath);
     t.after(() => client.destroy());
-    const clientClosed = new Promise<void>((resolve) => client.once("close", () => resolve()));
-
-    // Ngân sách nằm trong THÂN ca chứ không trong móc `t.after`, vì `node --test` chỉ áp `{ timeout }`
-    // cho thân hàm. Con số 1 s nằm hẳn dưới FORCE_CLOSE_AFTER_MS (2 s) của closeServer: đường nhanh
-    // phải destroy connection ngay, nên chạm tới đường cưỡng bức đã là thoái hoá và phải đỏ. Cửa
-    // chặn cưỡng bức chỉ là lưới an toàn để shutdown không bao giờ treo, không phải đường đi thường.
+    const clientClosed = new Promise<void>((resolve) => client.once("close", () => resolve()));// The budget is in the BODY of ca, not in the `t.after` hook, because `node --test` only applies `{ timeout }`
+    // for function body. The number 1 s is completely below the FORCE_CLOSE_AFTER_MS (2 s) of closeServer: fast line
+    // must destroy the connection immediately, so touching the forced line is already degenerate and must be red. Door
+    // forced blocking is just a safety net so shutdown never hangs, not the normal path.
     const promptBudgetMs = 1_000;
     await withBudget("shutdown() with one accepted client connection still open", promptBudgetMs, () =>
       handle.shutdown(),
@@ -492,16 +484,16 @@ test(
   },
 );
 
-/** Đường dẫn tuyệt đối tới module đang được kiểm thử, để tiến trình con nạp đúng bản mã này. */
+/** Absolute path to the module being tested, so that the child process loads the correct code. */
 const SUPERVISOR_MODULE = path.resolve(import.meta.dirname, "../../src/daemon/daemon-supervisor.ts");
 
 /**
- * Kịch bản của tiến trình daemon thật: bind socket, accept đúng một connection, gọi `shutdown()`,
- * rồi KHÔNG gọi `process.exit`. Việc tiến trình có thoát hay không vì thế nói đúng một điều — sau
- * khi `shutdown()` resolve, còn handle nào của daemon giữ event loop sống hay không.
+ * Scenario of real daemon process: bind socket, accept exactly one connection, call `shutdown()`,
+ * then DO NOT call `process.exit`. Whether the process exits or not therefore means exactly one thing — the following
+ * When `shutdown()` resolves, is there any daemon handle left that keeps the event loop alive?
  *
- * Ba mốc in ra stdout tách ba cách hỏng khác nhau: không bind được, `shutdown()` không settle, và
- * `shutdown()` settle nhưng tiến trình vẫn treo.
+ * The three markers printed to stdout separate three different failure modes: failure to bind, `shutdown()` not settling, and
+ * `shutdown()` settles but the process still hangs.
  */
 function daemonChildScript(): string {
   return `import { connect } from "node:net";
@@ -512,7 +504,7 @@ let markAccepted;
 const accepted = new Promise((resolve) => {
   markAccepted = resolve;
 });
-// Không truyền shutdownOnSignals: đây phải là cấu hình mặc định của một daemon thật.
+// Do not pass shutdownOnSignals: this must be the default configuration of a real daemon.
 const handle = await startDaemon({ socketPath, onConnection: (socket) => markAccepted(socket) });
 if (handle.role !== "daemon") {
   console.log("role=" + handle.role);
@@ -524,30 +516,29 @@ const client = await new Promise((resolve, reject) => {
   const socket = connect(socketPath);
   socket.once("connect", () => resolve(socket));
   socket.once("error", reject);
-});
-// unref: chỉ handle của chính daemon mới được quyền quyết định tiến trình sống hay chết. Nếu không
-// unref, một client còn mở cũng giữ event loop và ca này sẽ đỏ vì lý do không liên quan.
+});// unref: only the handle of the daemon itself has the right to decide whether the process lives or dies. If not
+// unref, an open client also keeps the event loop and this shift will be red for unrelated reasons.
 client.unref();
 await accepted;
 console.log("accepted");
 
 await handle.shutdown();
 console.log("shutdown-resolved");
-// Cố ý KHÔNG gọi process.exit(): điều phải chứng minh là không còn gì giữ event loop sống.
+// Intentionally NOT calling process.exit(): what must be proven is that there is nothing left to keep the event loop alive.
 `;
 }
 
 test(
   "INV-SHIM-4: after shutdown() resolves, the daemon process itself can exit — no handle keeps the event loop alive",
   { timeout: 20_000 },
-  async (t) => {
+  async(t) => {
     const root = makeRoot();
     const socketPath = path.join(root, SOCKET_FILE_NAME);
     const scriptPath = path.join(root, "daemon-child.mjs");
     writeFileSync(scriptPath, daemonChildScript());
 
-    // detached: tiến trình con là process group riêng, nên khi quá hạn ta giết được cả nhóm thay vì
-    // bỏ lại một daemon mồ côi đang giữ socket.
+    // detached: the child process is its own process group, so when it expires, we can kill the whole group instead
+    // leaves behind an orphaned daemon holding the socket.
     const child: ChildProcess = spawn(process.execPath, ["--experimental-strip-types", scriptPath, socketPath], {
       stdio: ["ignore", "pipe", "pipe"],
       detached: true,
@@ -570,21 +561,20 @@ test(
       rmSync(root, { recursive: true, force: true });
     });
 
-    const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
+    const exited = new Promise<{ code: number | null; null; signals: NodeJS.Signals | null }>((resolve) => {
       child.once("exit", (code, signal) => resolve({ code, signal }));
     });
 
-    // Ngân sách nằm trong THÂN ca, không trong móc t.after: quá hạn phải thành một ca đỏ CÓ TÊN,
-    // và tiến trình con phải bị giết ngay tại đó — không bao giờ để bộ chạy tự treo.
+    // The budget is in the case BODY, not in the hook t.after: overdue must become a red case WITH NAME,
+    // and the child process must be killed right there and then — never let the runtime hang.
     const exitBudgetMs = 5_000;
-    const startedAt = Date.now();
-    let outcome: { code: number | null; signal: NodeJS.Signals | null };
-    try {
-      outcome = await withBudget("the daemon process to exit on its own after shutdown()", exitBudgetMs, () => exited);
+    const startsAt = Date.now();
+    let outcome: { code: number | null; null; signals: NodeJS.Signals | null };
+    try {outcome = await withBudget("the daemon process to exit on its own after shutdown()", exitBudgetMs, () => exited);
     } catch (error) {
       killChildGroup();
       const reached = stdout.includes("shutdown-resolved")
-        ? "shutdown() RESOLVED and the process still would not exit: a handle it opened is still holding the event loop"
+        ? "shutdown() RESOLVED and the process still will not exit: a handle it opened is still holding the event loop"
         : "shutdown() never even resolved";
       throw new Error(
         `the daemon process was still alive ${Date.now() - startedAt} ms after being told to shut down — ${reached}` +
@@ -594,8 +584,8 @@ test(
     }
     const elapsedMs = Date.now() - startedAt;
 
-    // Thứ tự các mốc chứng minh tiến trình đã thật sự làm daemon trước khi thoát, chứ không phải
-    // thoát sớm vì hỏng ở bước bind.
+    // The order of milestones proves that the process was actually a daemon before exiting, but not
+    // exited early because of failure in the bind step.
     assert.match(stdout, /^listening$/m, `the child must have bound the socket first (stderr: ${stderr.slice(-400)})`);
     assert.match(stdout, /^accepted$/m, "the daemon must have accepted a live connection before shutting down");
     assert.match(stdout, /^shutdown-resolved$/m, "shutdown() must have resolved inside the daemon process");

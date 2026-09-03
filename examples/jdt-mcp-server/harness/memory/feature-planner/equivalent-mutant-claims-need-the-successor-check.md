@@ -1,30 +1,30 @@
-# Một mutant thứ tự chỉ tương đương khi cả kẻ kế nhiệm cũng không quan sát được
+# A mutant is only equivalent if the successor is not observed
 
-**Bối cảnh:** FOLLOW-UP của `feat-tool-layer-core` (2026-08-25). Checker dựng mutant N1 — đảo
-`spawned.stop()` lên trước `#runDetachments(victim)` trong `#evict` của `workspace-pool.ts` — và nó
-sống sót 28/28. Lập luận tương đương nghe rất vững: hàm detach làm CẢ `detach()` lẫn
-`cache.forget(workspaceId)`, nên một publish chen vào giữa `stop()` vẫn bị `forget()` xoá sạch ngay
-sau đó. Trạng thái cuối của cache giống hệt nhau ở cả hai thứ tự.
+**Context:** FOLLOW-UP of `feat-tool-layer-core` (2026-08-25). Checker constructed mutant N1 — reverse
+`spawned.stop()` comes before `#runDetachments(victim)` in `#evict` of `workspace-pool.ts` — and it
+survived 28/28. The equivalence argument sounds very strong: the detach function does BOTH `detach()`
+`cache.forget(workspaceId)`, so a publish inserted in the middle of `stop()` will still be immediately deleted by `forget()`
+then. The final state of the cache is identical in both orders.
 
-**Lập luận đó sai, và đo ra mới thấy.** Nó chỉ xét một người quan sát: chính workspace đang chết.
-Người quan sát thứ hai là workspace KẾ NHIỆM. `#identify` băm `sha256(canonicalRoot)`, nên
-`workspaceId` là hàm của project root chứ không của thế hệ tiến trình; `#evict` xoá entry khỏi
-`#entries` TRƯỚC khi dọn dẹp, nên một `acquire` song song cùng root spawn tiến trình mới dưới đúng
-cái id đó. Ở thứ tự đảo, `cache.forget()` muộn của kẻ tiền nhiệm xoá cache của kẻ kế nhiệm — mất dữ
-liệu thật, không phải trạng thái thoáng qua.
+**That argument is wrong, and it turns out.** It only considers one observer: the dying workspace itself.
+The second observer is the SUCCESSFUL workspace. `#identify` hashes `sha256(canonicalRoot)`, so
+`workspaceId` is a function of the project root and not of the process generation; `#evict` removes the entry
+`#entries` BEFORE cleaning up, so an `acquire` along with the root spawns the new process below
+that id. In reverse order, the predecessor's late `cache.forget()` clears the successor's cache — data is lost
+real material, not a passing state.
 
-**Quy tắc rút ra khi phân loại một FOLLOW-UP dạng "mutant nhiều khả năng tương đương":**
+**Rule to draw when classifying a FOLLOW-UP as "mutant with many equivalent possibilities":**
 
-1. Hỏi tài nguyên bị dọn dẹp được khoá theo cái gì. Nếu khoá theo IDENTITY (đường dẫn, hash của
-   root, tên logic) chứ không theo THẾ HỆ (pid, đối tượng tiến trình), thì luôn còn một người quan
-   sát nữa và lập luận "trạng thái cuối giống nhau" chưa đủ.
-2. Hỏi cửa sổ nhường rộng bao nhiêu so với thời gian dựng lại. Ở đây `terminate()` chờ tiến trình
-   con thoát trong hạn ân xá 5 000 ms, còn cold start ~2 300 ms — kẻ kế nhiệm kịp ra đời trong cửa
-   sổ đó.
-3. Đo, đừng đọc. Chép `src/` sang thư mục nháp ngoài cây nguồn, vá mutant vào bản chép, chạy một
-   probe ~60 dòng với spawner giả. Mất vài phút và cho ra một câu trả lời nhị phân; repo không bị
-   đụng một byte.
+1. Ask what the cleaned up resource is locked under. If key by IDENTITY (path, hash of
+   root, logical name) rather than GENERATION (pid, process object), there is always an official
+   closer and the argument "the final state is the same" is not enough.
+2. Ask how wide the window is compared to the time it takes to rebuild. Here `terminate()` waits for the process
+   child escapes within the 5 000 ms amnesty period, while cold start ~2 300 ms — a successor is born in time
+   that book.
+3. Measure, don't read. Copy `src/` to a draft directory outside the source tree, patch the mutant into the copy, and run it
+   probe ~60 lines with fake spawner. It takes a few minutes and yields a binary answer; repo does not suffer
+   hits a byte.
 
-**Hệ quả cho cách viết chú thích:** chú thích cũ nêu SAI mối nguy (notification muộn rơi vào cache
-của workspace đang chết). Chính vì nó nêu sai mà không mutant nào falsify được nó. Một câu chú thích
-không falsify được là dấu hiệu nó đang mô tả nhầm cơ chế, không phải dấu hiệu cơ chế không quan trọng.
+**Consequences for annotation writing:** Old annotations state the WRONG hazard (late notification falls into cache
+of the dying workspace). Because it is stated incorrectly, no mutant can falsify it. One comment
+Failure to falsify is a sign that it is describing the wrong mechanism, not a sign that the mechanism is unimportant.

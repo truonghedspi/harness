@@ -20,24 +20,24 @@ They complement, rather than replace, the phase-level Mermaid diagrams below.
 
 ## Keeping these current — single source of truth
 
-Workflow Markdown (`workflow-*.md`) **không được sửa tay**. Chúng được sinh từ
-[workflow-model.json](workflow-model.json) — nguồn sự thật duy nhất khai báo node, edge, layer
-và contract. Quy trình:
+Workflow Markdown (`workflow-*.md`) **must not be edited manually**. It is generated from
+[workflow-model.json](workflow-model.json), the sole source of truth for nodes, edges, layers,
+and contracts. Workflow:
 
 ```
-workflow-model.json   ←── sửa ở đây
+workflow-model.json   ←── edit here
         ↓
 node scripts/generate-workflows.mjs     ←── sinh workflow-*.md
         ↓
-node scripts/check-workflow-diagram.mjs ←── kiểm tra (CI gate)
+node scripts/check-workflow-diagram.mjs ←── verify (CI gate)
 ```
 
-`check-workflow-diagram.mjs` kiểm tra hai lớp:
-1. **Generated check**: workflow-*.md khớp output của generator (bắt drift).
-2. **Model check**: model chứa mọi agent (từ `agents.manifest.json`), mọi node và layer
-   (từ `route.mjs --rules`), và mọi edge tham chiếu node/layer hợp lệ.
+`check-workflow-diagram.mjs` performs two checks:
+1. **Generated check**: workflow-*.md matches the generator output (catches drift).
+2. **Model check**: the model contains every agent (from `agents.manifest.json`), node, and layer
+   (from `route.mjs --rules`), and every edge references a valid node and layer.
 
-Thay đổi routing hoặc contract → sửa `workflow-model.json` → chạy generator → cả runtime,
-Mermaid và bảng contract cùng đổi. Không còn "diagram đúng tên nhưng sai luồng".
+Change routing or a contract → edit `workflow-model.json` → run the generator → runtime,
+Mermaid, and the contract table change together. There is no longer a "right name, wrong flow" diagram.
 
-`verify-harness.mjs` chạy checker như gate `workflow-diagram`, nên CI tự động phát hiện drift.
+`verify-harness.mjs` runs the checker as the `workflow-diagram` gate, so CI catches drift automatically.

@@ -1,25 +1,25 @@
-// diagnostics — tool `java_diagnostics` (harness/docs/design/tool-surface.md, bảng tám tool).
+// diagnostics — `java_diagnostics` tool (harness/docs/design/tool-surface.md, eight-tool table).
 //
-// Bất biến sở hữu tại đây:
-//   INV-DIAG-1  kết quả luôn mang payload publishDiagnostics gần nhất của URI được hỏi, hoặc một mốc
-//               "chưa báo cáo" tường minh; một danh sách rỗng không bao giờ đứng thay cho "chưa tính".
-//   INV-TOOL-1  mọi vị trí trong kết quả đi qua đúng một ranh giới chuyển đổi — `fromLspRange` của
-//               tool-layer, không có phép cộng trừ toạ độ nào trong tệp này.
-//   INV-TOOL-4  workspace chưa trả lời được, hoặc đường dẫn không định tuyến được, luôn là một lỗi
-//               có tên; không thất bại nào được mã hoá thành một kết quả thành công rỗng.
+// Invariants owned here:
+//   INV-DIAG-1  results always carry the queried URI's most recent publishDiagnostics payload, or an
+//               explicit "not reported" marker; an empty list never stands for "not computed".
+//   INV-TOOL-1  every result position crosses exactly one conversion boundary—tool-layer's
+//               `fromLspRange`; this file performs no coordinate arithmetic.
+//   INV-TOOL-4  an unavailable workspace or an unroutable path is always a named error; no failure
+//               is encoded as an empty success result.
 //
-// Vì sao tool này khác ba tool điều hướng: hover/definition/references đều phát một LSP request rồi
-// tạo hình câu trả lời. java_diagnostics KHÔNG BAO GIỜ phát request nào. Spike B cho thấy
-// diagnostics tới theo kiểu đẩy và không có lời gọi nào để hỏi lại, nên thứ duy nhất trả lời được là
-// bản mà diagnostics-cache đã bắt lấy lúc nó tới (tool-surface.md, Build order, item 4). Vì vậy tầng
-// này không dùng `LspFacade.request`, và cổng của nó hẹp hơn hẳn: readiness + định tuyến + đọc cache.
+// Unlike the three navigation tools, which send an LSP request then shape its reply,
+// java_diagnostics NEVER sends a request. Spike B showed diagnostics arrive as pushes and cannot be
+// queried again, so only the copy captured by diagnostics-cache can answer (tool-surface.md, Build
+// order, item 4). This layer therefore does not use `LspFacade.request` and has a narrower port:
+// readiness, routing, and cache reads.
 //
-// Hai hình dạng mà một agent phải phân biệt được BẰNG MÃ:
-//   status: "not-reported"  — JDT LS chưa từng đẩy gì về cho URI này. Không có trường `problems`.
-//   status: "reported"      — đã có publish, kể cả khi `problems` rỗng, tức "đã tính xong và sạch".
-// Trường `problems` VẮNG MẶT ở nhánh thứ nhất là phần chịu lực: nếu nó tồn tại dưới dạng mảng rỗng,
-// mọi người gọi đọc `problems.length === 0` sẽ đọc "chưa index xong" thành "mã nguồn sạch" — đúng
-// câu trả lời sai mà INV-DIAG-1 cấm.
+// Agents must distinguish these TWO shapes in code:
+//   status: "not-reported"  — JDT LS has never pushed anything for this URI. No `problems` field.
+//   status: "reported"      — a publish arrived, even if `problems` is empty: "computed and clean".
+// The absence of `problems` in the first branch carries the load: if it were an empty array, callers
+// reading `problems.length === 0` would mistake "not yet indexed" for "source is clean," exactly the
+// answer INV-DIAG-1 forbids.
 
 import {
   fromLspRange,
@@ -35,7 +35,7 @@ import {
   type DiagnosticsReport,
 } from "../lsp/diagnostics-cache.ts";
 
-/** Một problem đã được tạo hình: giống Diagnostic của LSP, nhưng range ở hệ toạ độ công bố (X-007). */
+/** A shaped problem: an LSP Diagnostic with its range in the public coordinate system (X-007). */
 export interface Problem {
   range: SourceRange;
   message: string;
@@ -45,8 +45,8 @@ export interface Problem {
 }
 
 /**
- * Trạng thái diagnostics của MỘT URI. Union này là toàn bộ nội dung của INV-DIAG-1 ở tầng tool: hai
- * nhánh khác nhau ở `status`, và chỉ nhánh `reported` mới có `problems`.
+ * Diagnostics state for ONE URI. This union embodies INV-DIAG-1 at the tool layer: branches differ
+ * by `status`, and only the `reported` branch has `problems`.
  */
 export type FileDiagnostics =
   | {
@@ -54,7 +54,7 @@ export type FileDiagnostics =
       status: "reported";
       problems: readonly Problem[];
       version?: number;
-      /** Thời điểm publish gần nhất tới nơi, theo đồng hồ của cache. */
+      /** Time the latest publish arrived, according to the cache clock. */
       receivedAt: number;
     }
   | { uri: string; status: "not-reported" };
@@ -62,62 +62,62 @@ export type FileDiagnostics =
 export interface DiagnosticsAnswer {
   path: string;
   workspaceId: string;
-  /** `file` khi `path` trỏ vào một tệp; `project` khi nó trỏ vào gốc project. */
+  /** `file` when `path` points to a file; `project` when it points to a project root. */
   scope: "file" | "project";
-  /** Phạm vi một tệp cho đúng một mục; phạm vi project cho một mục cho mỗi URI, sắp xếp theo URI. */
+  /** File scope has one item; project scope has one item per URI, ordered by URI. */
   files: readonly FileDiagnostics[];
 }
 
 /**
- * Kết quả phân loại một đường dẫn. Tầng tool không bao giờ tự chạm vào đĩa, nên việc phân biệt "một
- * tệp" với "gốc project" — và việc đúc URI — do người nối dây trả lời, giống hệt cách tool-layer
- * nhận nội dung tệp từ `LspFacade.readFile` thay vì tự đọc.
+ * Result of classifying a path. The tool layer never touches disk itself, so its composition root
+ * distinguishes a "file" from a "project root" and shapes the URI, just as tool-layer receives
+ * file content from `LspFacade.readFile` instead of reading it itself.
  */
 export type DiagnosticsScope = { kind: "file"; uri: string } | { kind: "project" };
 
 /**
- * Cổng hẹp tới phần còn lại của daemon. Ba câu hỏi, không hơn; đặc biệt KHÔNG có `request`, vì tool
- * này không có quyền phát LSP request nào.
+ * Narrow port to the rest of the daemon. Three questions and no more; notably no `request`, because
+ * this tool is not permitted to issue LSP requests.
  */
 export interface DiagnosticsFacade {
-  /** Workspace phục vụ đường dẫn này có đang trả lời được không, và nếu không thì vì sao. */
+  /** Whether the workspace serving this path can answer, and why if it cannot. */
   workspace(path: string): WorkspaceAvailability | Promise<WorkspaceAvailability>;
-  /** Đường dẫn này là một tệp (kèm URI của nó) hay cả project; `undefined` khi không định tuyến được. */
+  /** Whether this path is a file (with its URI) or a whole project; `undefined` when unroutable. */
   scopeOf(path: string): DiagnosticsScope | undefined;
   /**
-   * URI của MỌI tệp thuộc project, kể cả tệp chưa từng có publish. Bảng tool nói java_diagnostics
-   * trả lời cho "every file in the project", nên danh sách khoá của cache là chưa đủ: một tệp chưa
-   * được index sẽ vắng mặt khỏi cache, và một câu trả lời bỏ qua nó lại đọc ra y hệt "tệp đó sạch".
+   * URIs for EVERY project file, including files never published. The tool table says
+   * java_diagnostics answers for "every file in the project", so cache keys are insufficient: an
+   * unindexed file is absent from the cache, and omitting it reads exactly like "that file is clean".
    */
   projectFiles(workspaceId: string): readonly string[];
 }
 
-/** Cổng đọc cache. `DiagnosticsCache` thoả cổng này theo cấu trúc; test tiêm đồ giả. */
+/** Cache-read port. `DiagnosticsCache` satisfies it structurally; tests inject a fake. */
 export interface DiagnosticsReader {
   get(workspaceId: string, uri: string): DiagnosticsLookup;
   list(workspaceId: string): readonly DiagnosticsReport[];
 }
 
 export interface DiagnosticsRequest {
-  /** Một tệp cụ thể, HOẶC gốc project để lấy toàn bộ (tool-surface.md, bảng tám tool). */
+  /** A specific file OR a project root for all files (tool-surface.md, eight-tool table). */
   path: string;
 }
 
-/** Cùng hình dạng envelope lỗi với tool-layer: thông điệp luôn tự nêu tên mã lỗi của nó. */
+/** Same error-envelope shape as tool-layer: its message always names its error code. */
 function fail(code: ToolErrorCode, message: string, detail?: unknown): ToolOutcome<never> {
   const failure = { isError: true as const, code, message: `${code}: ${message}` };
   return detail === undefined ? failure : { ...failure, detail };
 }
 
 /**
- * Thứ tự các bước là nội dung của hai bất biến, không phải sở thích:
+ * Step order is the substance of two invariants, not a preference:
  *
- *   1. hỏi workspace có trả lời được không — chưa sẵn sàng thì dừng ngay với lỗi có tên (INV-TOOL-4).
- *      Bước này phải đứng TRƯỚC mọi lần chạm cache: một workspace đang index có cache trống, và một
- *      cache trống đọc ra y hệt "project không có lỗi nào";
- *   2. phân loại đường dẫn — không định tuyến được thì dừng, cache vẫn chưa bị chạm;
- *   3. chỉ đến đây mới đọc cache, và mỗi URI được tạo hình độc lập nên phân biệt "chưa báo cáo" với
- *      "đã báo cáo rỗng" được giữ nguyên cho từng URI (INV-DIAG-1).
+ *   1. ask whether the workspace can answer—if not ready, stop immediately with a named error
+ *      (INV-TOOL-4). This must precede every cache access: an indexing workspace has an empty cache,
+ *      and an empty cache reads exactly like "the project has no errors";
+ *   2. classify the path—if unroutable, stop without touching the cache;
+ *   3. only then read the cache. Shape every URI independently, retaining the distinction between
+ *      "not reported" and "reported empty" for each URI (INV-DIAG-1).
  */
 export async function javaDiagnostics(
   facade: DiagnosticsFacade,
@@ -153,17 +153,17 @@ export async function javaDiagnostics(
 }
 
 /**
- * Hợp của hai tập: tệp mà project có, và URI mà cache đã nhận publish. Vế thứ nhất giữ cho tệp chưa
- * được index xuất hiện dưới mốc "chưa báo cáo" thay vì biến mất; vế thứ hai giữ cho một problem có
- * thật ở URI mà danh sách tệp không nêu tên — mã sinh, tệp ngoài source root — không bị bỏ rơi.
- * Sắp xếp để thứ tự kết quả tất định, không phụ thuộc thứ tự publish tới.
+ * Union of two sets: files in the project and URIs published to the cache. The first keeps an
+ * unindexed file present as "not reported" rather than making it disappear; the second preserves a
+ * real problem at a URI absent from the file list—generated code or a file outside source roots.
+ * Sort to make result order deterministic, independent of publish order.
  *
- * Hai vế đi vào phép hợp bằng hai cách viết khác nhau cho cùng một tệp: `projectFiles` mang cách
- * viết của người gọi, còn khoá của cache đã được quy chuẩn theo identity của hệ tệp. Một Set không
- * khử được hai chuỗi khác ký tự cùng trỏ một tệp, nên cả hai vế phải đi qua ĐÚNG hàm quy chuẩn mà
- * cache dùng — nếu không, MỘT tệp vật lý cho HAI mục và hình dạng "một mục cho mỗi tệp" của bảng
- * java_diagnostics vỡ (INV-DIAG-1). Phép hợp không đổi nghĩa: tệp project chưa index vẫn có mặt
- * dưới mốc "chưa báo cáo", URI đã publish mà project không nêu tên vẫn có mặt.
+ * The union receives two spellings for the same file: `projectFiles` uses caller spelling while
+ * cache keys are normalized by filesystem identity. A Set cannot deduplicate different strings
+ * pointing to one file, so both sides must use EXACTLY the cache normalizer. Otherwise ONE physical
+ * file produces TWO items, breaking the java_diagnostics table's "one item per file" shape
+ * (INV-DIAG-1). The union retains its meaning: unindexed project files and published unnamed URIs
+ * both remain present.
  */
 function projectUris(
   facade: DiagnosticsFacade,
@@ -176,8 +176,8 @@ function projectUris(
 }
 
 /**
- * Ánh xạ một lần đọc cache sang hình dạng công bố. Đây là chỗ INV-DIAG-1 sống hay chết: nhánh
- * `reported: false` KHÔNG được sinh ra `problems`, kể cả một mảng rỗng.
+ * Maps a cache read into public shape. This is where INV-DIAG-1 lives or dies: the `reported: false`
+ * branch must NOT produce `problems`, not even an empty array.
  */
 function shapeLookup(lookup: DiagnosticsLookup): FileDiagnostics {
   if (!lookup.reported) return { uri: lookup.uri, status: "not-reported" };
@@ -193,8 +193,8 @@ function shapeLookup(lookup: DiagnosticsLookup): FileDiagnostics {
 }
 
 /**
- * Diagnostic thô của LSP mang range 0-based. Phép chuyển đổi duy nhất hợp lệ là `fromLspRange` của
- * tool-layer; tệp này không được cộng trừ chỉ số dòng hay cột ở bất cứ đâu (INV-TOOL-1).
+ * A raw LSP Diagnostic carries a 0-based range. The only permitted conversion is tool-layer's
+ * `fromLspRange`; this file must not add or subtract a line or column index anywhere (INV-TOOL-1).
  */
 function toProblem(diagnostic: Diagnostic): Problem {
   const problem: Problem = {

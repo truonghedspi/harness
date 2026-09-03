@@ -1,21 +1,21 @@
-// java_definition — tool mỏng trả về vị trí khai báo của symbol tại `path/line/column`
-// (harness/docs/design/tool-surface.md, bảng tám tool, mục 3 của thứ tự dựng).
+// java_definition — thin tool returning the declaration position for a symbol at `path/line/column`
+// (harness/docs/design/tool-surface.md, eight-tool table, build-order item 3).
 //
-// Bất biến mà tệp này phải giữ, và cách nó giữ:
-//   INV-TOOL-1  mọi vị trí trong kết quả đi qua ĐÚNG MỘT ranh giới chuyển đổi. Tệp này không chứa
-//               một phép cộng hay trừ nào trên chỉ số dòng/cột: chiều xuống dùng `toLspPosition`,
-//               chiều lên dùng `fromLspRange`, cả hai của tool-layer. Đó là toàn bộ lý do
-//               `java_definition` không được phép tự đọc `range.start.line + 1`.
-//   INV-TOOL-4  thất bại luôn là lỗi có tên theo taxonomy X-003; "không tìm thấy khai báo nào" là
-//               một nhánh có tên (`resolved: false` kèm lý do), không phải một mảng rỗng mập mờ.
-//   INV-TOOL-5  xác thực line/column xảy ra TRƯỚC lời gọi LSP — không lặp lại ở đây, mà thừa hưởng
-//               nguyên vẹn từ `callPositionalTool`.
+// Invariants this file must maintain, and how it does so:
+//   INV-TOOL-1  every result position crosses EXACTLY ONE conversion boundary. This file has no
+//               line/column arithmetic: the downward direction uses `toLspPosition`, upward uses
+//               tool-layer's `fromLspRange`. That is why `java_definition` may not read
+//               `range.start.line + 1` itself.
+//   INV-TOOL-4  failure is always a named X-003-taxonomy error; "no declaration found" is a named
+//               branch (`resolved: false` with a reason), not an ambiguous empty array.
+//   INV-TOOL-5  line/column validation happens BEFORE the LSP call—not repeated here, but inherited
+//               unchanged from `callPositionalTool`.
 //
-// Vì sao gọi `callPositionalTool(facade, request, [])`: đường đi chung của mọi tool nhận
-// path/line/column — hỏi workspace, đọc nội dung hiện tại, xác thực vị trí — thuộc về
-// feat-tool-layer-core. Danh sách capability rỗng chạy đúng ba bước đó và không phát request nào,
-// nên `java_definition` tái dùng toàn bộ phần xác thực và phần đặt tên lỗi thay vì chép lại. Chỉ
-// việc phát `textDocument/definition` và tạo hình location là phần riêng của tệp này.
+// Why call `callPositionalTool(facade, request, [])`: the common flow for tools receiving
+// path/line/column—ask the workspace, read current content, validate position—belongs to
+// feat-tool-layer-core. An empty capability list runs exactly those three steps and sends no request,
+// so `java_definition` reuses all validation and error naming rather than copying them. Only sending
+// `textDocument/definition` and shaping locations belongs to this file.
 
 import {
   callPositionalTool,
@@ -33,21 +33,21 @@ import {
 
 export const DEFINITION_METHOD = "textDocument/definition";
 
-/** Một vị trí khai báo: tệp nào, và ở đâu trong tệp đó — cùng hệ toạ độ 1-based với mọi tool khác. */
+/** A declaration location: which file and where in it—1-based like every other tool. */
 export interface DefinitionLocation {
   path: string;
   range: SourceRange;
 }
 
 /**
- * `locations` luôn hiện diện, kể cả khi rỗng, nên người gọi không bao giờ phải phân biệt "trường bị
- * bỏ trống" với "không có khai báo". `resolved` là nhánh có tên cho trường hợp thứ hai: rỗng đi kèm
- * một lý do đọc được, đúng như hover làm với `resolved: false` (INV-TOOL-4).
+ * `locations` is always present, even when empty, so callers never distinguish "omitted field" from
+ * "no declaration." `resolved` is the named branch for the latter: emptiness has a readable reason,
+ * just as hover uses `resolved: false` (INV-TOOL-4).
  */
 export type DefinitionAnswer = {
   path: string;
   workspaceId: string;
-  /** Vị trí đã xác thực, echo lại trong cùng hệ toạ độ với mọi range bên dưới. */
+  /** Validated position, echoed in the same coordinate system as every range below. */
   position: SourcePosition;
 } & (
   | { resolved: true; locations: DefinitionLocation[] }
@@ -55,9 +55,9 @@ export type DefinitionAnswer = {
 );
 
 /**
- * Envelope lỗi của tầng tool. `fail` của tool-layer là hàm private của module đó, nên chỗ này dựng
- * lại đúng quy ước thông điệp `"<code>: <message>"`. Mã lỗi vẫn lấy từ `ToolErrorCode` nên taxonomy
- * X-003 vẫn đóng — không có mã nào mới ra đời ở đây.
+ * Tool-layer error envelope. tool-layer's `fail` is private to that module, so this recreates its
+ * `"<code>: <message>"` convention. Error codes still come from `ToolErrorCode`, leaving the X-003
+ * taxonomy closed—no new code is created here.
  */
 function fail(code: ToolErrorCode, message: string): ToolFailure {
   return { isError: true, code, message: `${code}: ${message}` };
@@ -67,12 +67,12 @@ export async function definition(
   facade: LspFacade,
   request: PositionalRequest,
 ): Promise<ToolOutcome<DefinitionAnswer>> {
-  // Bước 1-3 (workspace sẵn sàng, nội dung hiện tại, xác thực vị trí) do tool-layer làm. Mọi lỗi
-  // rời khỏi đây đã mang sẵn đúng tên của nó và chưa lời gọi LSP nào được phát ra.
+  // Steps 1–3 (workspace readiness, current content, position validation) belong to tool-layer.
+  // Every error leaving here already has its proper name and no LSP request has been issued.
   const base = await callPositionalTool(facade, request, []);
   if (base.isError) return base;
 
-  // Chiều xuống của ranh giới chuyển đổi duy nhất: 1-based đã xác thực → 0-based của LSP.
+  // Downward direction of the sole conversion boundary: validated 1-based → LSP 0-based.
   const lspPosition = toLspPosition(base.value.position);
   const params = { textDocument: { uri: request.path }, position: lspPosition };
 
@@ -108,16 +108,16 @@ export async function definition(
 }
 
 // -------------------------------------------------------------------------------------------
-// Tạo hình kết quả — mọi range đi qua fromLspRange, cho MỌI phần tử, không có ngoại lệ
+// Result shaping — every range crosses fromLspRange for EVERY element, without exception
 // -------------------------------------------------------------------------------------------
 
 /**
- * LSP cho phép `textDocument/definition` trả về `Location`, `Location[]`, `LocationLink[]` hoặc
- * `null`. Cả bốn hình dạng được chuẩn hoá về đúng một mảng, nên người gọi chỉ gặp một shape.
+ * LSP permits `textDocument/definition` to return `Location`, `Location[]`, `LocationLink[]`, or
+ * `null`. Normalize all four shapes to one array, so callers see one shape only.
  *
- * Phần tử không nêu đủ `uri` + `range` bị bỏ qua, cùng cách `shapeCompletion` của tool-layer xử lý
- * item hỏng: một phần tử không đọc được không có vị trí nào để chuyển đổi, và bịa ra một vị trí cho
- * nó là đúng thứ INV-TOOL-1 cấm.
+ * Ignore an item without both `uri` and `range`, as tool-layer's `shapeCompletion` handles malformed
+ * items: an unreadable item has no position to convert, and inventing one is exactly what
+ * INV-TOOL-1 forbids.
  */
 function shapeLocations(raw: unknown): DefinitionLocation[] {
   const entries = Array.isArray(raw) ? raw : raw === null || raw === undefined ? [] : [raw];
@@ -137,11 +137,11 @@ function shapeLocation(entry: unknown): DefinitionLocation | undefined {
   const lspRange = readTargetRange(entry);
   if (path === undefined || lspRange === undefined) return undefined;
 
-  // Cùng một hàm, cùng một hằng số, cùng một phép cộng như hover và completion. Đó là INV-TOOL-1.
+  // Same function, constant, and addition as hover and completion. That is INV-TOOL-1.
   return { path, range: fromLspRange(lspRange) };
 }
 
-/** `Location.uri` cho hình dạng thứ nhất, `LocationLink.targetUri` cho hình dạng thứ hai. */
+/** `Location.uri` for the first shape, `LocationLink.targetUri` for the second. */
 function readUri(entry: Record<string, unknown>): string | undefined {
   if (typeof entry.uri === "string") return entry.uri;
   if (typeof entry.targetUri === "string") return entry.targetUri;
@@ -149,10 +149,10 @@ function readUri(entry: Record<string, unknown>): string | undefined {
 }
 
 /**
- * Với `LocationLink`, `targetSelectionRange` là range của chính định danh được khai báo còn
- * `targetRange` phủ cả thân khai báo. Câu hỏi mà agent đặt ra là "khai báo nằm ở đâu", nên định
- * danh là câu trả lời hẹp và đúng hơn; `targetRange` chỉ là phương án dự phòng khi server không gửi
- * `targetSelectionRange`.
+ * For `LocationLink`, `targetSelectionRange` is the range of the declared identifier itself, while
+ * `targetRange` covers the entire declaration body. The agent asks "where is the declaration?", so
+ * the identifier is the narrower and more accurate answer; use `targetRange` only if the server
+ * omits `targetSelectionRange`.
  */
 function readTargetRange(entry: Record<string, unknown>): LspRange | undefined {
   return (

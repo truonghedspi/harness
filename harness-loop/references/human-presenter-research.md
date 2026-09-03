@@ -192,10 +192,10 @@ unambiguous:
 2. Keep exact source pointer, version/digest/time, and derivation edges in the presentation plan.
 3. Group adjacent source-backed claims that share sources; place one compact marker at the paragraph
    end, not after every sentence.
-4. Separate inference through natural transitions (“Điều này cho thấy…”) or a short section, and link
+4. Separate inference through natural transitions (“This suggests…”) or a short section, and link
    it internally to the facts it uses. Never attach a source marker as if the source asserted the
    inference.
-5. Put a compact `Nguồn kiểm chứng` map at the end only when sources aid audit. Use clickable file
+5. Put a compact `Verification sources` map at the end only when sources aid audit. Use clickable file
    links or direct primary-source links. For two or fewer unobtrusive links, link descriptive text
    inline instead.
 6. Report runtime observations with action, environment/time when material, and outcome. Do not treat

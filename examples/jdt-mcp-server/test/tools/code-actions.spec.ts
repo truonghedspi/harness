@@ -1,11 +1,11 @@
-// Oracle mức 1 cho feat-tool-code-actions (java_code_actions).
+// Level-1 oracle for feat-tool-code-actions (java_code_actions).
 //
-// Falsifier: "trao blob `data` mờ đục của JDT LS ra ngoài (hoặc nhét trong) `actionId` thay vì giữ
-// phía server và đúc một handle mờ đục [INV-CA-2]".
+// Falsifier: "expose JDT LS's opaque `data` blob (or pack it into) `actionId` instead of retaining
+// it server-side and minting an opaque handle [INV-CA-2]".
 //
-// Cách đo: facade giả trả các action CHƯA giải mang `data` đặc trưng; oracle khẳng định kết quả chỉ
-// chứa `title` + `actionId` mờ đục, không chứa `data`, và actionId là một chuỗi do store sinh ra chứ
-// không phải blob nội bộ.
+// Measurement: a fake facade returns unresolved actions with distinctive `data`; the oracle asserts
+// that results contain only `title` and an opaque `actionId`, no `data`, and that actionId is a
+// store-generated string rather than an internal blob.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -45,12 +45,12 @@ function makeFacade(options: FakeFacadeOptions = {}): { facade: LspFacade; reque
   return { facade, requests };
 }
 
-test("mỗi action được đúc một actionId mờ đục, và blob data không bao giờ lọt ra ngoài", { timeout: CASE_TIMEOUT }, async () => {
+test("every action receives an opaque actionId and the data blob never escapes", { timeout: CASE_TIMEOUT }, async () => {
   const store: CodeActionStore = createCodeActionStore();
   const { facade, requests } = makeFacade();
 
   const outcome = await javaCodeActions(facade, store, 0, REQUEST);
-  assert.equal(outcome.isError, false, `mong đợi thành công, nhận ${JSON.stringify(outcome)}`);
+  assert.equal(outcome.isError, false, `expected success, got ${JSON.stringify(outcome)}`);
   if (outcome.isError) throw new Error("unreachable");
 
   assert.equal(requests[0], CODE_ACTION_METHOD);
@@ -59,19 +59,19 @@ test("mỗi action được đúc một actionId mờ đục, và blob data khô
     outcome.value.actions.map((a) => a.title),
     ["Organize imports", "Generate toString()"],
   );
-  // actionId là chuỗi mờ đục do store sinh, không chứa blob.
+  // actionId is an opaque store-generated string, without the blob.
   for (const action of outcome.value.actions) {
-    assert.match(action.actionId, /^ca-\d+$/, "actionId phải là handle mờ đục, không phải blob");
-    assert.doesNotMatch(action.actionId, /opaque|blob/, "actionId không được nhét dữ liệu nội bộ");
+    assert.match(action.actionId, /^ca-\d+$/, "actionId must be an opaque handle, not a blob");
+    assert.doesNotMatch(action.actionId, /opaque|blob/, "actionId must not pack internal data");
   }
-  // Và blob vẫn giải được phía server (store giữ nó), không bị đưa ra ngoài.
+  // The blob remains resolvable server-side (the store retains it) and is not exposed.
   assert.deepEqual(store.resolve("ws-demo", 0, outcome.value.actions[0]!.actionId), {
     ok: true,
     action: RAW_ACTIONS[0],
   });
 });
 
-test("action không có title bị bỏ qua, không làm hỏng cả danh sách", { timeout: CASE_TIMEOUT }, async () => {
+test("an action without a title is skipped without corrupting the list", { timeout: CASE_TIMEOUT }, async () => {
   const store = createCodeActionStore();
   const { facade } = makeFacade({ actions: [{ data: { x: 1 } }, ...RAW_ACTIONS] });
 
@@ -81,7 +81,7 @@ test("action không có title bị bỏ qua, không làm hỏng cả danh sách"
   assert.equal(outcome.value.actions.length, 2);
 });
 
-test("workspace chưa sẵn sàng: lỗi có tên, LSP chưa bị gọi", { timeout: CASE_TIMEOUT }, async () => {
+test("workspace not ready: named error and no LSP call", { timeout: CASE_TIMEOUT }, async () => {
   const store = createCodeActionStore();
   const { facade, requests } = makeFacade({ availability: { status: "not-ready", detail: "indexing" } });
 
@@ -92,7 +92,7 @@ test("workspace chưa sẵn sàng: lỗi có tên, LSP chưa bị gọi", { time
   assert.equal(requests.length, 0);
 });
 
-test("workspace chết giữa lời gọi: workspace-crashed", { timeout: CASE_TIMEOUT }, async () => {
+test("workspace dies during the call: workspace-crashed", { timeout: CASE_TIMEOUT }, async () => {
   const store = createCodeActionStore();
   const { facade } = makeFacade({ rejectWith: new Error("socket closed") });
 

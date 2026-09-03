@@ -1,44 +1,44 @@
-# Cổng hẹp khai tại chỗ là ranh giới đúng, nhưng nợ nối dây tích luỹ mà không ai sở hữu
+# The narrow gate declared in place is the correct boundary, but wiring debt accumulates that no one owns
 
-**Khi nào áp dụng:** maker cần một component khác cung cấp một khả năng chưa tồn tại, và thay vì sửa
-component đó (scope bleed), anh ta khai một interface hẹp trong tệp của chính mình rồi nói "daemon
-sẽ nối dây sau". Gặp ở `feat-file-sync-watcher` (`LspNotificationSink`) và lặp lại ở
+**When to apply:** Maker needs another component to provide a capability that doesn't yet exist, and instead fixes it
+component (scope bleed), he declares a narrow interface in his own file and then says "daemon
+will connect the wires later". Found in `feat-file-sync-watcher` (`LspNotificationSink`) and repeated in
 `feat-diagnostics-cache` (`LspNotificationSource`), 2026-08-22.
 
-## Vì sao từng lần phê duyệt riêng lẻ đều đúng
+## Why each individual approval is correct
 
-Ranh giới đó thật sự đúng. `context.touches` chỉ liệt kê tệp của component; sửa `src/lsp/lsp-client.ts`
-trong một lượt maker của watcher hay của cache mới là scope bleed. Cổng hẹp đúng một phương thức,
-tương thích cấu trúc, không ai phải sửa gì ngay. Tôi đã phê duyệt lần một và phê duyệt lần hai, cả
-hai lần đều đúng theo tiêu chí của chính tính năng đó.
+That boundary is indeed correct. `context.touches` only lists the component's files; edit `src/lsp/lsp-client.ts`
+In a watcher or cache maker, it is scope bleed. The gate is narrow in exactly one way,
+Structural compatibility, no one has to fix anything right away. I approved the first and approved the second, both
+twice are correct according to the criteria of that feature itself.
 
-## Điều không lần nào lộ ra khi chỉ nhìn một tính năng
+## Something that is never revealed just by looking at a feature
 
-Đến lần thứ hai, đếm lại thì có hai cổng đã khai và **không** cổng nào có đầu nối:
+The second time, counting again, there were two declared ports and **none** of them had connectors:
 
-- `LspClient` bỏ mọi notification. `#handleMessage` chỉ định tuyến request server→client (có method
-  và id), rồi `if (typeof message.id !== "number") return;` làm rơi phần còn lại.
-- `feat-lsp-client` đã ở trạng thái `done`, và behavior của nó chỉ nói về khung Content-Length và
-  tương quan id — nó sẽ không quay lại.
-- Không tính năng nào trong `feature_list.json` sở hữu việc thêm dispatch notification.
-- `feat-prove-diagnostics` đang `blocked` với lý do ghi thẳng là cần "real publishDiagnostics
-  delivery" — tức lớp chứng minh tích hợp đã đâm vào đúng khoảng trống này rồi.
+- `LspClient` drops all notifications. `#handleMessage` specifies the request server→client route (with method
+  and id), then `if (typeof message.id !== "number") return;` drops the rest.
+- `feat-lsp-client` is in the `done` state, and its behavior only refers to the Content-Length and
+  id correlation — it won't come back.
+- None of the features in `feature_list.json` owns adding dispatch notification.
+- `feat-prove-diagnostics` is `blocked` for the reason that "real publishDiagnostics" is needed
+  delivery" — meaning the integrated proof layer has hit this exact gap.
 
-Hệ quả: hai component đã `done`, oracle cấp 1 của chúng xanh, mà đường dữ liệu thật thì chưa bao giờ
-tồn tại. Không lượt kiểm tra nào của một tính năng đơn lẻ phát hiện được, vì mỗi tính năng đều đúng
-trong phạm vi của nó.
+Consequence: two components are 'done', their level 1 oracle is green, but the real data path is never
+exists. No single test of a single feature detects it, because each feature is correct
+within its scope.
 
-## Việc checker phải làm
+## What the checker must do
 
-Khi thấy một cổng khai tại chỗ với lời hứa "nối dây sau", đừng dừng ở việc xác nhận ranh giới đúng.
-Làm thêm ba bước, tốn khoảng hai phút:
+When you see a gate open on site with the promise of "wiring later," don't stop at confirming the correct boundary.
+Do three more steps, taking about two minutes:
 
-1. Đọc component ở đầu kia và xác nhận khả năng đó **thật sự** chưa có (đừng tin lời khai). Ở đây là
-   `#handleMessage` bỏ message không có id — đúng như maker mô tả.
-2. Tìm trong `feature_list.json` xem tính năng nào sở hữu phần nối dây. Nếu component đầu kia đã
-   `done`, nó sẽ không tự quay lại.
-3. Nếu không ai sở hữu, ghi `FOLLOW-UP:` ở **dòng đầu** `checkerNotes` để router chuyển cho planner.
-   Đếm luôn số cổng đang treo — con số là thứ biến một cảm giác thành một việc có phạm vi.
+1. Read the component at the other end and confirm that the capability is **really** not there (don't trust the statements). Here it is
+   `#handleMessage` drops messages without id — just as the maker described.
+2. Look in `feature_list.json` to see which feature owns the wiring section. If the other end component already exists
+   `done`, it will not return on its own.
+3. If no one owns it, write `FOLLOW-UP:` in the **first line** of `checkerNotes` so that the router can send it to the planner.
+   Count the number of hanging gates too — numbers are what turn a feeling into something with scope.
 
-Vẫn APPROVE tính năng. Sai lầm cần tránh là phê duyệt mà im lặng: ranh giới đúng vẫn để lại nợ, và
-nợ không được nêu tên thì không ai trả.
+Still APPROVE feature. The mistake to avoid is to approve without silence: correct boundaries still leave debt, and
+If a debt is not named, no one will pay it.

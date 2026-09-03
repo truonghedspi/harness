@@ -1,14 +1,14 @@
-// Oracle mức 1 cho feat-tool-diagnostics.
+// Level-1 oracle for feat-tool-diagnostics.
 //
-// Falsifier đang bị kiểm chứng: "một URI chưa từng có publish trả về CÙNG một danh sách rỗng như
-// một URI mà JDT LS đã báo cáo zero problem, thay vì một mốc 'chưa báo cáo' tách biệt [INV-DIAG-1]".
+// Falsifier under test: "a URI that has never received a publish returns THE SAME empty list as a
+// URI for which JDT LS reported zero problems, rather than a distinct ‘not reported’ marker [INV-DIAG-1]."
 //
-// java_diagnostics khác ba tool điều hướng ở chỗ nó không bao giờ phát LSP request: nó đọc lại một
-// cache đẩy (harness/docs/design/tool-surface.md, mục Build order, item 4). Vì vậy tệp này tiêm hai
-// đồ giả — một facade workspace và một reader cache — và không có JDT LS thật ở đâu cả.
+// java_diagnostics differs from the three navigation tools because it never emits an LSP request: it
+// reads a push cache (harness/docs/design/tool-surface.md, Build order item 4). This file therefore
+// injects two fakes—a workspace facade and a cache reader—and uses no real JDT LS.
 //
-// Điểm chịu lực: hai ca "chưa báo cáo" và "đã báo cáo rỗng" phải phân biệt được BẰNG MÃ. Mọi khẳng
-// định dưới đây đều đọc trường `status` và sự CÓ MẶT của `problems`, không dựa vào mắt người đọc.
+// Load-bearing point: “not reported” and “reported empty” must be distinguishable IN CODE. Every
+// assertion below reads `status` and the PRESENCE of `problems`; none relies on visual inspection.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -39,11 +39,11 @@ const BROKEN_PATH = "/tmp/demo/src/main/java/demo/Broken.java";
 const NEVER_PUBLISHED_URI = "file:///tmp/demo/src/main/java/demo/Untouched.java";
 const CLEAN_URI = "file:///tmp/demo/src/main/java/demo/Clean.java";
 const BROKEN_URI = "file:///tmp/demo/src/main/java/demo/Broken.java";
-// URI mà JDT LS đã đẩy về nhưng danh sách tệp của project không nêu tên — kết quả toàn project vẫn
-// phải mang nó, nếu không một problem có thật biến mất khỏi câu trả lời.
+// A URI JDT LS published but the project file list does not name—the project-wide result must still
+// contain it, or a real problem disappears from the answer.
 const GENERATED_URI = "file:///tmp/demo/target/generated-sources/demo/Generated.java";
 
-/** Một Diagnostic thô đúng như LSP gửi: dòng/cột 0-based. */
+/** A raw Diagnostic exactly as LSP sends it: 0-based line and column. */
 function rawDiagnostic(line: number, character: number, message: string, severity = 1): Diagnostic {
   return {
     range: {
@@ -61,12 +61,12 @@ const BROKEN_DIAGNOSTIC = rawDiagnostic(4, 10, "Greeterr cannot be resolved to a
 const GENERATED_DIAGNOSTIC = rawDiagnostic(0, 0, "The value of the field x is not used", 2);
 
 interface FakeCacheOptions {
-  /** Chỉ những URI có mặt ở đây mới được coi là ĐÃ có publish. */
+  /** Only URIs present here count as having received a publish. */
   reports?: Record<string, { diagnostics: Diagnostic[]; version?: number; receivedAt?: number }>;
 }
 
 interface FakeCache extends DiagnosticsReader {
-  /** Số lần tầng tool chạm vào cache — cho phép khẳng định "chưa hề đọc cache". */
+  /** Times the tool layer touches cache—allows the “cache was never read” assertion. */
   reads(): number;
 }
 
@@ -88,14 +88,14 @@ function fakeCache(options: FakeCacheOptions = {}): FakeCache {
   return {
     get(workspaceId: string, uri: string): DiagnosticsLookup {
       reads += 1;
-      assert.equal(workspaceId, WORKSPACE_ID, "INV-DIAG-3: cache phải bị hỏi bằng workspace đã định tuyến");
+      assert.equal(workspaceId, WORKSPACE_ID, "INV-DIAG-3: cache must be queried with the routed workspace");
       const report = reportOf(uri);
       if (report === undefined) return { reported: false, uri };
       return { reported: true, ...report };
     },
     list(workspaceId: string): readonly DiagnosticsReport[] {
       reads += 1;
-      assert.equal(workspaceId, WORKSPACE_ID, "INV-DIAG-3: cache phải bị hỏi bằng workspace đã định tuyến");
+      assert.equal(workspaceId, WORKSPACE_ID, "INV-DIAG-3: cache must be queried with the routed workspace");
       return Object.keys(reports)
         .map((uri) => reportOf(uri))
         .filter((report): report is DiagnosticsReport => report !== undefined);
@@ -138,44 +138,44 @@ function fakeFacade(options: FakeFacadeOptions = {}): DiagnosticsFacade {
   };
 }
 
-/** Lấy đúng một mục của một câu trả lời thành công; mọi thất bại làm ca đỏ ngay tại đây. */
+/** Extract exactly one entry from a successful answer; any failure makes the case red here. */
 async function singleEntry(
   facade: DiagnosticsFacade,
   reader: DiagnosticsReader,
   path: string,
 ): Promise<FileDiagnostics> {
   const outcome = await javaDiagnostics(facade, reader, { path });
-  assert.equal(outcome.isError, false, `java_diagnostics phải thành công cho ${path}`);
+  assert.equal(outcome.isError, false, `java_diagnostics must succeed for ${path}`);
   if (outcome.isError) throw new Error("unreachable");
   assert.equal(outcome.value.scope, "file");
   assert.equal(outcome.value.workspaceId, WORKSPACE_ID);
-  assert.equal(outcome.value.files.length, 1, "phạm vi một tệp phải trả về đúng một mục");
+  assert.equal(outcome.value.files.length, 1, "a single-file scope must return exactly one entry");
   const entry = outcome.value.files[0];
   assert.ok(entry !== undefined);
   return entry;
 }
 
 /**
- * Rút gọn một mục về một giá trị nguyên thuỷ mà MÃ đọc được. Đây là hình dạng mà một agent thật sẽ
- * phân nhánh trên đó: nếu "chưa báo cáo" và "sạch" cùng rút gọn về một giá trị, INV-DIAG-1 đã đổ.
+ * Reduce an entry to a primitive value that CODE can read. This is the shape a real agent branches
+ * on: if “not reported” and “clean” reduce to one value, INV-DIAG-1 has failed.
  */
 function decide(entry: FileDiagnostics): string {
   return entry.status === "reported" ? `clean-or-broken:${entry.problems.length}` : "unknown";
 }
 
-test("một URI chưa từng có publish mang mốc 'chưa báo cáo', không phải danh sách rỗng [INV-DIAG-1]", { timeout: CASE_TIMEOUT }, async () => {
+test("a URI with no publish has a ‘not reported’ marker, not an empty list [INV-DIAG-1]", { timeout: CASE_TIMEOUT }, async () => {
   const reader = fakeCache({ reports: { [CLEAN_URI]: { diagnostics: [] } } });
   const entry = await singleEntry(fakeFacade(), reader, NEVER_PUBLISHED_PATH);
 
   assert.equal(entry.uri, NEVER_PUBLISHED_URI);
   assert.equal(entry.status, "not-reported");
-  // Trường `problems` phải VẮNG MẶT: một mảng rỗng ở đây chính là câu trả lời sai mà falsifier mô tả.
-  assert.equal("problems" in entry, false, "mốc 'chưa báo cáo' không được mang danh sách problem nào");
+  // `problems` must be ABSENT: an empty array here is the incorrect answer described by the falsifier.
+  assert.equal("problems" in entry, false, "a ‘not reported’ marker must not carry a problem list");
   assert.equal(decide(entry), "unknown");
-  assert.ok(reader.reads() > 0, "tầng tool phải thật sự hỏi cache");
+  assert.ok(reader.reads() > 0, "the tool layer must actually query cache");
 });
 
-test("một URI đã publish với danh sách rỗng là một kết quả SẠCH thật, không lẫn với 'chưa báo cáo' [INV-DIAG-1]", { timeout: CASE_TIMEOUT }, async () => {
+test("a published URI with an empty list is truly CLEAN, not ‘not reported’ [INV-DIAG-1]", { timeout: CASE_TIMEOUT }, async () => {
   const reader = fakeCache({ reports: { [CLEAN_URI]: { diagnostics: [], version: 7, receivedAt: 42 } } });
   const facade = fakeFacade();
 
@@ -184,18 +184,18 @@ test("một URI đã publish với danh sách rỗng là một kết quả SẠC
 
   assert.equal(clean.status, "reported");
   assert.ok(clean.status === "reported");
-  assert.deepEqual([...clean.problems], [], "URI sạch phải trả về một danh sách problem RỖNG THẬT");
+  assert.deepEqual([...clean.problems], [], "a clean URI must return a TRULY EMPTY problem list");
   assert.equal(clean.version, 7);
   assert.equal(clean.receivedAt, 42);
   assert.equal(decide(clean), "clean-or-broken:0");
 
-  // Hai ca chỉ khác nhau ở chỗ cache đã từng nhận publish hay chưa; kết quả phải khác nhau bằng mã.
+  // The cases differ only in whether cache received a publish; code must distinguish their results.
   assert.notEqual(clean.status, unknown.status);
   assert.notEqual(decide(clean), decide(unknown));
   assert.notDeepStrictEqual(clean, unknown);
 });
 
-test("một URI có problem thật trả về đúng nội dung, toạ độ đã quy về hệ 1-based", { timeout: CASE_TIMEOUT }, async () => {
+test("a URI with a real problem returns exact content with 1-based coordinates", { timeout: CASE_TIMEOUT }, async () => {
   const reader = fakeCache({ reports: { [BROKEN_URI]: { diagnostics: [BROKEN_DIAGNOSTIC] } } });
   const entry = await singleEntry(fakeFacade(), reader, BROKEN_PATH);
 
@@ -207,7 +207,7 @@ test("một URI có problem thật trả về đúng nội dung, toạ độ đ�
   assert.equal(problem.severity, 1);
   assert.equal(problem.source, "Java");
   assert.equal(problem.code, "cannot-resolve");
-  // LSP 0-based (4, 10)–(4, 14) → hệ công bố 1-based (5, 11)–(5, 15), đúng một ranh giới chuyển đổi.
+  // LSP 0-based (4, 10)–(4, 14) → published 1-based (5, 11)–(5, 15), exactly one conversion boundary.
   assert.deepEqual(problem.range, {
     start: { line: 5, column: 11 },
     end: { line: 5, column: 15 },
@@ -215,7 +215,7 @@ test("một URI có problem thật trả về đúng nội dung, toạ độ đ�
   assert.equal(decide(entry), "clean-or-broken:1");
 });
 
-test("phạm vi toàn project giữ đúng phân biệt cho TỪNG URI", { timeout: CASE_TIMEOUT }, async () => {
+test("a project-wide scope preserves the distinction for EACH URI", { timeout: CASE_TIMEOUT }, async () => {
   const reader = fakeCache({
     reports: {
       [CLEAN_URI]: { diagnostics: [] },
@@ -233,7 +233,7 @@ test("phạm vi toàn project giữ đúng phân biệt cho TỪNG URI", { timeo
   assert.deepEqual(
     [...byUri.keys()].sort(),
     [BROKEN_URI, CLEAN_URI, GENERATED_URI, NEVER_PUBLISHED_URI].sort(),
-    "kết quả toàn project phải hợp nhất tệp của project với mọi URI cache đã nhận",
+    "the project-wide result must unite project files with every URI cache received",
   );
 
   const untouched = byUri.get(NEVER_PUBLISHED_URI);
@@ -256,7 +256,7 @@ test("phạm vi toàn project giữ đúng phân biệt cho TỪNG URI", { timeo
   assert.ok(generated.status === "reported");
   assert.equal(generated.problems[0]?.severity, 2);
 
-  // Tổng hợp toàn project vẫn phải phân biệt được bằng mã, không chỉ bằng mắt.
+  // Project-wide aggregation must remain distinguishable in code, not only by sight.
   assert.deepEqual(
     [...byUri.entries()].map(([uri, entry]) => [uri, decide(entry)] as const).sort(),
     [
@@ -268,7 +268,7 @@ test("phạm vi toàn project giữ đúng phân biệt cho TỪNG URI", { timeo
   );
 });
 
-test("một workspace chưa sẵn sàng là lỗi có tên, không phải một project sạch [INV-TOOL-4]", { timeout: CASE_TIMEOUT }, async () => {
+test("a workspace that is not ready is a named error, not a clean project [INV-TOOL-4]", { timeout: CASE_TIMEOUT }, async () => {
   const reader = fakeCache({ reports: { [CLEAN_URI]: { diagnostics: [] } } });
   const facade = fakeFacade({
     availability: { status: "not-ready", detail: "still indexing", progress: { percent: 40 } },
@@ -280,12 +280,12 @@ test("một workspace chưa sẵn sàng là lỗi có tên, không phải một 
   assert.equal(outcome.code, "not-ready");
   assert.match(outcome.message, /^not-ready: /);
   assert.deepEqual(outcome.detail, { percent: 40 });
-  // Một cache trống + một workspace chưa index xong đọc ra y hệt "không có lỗi nào" nếu tầng tool
-  // lỡ hỏi cache trước; nên "chưa hề chạm cache" là đại lượng phải đo.
-  assert.equal(reader.reads(), 0, "workspace chưa sẵn sàng thì cache không được đọc lần nào");
+  // Empty cache plus a workspace still indexing reads like “no errors” if the tool layer queries
+  // cache first; therefore “cache was never touched” is measurable.
+  assert.equal(reader.reads(), 0, "cache must not be read while the workspace is not ready");
 });
 
-test("một đường dẫn không định tuyến được là lỗi có tên, không phải một kết quả rỗng [INV-TOOL-4]", { timeout: CASE_TIMEOUT }, async () => {
+test("an unroutable path is a named error, not an empty result [INV-TOOL-4]", { timeout: CASE_TIMEOUT }, async () => {
   const reader = fakeCache();
   const outcome = await javaDiagnostics(fakeFacade(), reader, { path: "/tmp/elsewhere/Foo.java" });
 

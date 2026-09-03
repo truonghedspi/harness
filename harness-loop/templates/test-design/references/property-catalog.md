@@ -1,26 +1,26 @@
-# Property Catalog — 5 loại property và template jqwik
+# Property Catalog — five property kinds and jqwik templates
 
-Đọc file này khi hiện thực hóa condition có `technique: property`. Field
-`property_kind` của condition chỉ định loại. LUÔN đọc kèm `references/generators.md` —
-property đúng với generator kém vẫn là property mù.
+Read this file when implementing a condition with `technique: property`. The condition’s
+`property_kind` field specifies the kind. ALWAYS read it with `references/generators.md` —
+a correct property with a weak generator is still blind.
 
-Quy trình sinh property từ spec (dành cho Designer chọn `property_kind`):
-đi qua từng câu spec, áp 4 câu hỏi:
-1. Đại lượng nào được **bảo toàn**? → `invariant`
-2. Điều gì **không bao giờ được xảy ra**? → `invariant`
-3. Thao tác nào có **nghịch đảo** hoặc đối xứng encode/decode? → `round_trip`
-4. Đổi input theo cách X thì output **phải** đổi theo cách nào? → `metamorphic`
-   (trường hợp đặc biệt quan trọng: `field_sensitivity`)
+Property-generation process from the specification (for a Designer choosing `property_kind`):
+go through each specification sentence and apply four questions:
+1. Which quantity is **preserved**? → `invariant`
+2. What **must never happen**? → `invariant`
+3. Which operation has an **inverse** or encode/decode symmetry? → `round_trip`
+4. If input changes in way X, how **must** the output change? → `metamorphic`
+   (an important special case: `field_sensitivity`)
 
-Có reference implementation khả thi (≤ ~150 dòng, hiển nhiên đúng)? → `model_based`,
-loại giá trị nhất cho stateful code.
+Is a feasible reference implementation available (≤ ~150 lines and obviously correct)? → `model_based`,
+the most valuable kind for stateful code.
 
 ---
 
-## 1. `invariant` — bất biến sau mọi chuỗi thao tác
+## 1. `invariant` — invariant after every operation sequence
 
-Điều luôn đúng bất kể lịch sử. Assert sau khi áp toàn bộ command sequence
-(và với invariant rẻ, sau từng command).
+Something that is always true regardless of history. Assert it after applying the whole command sequence
+(and, for an inexpensive invariant, after every command).
 
 ```java
 class OrderBookInvariantsTest {
@@ -37,7 +37,7 @@ class OrderBookInvariantsTest {
         long submitted = commands.stream()
                 .filter(c -> c.type() == CommandType.NEW)
                 .mapToLong(OrderCommand::quantity).sum();
-        long accounted = trades.totalMatchedQuantity() * 2   // mỗi trade khớp 2 phía
+        long accounted = trades.totalMatchedQuantity() * 2   // each trade matches two sides
                 + engine.book().totalRestingQuantity()
                 + engine.totalCancelledQuantity()
                 + engine.totalRejectedQuantity();
@@ -52,7 +52,7 @@ class OrderBookInvariantsTest {
         MatchingEngine engine = MatchingEngine.forInstrument(InstrumentId.of("VNM"));
         for (OrderCommand cmd : commands) {
             engine.apply(cmd, TradeRecorder.discarding());
-            // Invariant rẻ → assert sau TỪNG command để shrink chỉ đúng command gây vỡ
+            // Inexpensive invariant → assert after EVERY command so shrinking identifies the command that broke it
             assertThat(engine.book().isSortedByPriceTimePriority()).isTrue();
             engine.book().bestBid().ifPresent(bid ->
                 engine.book().bestAsk().ifPresent(ask ->
@@ -62,15 +62,15 @@ class OrderBookInvariantsTest {
 
     @Provide
     Arbitrary<List<OrderCommand>> commandSequences() {
-        return CommandGenerators.collisionProneSequence(1, 200); // xem generators.md
+        return CommandGenerators.collisionProneSequence(1, 200); // see generators.md
     }
 }
 ```
 
 ## 2. `round_trip` — decode(encode(x)) == x
 
-Bắt buộc cho mọi SBE message type và mọi cặp serialize/deserialize.
-Bắt: field bị bỏ quên, sai length/offset, mất precision, sai charset.
+Required for every SBE message type and every serialize/deserialize pair.
+Catches omitted fields, wrong lengths/offsets, lost precision, and wrong charsets.
 
 ```java
 class NewOrderSbeRoundTripTest {
@@ -85,31 +85,31 @@ class NewOrderSbeRoundTripTest {
         OrderRequest decoded = SbeCodec.decode(buffer, 0, encodedLength);
 
         assertThat(decoded)
-                .usingRecursiveComparison()   // R-T2: toàn bộ object, không field lẻ
+                .usingRecursiveComparison()   // R-T2: the complete object, not selected fields
                 .isEqualTo(original);
     }
 
     @Provide
     Arbitrary<OrderRequest> orderRequests() {
-        return OrderRequestGenerators.fullDomain(); // phủ toàn miền, gồm biên
+        return OrderRequestGenerators.fullDomain(); // covers the full domain, including boundaries
     }
 }
 ```
 
-Lưu ý: nếu encode có normalize hợp lệ theo spec (trim padding, upper-case symbol),
-property đúng là `decode(encode(x)) == normalize(x)` với `normalize` viết độc lập
-từ spec — ghi rõ trong rationale của condition.
+Note: if encoding performs specification-valid normalization (trim padding, uppercase symbols),
+the correct property is `decode(encode(x)) == normalize(x)`, with `normalize` written independently
+from the specification — state this clearly in the condition rationale.
 
-## 3. `model_based` — differential với reference model
+## 3. `model_based` — differential testing with a reference model
 
-Chiến lược giá trị nhất cho `stateful`. So sánh implementation tối ưu
-(Agrona, primitive collections, zero-alloc) với reference model đơn giản,
-chậm, hiển nhiên đúng.
+The most valuable strategy for `stateful` behavior. Compare an optimized implementation
+(Agrona, primitive collections, zero allocation) with a simple, slow,
+obviously correct reference model.
 
-**Quy tắc độc lập — điều kiện sống còn:** reference model do người viết, hoặc do
-agent khác viết trong task riêng chỉ đọc spec. Cùng một agent viết cả engine lẫn
-model trong cùng context → cùng cách hiểu sai → property thành tautology (R-T3).
-Model tối ưu cho tính dễ-đúng: `TreeMap`, immutable, không tối ưu hiệu năng, ≤ ~150 dòng.
+**Independence rule — a vital condition:** the reference model is written by a person, or by
+another agent in a separate specification-only task. The same agent writing both engine and
+model in the same context can make the same mistaken interpretation, turning the property into a tautology (R-T3).
+Optimize the model for obvious correctness: `TreeMap`, immutable data, no performance optimization, ≤ ~150 lines.
 
 ```java
 class MatchingEngineModelBasedTest {
@@ -120,7 +120,7 @@ class MatchingEngineModelBasedTest {
             @ForAll("commandSequences") List<OrderCommand> commands) {
 
         MatchingEngine real = MatchingEngine.forInstrument(InstrumentId.of("VNM"));
-        ReferenceOrderBook model = new ReferenceOrderBook();   // TreeMap-based, ~120 dòng
+        ReferenceOrderBook model = new ReferenceOrderBook();   // TreeMap-based, ~120 lines
 
         for (OrderCommand cmd : commands) {
             List<Trade> realTrades  = real.applyAndCollect(cmd);
@@ -140,15 +140,15 @@ class MatchingEngineModelBasedTest {
 }
 ```
 
-So sánh **sau từng command**, không chỉ cuối chuỗi — divergence bị bắt tại đúng
-command gây ra, shrinking cho counterexample tối giản.
+Compare **after every command**, not only at the end of the sequence — divergence is caught at the
+command that caused it, and shrinking yields a minimal counterexample.
 
-## 4. `metamorphic` — quan hệ giữa hai lần chạy liên quan
+## 4. `metamorphic` — relation between two related runs
 
-Dùng khi không có oracle tuyệt đối: kiểm tra **quan hệ** giữa output của hai input
-liên quan. Mẫu: "thêm buy order giá thấp hơn best bid → best bid không đổi";
-"tăng qty của order cuối queue → trades đã sinh không đổi"; đơn điệu:
-"qty tăng → phí không giảm".
+Use when no absolute oracle exists: verify a **relation** between outputs for two related
+inputs. Examples: “add a buy order priced below the best bid → the best bid is unchanged”;
+“increase the quantity of the last queued order → already-produced trades are unchanged”; monotonicity:
+“quantity increases → fees do not decrease”.
 
 ```java
 class FeeMonotonicityTest {
@@ -169,19 +169,19 @@ class FeeMonotonicityTest {
 }
 ```
 
-### 4b. `field_sensitivity` — metamorphic chuyên cho shape `mapping`
+### 4b. `field_sensitivity` — metamorphic testing specialized for the `mapping` shape
 
-Kiểm tra **sơ đồ đấu nối (wiring)** của mapper bằng nhiễu loạn có kiểm soát:
-đổi đúng một input field → đúng một output field tương ứng đổi, mọi field khác
-bất động. Một property phủ N field và mọi cặp hoán trong N×N. Bắt cả ba biến thể:
-hoán chéo X↔Y, ghi một chiều X→Y, bỏ quên X.
+Check a mapper’s **wiring** with controlled perturbation:
+change exactly one input field → exactly the corresponding output field changes, while every other field
+remains unchanged. One property covers N fields and every pairwise swap in N×N. It catches all three variants:
+swapping X↔Y, one-way assignment X→Y, and omitting X.
 
 ```java
 class NewOrderMapperFieldSensitivityTest {
     // Conditions: TCON-MAP-0002 | Requirements: REQ-MSG-010
 
-    /** Liệt kê ĐỦ mọi field của message. Mỗi field biết cách tự mutate
-     *  thành giá trị KHÁC-và-HỢP-LỆ, và cách đọc field tương ứng từ output. */
+    /** Lists EVERY message field. Each field knows how to mutate itself
+     *  to a DIFFERENT-AND-VALID value and read the corresponding output field. */
     enum Field {
         ISIN_CODE {
             OrderRequest mutate(OrderRequest r) { return r.withIsinCode(Distinct.isin(r.isinCode())); }
@@ -199,7 +199,7 @@ class NewOrderMapperFieldSensitivityTest {
             OrderRequest mutate(OrderRequest r) { return r.withStopPrice(r.stopPrice().plusTicks(100)); }
             Object read(DecodedOrder d)         { return d.stopPrice(); }
         };
-        // ... KHÔNG được bỏ sót field nào — thiếu field là lỗ hổng đúng bằng field đó
+        // ... no field may be omitted — an omitted field is exactly the resulting coverage gap
 
         abstract OrderRequest mutate(OrderRequest base);
         abstract Object read(DecodedOrder decoded);
@@ -214,16 +214,16 @@ class NewOrderMapperFieldSensitivityTest {
         DecodedOrder outBase    = roundTrip(base);
         DecodedOrder outVariant = roundTrip(variant);
 
-        // Vế target: field tương ứng PHẢI đổi
+        // Target side: the corresponding field MUST change
         assertThat(field.read(outVariant))
-                .as("output %s phải đổi khi input %s đổi", field, field)
+                .as("output %s must change when input %s changes", field, field)
                 .isNotEqualTo(field.read(outBase));
 
-        // Vế frame: mọi field còn lại PHẢI bất động
+        // Frame side: every other field MUST remain unchanged
         for (Field other : Field.values()) {
             if (other == field) continue;
             assertThat(other.read(outVariant))
-                    .as("output %s không được đổi khi chỉ input %s đổi", other, field)
+                    .as("output %s must not change when only input %s changes", other, field)
                     .isEqualTo(other.read(outBase));
         }
     }
@@ -231,21 +231,21 @@ class NewOrderMapperFieldSensitivityTest {
     @Provide
     Arbitrary<OrderRequest> distinctValuedRequests() {
         return OrderRequestGenerators.fullDomain()
-                .filter(OrderRequest::allFieldValuesPairwiseDistinct); // R-T1, sống còn
+                .filter(OrderRequest::allFieldValuesPairwiseDistinct); // R-T1, vital
     }
 }
 ```
 
-Hai điều kiện tiên quyết — vi phạm là property mù:
-1. **Pairwise distinct (R-T1):** mọi field của `base` đôi một khác giá trị.
-   Đặc biệt nguy hiểm với field lồng nhau về mặt giá trị (symbol là substring
-   của ISIN) — nếu trùng, phép hoán không tạo khác biệt quan sát được.
-2. **Mutate ra giá trị khác VÀ hợp lệ:** giá trị mới phải qua được validation
-   của encoder; nếu bị reject hoặc normalize về giá trị cũ → fail giả ở vế target.
+Two prerequisites — violating either makes the property blind:
+1. **Pairwise distinct (R-T1):** every `base` field has a different value.
+   This is especially dangerous for nested fields by value (a symbol is a substring
+   of an ISIN) — if values collide, a swap creates no observable difference.
+2. **Mutate to a different AND valid value:** the new value must pass encoder validation;
+   if it is rejected or normalized back to its old value, the target side fails spuriously.
 
-## 5. `algebraic` — tính chất đại số của thao tác
+## 5. `algebraic` — algebraic properties of operations
 
-Idempotence, giao hoán (khi spec cho phép), kết hợp, phần tử trung hòa.
+Idempotence, commutativity (when the specification permits it), associativity, and identity elements.
 
 ```java
 @Property(tries = 500)
@@ -265,10 +265,10 @@ void cancellingAnAlreadyCancelledOrderIsIdempotent(
 
 ---
 
-## Vòng đời khi property fail
+## Property-failure lifecycle
 
-1. jqwik shrink counterexample về dạng tối giản (giữ `ShrinkingMode.FULL`).
-2. Ghi counterexample vào report có cấu trúc cho arbitration.
-3. Sau khi arbitration kết luận và fix xong: tạo example test cố định từ
-   counterexample đã shrink, `technique: regression_from_property`, commit
-   vĩnh viễn. Property tìm bug; regression test giữ bug không quay lại.
+1. jqwik shrinks the counterexample to its minimal form (keep `ShrinkingMode.FULL`).
+2. Record the counterexample in a structured report for arbitration.
+3. After arbitration concludes and the defect is fixed, create a fixed example test from
+   the shrunken counterexample with `technique: regression_from_property`, and commit it
+   permanently. The property finds the bug; the regression test prevents its return.

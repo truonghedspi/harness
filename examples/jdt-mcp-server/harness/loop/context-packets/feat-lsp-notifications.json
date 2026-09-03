@@ -13,21 +13,36 @@
     "../src/tools"
   ],
   "facts": [
-    "ĐỊNH DẠNG ĐÃ ĐO, không chẩn đoán lại: src/lsp/lsp-client.ts hiện có onRequest/request/#write/#drainFrames/#handleMessage/#failAll và KHÔNG có phương thức công khai nào gửi hay nhận notification. Trong #handleMessage, nhánh đầu xử lý request server→client (có method VÀ có id), rồi dòng `if (typeof message.id !== \"number\") return;` bỏ im lặng mọi thông điệp còn lại — đó chính là chỗ `textDocument/publishDiagnostics` rơi mất. Checker đã tự đọc mã và xác nhận điều này trong verdict APPROVE của feat-diagnostics-cache (2026-08-22).",
-    "Cổng NHẬN đã tồn tại và là hợp đồng phải khớp đúng: `export interface LspNotificationSource { onNotification(method: string, handler: (params: unknown) => void): void; }` trong src/lsp/diagnostics-cache.ts. LspClient chỉ cần thoả cấu trúc này; không sửa diagnostics-cache.ts, tệp đó đã được phê duyệt với 12 mutant.",
-    "Cổng GỬI đã tồn tại và là hợp đồng phải khớp đúng: `export interface LspNotificationSink { notify(method: string, params: unknown): void | Promise<void>; }` trong src/workspace/file-sync-watcher.ts. Watcher gọi đúng hai method: `workspace/didChangeWatchedFiles` và `java/projectConfigurationUpdate`, cả hai với `await`. Không sửa file-sync-watcher.ts.",
-    "RÀNG BUỘC bắt nguồn từ mã người tiêu thụ, không phải sở thích: DiagnosticsCache.attach() (diagnostics-cache.ts:142) gọi source.onNotification(...) mỗi lần được gọi và không có đường gỡ đăng ký ở phía nguồn — hàm nó trả về chỉ lật một cờ nội bộ. Nếu onNotification ghi đè handler theo method giống onRequest (`#requestHandlers.set`), thì subscriber đăng ký trước sẽ bị huỷ đăng ký im lặng khi một thành phần khác đăng ký cùng method. Đăng ký phải cộng dồn.",
-    "Notification khác request ở đúng một điểm trên dây: khung JSON-RPC không mang trường `id`. Vì vậy notify() KHÔNG được lấy số từ #nextId, KHÔNG được ghi vào #pending, và không trả về Promise chờ phản hồi. Một notification mang id sẽ bị JDT LS coi là request và ô #pending đó không bao giờ được giải quyết — đúng nửa sau của falsifier.",
-    "Khung Content-Length và bảng tương quan id đã được chứng minh ở feat-lsp-client (done, APPROVE 2026-08-22, có oracle tích hợp spawn tiến trình thật). Xuất phát từ 'phần khung đang đúng', chỉ thêm nhánh không-id ở cả hai chiều; đừng viết lại #drainFrames hay #write.",
-    "PHẠM VI: chỉ src/lsp/lsp-client.ts và một tệp spec MỚI test/lsp/lsp-client-notifications.spec.ts. test/lsp/lsp-client.spec.ts và test/integration/lsp-client-process.integration.spec.ts là bằng chứng đã được phê duyệt của feat-lsp-client — chạy được, nhưng không sửa. Nếu bốn ca sẵn có của lsp-client.spec.ts đỏ lên thì thay đổi đã phá vỡ hành vi đã chứng minh.",
-    "Việc nối dây production (pool trao lease.client cho cache.attach và cho sink của watcher) KHÔNG thuộc tính năng này; nó thuộc feat-tool-layer-core và feat-mcp-shim, đã ghi trong context.note của feat-tool-layer-core. Chạm src/workspace/workspace-pool.ts trong lượt này là scope bleed.",
-    "Hai invariant được trích dẫn nằm ở docs/design/tool-surface.md (INV-DIAG-1) và docs/design/runtime-model.md (INV-SYNC-2); cả hai đều được phán xét ở cấp tích hợp bởi feat-prove-diagnostics và feat-prove-sync. Kiểm chứng của chính tính năng này là mức unit: một tiến trình giả phát khung không-id vào stdout và ghi lại các khung viết ra stdin."
+    "MEASURED SHAPE, do not rediagnose: src/lsp/lsp-client.ts currently has onRequest/request/#write/#drainFrames/#handleMessage/#failAll and NO public method that sends or receives a notification. In #handleMessage, the first branch handles a server→client request (with method AND id), then `if (typeof message.id !== \"number\") return;` silently drops every remaining message — exactly where `textDocument/publishDiagnostics` is lost. The checker read the code and confirmed this in the APPROVE verdict for feat-diagnostics-cache (2026-08-22).",
+    "The RECEIVE seam already exists and is a contract that must match exactly: `export interface LspNotificationSource { onNotification(method: string, handler: (params: unknown) => void): void; }` in src/lsp/diagnostics-cache.ts. LspClient need only satisfy this structure; do not modify diagnostics-cache.ts, which was approved with 12 mutants.",
+    "The SEND seam already exists and is a contract that must match exactly: `export interface LspNotificationSink { notify(method: string, params: unknown): void | Promise<void>; }` in src/workspace/file-sync-watcher.ts. The watcher calls exactly two methods: `workspace/didChangeWatchedFiles` and `java/projectConfigurationUpdate`, both with `await`. Do not modify file-sync-watcher.ts.",
+    "The CONSTRAINT comes from consumer code, not preference: DiagnosticsCache.attach() (diagnostics-cache.ts:142) calls source.onNotification(...) on every invocation and has no source-side unsubscribe path — the function it returns only flips an internal flag. If onNotification overwrites a handler by method like onRequest (`#requestHandlers.set`), an earlier subscriber is silently unsubscribed when another component registers the same method. Registration must accumulate.",
+    "A notification differs from a request at exactly one wire-level point: its JSON-RPC frame has no `id` field. Therefore notify() MUST NOT take a number from #nextId, MUST NOT write to #pending, and must not return a Promise awaiting a response. A notification carrying an id is treated by JDT LS as a request and its #pending entry never resolves — exactly the second half of the falsifier.",
+    "Content-Length framing and the id-correlation table were proved in feat-lsp-client (done, APPROVE 2026-08-22, with an integration oracle that spawns a real process). Starting from ‘the framing is correct’, add only the no-id branch in both directions; do not rewrite #drainFrames or #write.",
+    "SCOPE: only src/lsp/lsp-client.ts and one NEW spec file, test/lsp/lsp-client-notifications.spec.ts. test/lsp/lsp-client.spec.ts and test/integration/lsp-client-process.integration.spec.ts are approved evidence for feat-lsp-client — run them, but do not modify them. If the four existing lsp-client.spec.ts cases turn red, the change broke proved behavior.",
+    "Production wiring (the pool giving lease.client to cache.attach and the watcher sink) is NOT part of this feature; it belongs to feat-tool-layer-core and feat-mcp-shim, recorded in feat-tool-layer-core’s context.note. Touching src/workspace/workspace-pool.ts in this turn is scope bleed.",
+    "The two cited invariants are in docs/design/tool-surface.md (INV-DIAG-1) and docs/design/runtime-model.md (INV-SYNC-2); both are judged at integration level by feat-prove-diagnostics and feat-prove-sync. This feature’s own verification is unit-level: a fake process emits no-id frames on stdout and records frames written to stdin."
   ],
   "sourceInputs": [
-    { "path": "../src/lsp/lsp-client.ts", "sha256": "6f24720c8e697bbeba8c035e5734b60d8d1ef94153aec4072d4a0775d38253f5" },
-    { "path": "../src/lsp/diagnostics-cache.ts", "sha256": "451f73aa644a5502df2bdd3a71d6775d8daed3140d8688a249d816c14dae1bb4" },
-    { "path": "../src/workspace/file-sync-watcher.ts", "sha256": "712c22202500fc292e32c1f74f57f704e5c3c8d9c8c65a8ed0f4ffa9851a94cf" },
-    { "path": "docs/design/runtime-model.md", "sha256": "bccbe6dfe3163444b58fa7a77845515c7a9d52a900c2f6d64f74a2b7c7e99951" },
-    { "path": "docs/design/tool-surface.md", "sha256": "ff1e19bce1db4590a326a1bc26ac279182acf1d8cc6a57f784c1be2494d04cc4" }
+    {
+      "path": "../src/lsp/lsp-client.ts",
+      "sha256": "6f24720c8e697bbeba8c035e5734b60d8d1ef94153aec4072d4a0775d38253f5"
+    },
+    {
+      "path": "../src/lsp/diagnostics-cache.ts",
+      "sha256": "451f73aa644a5502df2bdd3a71d6775d8daed3140d8688a249d816c14dae1bb4"
+    },
+    {
+      "path": "../src/workspace/file-sync-watcher.ts",
+      "sha256": "712c22202500fc292e32c1f74f57f704e5c3c8d9c8c65a8ed0f4ffa9851a94cf"
+    },
+    {
+      "path": "docs/design/runtime-model.md",
+      "sha256": "bccbe6dfe3163444b58fa7a77845515c7a9d52a900c2f6d64f74a2b7c7e99951"
+    },
+    {
+      "path": "docs/design/tool-surface.md",
+      "sha256": "ff1e19bce1db4590a326a1bc26ac279182acf1d8cc6a57f784c1be2494d04cc4"
+    }
   ]
 }

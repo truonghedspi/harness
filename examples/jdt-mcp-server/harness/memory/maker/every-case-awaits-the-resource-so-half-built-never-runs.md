@@ -1,58 +1,58 @@
-# Mọi ca đều `await` xong tài nguyên, nên trạng thái nửa-dựng không ca nào bước vào
+# All shifts wait for resources, so no shifts enter the semi-edit state
 
-**Khi nào áp dụng:** một thành phần có vòng đời hai pha — dựng (`spawn`, `connect`, `start`) rồi nối
-dây (`attach`, `subscribe`, `register`) — và bạn đang chứng minh bất biến về dọn dẹp. Gặp ở
-`feat-tool-layer-core`, lượt 1 bị REJECT.
+**When applicable:** a component has a two-phase lifecycle — build (`spawn`, `connect`, `start`) then connect
+string (`attach`, `subscribe`, `register`) — and you're proving a cleanup invariant. Meet at
+`feat-tool-layer-core`, turn 1 REJECTed.
 
-## Điều đã xảy ra
+## What happened
 
-Sáu mutant `M1`–`M6` của lượt 1 đều chết đúng số ca đã khai. Checker chạy lại: khớp hoàn toàn. Rồi
-checker dựng một probe **không phải mutant** — gọi `close()` trong lúc `spawn` còn dở — và đo được
-`attached=1, detached=0, stopped=1` trên bản **pristine**. Lỗi nằm trong mã sản xuất, không phải
-trong bản đồ nhánh: `#evict` chạy `#runDetachments` trước `await entry.started`, mà mảng detach chỉ
-đầy đủ sau khi hàm start chạy xong.
+Six mutants `M1`–`M6` of round 1 all died exactly as declared. Checker runs again: perfect match. Okay
+checker constructs a probe **not a mutant** — calls `close()` while `spawn` is in progress — and measures
+`attached=1, detached=0, stopped=1` on **pristine** version. The error is in the production code, it's not
+in branch map: `#evict` runs `#runDetachments` before `await entry.started`, which the detach array points to
+fully after the start function finishes running.
 
-Nguyên nhân gốc của việc không ai thấy: **mọi ca trong tệp spec đều mở đầu bằng
-`const lease = await pool.acquire(...)`.** Sau dòng đó, entry luôn ở trạng thái đã nối dây xong.
-Trạng thái `"starting"` tồn tại trong kiểu dữ liệu (`WorkspaceState`), được gán trong mã, và không
-một ca nào từng quan sát nó. Một mutant chỉ chết được nếu có ca đi qua nhánh nó làm hỏng; ở đây
-nhánh đó không có ca nào, nên mọi mutant về thứ tự dọn dẹp trông như mutant tương đương.
+Root cause of no one seeing it: **every shift in the spec file begins with
+`const lease = await pool.acquire(...)`.** After that line, the entry is always in the wired state.
+The `"starting"` state exists in the data type (`WorkspaceState`), is assigned in the code, and is not
+No one has ever observed it. A mutant can only die if a mutant crosses over to the branch it damaged; here
+That branch has no cases, so all cleanup order mutants look like equivalent mutants.
 
-## Dấu hiệu nhận biết, áp dụng được cho lượt sau
+## Identification signs, applicable to the next turn
 
-Đọc kiểu trạng thái của thành phần rồi đếm xem mỗi giá trị được **quan sát** bởi bao nhiêu ca. Giá
-trị nào chỉ được gán mà không ca nào đọc là một vùng mù. `"starting"`, `"draining"`, `"reconnecting"`
-gần như luôn rơi vào đó, vì fixture thuận tay nhất là fixture giải quyết ngay lập tức.
+Read the component's state type and then count how many shifts each value is **observed** by. Price
+Any value that is assigned but not read is a blind area. `"starting"`, `"draining"`, `"reconnecting"`
+almost always falls there, because the most convenient fixture is the one that resolves immediately.
 
-## Cách dựng cửa sổ đó một cách xác định
+## How to build that window deterministically
 
-Không dùng `setTimeout`. Đặt hai chốt chặn quanh chính seam đã tiêm:
+Do not use `setTimeout`. Place two stoppers around the injected seam itself:
 
 ```ts
-const spawnReached = deferred();   // seam báo "tôi đã vào tới đây"
-const spawnGate = deferred();      // test quyết định khi nào seam trả về
+const spawnReached = deferred();   // seam says "I'm here"
+const spawnGate = deferred();      // test decides when seam returns
 const spawnWorkspace = async () => { spawnReached.resolve(); await spawnGate.promise; return real; };
 
 const acquiring = pool.acquire(root);
-await spawnReached.promise;   // chắc chắn đang ở giữa hai pha
-const closing = pool.close(); // sự kiện cần đo, rơi đúng vào cửa sổ
-spawnGate.resolve();          // pha dựng kết thúc SAU khi dọn dẹp đã bắt đầu
-await closing;
+await spawnReached.promise;   // definitely in between two phases
+const closing = pool.close(); // the event to be measured falls into the correct window
+spawnGate.resolve();          // build phase ends AFTER cleanup has begun
+await closing; await closing;
 ```
 
-Hai điều bắt buộc kèm theo, nếu không mutant ngược lại sẽ treo thay vì báo đỏ (xem
-`a-leaked-handle-turns-a-red-mutant-into-a-hang`): mở chốt chặn trong `t.after` để không ca nào kẹt
-sau một khẳng định đỏ, và giữ tham chiếu tới tài nguyên thật (`fs.watch`) để đóng thẳng, ngoài đường
-đang bị kiểm chứng.
+Two things are required, otherwise the mutant will be suspended instead of red (see
+`a-leaked-handle-turns-a-red-mutant-into-a-cave`): opens the handle in `t.after` so that no shift gets stuck
+after a red assertion, and keep the reference to the actual resource (`fs.watch`) to close it straight, out of the way
+is being tested.
 
-## Hai điều nhỏ hơn, cùng lượt
+## Two smaller things, at the same time
 
-- **Một toạ độ đi ra ngoài dưới dạng văn xuôi vẫn là một toạ độ.** `HoverAnswer.reason` được dựng
-  bằng template string tự cộng `+ 1`, tức một ranh giới chuyển đổi thứ hai bên cạnh hàm chuyển đổi
-  chính thức. Ca cũ chỉ đòi `reason.length > 0` nên mutant 0-based sống. Khi bất biến nói "chuyển đổi
-  tại đúng một chỗ", hãy `grep` cả chuỗi định dạng, không chỉ các đường trả về có kiểu.
-- **Fixture chứa emoji không kiểm chứng được xử lý cặp surrogate.** Emoji không phải identifier part,
-  nên nhánh `width = 2` và `width = 1` cho cùng kết quả. Cần một chữ cái astral-plane THẬT
-  (`𝐀`, U+1D400 — `\p{L}`) nằm trong một định danh. Ca đó lộ ra rằng quét ngược bằng
-  `codePointAt(start - 1)` là sai từ đầu: ở đúng một cặp surrogate, vị trí đó là nửa sau, không phải
-  cả cặp — bề rộng phải suy từ dải trail surrogate `0xDC00`–`0xDFFF`.
+- **A coordinate that goes out in prose is still a coordinate.** `HoverAnswer.reason` is constructed
+  equal to the template string adding `+ 1`, i.e. a second conversion boundary next to the conversion function
+  official. The old case only requires `reason.length > 0` so the 0-based mutant lives. When immutable says "convert
+  in exactly one place", `grep` the entire format string, not just typed returns.
+- **Fixture contains unverified emoji that cannot be processed as surrogate pairs.** Emoji is not an identifier part,
+  so the branches `width = 2` and `width = 1` give the same result. Need a REAL astral-plane letter
+  (`𝐀`, U+1D400 — `\p{L}`) is in an identifier. That shift revealed that the reverse scan was equal
+  `codePointAt(start - 1)` is wrong from the start: in exactly one surrogate pair, that position is the second half, not
+  pair — width must be derived from trail surrogate range `0xDC00`–`0xDFFF`.

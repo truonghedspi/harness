@@ -1,94 +1,92 @@
 # JDT MCP Server
 
-MCP server bọc **Eclipse JDT Language Server**, phơi bày trí tuệ mã nguồn Java (diagnostics, hover,
-completion, references, definition, rename, code actions) dưới dạng **MCP tools** cho AI coding agent.
+MCP server wraps **Eclipse JDT Language Server**, exposing Java source code intelligence (diagnostics, hover,
+completion, references, definition, rename, code actions) as **MCP tools** for AI coding agents.
 
-> **Trạng thái:** 37/37 feature đã hoàn tất và qua kiểm chứng (unit + integration + mutant). Xem mục
-> [Trạng thái](#trạng-thái) về việc phần đóng gói `npx` còn là việc còn lại.
+> **Status:** 37/37 features are completed and tested (unit + integration + mutant). See entry
+> [Status](#status) about whether the `npx` packaging is remaining.
 
-## Mục lục
+## Table of contents
 
-- [Kiến trúc](#kiến-trúc)
-- [Sử dụng qua MCP](#sử-dụng-qua-mcp)
-- [Các tool](#các-tool)
-- [Hình dạng kết quả](#hình-dạng-kết-quả)
-- [Mã lỗi](#mã-lỗi)
-- [Hành vi cốt lõi](#hành-vi-cốt-lõi)
-- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-- [Cấu hình](#cấu-hình)
-- [Chạy thử](#chạy-thử)
-- [Cấu hình MCP cho agent](#cấu-hình-mcp-cho-agent)
-- [Bố cục mã nguồn](#bố-cục-mã-nguồn)
-- [Phát triển](#phát-triển)
-- [Trạng thái](#trạng-thái)
+- [Architecture](#architecture)
+- [Use via MCP](#use-via-mcp)
+- [Tools](#tools)
+- [Result shape](#result-shape)
+- [Error code](#error-code)
+- [Core behavior](#core-behavior)
+- [System requirements](#system-requirements)
+- [Configuration](#configuration)
+- [Test run](#test-run)
+- [MCP configuration for agent](#config-mcp-for-agent)
+- [Source code layout](#source-code-layout)
+- [Development](#development)
+- [Status](#status)
 
-## Kiến trúc
+## Architecture
 
 ```
 MCP client ──stdio──▶ mcp-shim ──unix socket──▶ daemon ──▶ per-workspace JDT LS pool
-                         │                        │
+                         │ │
                          └─ connect-or-spawn ─────┘ (single instance, auto-spawn)
 ```
 
-- **`mcp-shim`** — front end stdio. Chỉ những message MCP hợp lệ được phép ra stdout; mọi thứ khác đi
-  stderr. Nếu chưa có daemon phục vụ socket, shim tự sinh daemon (vai `daemon`); nếu đã có, nó nối vào
-  (vai `delegated`).
-- **`daemon`** — lắng nghe Unix socket, giữ **một tiến trình JDT LS cho mỗi workspace** (pool, LRU-idle,
-  cap mặc định 3).
-- **`file-sync-watcher`** — theo dõi `src/main/java`, `src/test/java` và `pom.xml`; đẩy
-  `workspace/didChangeWatchedFiles` cho JDT LS. Đây là thứ JDT LS không tự làm (spike C: nó trả lời từ
-  model cũ tới khi được báo).
-- **`readiness-gate`** — cổng sẵn sàng bằng **semantic probe** (resolve một symbol có thật từ chính
-  nguồn của workspace), không tin `ServiceReady`/`ProjectStatus`.
+- **`mcp-shim`** — front end stdio. Only valid MCP messages are allowed to stdout; everything is different
+  stderr. If there is no daemon serving the socket, shim will automatically generate the daemon (as `daemon`); If it exists, it connects
+  (role `delegated`).
+- **`daemon`** — listens to Unix sockets, keeps **one JDT LS process per workspace** (pool, LRU-idle,
+  default cap 3).
+- **`file-sync-watcher`** — monitor `src/main/java`, `src/test/java` and `pom.xml`; push
+  `workspace/didChangeWatchedFiles` for JDT LS. This is something JDT LS doesn't do on its own (spike C: it answers from
+  old model until notified).
+- **`readiness-gate`** — ready gate by **semantic probe** (resolves a real symbol from main
+  workspace source), does not trust `ServiceReady`/`ProjectStatus`.
 
-## Sử dụng qua MCP
+## Use via MCP
 
-Server nói **MCP qua stdio**, mỗi message là **một dòng JSON** (newline-delimited). Vòng đời chuẩn:
+The server speaks **MCP via stdio**, each message is **a line of JSON** (newline-delimited). Standard life cycle:
 
-1. `initialize` — bắt tay, client khai báo capability.
-2. `tools/list` — khám phá 8 tool.
-3. `tools/call` — gọi một tool với `{ name, arguments }`; kết quả nằm trong
-   `content[0].text` (chuỗi JSON), kèm cờ `isError`.
+1. `initialize` — handshake, client declares capability.
+2. `tools/list` — explore 8 tools.
+3. `tools/call` — call a tool with `{ name, arguments }`; The results are in
+   `content[0].text` (JSON string), with `isError` flag.
 
 ```jsonc
-// → client gửi
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"my-agent","version":"0"}}}
+// → client sends{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"my-agent","version":"0"}}}
 
-// → client gọi java_definition
+// → client calls java_definition
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"java_definition","arguments":{"path":"src/main/java/com/acme/Greeter.java","line":5,"column":10}}}
 
-// ← server trả lời
-{"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"path\":\"...\",\"workspaceId\":\"...\",\"position\":{\"line\":5,\"column\":10},\"resolved\":true,\"locations\":[{\"path\":\"...\",\"range\":{\"start\":{\"line\":3,\"column\":19},\"end\":{\"line\":3,\"column\":24}}}]}"}],"isError":false}}
+// ← server responds
+{"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"path\":\"...\",\"workspaceId\":\"...\",\"position\":{\"line\":5,\"column\":10},\"re solved\":true,\"locations\":[{\"path\":\"...\",\"range\":{\"start\":{\"line\":3,\"column\":19},\"end\":{\"line\":3,\"column\":24}}}]}"}],"isError":false}}
 ```
 
-## Các tool
+## Tools
 
-Mọi vị trí `path/line/column` đều ở hệ toạ độ **1-based** (dòng 1 là dòng đầu tiên, cột 1 là ký tự
-đầu tiên; cột đếm bằng UTF-16 code unit — X-007). `path` nhận đường dẫn tệp thật trên đĩa.
+All `path/line/column` positions are in **1-based** coordinate system (line 1 is the first line, column 1 is the character
+first; count column in UTF-16 code unit — X-007). `path` gets the actual file path on disk.
 
-| Tool | Tham số | Trả về |
+| Tools | Parameters | Return |
 |---|---|---|
-| `java_hover` | `path`, `line`, `column` | signature + javadoc + `range` định vị token đã giải |
-| `java_definition` | `path`, `line`, `column` | vị trí khai báo (có thể nhiều) |
-| `java_references` | `path`, `line`, `column`, `includeDeclaration?` | danh sách vị trí tham chiếu, **capped** |
-| `java_completion` | `path`, `line`, `column` | danh sách completion item, **capped** |
-| `java_diagnostics` | `path` (tệp **hoặc** gốc project) | payload `publishDiagnostics` gần nhất |
-| `java_rename` | `path`, `line`, `column`, `newName`, `apply?` | WorkspaceEdit đề xuất **dưới dạng dữ liệu** |
-| `java_code_actions` | `path`, `line`, `column` | các action dạng **handle mờ đục** (`actionId`) |
-| `java_apply_code_action` | `actionId`, `apply?` | edit đã resolve của action đó |
+| `java_hover` | `path`, `line`, `column` | signature + javadoc + `range` locate solved token |
+| `java_definition` | `path`, `line`, `column` | declaration location (can be multiple) |
+| `java_references` | `path`, `line`, `column`, `includeDeclaration?` | list of reference locations, **capped** |
+| `java_completion` | `path`, `line`, `column` | completion item list, **capped** |
+| `java_diagnostics` | `path` (project root **or** file) | payload `publishDiagnostics` closest |
+| `java_rename` | `path`, `line`, `column`, `newName`, `apply?` | WorkspaceEdit recommends **as data** |
+| `java_code_actions` | `path`, `line`, `column` | **opaque handle** (`actionId`) |
+| `java_apply_code_action` | `actionId`, `apply?` | resolved edit of that action |
 
-## Hình dạng kết quả
+## Result shape
 
-Kết quả mỗi tool là một object JSON (được chuỗi hoá vào `content[0].text`). `range` luôn là
-`{ start: { line, column }, end: { line, column } }` ở hệ 1-based.
+The result of each tool is a JSON object (serialized into `content[0].text`). `range` is always
+`{ start: { line, column }, end: { line, column } }` in 1-based system.
 
 **`java_hover`**
 ```jsonc
 { "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 },
   "resolved": true,
   "signature": "String greet(String)", "javadoc": "...", "contents": "...",
-  "range": { "start": { "line": 3, "column": 19 }, "end": { "line": 3, "column": 24 } } }
-// hoặc khi không giải được phần tử nào:
+  "range": { "start": { "line": 3, "column": 19 }, "end": { "line": 3, "column": 24 } } }// or when no element can be resolved:
 { "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 }, "resolved": false, "reason": "..." }
 ```
 
@@ -97,145 +95,141 @@ Kết quả mỗi tool là một object JSON (được chuỗi hoá vào `conten
 { "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 },
   "resolved": true,
   "locations": [ { "path": "...", "range": { "start": { "line": 3, "column": 19 }, "end": { "line": 3, "column": 24 } } } ] }
-// hoặc { "resolved": false, "locations": [], "reason": "..." }
+// or { "resolved": false, "locations": [], "reason": "..." }
 ```
 
-**`java_references` / `java_completion`** — cùng bộ `cap` / `total` / `truncated`:
+**`java_references` / `java_completion`** — same set of `cap` / `total` / `truncated`:
 ```jsonc
 { "path": "...", "workspaceId": "...", "position": { "line": 5, "column": 10 },
   "cap": 200, "total": 512, "truncated": true,
   "references": [ { "path": "...", "range": { "start": { "line": 1, "column": 5 }, "end": { "line": 1, "column": 10 } } } ] }
-// java_completion thay `references` bằng:
+// java_completion replace `references` with:
   "items": [ { "label": "someMethod", "detail": "...", "range": { "start": { "line": 1, "column": 1 }, "end": { "line": 1, "column": 5 } } } ]
 ```
 
-**`java_diagnostics`** — nhánh `reported` có `problems`, nhánh `not-reported` **không có** `problems`:
+**`java_diagnostics`** — branch `reported` has `problems`, branch `not-reported` **does not have** `problems`:
 ```jsonc
 { "path": "...", "workspaceId": "...", "scope": "file",
   "files": [ { "uri": "file:///...", "status": "reported",
                "problems": [ { "range": { "start": { "line": 4, "column": 13 }, "end": { "line": 4, "column": 19 } }, "message": "Type mismatch: cannot convert from String to int", "severity": 1 } ],
                "receivedAt": 1730000000000 } ] }
-// tệp chưa từng có publish:
+// file never exists publish:
   "files": [ { "uri": "file:///...", "status": "not-reported" } ]
 ```
 
-**`java_rename` / `java_apply_code_action`** — `applied` là `true` đúng khi `apply: true` được truyền:
+**`java_rename` / `java_apply_code_action`** — `applied` is `true` true when `apply: true` is passed:
 ```jsonc
 { "path": "...", "workspaceId": "...", "position": { "line": 3, "column": 19 }, "newName": "salute",
   "applied": false,
   "files": [ { "path": "...", "edits": [ { "range": { "start": { "line": 3, "column": 19 }, "end": { "line": 3, "column": 24 } }, "newText": "salute" } ] } ] }
 ```
 
-**`java_code_actions`** — caller chỉ thấy `title` + `actionId` (blob nội bộ của JDT LS không lọt ra ngoài):
+**`java_code_actions`** — caller only sees `title` + `actionId` (JDT LS internal blob does not leak out):
 ```jsonc
-{ "path": "...", "workspaceId": "...", "position": { "line": 4, "column": 13 },
-  "actions": [ { "title": "Organize imports", "actionId": "ca-1" }, { "title": "Generate toString()", "actionId": "ca-2" } ] }
+{ "path": "...", "workspaceId": "...", "position": { "line": 4, "column": 13 },"actions": [ { "title": "Organize imports", "actionId": "ca-1" }, { "title": "Generate toString()", "actionId": "ca-2" } ] }
 ```
 
-## Mã lỗi
+## Error code
 
-Mọi thất bại là một envelope có cấu trúc — không bao giờ bị mã hoá thành kết quả rỗng thành công
-(INV-TOOL-4). Taxonomy đóng (X-003):
+Every failure is a structured envelope — never encoded as an empty success
+(INV-TOOL-4). Closed Taxonomy (X-003):
 
 ```jsonc
 { "isError": true, "code": "not-ready", "message": "not-ready: workspace ... cannot answer: ..." }
 ```
 
-| `code` | Nghĩa | Khi nào gặp |
+| `code` | Meaning | When to meet |
 |---|---|---|
-| `unroutable` | đường dẫn không thuộc workspace nào / không đọc được | path sai, tệp không đọc được |
-| `not-ready` | workspace chưa index xong | gọi ngay sau khi workspace mở (warm-up) |
-| `resyncing` | workspace đang cập nhật sau khi file đổi trên đĩa | gọi quá sớm sau khi sửa file — thử lại sau |
-| `workspace-crashed` | tiến trình JDT LS đã chết | JDT LS process exit giữa chừng |
-| `cap-exceeded` | vượt cap workspace đồng thời (mặc định 3) | quá nhiều workspace cùng lúc |
-| `invalid-position` | `line`/`column` ngoài phạm vi file | toạ độ vượt số dòng/cột thật |
+| `unroutable` | path does not belong to any workspace / cannot be read | path is wrong, file cannot be read |
+| `not-ready` | workspace has not been indexed yet | Call immediately after the workspace opens (warm-up) |
+| `resyncing` | workspace updating after file changes on disk | called too soon after editing the file — try again later |
+| `workspace-crashed` | JDT LS process is dead | JDT LS process exits midway |
+| `cap-exceeded` | exceed concurrent workspace cap (default 3) | too many workspaces at once |
+| `invalid-position` | `line`/`column` outside file scope | coordinates exceed the actual number of rows/columns |
 
-## Hành vi cốt lõi
+## Core behavior
 
-- **Không bao giờ trả lời từ view cũ (INV-SYNC-1).** Sau khi agent sửa file trên đĩa, lời gọi tool
-  tiếp theo hoặc phản ánh thay đổi, hoặc trả lỗi `resyncing` — không bao giờ âm thầm trả lời từ model
-  cũ. Cơ chế: tool call mang generation của watcher; nếu LSP view đi sau, nó chờ quiescence rồi mới
-  trả lời.
-- **Mọi danh sách bị cắt đều tự khai (INV-TOOL-3).** `references`/`completion` vượt cap (mặc định 200,
-  X-008) trả về `truncated: true` + `total` là tổng **thực trước khi cắt** — không cắt im lặng.
-- **Tool đột biến mặc định KHÔNG ghi đĩa (INV-TOOL-2 / A-002).** `java_rename` và
-  `java_apply_code_action` trả edit dưới dạng dữ liệu; chỉ ghi khi lời gọi mang `apply: true` (opt-in
-  theo từng lời gọi, không phải sự hiện diện của khoá).
-- **Handle code action bị trói vào sync generation (INV-CA-1).** `actionId` đúc trước một lần sửa sẽ
-  lỗi khi resolve sau lần sửa — không bao giờ áp edit tính trên mã nguồn đã đổi.
-- **Diagnostics không lẫn giữa các workspace (INV-DIAG-3).** Cache khoá theo `(workspaceId, URI)`.
+- **Never respond from the old view (INV-SYNC-1).** After the agent edits the file on disk, the tool call
+  next either reflects the change, or returns a `resyncing` error — never respond silently from the model
+  old. Mechanism: tool call brings watcher generation; If the LSP view comes later, it waits for quiescence before proceeding
+  reply.
+- **All truncated lists are self-declared (INV-TOOL-3).** `references`/`completion` exceeds the cap (default 200,
+  X-008) returns `truncated: true` + `total` is the **real total before truncation** — no silent truncation.
+- **Default Mutation Tool DOES NOT write to disk (INV-TOOL-2 / A-002).** `java_rename` and
+  `java_apply_code_action` returns edit as data; write only when the call carries `apply: true` (opt-in
+  per call, not the presence of the key).
+- **Handle code action is tied to sync generation (INV-CA-1).** `actionId` cast before a fix will
+  Error when resolving after edit — never apply edit on changed source code.
+- **Diagnostics does not mix between workspaces (INV-DIAG-3).** Cache key by `(workspaceId, URI)`.
 
-## Yêu cầu hệ thống
+## System requirements
 
-- **Node.js ≥ 22.6.0** (dùng `--experimental-strip-types` để chạy TypeScript trực tiếp).
-- **Java 21+** (yêu cầu của JDT LS). `JAVA_HOME` trỏ tới JDK ≥ 21.
-- Lần chạy đầu tiên **tải và ghim** bản JDT LS (`download.eclipse.org`); có thể trỏ sẵn qua
-  `JDTLS_HOME` để bỏ qua mạng (xem [Cấu hình](#cấu-hình)).
+- **Node.js ≥ 22.6.0** (use `--experimental-strip-types` to run TypeScript directly).- **Java 21+** (required by JDT LS). `JAVA_HOME` points to JDK ≥ 21.
+- First run **download and pin** JDT LS version (`download.eclipse.org`); can be pointed to
+  `JDTLS_HOME` to bypass the network (see [Configuration](#configuration)).
 
-## Cấu hình
+## Configuration
 
-Biến môi trường:
+Environment variables:
 
-| Biến | Ý nghĩa |
+| Variable | Meaning |
 |---|---|
-| `JAVA_HOME` | JDK ≥ 21 dùng để chạy JDT LS |
-| `JDTLS_HOME` | Thư mục JDT LS đã cài sẵn (bỏ qua download; phải có `plugins/org.eclipse.jdt.ls.core_<version>.jar`) |
-| `XDG_RUNTIME_DIR` | Thư mục chứa Unix socket (`jdt-mcp.sock`) |
+| `JAVA_HOME` | JDK ≥ 21 is used to run JDT LS |
+| `JDTLS_HOME` | Pre-installed JDT LS folder (skip download; must have `plugins/org.eclipse.jdt.ls.core_<version>.jar`) |
+| `XDG_RUNTIME_DIR` | Directory containing Unix socket (`jdt-mcp.sock`) |
 
-**Cap danh sách** (`references`/`completion`) là **cấu hình phía server** (trường `cap` trong options
-của tool, mặc định 200) — không phải tham số mà MCP caller truyền theo từng lời gọi. X-008 vẫn mở nên
-200 là khuyến nghị, không phải hằng số chốt.
+**Cap list** (`references`/`completion`) is **server-side configuration** (`cap` field in options
+of the tool, default 200) — not a parameter that the MCP caller passes with each call. X-008 is still open
+200 is a recommendation, not a closing constant.
 
-## Bố cục mã nguồn
+## Source code layout
 
-| Đường dẫn | Vai trò |
+| Path | Role |
 |---|---|
 | `src/shim/` | front end stdio (`mcp-shim`) |
 | `src/daemon/` | socket listener + single-instance lock (`daemon-supervisor`) |
 | `src/workspace/` | `project-router`, `workspace-pool`, `readiness-gate`, `file-sync-watcher`, `sync-guard` |
 | `src/lsp/` | `lsp-client` (Content-Length framing + notification), `diagnostics-cache` |
-| `src/tools/` | 8 tool + `tool-layer` (xác thực, chuyển toạ độ, taxonomy lỗi), `code-action-store` |
-| `src/provision/` | tải/ghim JDT LS + kiểm checksum (`jdtls-provisioner`, `resolve-install`) |
+| `src/tools/` | 8 tools + `tool-layer` (validation, coordinate conversion, error taxonomy), `code-action-store` |
+| `src/provision/` | load/pin JDT LS + checksum (`jdtls-provisioner`, `resolve-install`) |
 | `test/` | oracle unit + integration (Level 1/3) |
-| `harness/` | vòng lặp maker–checker, thiết kế, tài liệu thiết kế |
+| `harness/` | maker–checker loop, design, design documentation |
 
-## Chạy thử
+## Test run
 
 ```bash
-# 1. Cài dependencies (chỉ @types/node + typescript cho dev)
+# 1. Install dependencies (only @types/node + typescript for dev)
 npm install
 
-# 2a. Dùng bản JDT LS đã vendored sẵn trong project (không cần mạng)
+#2a. Use JDT LS already vendored in the project (no network required)
 export JDTLS_HOME="$PWD/jdtls"
-# 2b. Hoặc trỏ tới bản đã cài nơi khác
-# export JDTLS_HOME=/path/to/jdtls   # thư mục chứa plugins/org.eclipse.jdt.ls.core_*.jar
-export JAVA_HOME=/path/to/jdk21      # JDK ≥ 21
+#2b. Or point to a version installed elsewhere
+# export JDTLS_HOME=/path/to/jdtls # directory containing plugins/org.eclipse.jdt.ls.core_*.jar
+export JAVA_HOME=/path/to/jdk21 # JDK ≥ 21
 
-# 3. Chạy server (stdio MCP)
+# 3. Run the server (stdio MCP)
 npm start
 ```
 
-Bản JDT LS đã tải sẵn nằm ở `./jdtls/` (64 MB, gitignored). Nếu chưa có (clone mới), chạy
-`node harness/init.mjs` một lần để tải + kiểm checksum vào `.cache/`, rồi copy sang `jdtls/` — hoặc
-cứ để trống `JDTLS_HOME` để server tự tải lần đầu chạy.
+The preloaded JDT LS is located at `./jdtls/` (64 MB, gitignored). If you don't have one (new clone), run
+`node harness/init.mjs` once to load + checksum into `.cache/`, then copy to `jdtls/` — or
+Just leave `JDTLS_HOME` blank so that the server will load itself the first time it runs.Server prints `jdt-mcp-server ready (role=daemon, socket=...)` to stderr; client speaks to MCP via stdin/stdout.
 
-Server in `jdt-mcp-server ready (role=daemon, socket=...)` ra stderr; client nói MCP qua stdin/stdout.
+## Configure MCP for agent
 
-## Cấu hình MCP cho agent
+Three configuration files are available in the (committed) repo — each runtime reads one file, and all three must match
+each other (gate `mcp-runtime-skew`):
 
-Ba file cấu hình đã có sẵn trong repo (đã commit) — mỗi runtime đọc một file, và cả ba phải khớp
-nhau (gate `mcp-runtime-skew`):
-
-| Runtime | File | Ghi chú |
+| Runtime | File | Notes |
 |---|---|---|
-| Kiro | `.kiro/settings/mcp.json` | `mcpServers` dạng `{command, args, env}` |
-| Claude Code | `.mcp.json` | thêm `"type": "stdio"` |
-| Codex | `.codex/config.toml` | bảng `[mcp_servers.jdt-mcp-server]` (TOML) |
+| Kiro | `.kiro/settings/mcp.json` | `mcpServers` form `{command, args, env}` |
+| Claude Code | `.mcp.json` | add `"type": "stdio"` |
+| Codex | `.codex/config.toml` | table `[mcp_servers.jdt-mcp-server]` (TOML) |
 
-Cả ba đều trỏ cùng một server:
+All three point to the same server:
 
 ```jsonc
-// .kiro/settings/mcp.json và .mcp.json (Codex viết bằng TOML, xem .codex/config.toml)
+// .kiro/settings/mcp.json and .mcp.json (Codex written in TOML, see .codex/config.toml)
 {
   "mcpServers": {
     "jdt-mcp-server": {
@@ -247,11 +241,11 @@ Cả ba đều trỏ cùng một server:
 }
 ```
 
-`JDTLS_HOME: "./jdtls"` là đường dẫn tương đối — đúng vì MCP client spawn server với CWD = gốc
-project (nơi file cấu hình nằm). Bỏ `env` thì server tự tải JDT LS về `.cache/` lần đầu chạy.
+`JDTLS_HOME: "./jdtls"` is a relative path — correct because MCP client spawn server with CWD = root
+project (where the configuration file is located). If `env` is omitted, the server will automatically download JDT LS to `.cache/` the first time it is run.
 
-**Codex cần thêm một dòng** (vì `codex exec` non-interactive mặc định `approval_policy = never`,
-trong khi MCP tool mặc định "requires approval" → mọi call bị chặn):
+**Codex needs one more line** (because `codex exec` non-interactive defaults to `approval_policy = never`,
+while MCP tool defaults to "requires approval" → all calls are blocked):
 
 ```toml
 # .codex/config.toml
@@ -259,44 +253,43 @@ trong khi MCP tool mặc định "requires approval" → mọi call bị chặn)
 command = "node"
 args = ["--experimental-strip-types", "src/cli.ts"]
 env = { JDTLS_HOME = "./jdtls" }
-default_tools_approval_mode = "approve"   # 8 tool đều read-only mặc định (apply:true mới ghi)
+default_tools_approval_mode = "approve" # 8 tools are all read-only by default (apply:true is written)
 ```
 
-Cách dùng: chạy agent từ gốc project, nó tự nạp server theo file cấu hình runtime của nó.
+How to use: run the agent from the project root, it automatically loads the server according to its runtime configuration file.
 
 ```bash
 cd examples/jdt-mcp-server
-kiro                                      # Kiro đọc .kiro/settings/mcp.json
-codex exec "chạy java_diagnostics cho ..."   # Codex đọc .codex/config.toml
+kiro # Kiro reads .kiro/settings/mcp.json
+codex exec "run java_diagnostics for..." # Codex reads .codex/config.toml
 ```
 
-Ví dụ gọi `java_definition` (xem [Sử dụng qua MCP](#sử-dụng-qua-mcp)):
+Example calling `java_definition` (see [Using via MCP](#using-via-mcp)):
 
 ```jsonc
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"java_definition","arguments":{"path":"src/main/java/com/acme/App.java","line":5,"column":10}}}
 ```
 
-## Phát triển
+## Development
 
 ```bash
-npm test                                          # unit suite (lsp + workspace + tools)
-npm run test:integration                          # toàn bộ test, kể cả integration Level 3
-node harness/init.mjs                             # baseline gate (install fixture + baseline test)
+npm test # unit suite (lsp + workspace + tools)
+npm run test:integration # all tests, including Level 3 integrationnode harness/init.mjs # baseline gate (install fixture + baseline test)
 ```
 
-> Trên macOS, test `daemon-lifecycle` đọc bảng tiến trình bằng `ps`; nếu chạy trong sandbox chặn `ps`
-> (lỗi `EPERM`), hãy chạy với quyền đầy đủ — `TCON-SHIM-0003` khi đó xanh, và đó là giới hạn môi
-> trường chứ không phải lỗi dự án.
+> On macOS, test `daemon-lifecycle` reading the progress table with `ps`; if run in a sandbox block `ps`
+> (error `EPERM`), run with full permissions — `TCON-SHIM-0003` will appear, and that is the environmental limit
+> field, not project error.
 
-## Trạng thái
+## Status
 
-- **37/37 feature hoàn tất** (`done`), router trả `exit`.
-- Unit **159/159**, integration+unit đầy đủ **250/250** (với quyền đầy đủ cho `ps`).
-- Mỗi tool/oracle đều có bằng chứng **mutant đỏ** (implementation sai bị oracle bắt) kèm trong
+- **37/37 feature completed** (`done`), router returns `exit`.
+- Unit **159/159**, full integration+unit **250/250** (with full permissions for `ps`).
+- Each tool/oracle has **mutant red** evidence (wrong implementation caught by oracle) included
   `harness/feature_list.json`.
-- **Entry point CLI đã có** (`src/cli.ts`, `npm start`, `bin.jdt-mcp-server`) — nối shim → daemon →
-  8 tool, đã smoke-test `java_definition` end-to-end.
+- **Entry point CLI already exists** (`src/cli.ts`, `npm start`, `bin.jdt-mcp-server`) — connect shim → daemon →
+  8 tools, smoke-tested `java_definition` end-to-end.
 
-**Việc còn lại nếu muốn ship `npx`** — đóng gói npm: hiện chạy TypeScript trực tiếp qua
-`node --experimental-strip-types` (không cần build), nên chưa có bước `tsc` → `dist/` cho một gói
-publish. Hành vi đã được kiểm chứng end-to-end; chỉ còn phần đóng gói/distribution.
+**The rest if you want to ship `npx`** — npm packaging: now runs TypeScript directly through
+`node --experimental-strip-types` (no build needed), so there is no `tsc` → `dist/` step for a package
+publish. End-to-end proven behavior; Only packaging/distribution remains.

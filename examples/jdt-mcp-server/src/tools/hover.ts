@@ -1,28 +1,25 @@
-// hover — tool `java_hover` của tầng MCP (bảng tool trong harness/docs/design/tool-surface.md).
+// hover — `java_hover` tool in the MCP layer (tool table in harness/docs/design/tool-surface.md).
 //
-// Đây là một wrapper MỎNG. Mọi thứ khó đều thuộc về `tool-layer.ts` và tệp này không được làm lại:
+// This is a THIN wrapper. All difficult work belongs to `tool-layer.ts` and must not be repeated here:
 //
-//   * chuyển đổi toạ độ 1-based ↔ 0-based đi qua ĐÚNG một ranh giới trong tầng tool [INV-TOOL-1];
-//     ở đây không có một phép cộng hay trừ nào trên `line`/`column` — vị trí và range được nhận
-//     nguyên vẹn từ tầng tool rồi chuyển tiếp;
-//   * xác thực line/column so với nội dung HIỆN TẠI của tệp, trước mọi lời gọi LSP [INV-TOOL-5];
-//   * taxonomy lỗi đóng X-003 [INV-TOOL-4]: mọi thất bại rời khỏi đây là envelope lỗi của tầng tool,
-//     giữ nguyên mã và thông điệp;
-//   * đúc `range` của token đã giải được khi JDT LS không kèm `Hover.range` — điều nó không bao giờ
-//     làm (`HoverHandler.hover()` chỉ gọi `setContents`, xem harness/docs/design/evidence.md).
+//   * 1-based ↔ 0-based coordinate conversion crosses EXACTLY one tool-layer boundary [INV-TOOL-1];
+//     no `line`/`column` arithmetic occurs here—positions and ranges are forwarded unchanged;
+//   * line/column validation against CURRENT file content happens before every LSP call [INV-TOOL-5];
+//   * closed X-003 error taxonomy [INV-TOOL-4]: every failure leaving here is a tool-layer error
+//     envelope, retaining its code and message;
+//   * shape the resolved token's `range` when JDT LS omits `Hover.range`, which it always does
+//     (`HoverHandler.hover()` only calls `setContents`; see harness/docs/design/evidence.md).
 //
-// Bất biến mà tool này gánh: INV-TOOL-6 — một kết quả `java_hover` THÀNH CÔNG luôn mang `range`
-// định vị token nguồn mà hover đã giải được, trong cùng hệ toạ độ với mọi vị trí khác. Trường này
-// không bao giờ là tuỳ chọn: kiểu `JavaHoverResolved` buộc nó có mặt, và nhánh duy nhất không có
-// range là nhánh no-result có tên `resolved: false`. Nhờ đó "thành công nhưng thiếu range" không
-// phải một trạng thái mà mã nguồn này biểu diễn được.
+// Invariant owned by this tool: INV-TOOL-6—a SUCCESSFUL `java_hover` result always has a `range`
+// locating the source token that hover resolved, in the same coordinate system as every other
+// position. The field is never optional: `JavaHoverResolved` requires it, and the only branch with
+// no range is the named no-result branch, `resolved: false`. Therefore "success without a range"
+// is not a state this source can represent.
 //
-// Vì sao "không giải được phần tử nào" KHÔNG phải một lỗi X-003: taxonomy đó là đóng và mọi mã
-// trong đó nói về một thất bại của hệ thống (không định tuyến được, chưa sẵn sàng, tiến trình chết,
-// vượt hạn mức, vị trí sai). "Ở đây không có symbol" là một câu trả lời đúng về mã nguồn, không
-// phải một thất bại — nên nó được biểu diễn thành một no-result TƯỜNG MINH có lý do, đúng tinh thần
-// INV-TOOL-4: không thất bại nào bị mã hoá thành kết quả rỗng, và không câu trả lời nào bị mã hoá
-// thành một trường bị bỏ trống.
+// Why "no element resolved" is NOT an X-003 error: that closed taxonomy describes system failures
+// (unroutable, not ready, process dead, quota exceeded, invalid position). "No symbol here" is a
+// correct source-code answer, not a failure, so it is an EXPLICIT no-result with a reason, as
+// INV-TOOL-4 requires: no failure is encoded as an empty result and no answer as an omitted field.
 
 import {
   hover as hoverThroughToolLayer,
@@ -32,46 +29,46 @@ import {
   type ToolOutcome,
 } from "./tool-layer.ts";
 
-/** Tham số của `java_hover`, đúng bảng tool: `path`, `line`, `column` (1-based, X-007). */
+/** `java_hover` arguments, per the tool table: `path`, `line`, `column` (1-based, X-007). */
 export interface JavaHoverArguments {
   path: string;
   line: number;
   column: number;
 }
 
-/** Phần chung của cả hai nhánh: chúng luôn nói kết quả này thuộc về tệp nào và vị trí nào. */
+/** Shared part of both branches: they always identify the file and position of this result. */
 interface JavaHoverBase {
   path: string;
   workspaceId: string;
-  /** Vị trí đã được xác thực, echo lại trong CÙNG hệ toạ độ với `range` bên dưới. */
+  /** Validated position, echoed in the SAME coordinate system as the `range` below. */
   position: SourcePosition;
 }
 
 export interface JavaHoverResolved extends JavaHoverBase {
   resolved: true;
-  /** Khối nội dung đầu tiên JDT LS phát ra: nhãn của phần tử đã giải được. */
+  /** First content block emitted by JDT LS: the resolved element label. */
   signature: string;
-  /** Phần còn lại của nội dung hover. Vắng mặt khi phần tử không có javadoc. */
+  /** Remaining hover content. Absent when the element has no Javadoc. */
   javadoc?: string;
-  /** Nội dung hover thô, đã gộp — giữ nguyên để không mất gì so với câu trả lời của JDT LS. */
+  /** Raw joined hover content—retained intact so nothing is lost from JDT LS's reply. */
   contents: string;
-  /** INV-TOOL-6: bắt buộc, trong hệ 1-based, định vị token mà hover đã giải được. */
+  /** INV-TOOL-6: required, 1-based, and locates the token resolved by hover. */
   range: SourceRange;
 }
 
 export interface JavaHoverUnresolved extends JavaHoverBase {
   resolved: false;
-  /** Vì sao không có câu trả lời. Không bao giờ rỗng, và nhánh này không mang `range`. */
+  /** Why there is no answer. Never empty; this branch carries no `range`. */
   reason: string;
 }
 
 export type JavaHoverResult = JavaHoverResolved | JavaHoverUnresolved;
 
 /**
- * Gọi `textDocument/hover` cho symbol tại `path/line/column` và tạo hình câu trả lời `java_hover`.
+ * Calls `textDocument/hover` for the symbol at `path/line/column` and shapes the `java_hover` reply.
  *
- * Đường đi: tất cả đều nằm trong `hoverThroughToolLayer`. Tệp này chỉ đọc kết quả đã chuyển đổi và
- * đổi tên trường sang bề mặt công bố của tool.
+ * Flow: all work is in `hoverThroughToolLayer`. This file only reads the converted result and
+ * renames fields to the tool's public surface.
  */
 export async function javaHover(
   facade: LspFacade,
@@ -82,21 +79,21 @@ export async function javaHover(
     line: args.line,
     column: args.column,
   });
-  // Lỗi đi thẳng ra ngoài: mã và thông điệp là của tầng tool, wrapper không đặt tên lại (X-003).
+  // Errors pass directly out: code and message belong to tool-layer; the wrapper does not rename them (X-003).
   if (outcome.isError) return outcome;
 
   const answer = outcome.value;
   const base: JavaHoverBase = {
     path: answer.path,
     workspaceId: answer.workspaceId,
-    // Nguyên vẹn từ tầng tool. Không có phép cộng trừ nào ở đây — đó là toàn bộ INV-TOOL-1.
+    // Unchanged from tool-layer. No arithmetic occurs here—that is all of INV-TOOL-1.
     position: answer.position,
   };
 
   const shaped = answer.hover;
   if (shaped === undefined) {
-    // Không đạt tới được khi capability "hover" đã được yêu cầu; nếu hợp đồng của tầng tool đổi,
-    // nhánh này vẫn là một no-result có tên chứ không bao giờ là một thành công thiếu range.
+    // Unreachable when the "hover" capability was requested; if the tool-layer contract changes,
+    // this branch remains a named no-result, never a success missing a range.
     return {
       isError: false,
       value: {
@@ -117,8 +114,8 @@ export async function javaHover(
     resolved: true,
     signature,
     contents: shaped.contents,
-    // `range` đã ở hệ 1-based khi rời tầng tool; chuyển tiếp nguyên vẹn là cách duy nhất giữ được
-    // "đúng một ranh giới chuyển đổi".
+    // `range` is already 1-based when it leaves tool-layer; forwarding it unchanged is the only
+    // way to retain "exactly one conversion boundary."
     range: shaped.range,
   };
   if (javadoc !== undefined) value.javadoc = javadoc;
@@ -126,15 +123,15 @@ export async function javaHover(
 }
 
 /**
- * Tách nội dung hover thành nhãn phần tử và phần javadoc còn lại.
+ * Splits hover content into the element label and remaining Javadoc.
  *
- * JDT LS phát nội dung hover theo thứ tự cố định: nhãn của phần tử trước, javadoc sau
- * (`HoverInfoProvider`), và tầng tool gộp các phần bằng một dấu xuống dòng. Vì vậy khối đầu tiên là
- * signature. Hai dạng khối được nhận: một dòng trần, hoặc một khối mã markdown có rào ``` — dạng
- * thứ hai xuất hiện khi client thương lượng `MarkupContent` thay cho `MarkedString`.
+ * JDT LS emits hover content in a fixed order: element label first, then Javadoc
+ * (`HoverInfoProvider`), and tool-layer joins parts with a newline. The first block is therefore
+ * the signature. Two block forms are accepted: a bare line or a fenced Markdown code block; the
+ * latter occurs when the client negotiates `MarkupContent` rather than `MarkedString`.
  *
- * Đây là phép tách trình bày, không phải phép biến đổi dữ liệu: `contents` thô luôn được giữ
- * nguyên trong kết quả, nên không câu chữ nào của JDT LS bị mất ở đây.
+ * This is presentation splitting, not data transformation: raw `contents` remains intact in the
+ * result, so no wording from JDT LS is lost here.
  */
 function splitHoverContents(contents: string): { signature: string; javadoc?: string } {
   const fenced = readFencedBlock(contents);
@@ -151,7 +148,7 @@ function readFirstLine(contents: string): { signature: string; rest: string } {
   return { signature: contents.slice(0, breakAt).trim(), rest: contents.slice(breakAt + 1) };
 }
 
-/** Khối mã markdown mở đầu nội dung, ví dụ "```java\n<nhãn>\n```". */
+/** A Markdown code block opening the content, for example "```java\n<label>\n```". */
 function readFencedBlock(contents: string): { signature: string; rest: string } | undefined {
   const opening = /^\s*```[^\n]*\n/.exec(contents);
   if (opening === null) return undefined;

@@ -2,15 +2,15 @@
  * Conditions: TCON-DIAG-0005, TCON-DIAG-0006
  * Requirements: INV-DIAG-3, INV-DIAG-1
  *
- * Hai khẳng định cùng phán xét MỘT thứ: identity của khoá (workspaceId, URI canonical).
- *   TCON-DIAG-0005 — hai workspaceId va vào CÙNG một URI canonical; chỉ workspace đã hấp thụ báo
- *                    cáo mới được phục vụ nó.
- *   TCON-DIAG-0006 — MỘT tệp vật lý cho ĐÚNG một mục trong câu trả lời phạm vi project, kể cả khi
- *                    người gọi viết URI qua symlink còn cache lưu theo đường dẫn thật.
+ * The two assertions evaluate the same thing: the identity of the key (workspaceId, canonical URI).
+ * TCON-DIAG-0005 — two workspaceIds hitting the SAME canonical URI; Only the workspace has absorbed the report
+ * the fox can only serve it.
+ * TCON-DIAG-0006 — ONE physical file gives EXACTLY one entry in the project scope answer, even if
+ * The caller writes the URI via symlink and the cache stores the actual path.
  *
- * Một fixture, một JDT LS thật. Symlink thư mục <root>/link -> <root>/real tạo ra hai cách viết cho
- * cùng một tệp trên mọi host POSIX; fixture KHÔNG dựa vào khác biệt /var với /private/var của macOS.
- * Báo cáo đi qua đường notification thật (cache.attach), không có payload nào bị bơm tay vào cache.
+ * One fixture, one real JDT LS. Symlink directory <root>/link -> <root>/real produces two writing methods
+ * same file on all POSIX hosts; fixture does NOT rely on the difference between /var and /private/var of macOS.
+ * The report goes through the real notification path (cache.attach), no payload is manually pumped into the cache.
  */
 
 import assert from "node:assert/strict";
@@ -50,13 +50,12 @@ const CLEAN = "package fixture; public class Untouched { int value = 1; }\n";
 interface LiveFixture {
   child: ChildProcessWithoutNullStreams;
   client: LspClient;
-  /** Đường dẫn THẬT (đã canonical) tới gốc project mà JDT LS được khởi tạo trên đó. */
+  /** TRUE (canonical) path to the project root on which JDT LS was initialized. */
   realProjectRoot: string;
   realSamplePath: string;
   realSampleUri: string;
   realUntouchedUri: string;
-  /** Cùng những tệp đó nhưng viết qua symlink — cách viết của người gọi. */
-  linkProjectRoot: string;
+  /** Same files but written via symlink — caller's writing. */linkProjectRoot: string;
   linkSampleUri: string;
   linkUntouchedUri: string;
 }
@@ -70,7 +69,7 @@ function locateJdtls(): string {
   return install;
 }
 
-/** Chờ tới khi `read` trả về một giá trị khác undefined, hoặc hết hạn. */
+/** Waits until `read` returns a value other than undefined, or expires. */
 function waitFor<T>(
   read: () => T | undefined | Promise<T | undefined>,
   detail: string,
@@ -78,7 +77,7 @@ function waitFor<T>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs;
-    const poll = async (): Promise<void> => {
+    const poll = async(): Promise<void> => {
       const value = await read();
       if (value !== undefined) return resolve(value);
       if (Date.now() >= deadline) return reject(new Error(`timed out waiting for ${detail}`));
@@ -100,25 +99,24 @@ async function startFixture(root: string): Promise<LiveFixture> {
   assert.ok(launcher, "the pinned fixture must contain an Equinox launcher jar");
   assert.ok(configuration, "the pinned fixture must contain a configuration for this host");
 
-  // <root>/real giữ tệp thật; <root>/link là symlink thư mục trỏ vào nó. Hai cách viết, một tệp.
+  // <root>/real holds the real file; <root>/link is the directory symlink pointing to it. Two ways to write, one file.
   const realRoot = path.join(root, "real");
   const realProjectRoot = path.join(realRoot, "proj");
   const sources = path.join(realProjectRoot, "src/main/java/fixture");
   mkdirSync(sources, { recursive: true });
   writeFileSync(
-    path.join(realProjectRoot, "pom.xml"),
-    "<project><modelVersion>4.0.0</modelVersion><groupId>fixture</groupId><artifactId>sample</artifactId><version>1</version></project>\n",
+    path.join(realProjectRoot, "pom.xml"),"<project><modelVersion>4.0.0</modelVersion><groupId>fixture</groupId><artifactId>sample</artifactId><version>1</version></project>\n",
   );
   writeFileSync(path.join(sources, "Sample.java"), BROKEN);
   writeFileSync(path.join(sources, "Untouched.java"), CLEAN);
   symlinkSync(realRoot, path.join(root, "link"), "dir");
 
   const linkProjectRoot = path.join(root, "link", "proj");
-  assert.notEqual(linkProjectRoot, realProjectRoot, "fixture phải có hai cách viết khác nhau");
+  assert.notEqual(linkProjectRoot, realProjectRoot, "fixture must have two different spellings");
   assert.equal(
     realpathSync(path.join(linkProjectRoot, "src/main/java/fixture/Sample.java")),
     path.join(sources, "Sample.java"),
-    "hai cách viết phải trỏ vào đúng một tệp vật lý",
+    "the two spellings must point to exactly the same physical file",
   );
 
   const dataDir = path.join(root, "data");
@@ -165,8 +163,7 @@ async function startFixture(root: string): Promise<LiveFixture> {
   return {
     child,
     client,
-    realProjectRoot,
-    realSamplePath: path.join(sources, "Sample.java"),
+    realProjectRoot,realSamplePath: path.join(sources, "Sample.java"),
     realSampleUri: pathToFileURL(path.join(sources, "Sample.java")).href,
     realUntouchedUri: pathToFileURL(path.join(sources, "Untouched.java")).href,
     linkProjectRoot,
@@ -179,12 +176,12 @@ function stop(fixture: LiveFixture): void {
   try {
     fixture.client.notify("exit");
   } catch {
-    /* tiến trình đã thoát */
+    /* process exited */
   }
   fixture.child.kill("SIGKILL");
 }
 
-/** Facade phạm vi một tệp: workspace nào hỏi, URI nào được hỏi — hai thứ được điều khiển riêng. */
+/** Facade scopes a file: which workspace asks, which URI is asked — the two are controlled separately. */
 function fileFacade(workspaceId: string, uri: string): DiagnosticsFacade {
   return {
     workspace: async () => ({ status: "ready", workspaceId }),
@@ -193,7 +190,7 @@ function fileFacade(workspaceId: string, uri: string): DiagnosticsFacade {
   };
 }
 
-/** Facade phạm vi project: người gọi viết MỌI tệp qua symlink. */
+/** Project scope facade: caller writes EVERY file via symlink. */
 function projectFacade(workspaceId: string, fixture: LiveFixture): DiagnosticsFacade {
   return {
     workspace: async () => ({ status: "ready", workspaceId }),
@@ -209,22 +206,20 @@ async function ask(
   requestPath: string,
 ): Promise<DiagnosticsAnswer> {
   const result = await javaDiagnostics(facade, cache, { path: requestPath });
-  assert.equal(result.isError, false, `java_diagnostics phải thành công: ${JSON.stringify(result)}`);
+  assert.equal(result.isError, false, `java_diagnostics must succeed: ${JSON.stringify(result)}`);
   return (result as { isError: false; value: DiagnosticsAnswer }).value;
 }
 
 /**
- * Các mục nói về CÙNG một tệp vật lý. Spec không chốt câu trả lời mang cách viết nào, nên cả hai
- * cách viết đều được tính; điều bị phán xét là SỐ LƯỢNG mục cho một tệp.
+ * Entries refer to the SAME physical file. Spec doesn't specify which spelling to answer, so it's both
+ * spelling counts; what is judged is the NUMBER of entries for a file.
  */
 function entriesForFile(
   answer: DiagnosticsAnswer,
   spellings: readonly string[],
 ): readonly FileDiagnostics[] {
   return answer.files.filter((file) => spellings.includes(file.uri));
-}
-
-test("khoá cache diagnostics là (workspaceId, tệp vật lý)", { timeout: 180_000 }, async (t) => {
+}test("diagnostics cache key is (workspaceId, physical file)", { timeout: 180_000 }, async (t) => {
   const root = realpathSync(mkdtempSync(path.join(tmpdir(), "jdt-diag-identity-")));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const fixture = await startFixture(root);
@@ -237,46 +232,45 @@ test("khoá cache diagnostics là (workspaceId, tệp vật lý)", { timeout: 18
     textDocument: { uri: fixture.realSampleUri, languageId: "java", version: 1, text: BROKEN },
   });
 
-  // Điều kiện tiên quyết: workspace A có một báo cáo THẬT, do JDT LS đẩy về qua cache.attach.
+  // Prerequisite: workspace A has a REAL report, pushed back by JDT LS via cache.attach.
   const planted = await waitFor(async () => {
     const answer = await ask(
       fileFacade(WORKSPACE_A, fixture.realSampleUri),
       cache,
       fixture.realSamplePath,
     );
-    const file = answer.files[0];
+    const file = response.files[0];
     return file?.status === "reported" && file.problems.length > 0 ? file : undefined;
-  }, "báo cáo type-error thật của JDT LS cho Sample.java");
+  }, "JDT LS true type-error report for Sample.java");
   assert.ok(
     planted.status === "reported" &&
       planted.problems.some((problem) => problem.message.includes("String") && problem.message.includes("int")),
-    "fixture phải đứng trên một diagnostic thật, không phải một publish rỗng",
+    "fixture must be on a real diagnostic, not an empty publication",
   );
 
   await t.test(
-    "TCON-DIAG-0005: một workspace khác hỏi ĐÚNG URI đó vẫn đọc ra 'chưa báo cáo' [INV-DIAG-3]",
-    async () => {
+    "TCON-DIAG-0005: another workspace asks TRUE that URI still reads 'unreported' [INV-DIAG-3]",
+    async() => {
       const answer = await ask(
         fileFacade(WORKSPACE_B, fixture.realSampleUri),
         cache,
         fixture.realSamplePath,
       );
 
-      assert.equal(answer.workspaceId, WORKSPACE_B, "câu trả lời phải thuộc về workspace đã hỏi");
-      assert.equal(answer.files.length, 1, "phạm vi một tệp cho đúng một mục");
+      assert.equal(answer.workspaceId, WORKSPACE_B, "the answer must belong to the asked workspace");
+      assert.equal(answer.files.length, 1, "range of one file to exactly one item");
       assert.deepEqual(
         answer.files[0],
         { uri: fixture.realSampleUri, status: "not-reported" },
-        "báo cáo hấp thụ dưới workspace A không bao giờ được phục vụ cho workspace B",
+        "reports absorbed under workspace A are never served to workspace B",
       );
     },
   );
 
   await t.test(
-    "TCON-DIAG-0006: một tệp vật lý cho đúng một mục dù người gọi viết URI qua symlink [INV-DIAG-1]",
-    async () => {
-      const answer = await ask(
-        projectFacade(WORKSPACE_A, fixture),
+    "TCON-DIAG-0006: a physical file gives exactly one entry even though the caller wrote the URI via symlink [INV-DIAG-1]",
+    async() => {
+      const answer = await ask(projectFacade(WORKSPACE_A, fixture),
         cache,
         fixture.linkProjectRoot,
       );
@@ -286,21 +280,21 @@ test("khoá cache diagnostics là (workspaceId, tệp vật lý)", { timeout: 18
       assert.equal(
         sample.length,
         1,
-        `Sample.java là MỘT tệp vật lý nên phải cho đúng một mục; nhận được ${sample.length}: ${JSON.stringify(sample)}`,
+        `Sample.java is ONE physical file so it must give exactly one entry; get ${sample.length}: ${JSON.stringify(sample)}`,
       );
       const only = sample[0];
-      assert.ok(only !== undefined && only.status === "reported", "mục duy nhất đó phải mang báo cáo thật");
+      assert.ok(only !== undefined && only.status === "reported", "the only item that must carry a true report");
       assert.ok(
         only.problems.some((problem) => problem.message.includes("String") && problem.message.includes("int")),
-        "hợp nhất theo tệp vật lý không được làm mất problem đã publish",
+        "merging by physical file must not destroy the published problem",
       );
 
-      // Vế còn lại của phép hợp: tệp project chưa từng có publish vẫn phải xuất hiện, đúng một lần.
+      // The remaining part of the union: the project file that has never been published must still appear, exactly once.
       const untouched = entriesForFile(answer, [fixture.realUntouchedUri, fixture.linkUntouchedUri]);
       assert.equal(
         untouched.length,
         1,
-        `Untouched.java cũng phải cho đúng một mục; nhận được ${untouched.length}: ${JSON.stringify(untouched)}`,
+        `Untouched.java must also return exactly one item; get ${untouched.length}: ${JSON.stringify(untouched)}`,
       );
     },
   );

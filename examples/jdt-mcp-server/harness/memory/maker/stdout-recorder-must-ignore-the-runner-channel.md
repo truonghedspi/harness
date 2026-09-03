@@ -1,41 +1,41 @@
-# Recorder trên `process.stdout.write` bắt luôn kênh báo cáo của `node --test`
+# Recorder on `process.stdout.write` also captures the reporting channel of `node --test`
 
-**Khi nào áp dụng:** ca in-process cần khẳng định "không có gì rò ra stdout thật của tiến trình",
-bằng cách ghi đè tạm `process.stdout.write`. Gặp ở `feat-mcp-shim` lượt 2 (`INV-SHIM-1`), và sẽ gặp
-lại ở mọi tính năng nằm sau cùng cái stdout ấy.
+**When to apply:** the in-process case needs to confirm "nothing is leaking out the process's real stdout",
+by temporarily overriding `process.stdout.write`. Meet at `feat-mcp-shim` turn 2 (`INV-SHIM-1`), and will encounter
+again in all the features located behind that stdout.
 
-## Vấn đề
+## Problem
 
-Entry `stdout-invariant-needs-the-real-process.md` nói đúng rằng `Writable` được tiêm không thấy
-`console.log`, và giải pháp rẻ là ghi đè `process.stdout.write` ngay trong thân ca. Cạm bẫy nằm ở
-bước tiếp theo: `node --test` chạy **mỗi tệp spec trong một tiến trình con** và báo cáo kết quả về
-tiến trình cha qua **chính `process.stdout` đó**, tuần tự hoá bằng bộ tuần tự V8
-(`NODE_TEST_CONTEXT=child-v8`). Recorder ngây thơ vì thế ghi lại khung `test:start` / `test:pass`
-của chính runner, và ca đỏ với một đống byte nhị phân không liên quan gì tới mã nguồn đang kiểm thử.
+Entry `stdout-invariant-needs-the-real-process.md` correctly states that injected `Writable` is not seen
+`console.log`, and a cheap solution is to override `process.stdout.write` right in the ca body. The pitfall lies in
+next step: `node --test` runs **each spec file in a child process** and reports the results
+parent process via **the same `process.stdout`**, serialized using the V8 serializer
+(`NODE_TEST_CONTEXT=child-v8`). The naive recorder thus records the `test:start` / `test:pass` frame
+of the runner itself, and red shift with a bunch of binary bytes that have nothing to do with the source code under test.
 
-Đây là đỏ giả, không phải đỏ hợp lệ: nó xuất hiện ngay cả trên bản triển khai đúng.
+This is false red, not legitimate red: it appears even on the correct implementation.
 
-## Cách làm đúng
+## Correct way
 
-Đo trước, đừng suy diễn. Một tệp probe nhỏ cho kết quả dứt khoát:
+Measure first, don't speculate. A small probe file gives definitive results:
 
-| Nguồn ghi | Kiểu chunk tới `write()` |
+| Recorded source | Chunk type to `write()` |
 |---|---|
-| `console.log("…")` | `string` |
-| `process.stdout.write("…")` từ mã nguồn | `string` |
-| kênh báo cáo của runner | `Buffer` (mở đầu `0xFF 0x0F`) |
+| `console.log("...")` | `string` |
+| `process.stdout.write("…")` from source code | `string` |
+| runner's reporting channel | `Buffer` (preface `0xFF 0x0F`) |
 
-Recorder chỉ cộng dồn chunk kiểu `string`. Kèm hai thứ làm cho quy tắc đó tự bảo vệ:
+Recorder only accumulates chunks of type `string`. Include two things that make the rule self-protective:
 
-1. **Khẳng định tiền đề**: `process.env.NODE_TEST_CONTEXT === "child-v8"`. Nếu một runner tương lai
-   báo cáo bằng văn bản, giả định "Buffer là của runner" sụp đổ; khẳng định này làm ca đỏ to thay vì
-   lặng lẽ xanh mãi mãi.
-2. **Mỏ neo dương**: ngay sau khi ghi đè, phát một `console.log` mốc và đòi recorder bắt được nó,
-   rồi mới xoá bộ đệm. Không có mỏ neo này, `recorded() === ""` xanh một cách rỗng nếu recorder chết.
+1. **Premise assertion**: `process.env.NODE_TEST_CONTEXT === "child-v8"`. If a future runner
+   written report, the assumption "Buffer is the runner's" collapses; This assertion makes big red shift instead
+   quietly green forever.
+2. **Positive anchor**: immediately after overwriting, broadcast a `console.log` landmark and ask the recorder to catch it,
+   then delete the cache. Without this anchor, `recorded() === ""` is empty if the recorder dies.
 
-## Dấu hiệu đã làm đủ
+## Signs that enough has been done
 
-Mutant chỉ **thêm** một `console.log` (giữ nguyên `stderr.write`) phải giết đúng ca đi qua nhánh đó.
-Ở đây ba vị trí trên đường reconnect/stop cho ba mutant riêng: dòng link-closed và nhánh reconnect
-thất bại giết cả hai ca recorder, nhánh stop-shutdown thất bại chỉ giết ca đi qua `stop()`. Nếu
-mutant nào sống, ca chưa chạm nhánh đó — không phải recorder hỏng.
+Mutant just **adds** a `console.log` (leaving `stderr.write` intact) which must kill the correct shift through that branch.
+Here are three positions on the reconnect/stop path for three separate mutants: the link-closed line and the reconnect branch
+failure kills both recorder shifts, the stop-shutdown branch fails only kills shifts passing through `stop()`. If
+If any mutant is alive, I haven't touched that branch yet — it's not like the recorder is broken.

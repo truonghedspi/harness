@@ -1,35 +1,35 @@
-# Bất biến về stdout chỉ đo được ở tiến trình thật
+# Stdout invariance can only be measured in real processes
 
-**Khi nào áp dụng:** tính năng nào sở hữu một bất biến dạng "không có gì ngoài X được ghi ra
-stdout". Gặp ở `feat-mcp-shim` (`INV-SHIM-1`), và mọi tính năng tầng tool sau này đều nằm sau đúng
-cái stdout ấy.
+**When applicable:** Which feature possesses an invariant "nothing but X is written
+stdout". Found in `feat-mcp-shim` (`INV-SHIM-1`), and all later tool layer features are located after right
+that stdout.
 
-## Vấn đề
+## Problem
 
-Cách viết oracle theo phản xạ là tiêm một `Writable` thu gom vào tuỳ chọn `stdout` rồi khẳng định
-mọi dòng trong đó đều phân tích được. Cách này đo sai đối tượng. `console.log`, `process.stdout.write`
-và mọi thư viện gọi hai hàm đó đều ghi vào `process.stdout` của tiến trình, không vào luồng được
-tiêm. Một dòng gỡ lỗi bỏ quên vì thế đi thẳng tới bộ phân tích của client mà oracle không thấy gì.
+The way to write oracle reflexively is to inject a `Writable` collector into the `stdout` option and then assert
+every line in it is parsable. This method measures the wrong object. `console.log`, `process.stdout.write`
+and any library that calls those two functions writes to the process's `process.stdout`, not to the stream
+injection. A forgotten debug line thus goes straight to the client's analyzer without Oracle seeing anything.
 
-Đo được, không suy diễn: mutant M1 chèn đúng một `console.log("shim linked: role=…")` vào
-`establish()`. Sáu ca chạy trong tiến trình vẫn xanh; chỉ ca chạy shim như tiến trình con thật và
-đọc byte trên ống stdout thật báo đỏ:
+Measured, not inferred: mutant M1 inserts exactly one `console.log("shim linked: role=...")` into
+`establish()`. Six shifts still in progress; just run the shim like a real child process and
+Reading bytes on the stdout pipe actually shows red:
 `INV-SHIM-1 violated: real stdout line 1 is not a valid MCP message: "shim linked: role=daemon"`.
 
-## Cách làm đúng
+## Correct way
 
-Ghi một script `.mjs` vào tmpdir lúc chạy test, `import` module đang kiểm thử bằng đường dẫn tuyệt
-đối, `spawn` với `--experimental-strip-types` và `stdio: ["pipe","pipe","pipe"]`, rồi khẳng định
-trên chuỗi byte gom từ `child.stdout`. Cùng script nên nhận thêm một tham số chế độ để phủ cả nhánh
-hỏng — ở đây là "auto-spawn thất bại": khẳng định `stdout === ""` tuyệt đối, vì một lỗi khởi động là
-lúc dễ rò ra stdout nhất.
+Write a `.mjs` script to tmpdir at test run, `import` the module under test using the absolute path
+For, `spawn` with `--experimental-strip-types` and `stdio: ["pipe","pipe","pipe"]`, then assert
+on the byte string collected from `child.stdout`. The same script should receive an additional mode parameter to cover the entire branch
+broken — here "auto-spawn failed": assert `stdout === ""` absolute, because a startup error is
+when stdout is most likely to leak.
 
-Giữ lại cả ca chạy trong tiến trình: nó khẳng định được những thứ chính xác mà biên tiến trình
-không cho (số dòng bị chuyển hướng, thứ tự, trạng thái nội bộ). Hai mức bổ sung nhau, không thay
-thế nhau.
+Keep the entire shift in progress: it confirms the exact things that define the process
+don't give (number of redirected lines, order, internal state). The two levels complement each other, not replace each other
+replace each other.
 
-## Dấu hiệu đã làm đủ
+## Signs that enough has been done
 
-Một mutant chỉ chèn `console.log` phải giết **đúng** ca ở biên tiến trình và không giết ca nào
-khác. Nếu nó giết cả ca trong tiến trình, oracle đang đo nhầm chỗ; nếu nó không giết ca nào, chưa có
-ca nào thật sự canh stdout.
+A mutant that only inserts `console.log` must kill **exactly** cases at the process boundary and not kill any cases
+other. If it kills the whole shift in the process, oracle is measuring in the wrong place; If it doesn't kill any cases, it hasn't
+Which shift actually watches stdout.

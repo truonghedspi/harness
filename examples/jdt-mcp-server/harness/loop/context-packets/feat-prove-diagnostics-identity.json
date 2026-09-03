@@ -15,23 +15,41 @@
     "docs/design/critique.md"
   ],
   "facts": [
-    "Khoá cache là (workspaceId, URI đã canonical hoá): PushDiagnosticsCache giữ một Map<workspaceId, Map<uri, DiagnosticsReport>> và cả absorb() lẫn get() đều đưa URI qua canonicalFileUri() (realpathSync + pathToFileURL, ném lỗi thì trả nguyên chuỗi gốc). Đây là trạng thái ĐÃ ĐO của mã hiện tại, không phải giả định cần kiểm lại.",
-    "HAI MUTANT CÒN SỐNG, đã được checker dựng và đo ngày 2026-08-25 — đừng chẩn đoán lại, hãy giết chúng: m1 = một Map phẳng khoá CHỈ theo URI dùng chung cho mọi workspace; m2 = get() khi workspace được hỏi không có mục thì quét sang cache của mọi workspace khác và trả mục đầu tiên tìm thấy. Cả hai đều xanh 3/3 trên test/integration/diagnostics.integration.spec.ts.",
-    "HAI MUTANT ĐÓ KHÔNG TƯƠNG ĐƯƠNG — đã đo: chạy test/lsp/diagnostics-cache.spec.ts trên chính chúng cho 3 ca đỏ (m1) và 2 ca đỏ (m2). Vì vậy khoảng trống nằm ở đường java_diagnostics, không phải ở oracle unit của cache; đừng viết lại ca unit đã có, và đừng sửa tệp unit đó.",
-    "CƠ CHẾ CHE GIẤU đã xác định: fixture của TCON-DIAG-0003 cấp hai ĐƯỜNG DẪN TUYỆT ĐỐI KHÁC NHAU (<root>/workspace-a/... và <root>/workspace-b/...), nên riêng URI đã đủ phân biệt và workspaceId trở thành thành phần khoá thừa. Trục duy nhất phân biệt được là hai workspaceId va vào CÙNG một URI đã canonical hoá.",
-    "LỖI THẬT ĐÃ ĐƯỢC ĐO, không phải nghi vấn: projectUris() trong src/tools/diagnostics.ts hợp facade.projectFiles() (cách viết của người gọi) với reader.list() (đã canonical hoá) bằng Set; hai chuỗi khác ký tự cùng trỏ một tệp không bị khử trùng, nên phạm vi project trả về hai mục giống hệt nhau cho một tệp. Tái hiện của checker: tệp dưới os.tmpdir() trên macOS, người gọi dùng file:///var/..., cache lưu file:///private/var/....",
-    "Không ca nào của feat-diagnostics-cache chạm nhánh canonical hoá: mọi URI trong test/lsp/diagnostics-cache.spec.ts là chuỗi không tồn tại trên đĩa (file:///projects/a/...), nên realpathSync luôn ném lỗi và nhánh đó chưa từng thực thi thành công trong test.",
-    "Hai vế của phép hợp trong projectUris() đều có lý do đã được checker duyệt cùng feat-tool-diagnostics: vế projectFiles() giữ cho tệp chưa index xuất hiện dưới mốc not-reported thay vì biến mất; vế reader.list() giữ cho URI có problem thật mà danh sách tệp không nêu tên (mã sinh, tệp ngoài source root) không bị bỏ rơi. Sửa trùng lặp KHÔNG được xoá một trong hai vế.",
-    "Hạ tầng khởi động JDT LS thật đã có sẵn và chạy được: các hàm locateJdtls/startWorkspace/openDocument/stop trong test/integration/diagnostics.integration.spec.ts, cùng bản JDT LS ghim dưới .cache/jdtls-fixture. Chép hình dạng đó sang tệp mới; TUYỆT ĐỐI không sửa tệp cũ — nó thuộc feat-prove-diagnostics đang blocked và được giữ nguyên làm lưu vết.",
-    "Nền tảng đã xanh và ổn định: ./harness/init.sh cho 124/124 và npm run test:integration cho 191/191 ngày 2026-08-25. Sự cố EMFILE khi theo dõi thư mục ở attempt 2-3 là hạn ngạch của host, đã hết; không phải khiếm khuyết mã và không cần điều tra lại.",
-    "Hàng rào phạm vi: câu hỏi 'hai workspace sống đồng thời có bao giờ giữ cùng một URI canonical không' là câu hỏi thiết kế đang mở, đã ghi ở loop/goal.md mục Human checkpoints. Không trả lời nó trong tính năng này và không mở rộng fixture sang hai tiến trình JDT LS chia sẻ một tệp nguồn."
+    "The cache key is (workspaceId, canonicalized URI): PushDiagnosticsCache holds a Map<workspaceId, Map<uri, DiagnosticsReport>> and both absorb() and get() pass the URI through canonicalFileUri() (realpathSync + pathToFileURL; on error it returns the original string). This is MEASURED current-code state, not an assumption to recheck.",
+    "TWO SURVIVING MUTANTS, created and measured by the checker on 2026-08-25 — do not rediagnose them; kill them: m1 = one flat Map keyed ONLY by URI shared across every workspace; m2 = when the queried workspace has no entry, get() scans every other workspace cache and returns the first entry found. Both stayed green 3/3 on test/integration/diagnostics.integration.spec.ts.",
+    "THOSE TWO MUTANTS ARE NOT EQUIVALENT — measured by running test/lsp/diagnostics-cache.spec.ts on them: 3 red cases (m1) and 2 red cases (m2). Therefore the gap is on the java_diagnostics path, not in the cache unit oracle; do not rewrite existing unit cases or modify that unit file.",
+    "THE MASKING MECHANISM is identified: TCON-DIAG-0003’s fixture supplies two DIFFERENT ABSOLUTE PATHS (<root>/workspace-a/... and <root>/workspace-b/...), so URI alone distinguishes them and workspaceId becomes a redundant key component. The only discriminating axis is two workspaceId values colliding on THE SAME canonicalized URI.",
+    "THE REAL DEFECT IS MEASURED, not suspected: projectUris() in src/tools/diagnostics.ts unions facade.projectFiles() (caller spelling) with reader.list() (canonicalized) in a Set; two textually different strings pointing to one file are not deduplicated, so project scope returns two identical entries for one file. Checker reproduction: a file under os.tmpdir() on macOS, caller uses file:///var/..., cache stores file:///private/var/....",
+    "No feat-diagnostics-cache case reaches the canonicalization branch: every URI in test/lsp/diagnostics-cache.spec.ts is a string that does not exist on disk (file:///projects/a/...), so realpathSync always throws and that branch has never executed successfully in a test.",
+    "Both sides of the union in projectUris() have checker-approved reasons from feat-tool-diagnostics: the projectFiles() side keeps an unindexed file visible under not-reported rather than disappearing; the reader.list() side keeps a URI with real problems that the project file list does not name (generated code, files outside the source root) from being lost. The deduplication fix MUST NOT remove either side.",
+    "Real JDT LS startup infrastructure already exists and runs: the locateJdtls/startWorkspace/openDocument/stop functions in test/integration/diagnostics.integration.spec.ts, plus the pinned JDT LS under .cache/jdtls-fixture. Copy that shape into a new file; ABSOLUTELY do not modify the old file — it belongs to blocked feat-prove-diagnostics and remains as a record.",
+    "The baseline is green and stable: ./harness/init.sh is 124/124 and npm run test:integration is 191/191 as of 2026-08-25. The EMFILE directory-watching issue in attempts 2–3 was a host quota that has ended; it is not a code defect and needs no further investigation.",
+    "Scope fence: the question ‘can two concurrently live workspaces ever hold the same canonical URI’ is an open design question, recorded in loop/goal.md under Human checkpoints. Do not answer it in this feature or expand the fixture to two JDT LS processes sharing one source file."
   ],
   "sourceInputs": [
-    { "path": "../src/lsp/diagnostics-cache.ts", "sha256": "6a31e8ed1c3c551fb0799ad6a0fc49ae28ae9b6e6180bdc68db494802ccee88d" },
-    { "path": "../src/tools/diagnostics.ts", "sha256": "05bfd21a214447a4141362f290085f5082a548a5c3b32bca9ad00e3191d51ef8" },
-    { "path": "../test/integration/diagnostics.integration.spec.ts", "sha256": "92513f1bb56dfc12762a913c7ea9a9ff260e7eaf43e0329830067e3735b946d2" },
-    { "path": "../test/lsp/diagnostics-cache.spec.ts", "sha256": "2d962d3ce4aa5cae5f866f26b179685b03eb41c2f13dab5754d490e64bb096f2" },
-    { "path": "tests/design/plans/TP-DIAG-0001/conditions/TCON-DIAG-0003.json", "sha256": "b38a9320569189d6d482b4d4bd34f2b47564be8e36dc8c457ebc9864454dc42f" },
-    { "path": "docs/design/tool-surface.md", "sha256": "ff1e19bce1db4590a326a1bc26ac279182acf1d8cc6a57f784c1be2494d04cc4" }
+    {
+      "path": "../src/lsp/diagnostics-cache.ts",
+      "sha256": "6a31e8ed1c3c551fb0799ad6a0fc49ae28ae9b6e6180bdc68db494802ccee88d"
+    },
+    {
+      "path": "../src/tools/diagnostics.ts",
+      "sha256": "05bfd21a214447a4141362f290085f5082a548a5c3b32bca9ad00e3191d51ef8"
+    },
+    {
+      "path": "../test/integration/diagnostics.integration.spec.ts",
+      "sha256": "92513f1bb56dfc12762a913c7ea9a9ff260e7eaf43e0329830067e3735b946d2"
+    },
+    {
+      "path": "../test/lsp/diagnostics-cache.spec.ts",
+      "sha256": "2d962d3ce4aa5cae5f866f26b179685b03eb41c2f13dab5754d490e64bb096f2"
+    },
+    {
+      "path": "tests/design/plans/TP-DIAG-0001/conditions/TCON-DIAG-0003.json",
+      "sha256": "b38a9320569189d6d482b4d4bd34f2b47564be8e36dc8c457ebc9864454dc42f"
+    },
+    {
+      "path": "docs/design/tool-surface.md",
+      "sha256": "ff1e19bce1db4590a326a1bc26ac279182acf1d8cc6a57f784c1be2494d04cc4"
+    }
   ]
 }

@@ -1,17 +1,17 @@
-// rename — tool `java_rename` của tầng MCP (harness/docs/design/tool-surface.md, mục 6 thứ tự dựng).
+// rename — `java_rename` tool in the MCP layer (harness/docs/design/tool-surface.md, section 6 build order).
 //
-// Đây là tool đột biến ĐẦU TIÊN, và nó gánh đúng một bất biến mà các tool đọc không có:
+// This is the FIRST mutating tool, and it carries one invariant that read-only tools do not:
 //
-//   INV-TOOL-2  không tool nào ghi đĩa trừ khi lời gọi mang opt-in tường minh; kết quả mặc định của
-//               một tool đột biến là edit được đề xuất dưới dạng dữ liệu.
+//   INV-TOOL-2  no tool writes to disk unless a call carries explicit opt-in; a mutating tool's
+//               default result is a proposed edit expressed as data.
 //
-// Vì vậy `apply` là GIÁ TRỊ `true`, không phải sự hiện diện của khoá: `apply` vắng mặt và
-// `apply: false` cùng không ghi, và một lần `apply: true` không bao giờ đọng lại thành mặc định cho
-// lời gọi sau (A-002: "apply must be opt-in per call, never a server-side default").
+// Therefore `apply` is the VALUE `true`, not the presence of the key: omitted `apply` and
+// `apply: false` both avoid writes, and `apply: true` never becomes the default for the next call
+// (A-002: "apply must be opt-in per call, never a server-side default").
 //
-// Mọi thứ khác thừa hưởng nguyên vẹn từ tool-layer (xác thực workspace + vị trí trước mọi lời gọi
-// LSP [INV-TOOL-5], chuyển đổi toạ độ qua đúng một ranh giới [INV-TOOL-1]) và từ workspace-edit
-// (tạo hình + áp WorkspaceEdit).
+// Everything else is inherited unchanged from tool-layer (workspace and position validation before
+// every LSP call [INV-TOOL-5], coordinate conversion at exactly one boundary [INV-TOOL-1]) and
+// workspace-edit (shaping and applying WorkspaceEdit).
 
 import {
   callPositionalTool,
@@ -37,7 +37,7 @@ export interface JavaRenameArguments {
   line: number;
   column: number;
   newName: string;
-  /** Opt-in GHI ĐĨA. Vắng mặt hoặc `false` đều chỉ trả edit dưới dạng dữ liệu. */
+  /** WRITE-TO-DISK opt-in. Omitted or `false` returns only the edit as data. */
   apply?: boolean;
 }
 
@@ -53,7 +53,7 @@ export interface JavaRenameResult {
   workspaceId: string;
   position: SourcePosition;
   newName: string;
-  /** `true` đúng khi lời gọi mang `apply: true` và các tệp đã được ghi. */
+  /** `true` when the call supplied `apply: true` and files were written. */
   applied: boolean;
   files: JavaRenameFile[];
 }
@@ -82,7 +82,7 @@ export async function javaRename(
   const rawFiles = shapeWorkspaceEdit(raw);
   const files: JavaRenameFile[] = toPublicFileEdits(rawFiles);
 
-  // INV-TOOL-2: chỉ `apply === true` mới ghi. Vắng mặt và `false` đều là no-write.
+  // INV-TOOL-2: only `apply === true` writes. Omitted and `false` are both no-write.
   const applied = args.apply === true;
   if (applied) {
     try {

@@ -1,41 +1,41 @@
-# Một handle bị rò biến mutant đỏ thành một lần treo, và xoá mất dòng đỏ
+# A leaked handle turns the red mutant into a hang, and deletes the red line
 
-**Khi nào áp dụng:** lượt maker dựng mutant cho một bất biến về *dọn dẹp* — "detach phải chạy lúc
-evict", "watcher phải được đóng", "socket phải được huỷ". Gặp ở `feat-tool-layer-core`, mutant `M6`.
+**When to apply:** maker turn builds mutant for a *cleanup* invariant — "detach must run at
+evict", "watcher must be closed", "socket must be destroyed". Found in `feat-tool-layer-core`, mutant `M6`.
 
-## Sự thật dễ hiểu nhầm
+## The truth is easy to misunderstand
 
-Mutant xoá đường dọn dẹp **cũng** xoá luôn thứ giữ cho tiến trình test thoát được. Ca kiểm thử vẫn
-đỏ đúng chỗ — khẳng định của nó thất bại thật — nhưng `node --test` không bao giờ in TAP ra, vì một
-handle `fs.watch` (`persistent: true`) còn sống giữ event loop. Biểu hiện là lượt dựng mutant chạy
-quá hạn và bị `SIGKILL`, không có `not ok` nào, và ta không phân biệt được "ca không có răng" với
-"ca có răng nhưng chưa kịp nói".
+Mutant removing the cleanup path **also** removes the thing that keeps the test process from exiting. The test case remains
+red in the right place — its assertion did fail — but `node --test` never prints TAP, because of a
+handle `fs.watch` (`persistent: true`) keeps the event loop alive. The expression is the mutant build run
+overdue and get `SIGKILL`, there is no `not ok`, and we cannot distinguish between "toothless case" and
+"I have teeth but I can't speak yet."
 
-Cùng cơ chế với hai mục đã có trong memory này (`bounding-a-hang-at-the-test-layer-is-not-enough`,
-`inner-layer-shows-up-at-the-injectable-seam`), nhưng ngược chiều: ở đây thứ cần cấp ngân sách
-không phải một promise mà là **quyền sở hữu handle**, và chủ sở hữu duy nhất trong mã đúng lại
-chính là dòng mà mutant vừa xoá.
+Same mechanism as these two items already in memory (`bounding-a-hang-at-the-test-layer-is-not-enough`,
+`inner-layer-shows-up-at-the-injectable-seam`), but in reverse: here is what needs budgeting
+not a promise but **ownership of the handle**, and the sole owner in the code again
+is the line that the mutant just deleted.
 
-## Cách làm đúng
+## Correct way
 
-Ca phải có một đường dọn dẹp **độc lập với đường đang bị kiểm chứng**. Không chỉ
-`t.after(() => pool.close())` — `close()` là đường evict, tức chính là thứ mutant làm hỏng. Phải
-giữ tham chiếu tới mọi tài nguyên mà attachment dựng ra và đóng chúng thẳng tay trong cleanup:
+The case must have a cleanup path **independent of the path being tested**. Not only
+`t.after(() => pool.close())` — `close()` is the evict path, which is what the mutant breaks. Yes
+Keep references to all resources that the attachment creates and close them directly in cleanup:
 
 ```ts
 t.after(async () => {
-  await pool.close();                                   // đường thật
-  for (const entry of started) await entry.watcher.close(); // lưới an toàn, không đi qua evict
+  await pool.close();                                   // real sugar
+  for (const entry of starting) await entry.watcher.close(); // safety net, doesn't go through evict
 });
 ```
 
-Sau khi thêm, `M6` chuyển từ `KILLED sau timeout (SIGKILL)` thành 2 ca đỏ có tên trong 4 giây.
+After adding, `M6` changes from `KILLED after timeout (SIGKILL)` to 2 named red shifts in 4 seconds.
 
-## Hai hệ quả kèm theo
+## Two consequences follow
 
-1. **Đăng ký cleanup ngay khi tài nguyên ra đời, không đặt `close()` giữa thân ca.** Bản đầu của
-   tôi gọi `pool.close()` ở giữa ca; một khẳng định đỏ trước dòng đó bỏ qua nó hoàn toàn, nên mutant
-   `M4` (không liên quan gì tới dọn dẹp) cũng làm treo cả tệp spec.
-2. **Cho mỗi lần chạy mutant một `timeout` + `killSignal` trong chính script dựng mutant.** Nếu
-   không, một mutant treo nuốt trọn ngân sách của cả lượt và không mutant nào sau nó được chạy —
-   tôi mất 600 giây trước khi biết chuyện gì xảy ra.
+1. **Register cleanup as soon as the resource is created, do not put `close()` in the middle of the case.** Initial version of
+   I call `pool.close()` in the middle of the shift; a red assertion before that line ignores it completely, so mutant
+   `M4` (nothing to do with cleanup) also hangs the spec file.
+2. **Give each mutant run a `timeout` + `killSignal` in the mutant build script itself.** If
+   no, one hanging mutant consumes the whole turn's budget and no mutant after it can run —
+   It took me 600 seconds before I knew what happened.

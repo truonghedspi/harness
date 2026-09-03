@@ -1,81 +1,79 @@
-# Strategy Matrix — chọn kỹ thuật test theo hình dạng logic
+# Strategy Matrix — choose test techniques by logic shape
 
-Nguyên lý: kỹ thuật test không chọn theo sở thích mà theo **hình dạng của logic**
-(shape of logic). Mỗi shape có một lớp bug đặc trưng, và mỗi kỹ thuật được thiết kế
-để bắt đúng một lớp bug. Áp kỹ thuật sai shape → test xanh nhưng mù.
+Principle: choose test techniques by the **shape of the logic**, not preference. Every shape has a
+characteristic bug class, and every technique is designed to catch one. Apply the wrong technique
+to a shape and tests stay green but blind.
 
-Phân loại ở mức **behavior**, không phải mức class. Một class thực tế thường chứa
-2–3 shape (một mapper có thể chứa cả decision logic cho conditional field) —
-tách behavior nhỏ đến khi mỗi behavior một shape.
+Classify at the **behavior** level, not the class level. A real class often contains two or three
+shapes (a mapper may contain conditional-field decision logic); split behavior until each has one shape.
 
 ---
 
-## Bảng ma trận đầy đủ
+## Complete matrix
 
-| Shape | Lớp bug đặc trưng | Chiến lược chủ lực | Chiến lược bổ trợ | Gate liên quan |
+| Shape | Characteristic bug class | Primary strategy | Supporting strategy | Related gate |
 |---|---|---|---|---|
-| `mapping` | hoán field, bỏ quên field, sai offset/encoding | field-sensitivity property + round-trip property | recursive comparison với distinct-valued fixture | PIT `EXPERIMENTAL_MEMBER_VARIABLE` |
-| `stateful` | state corruption sau chuỗi thao tác hiếm, sai thứ tự ưu tiên | model-based property (reference model) + invariant trên command sequence | state-transition table cho FSM có spec rõ | jqwik shrinking → regression |
-| `computational` | sai làm tròn, sai đơn vị, overflow, sai dấu ở biên | property đại số (đơn điệu, cộng tính, chặn) + differential với reference implementation | boundary value trên miền số (0, ±1 tick, MAX) | PIT math/conditional mutators |
-| `decision` | thiếu nhánh, sai điều kiện kết hợp, rule che khuất rule | decision table, cover đủ mọi cột | MC/DC cho biểu thức boolean ≥ 3 điều kiện | PIT conditional boundary |
-| `parsing` | crash/hang trên input dị dạng, chấp nhận input phải reject | round-trip property + property "không crash, chỉ reject có kiểm soát" | fuzzing (jazzer) chạy nightly | — |
-| `concurrent` | race, visibility, reordering | jcstress cho memory-model concern; deterministic replay cho cluster/single-writer logic | invariant check sau mỗi replay | jcstress trong nightly |
-| `integration` | sai contract giữa component, sai thứ tự orchestration | contract test + E2E theo kịch bản nghiệp vụ end-to-end | state-transition ở mức business process | — |
-| `fixed_rule` | sai giá trị chốt (phí, ngưỡng pháp lý) | example test truyền thống, một case một giá trị chốt | — | — |
+| `mapping` | Field swap/omission; bad offset/encoding | Field-sensitivity + round-trip properties | Recursive comparison with distinct-value fixtures | PIT `EXPERIMENTAL_MEMBER_VARIABLE` |
+| `stateful` | State corruption after rare sequences; incorrect precedence | Model-based property (reference model) + command-sequence invariant | State-transition table for a clearly specified FSM | jqwik shrinking → regression |
+| `computational` | Incorrect rounding/unit/sign/boundary overflow | Algebraic property (monotonicity, additivity, bounds) + differential reference implementation | Numeric boundary values (0, ±1 tick, MAX) | PIT math/conditional mutators |
+| `decision` | Missing branch; wrong condition combination; shadowed rule | Decision table covering every column | MC/DC for Boolean expressions with 3+ conditions | PIT conditional boundary |
+| `parsing` | Crash/hang on malformed input; accepting input that must be rejected | Round-trip + "does not crash; controlled rejection only" property | Nightly fuzzing (jazzer) | — |
+| `concurrent` | Race, visibility, reordering | jcstress for memory-model concerns; deterministic replay for cluster/single-writer logic | Invariant after every replay | Nightly jcstress |
+| `integration` | Broken component contract; wrong orchestration order | Contract test + end-to-end business scenario | Business-process state transitions | — |
+| `fixed_rule` | Incorrect fixed value (fee, statutory threshold) | Traditional example test, one case per fixed value | — | — |
 
 ---
 
-## Tiêu chí nhận diện chi tiết từng shape
+## Detailed recognition criteria
 
 ### `mapping`
-- Code chủ yếu là chuỗi `target.setX(source.getX())` hoặc encoder/decoder calls.
-- Không có branch nghiệp vụ (branch kỹ thuật như null-check không tính).
-- Ví dụ: `OrderRequest → NewOrderEncoder` (SBE), entity ↔ DTO, message version upcast.
-- Cảnh giác: mapper có `if (order.type() == STOP) encoder.stopPrice(...)` chứa
-  một behavior shape `decision` — tách riêng behavior đó.
+- Code is primarily `target.setX(source.getX())` chains or encoder/decoder calls.
+- It has no business branch (technical branches such as null checks do not count).
+- Examples: `OrderRequest → NewOrderEncoder` (SBE), entity ↔ DTO, message-version upcast.
+- Caution: a mapper with `if (order.type() == STOP) encoder.stopPrice(...)` has a `decision`
+  behavior that must be split out.
 
 ### `stateful`
-- Cùng một input cho kết quả khác nhau tùy trạng thái tích lũy.
-- Ví dụ: order book (kết quả match phụ thuộc resting orders), session manager,
-  rate limiter, idempotency cache.
-- Câu hỏi kiểm chứng: "gọi hàm này hai lần với cùng tham số có thể ra kết quả
-  khác nhau không?" — Có → stateful.
+- The same input can produce a different result depending on accumulated state.
+- Examples: order book (matching depends on resting orders), session manager, rate limiter,
+  idempotency cache.
+- Recognition question: "can calling this function twice with the same arguments produce different
+  results?" If yes, it is stateful.
 
 ### `computational`
-- Output là số được tính từ công thức; đúng đắn xoay quanh precision, rounding
-  mode, đơn vị (tick vs đồng), và biên miền số.
-- Ví dụ: tính phí giao dịch, lãi margin, VaR, chuyển đổi price ↔ tick.
+- Output is a number calculated from a formula; correctness concerns precision, rounding mode,
+  units (tick vs. VND), and numeric-domain boundaries.
+- Examples: trading fees, margin interest, VaR, price ↔ tick conversion.
 
 ### `decision`
-- Có thể vẽ thành bảng: N điều kiện đầu vào → M outcome.
-- Ví dụ: order validation (side, price band, lot size, trading phase → accept/reject
-  + reject reason), routing lệnh theo loại tài khoản.
+- It can be drawn as a table: N input conditions → M outcomes.
+- Examples: order validation (side, price band, lot size, trading phase → accept/reject plus
+  rejection reason), routing orders by account type.
 
 ### `parsing`
-- Input đến từ ranh giới tin cậy (network, file, user) và có thể dị dạng tùy ý.
-- Yêu cầu kép: input hợp lệ → decode đúng; input dị dạng → reject có kiểm soát,
-  không bao giờ crash/hang/đọc lệch bộ nhớ.
+- Input crosses a trust boundary (network, file, user) and may be arbitrarily malformed.
+- Dual requirement: valid input decodes correctly; malformed input rejects in a controlled way and
+  never crashes, hangs, or reads memory incorrectly.
 
 ### `concurrent`
-- Chỉ gán shape này khi spec/thiết kế nói rõ code chạy đa luồng hoặc dựa vào
-  memory ordering (ring buffer, single-writer principle, lock-free structure).
-- Code chạy trong single-threaded event loop (Aeron Cluster logic) KHÔNG phải
-  concurrent shape — test nó bằng deterministic replay như `stateful`.
+- Assign this shape only when the specification/design explicitly says the code is multithreaded or
+  relies on memory ordering (ring buffer, single-writer principle, lock-free structure).
+- Code in a single-threaded event loop (Aeron Cluster logic) is NOT `concurrent`; test it as
+  `stateful` with deterministic replay.
 
 ### `integration`
-- Behavior chỉ quan sát được khi ≥ 2 component thật nói chuyện với nhau.
-- Đừng lạm dụng: nếu behavior kiểm chứng được ở mức unit với contract giả lập,
-  nó thuộc shape khác và integration chỉ là bổ trợ.
+- The behavior is observable only when two or more real components communicate.
+- Do not overuse it: behavior verifiable at unit level with a contract double belongs to another
+  shape; integration is supporting evidence.
 
 ### `fixed_rule`
-- Spec cho giá trị cụ thể: "phí giao dịch cổ phiếu lô chẵn là 0.15%",
-  "ngưỡng cảnh báo margin là 87%". Không có quy luật tổng quát để property hóa —
-  chốt cứng bằng example test, mỗi giá trị một case, trích requirement_id
-  trong tên test.
+- The specification gives a specific value: "round-lot equity trading fee is 0.15%" or "margin
+  warning threshold is 87%." There is no general rule to property-test—fix it with one example
+  test per value and cite the requirement_id in the test name.
 
 ---
 
-## Template example-based (dùng cho `fixed_rule`, `boundary_value`, regression)
+## Example-based template (for `fixed_rule`, `boundary_value`, regression)
 
 ```java
 class TransactionFeeTest {
@@ -87,28 +85,28 @@ class TransactionFeeTest {
     void equityRoundLotFeeIsFifteenBasisPoints_REQ_FEE_001() {
         Money fee = calculator.fee(TradeFixtures.equityRoundLot(
                 Price.ofTicks(25_500), Quantity.of(1_000)));
-        // Expected tính TAY từ spec, ghi rõ phép tính — không gọi lại calculator
-        // 25_500 ticks * 100đ/tick * 1_000 * 0.15% = 3_825_000đ
+        // Expected is calculated BY HAND from the specification; state the calculation—do not call calculator again.
+        // 25_500 ticks * 100 VND/tick * 1_000 * 0.15% = 3_825_000 VND
         assertThat(fee).isEqualTo(Money.vnd(3_825_000));
     }
 }
 ```
 
-Quy tắc cứng của template:
-- Expected value tính tay từ spec, kèm comment phép tính (chống tautology, R-T3).
-- Tên test = behavior + requirement_id.
-- Boundary value: với mỗi biên trong spec, tối thiểu 3 case — tại biên,
-  ngay dưới biên, ngay trên biên.
+Hard template rules:
+- Calculate expected values manually from the specification and include the calculation comment
+  (prevents tautology, R-T3).
+- Test name = behavior + requirement_id.
+- For every boundary in the specification, test at least three cases: at, just below, and just above.
 
-## Template state-transition (bổ trợ cho `stateful` có FSM spec rõ)
+## State-transition template (supports `stateful` with a clear FSM specification)
 
-Với FSM có spec dạng bảng transition, cover: (1) mọi transition hợp lệ,
-(2) mọi cặp (state, event) KHÔNG có trong bảng → phải reject và giữ nguyên state.
-Vế (2) là nơi bug tập trung — đừng chỉ test đường hợp lệ.
+For an FSM with a transition-table specification, cover: (1) every valid transition, and (2) every
+`(state, event)` pair NOT in the table, which must reject and preserve state. The second case is
+where bugs concentrate; do not test only the valid path.
 
 ```java
 @ParameterizedTest
-@MethodSource("invalidTransitions")   // sinh từ phần bù của bảng transition trong spec
+@MethodSource("invalidTransitions")   // produced from the complement of the specification transition table
 void invalidEventIsRejectedAndStateIsUnchanged(OrderState from, OrderEvent event) {
     OrderStateMachine fsm = OrderStateMachine.startingAt(from);
     TransitionResult result = fsm.onEvent(event);

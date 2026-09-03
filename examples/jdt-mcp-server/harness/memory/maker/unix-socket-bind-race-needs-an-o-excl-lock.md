@@ -1,33 +1,33 @@
-# Trên Unix socket, "N tiến trình cùng bind" không tự báo EADDRINUSE
+# On Unix sockets, "N processes with bind" does not automatically report EADDRINUSE
 
-**Khi nào áp dụng:** bất kỳ lượt nào giành quyền sở hữu một đường dẫn Unix domain socket —
-`feat-daemon-supervisor` (INV-SHIM-2), và sắp tới là `feat-mcp-shim` khi shim tự khởi daemon.
+**When applicable:** any attempt to take ownership of a Unix domain socket path —
+`feat-daemon-supervisor` (INV-SHIM-2), and soon `feat-mcp-shim` when shim starts the daemon itself.
 
-## Giả định sai mà tôi suýt mang vào thiết kế
+## Wrong assumption I almost brought into the design
 
-Phản xạ ban đầu: "thử `connect()` trước; nếu thất bại thì `unlink` rồi `listen`. Kẻ thua cuộc sẽ
-nhận `EADDRINUSE`, nên chỉ một daemon tồn tại." Giả định đó sai ở vế cuối.
+Initial reflex: "try `connect()` first; if that fails, `unlink` then `listen`. The loser will be
+receives `EADDRINUSE`, so only one daemon exists." That assumption is wrong in the last part.
 
-Đo được bằng mutant M4 (giữ nguyên bước probe, bỏ lock `O_EXCL`): năm lần khởi chạy đồng thời trên
-cùng một đường dẫn cho ra **năm** daemon, không lần nào báo `EADDRINUSE`. Nguyên nhân gốc: mỗi
-launcher `unlink` tệp socket của launcher trước rồi tự `bind` một tệp mới. `bind` chỉ thất bại khi
-đường dẫn **đang tồn tại** tại đúng thời điểm gọi, mà mỗi kẻ đến sau đã tự tay xoá nó đi. Kết quả:
-năm server sống, chỉ server cuối cùng có thể nhận kết nối, bốn server còn lại là daemon mồ côi giữ
-JVM con — đúng hình dạng mà INV-SHIM-2 cấm.
+Measured with mutant M4 (keep the probe step the same, remove the `O_EXCL` lock): five simultaneous runs on
+The same path returns **five** daemons, none of which say `EADDRINUSE`. Root cause: each
+launcher `unlink` the launcher's socket file first and then `bind` a new file. `bind` only fails when
+The path **existed** at the time of the call, but each latecomer manually deleted it. Results:
+five live servers, only the last server can receive connections, the remaining four servers are kept by orphan daemons
+Child JVM — exactly the shape that INV-SHIM-2 prohibits.
 
-## Biện pháp
+## Measures
 
-Đặt toàn bộ đoạn `probe → unlink stale → listen` dưới một lock tạo bằng `openSync(path, "wx")`
-(`O_CREAT|O_EXCL`, nguyên tử ở mức hệ tệp). Chỉ kẻ giữ lock được phép xoá tệp socket. Kẻ không lấy
-được lock quay lại bước probe, chờ và uỷ quyền cho kẻ thắng. Giữ lock suốt vòng đời daemon và ghi
-pid vào đó, để launcher uỷ quyền đọc ra được pid của đúng daemon nó hội tụ về — chính là quan sát
-mà falsifier yêu cầu ("assert one daemon pid"). Lock cũ của tiến trình đã chết được nhận biết bằng
-`process.kill(pid, 0)`; `EPERM` nghĩa là tiến trình còn sống nhưng khác chủ, không được coi là chết.
+Place the entire `probe → unlink stale → listen` segment under a lock created with `openSync(path, "wx")`
+(`O_CREAT|O_EXCL`, filesystem level atomicity). Only the lock holder is allowed to delete the socket file. The one who doesn't take it
+locked, return to the probe step, wait and authorize the winner. Keep the lock throughout the daemon and write lifecycle
+pid in there, so that the authorized launcher can read the pid of the correct daemon it converges on — that is, observing
+which falsifier requires ("assert one daemon pid"). Old locks of dead processes are identified by
+`process.kill(pid, 0)`; `EPERM` means the process is alive but has a different owner, not considered dead.
 
-## Hai chi tiết môi trường đã đo, khỏi đo lại
+## Two environmental details have been measured, do not measure again
 
-- Socket "stale" thật chỉ tạo được bằng `SIGKILL` một tiến trình đang lắng nghe; `server.close()`
-  của Node tự xoá tệp nên không tái hiện được. `connect()` tới socket stale trả `ECONNREFUSED`,
-  còn tới một tệp thường trả `ENOTSOCK` — cả hai đều phải quy về "không có daemon sống".
-- `sun_path` chỉ 104 byte trên macOS, mà `os.tmpdir()` đã chiếm ~52 byte. Tiền tố `mkdtempSync`
-  phải ngắn (`jdt-d-` cho ra 78 byte tổng); tiền tố dài kiểu `jdt-daemon-supervisor-` là đủ để lỗi.
+- A real "stale" socket can only be created by `SIGKILL` a listening process; `server.close()`
+  Node automatically deletes the file so it cannot be recreated. `connect()` to stale socket returns `ECONNREFUSED`,
+  also to a file that usually returns `ENOTSOCK` — both should refer to "no live daemons".
+- `sun_path` is only 104 bytes on macOS, where `os.tmpdir()` already takes up ~52 bytes. Prefix `mkdtempSync`
+  must be short (`jdt-d-` outputs 78 bytes total); A long prefix like `jdt-daemon-supervisor-` is enough to cause the error.

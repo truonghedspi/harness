@@ -54,7 +54,7 @@ skill repo's own root (`harness/memory/harness-improver/`), not inside any targe
 Three, deliberately fewer than a general-purpose memory system needs, because an agent here has a
 narrow job:
 
-- **`lesson`** — the core type; this is what "rút kinh nghiệm" (learning from experience) actually
+- **`lesson`** — the core type; this is what learning from experience actually
   produces. A mistake made and how it was actually caught/fixed, or a non-obvious approach that
   worked and why. Write one when: a checker rejects a maker's claim, evidence fails to reproduce
   and the real cause turns out to be non-obvious, a review comment recurs (this is the same trigger

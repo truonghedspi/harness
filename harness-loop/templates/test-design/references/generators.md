@@ -1,104 +1,39 @@
-# Generators — quy tắc viết Arbitrary cho jqwik
+# Generators — jqwik `Arbitrary` rules
 
-Generator kém là lý do số một khiến property "pass mà vô dụng": property đúng
-nhưng input space được sinh không bao giờ chạm vùng có bug. Bốn quy tắc dưới đây
-là bắt buộc; Reviewer kiểm từng quy tắc theo checklist.
+A weak generator produces passing but useless properties because it never reaches buggy inputs. Review every generator against G1–G4.
 
----
+## G1 — Collision-prone inputs
 
-## G1 — Collision-prone: input phải VA CHẠM được với nhau
+Stateful bugs occur when operations interact: orders match, cancellation hits an existing order, or two commands use one price level. Use deliberately narrow domains and references to earlier generated commands; do not generate random IDs that almost always miss.
 
-Bug của stateful code nằm ở chỗ các thao tác tương tác: order match nhau, cancel
-trúng order đang tồn tại, hai lệnh cùng price level. Generator sinh giá trị trên
-miền quá rộng → xác suất va chạm ≈ 0 → property chỉ test đường "không có gì xảy ra".
+## G2 — Boundary-inclusive inputs
 
-- Price: miền HẸP có chủ đích (ví dụ 10 tick quanh mức tham chiếu) để buy/sell
-  thực sự khớp nhau. KHÔNG dùng `Arbitraries.longs()` toàn miền cho price.
-- Cancel/amend: tham chiếu theo **index của lệnh đã sinh trước đó** trong sequence
-  (`cancelByLocalIndex`), không sinh orderId ngẫu nhiên — orderId ngẫu nhiên
-  gần như luôn miss, sequence chỉ toàn reject.
-- ID va chạm có chủ đích: thỉnh thoảng sinh trùng clientOrderId để test đường
-  duplicate-detection.
+jqwik injects primitive edge cases but does not know business boundaries. Explicitly mix in price limits, lot sizes, maximum order value, empty/nonempty values, and protocol length boundaries.
 
-```java
-public final class CommandGenerators {
+## G3 — Intentional valid/invalid weighting
 
-    public static Arbitrary<List<OrderCommand>> collisionProneSequence(int min, int max) {
-        Arbitrary<OrderCommand> newOrder = Combinators.combine(
-                Arbitraries.of(Side.BUY, Side.SELL),
-                Arbitraries.longs().between(10_000, 10_010)    // G1: miền hẹp → match được
-                        .map(Price::ofTicks),
-                Arbitraries.longs().between(1, 1_000).map(Quantity::of)
-        ).as(OrderCommand::newLimitOrder);
+Business-behavior properties should mostly generate valid inputs (for example 90/10) so they reach deep logic. Validation/parsing properties should mostly generate malformed inputs. Never use a 100% mix: it blinds either rejection paths or core behavior.
 
-        Arbitrary<OrderCommand> cancel = Arbitraries.integers().between(0, 50)
-                .map(OrderCommand::cancelByLocalIndex);        // G1: cancel trúng được
+## G4 — Sequences long enough for state transitions
 
-        return Arbitraries.frequencyOf(
-                Tuple.of(3, newOrder),                          // G3: tỷ trọng 3:1
-                Tuple.of(1, cancel)
-        ).list().ofMinSize(min).ofMaxSize(max);                 // G4: sequence đủ dài
-    }
+Stateful defects often require three or more transitions. Use command-sequence maxima of at least 100–300; shrinking returns a readable minimal counterexample.
 
-    private CommandGenerators() {}
-}
-```
+## Field-sensitivity additions
 
-## G2 — Boundary-inclusive: biên phải được sinh ra, không phó mặc ngẫu nhiên
+- The base-object generator must filter `allFieldValuesPairwiseDistinct`.
+- `Distinct.*(current)` must return a different, encoder-valid value reproducible from jqwik’s seed.
 
-jqwik có edge-case injection cho kiểu số nguyên thủy, nhưng KHÔNG biết biên
-nghiệp vụ (giá trần/sàn, lot size, max order value). Trộn biên nghiệp vụ vào
-phân phối một cách tường minh:
+## Reproducibility
 
-```java
-static Arbitrary<Price> prices() {
-    Arbitrary<Price> interior = Arbitraries.longs()
-            .between(FLOOR_TICKS + 1, CEILING_TICKS - 1).map(Price::ofTicks);
-    Arbitrary<Price> boundary = Arbitraries.of(
-            Price.ofTicks(FLOOR_TICKS), Price.ofTicks(FLOOR_TICKS + 1),
-            Price.ofTicks(CEILING_TICKS - 1), Price.ofTicks(CEILING_TICKS));
-    return Arbitraries.frequencyOf(Tuple.of(9, interior), Tuple.of(1, boundary));
-}
-```
+- Do not use `System.currentTimeMillis()`, `Instant.now()`, or `new Random()` in generator/test code. Route randomness through jqwik.
+- Record jqwik’s failure seed in the structured report.
+- Configure `jqwik.failures.after.default = PREVIOUS_SEED` so reruns favor the last failed seed.
 
-## G3 — Tỷ trọng valid/invalid có chủ đích
+## Try budgets
 
-- Property về hành vi nghiệp vụ: sinh chủ yếu input hợp lệ (invalid bị reject
-  sớm, không exercise logic sâu). Tỷ lệ tham khảo 90/10.
-- Property về validation/parsing: đảo lại — chủ yếu input dị dạng.
-- Không bao giờ 100% một loại: 100% valid mù đường reject; 100% invalid mù logic chính.
-
-## G4 — Sequence đủ dài để đi qua nhiều state transition
-
-Bug stateful thường cần 3+ transition để lộ diện (fill một phần → amend → cancel).
-`ofMaxSize` tối thiểu 100–300 cho command-sequence property. Shrinking sẽ tự rút
-về chuỗi tối giản khi fail, nên độ dài không làm counterexample khó đọc.
-
----
-
-## Quy tắc riêng cho field-sensitivity (bổ sung R-T1)
-
-- Generator của base object BẮT BUỘC filter `allFieldValuesPairwiseDistinct` —
-  hai field trùng giá trị làm phép hoán vô hình.
-- Helper `Distinct.*(current)` phải trả về giá trị (a) khác `current`,
-  (b) hợp lệ với validation của encoder (đúng format, check digit, độ dài),
-  (c) tất định hoặc tái lập được từ seed — không phụ thuộc clock/random ngoài jqwik.
-
-## Tính tái lập (bắt buộc cho CI)
-
-- KHÔNG dùng `System.currentTimeMillis()`, `Instant.now()`, `new Random()` trong
-  generator hay code test — mọi ngẫu nhiên đi qua jqwik để seed điều khiển được.
-- Khi property fail, jqwik in seed; ghi seed vào failure report để arbitration
-  và fix tái lập chính xác.
-- Cấu hình `junit-platform.properties` của project:
-  `jqwik.failures.after.default = PREVIOUS_SEED` (re-run ưu tiên seed vừa fail).
-
-## Ngân sách tries (khớp tiering của harness)
-
-| Ngữ cảnh chạy | tries |
+| Run context | `tries` |
 |---|---|
 | PR gate (T0/T1) | 200–500 |
 | Nightly full run | 2_000–5_000 |
 
-Đặt qua `@Property(tries = ...)` đọc từ system property của harness nếu có
-(`-Djqwik.tries.default`), để cùng một test dùng được cho cả hai ngữ cảnh.
+Use `@Property(tries = ...)`, reading `-Djqwik.tries.default` when the harness provides it.

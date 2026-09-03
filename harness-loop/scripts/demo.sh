@@ -3507,17 +3507,17 @@ const long=mk.findings.filter(f=>f.id==='index-line-too-long');
 process.exit(long.length===1 && long[0].count===1 ? 0 : 1);
 "
 expect "repeated findings collapse to one per class with a count, not one per occurrence" $?
-# Vietnamese entries must not compare as noise: the old normalize() stripped everything outside
-# [a-z0-9], turning 'không' into 'kh ng', so every text comparison ran on rubble.
+# Unicode entries must not compare as noise: the old normalize() stripped everything outside
+# [a-z0-9], turning accented text into consonant rubble, so every text comparison ran on noise.
 mkdir -p "$MM/memory/checker"
 for n in 1 2; do
 cat > "$MM/memory/checker/vi-$n.md" <<VE
-# Mutant sống sót vì hàng rào thứ hai vẫn chặn đúng thời hạn
+# Summary: the second guard still enforces the deadline
 
-Khi một hàm có hai cơ chế cùng bảo vệ một thời hạn, xoá đúng falsifier của điều kiện vẫn cho sáu
-trên sáu ca xanh, bởi vì cơ chế còn lại tiếp tục kẹp thời hạn đó. Phải đếm số cơ chế trong hàm
-trước khi thiết kế mutant, nếu không màu đỏ mà ta chờ đợi sẽ không bao giờ xuất hiện và kết luận
-"mutant tương đương" là sai. Lần này cơ chế thứ hai nằm ở lớp trong, tại cổng tiêm được.
+When a function has two mechanisms guarding one deadline, removing the falsifier for one condition
+still leaves six of six cases green because the other mechanism continues to enforce that deadline.
+Count the mechanisms before designing a mutant; otherwise the red result will never appear and an
+"equivalent mutant" conclusion will be wrong. This time the second mechanism is in the inner layer.
 VE
 done
 printf -- '- [vi 1](vi-1.md) — hook\n- [vi 2](vi-2.md) — hook\n' >> "$MM/memory/checker/MEMORY.md"
@@ -3527,7 +3527,7 @@ const r=require('$MM/mc2.json');
 const ck=r.agents.find(a=>a.agent==='checker');
 process.exit(ck.findings.some(f=>f.id==='likely-same-lesson') ? 0 : 1);
 "
-expect "two identical Vietnamese entries are detected — the matcher is Unicode-aware, not [a-z0-9] only" $?
+expect "two identical Unicode entries are detected — the matcher is Unicode-aware, not [a-z0-9] only" $?
 
 echo ""
 step 56 "the environment records which small CLI utilities are absent, because absence is silent"

@@ -1,40 +1,40 @@
-# Chú thích của ca kiểm thử khẳng định fixture chứa trường hợp biên — hãy tính lại số học
+# The test case annotation asserts that the fixture contains a boundary case — recalculate the arithmetic
 
-**Khi nào áp dụng:** một ca kiểm thử có chú thích tự mô tả trường hợp biên nó dựng ("một định danh
-non-ASCII nằm vắt qua ranh giới chunk", "một bản ghi đúng bằng kích thước bộ đệm", "một mốc thời gian
-ngay tại biên giây"). Gặp ở `feat-mcp-shim` lượt 2 (2026-08-23).
+**When applicable:** a test case has an annotation that describes the boundary case it constructs ("an identifier
+non-ASCII straddling a chunk boundary", "a record exactly equal to the buffer size", "a timestamp
+right at the second boundary"). Meet in `feat-mcp-shim` turn 2 (2026-08-23).
 
-## Cái bẫy
+## Trap
 
-Ca framing của `mcp-shim` ghi một thông điệp 200 KB gồm toàn ký tự `ü` hai byte, cắt thành các chunk
-30.000 byte, và chú thích nói rõ mục đích: một bản giải mã theo từng chunk sẽ biến ký tự bị cắt đôi
-thành ký tự thay thế. Chú thích thuyết phục, dữ liệu lớn, ca xanh. Nhưng tiền tố
-`{"jsonrpc":"2.0","id":1,"result":{"text":"` dài đúng **42 byte** — số chẵn — nên mọi ranh giới bội
-số của 30.000 rơi đúng vào **byte đầu** của một ký tự. Không ký tự nào bị cắt đôi. Mutant thay
-`StringDecoder` bằng `chunk.toString("utf8")` sống 11/11.
+The framing of `mcp-shim` writes a 200 KB message consisting entirely of a two-byte `ü` character, cut into chunks
+30,000 bytes, and the annotation clearly states the purpose: a chunk-by-chunk decoding will result in the character being cut in half
+to replace character. Persuasive captions, big data, green shifts. But prefix
+`{"jsonrpc":"2.0","id":1,"result":{"text":"` is exactly **42 bytes** — an even number — so all boundaries are multiples
+The number 30,000 falls exactly in the **first byte** of a character. No characters are cut in half. Mutant instead
+`StringDecoder` equals `chunk.toString("utf8")` live 11/11.
 
-Chiều ngược lại còn khép kín hơn: `Buffer.from(big.slice(offset, offset + size), "utf8")` cắt theo
-chỉ số **chuỗi** rồi mới mã hoá, nên mỗi buffer luôn là UTF-8 trọn vẹn theo cấu tạo. Ca đó không bao
-giờ có khả năng phân biệt, dù có chạy bao nhiêu lần.
+The reverse direction is even more closed: `Buffer.from(big.slice(offset, offset + size), "utf8")` cuts according to
+The **string** index is then encoded, so each buffer is always fully UTF-8 by structure. That song is not included
+now has the ability to differentiate, no matter how many times it is run.
 
-Cách bắt rẻ hơn cả việc dựng mutant: lấy đúng biểu thức fixture, tính độ dài tiền tố và bước nhảy
-bằng `Buffer.byteLength`, rồi kiểm tra `(buf[boundary] & 0xc0) === 0x80` ở từng ranh giới. Ba dòng
-Node là đủ. Quy tắc rút ra: **mỗi chú thích khẳng định "fixture này chứa trường hợp biên X" là một
-khẳng định cần đo, không phải một dữ kiện cần đọc.** Kích thước dữ liệu lớn không thay cho số học.
+The catch is cheaper than constructing a mutant: get the correct fixture expression, calculate the prefix length and jump
+with `Buffer.byteLength`, then check for `(buf[boundary] & 0xc0) === 0x80` at each boundary. Three lines
+Node is enough. The derivation rule: **each annotation stating "this fixture contains a boundary case X" is one
+an assertion that needs to be measured, not a fact that needs to be read.** Large data sizes do not replace arithmetic.
 
-Cách đòi cho tất định: bắt ca chọn điểm cắt rồi **khẳng định điều kiện biên như tiền đề của chính
-nó** (`assert.ok((buf[cut] & 0xc0) === 0x80)`), thay vì hy vọng một ranh giới đều đặn rơi trúng.
+How to claim determinism: choose the cutoff point and then **affirm the boundary condition as the main premise
+it** (`assert.ok((buf[cut] & 0xc0) === 0x80)`), instead of hoping for a regular boundary to hit.
 
-## Mutant sống sót ≠ mutant tương đương: đo tính tới được của nhánh trước
+## Mutant survival ≠ mutant equivalent: measured up to the previous branch
 
-Cùng lượt đó, mutant thêm `console.log` vào `socket.on("error")` sống 11/11, và mutant **xoá hẳn**
-listener cũng sống 11/11. Hai kết quả này chỉ đọc được sau khi có một phép đo thứ ba: thay thân
-handler bằng một lệnh `appendFileSync` vào `/tmp` rồi chạy lại cả suite. Không có tệp nào được tạo —
-nhánh không chạy lần nào. Nhờ đó "mutant sống sót" chuyển từ "có thể là tương đương" thành "nhánh
-này chưa ca nào chạm tới", tức một yêu cầu cụ thể chứ không phải một nghi ngờ.
+In the same turn, the mutant adds `console.log` to `socket.on("error")` on 11/11, and the mutant **deletes**
+listener also lives on 11/11. These two results can only be read after a third measurement: stem replacement
+handler with an `appendFileSync` command to `/tmp` and then run the whole suite again. No files created —
+The branch did not run at all. Thanks to that "mutant survives" changes from "possibly equivalent" to "branch
+"This has never been touched by any case", which is a specific request, not a doubt.
 
-Và trước khi đòi ca mới, hãy đo cách dựng nó. Ở đây `socket.resetAndDestroy()` — cách hiển nhiên để
-ép ECONNRESET — **ném** `ERR_INVALID_HANDLE_TYPE` trên Unix domain socket, chỉ dùng được cho TCP.
-Cách chạy được là phá socket phía daemon rồi ghi ngay một message lớn từ phía client trước khi sự
-kiện `close` kịp tới: probe cho ra đúng một sự kiện `error` mã `EPIPE`. Yêu cầu kèm phép đo thì
-maker không mất một lượt để phát hiện đường cụt.
+And before asking for a new shift, measure how to build it. Here `socket.resetAndDestroy()` — the obvious way to
+force ECONNRESET — **throws** `ERR_INVALID_HANDLE_TYPE` on Unix domain socket, only available for TCP.
+The way to do it is to destroy the socket on the daemon side and immediately write a large message from the client side before proceeding
+The `close` event arrives: probe correctly outputs an `error` event with code `EPIPE`. Please include measurements
+maker does not take a turn to detect a dead end.

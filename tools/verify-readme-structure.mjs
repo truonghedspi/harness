@@ -25,8 +25,8 @@ try {
   const content = readFileSync('README.md', 'utf8');
   
   // Verify required sections exist
-  const hasQuickStart = /^## .*(?:bắt đầu|quick start|getting started)/im.test(content);
-  const hasExtending = /^## .*(?:mở rộng|extend|expand)/im.test(content);
+  const hasQuickStart = /^## .*(?:quick start|getting started)/im.test(content);
+  const hasExtending = /^## .*(?:extend|expand)/im.test(content);
   
   if (!hasQuickStart) {
     console.error('FAIL: Missing quick start section');

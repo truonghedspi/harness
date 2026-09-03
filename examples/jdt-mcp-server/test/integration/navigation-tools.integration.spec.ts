@@ -1,40 +1,39 @@
 // Traceability (harness/skills/test-design/SKILL.md, role: Test-Implementer).
 //
-// Conditions:   TCON-TOOL-0001, TCON-TOOL-0002, TCON-TOOL-0003, TCON-TOOL-0004, TCON-TOOL-0005,
-//               TCON-TOOL-0006, TCON-TOOL-0007, TCON-TOOL-0008, TCON-TOOL-0009, TCON-TOOL-0010
+// Conditions: TCON-TOOL-0001, TCON-TOOL-0002, TCON-TOOL-0003, TCON-TOOL-0004, TCON-TOOL-0005,
+// TCON-TOOL-0006, TCON-TOOL-0007, TCON-TOOL-0008, TCON-TOOL-0009, TCON-TOOL-0010
 // Requirements: INV-TOOL-1, INV-TOOL-3, INV-TOOL-4, INV-TOOL-5, INV-TOOL-6
-// Plan:         TP-TOOL-0001 | Feature: feat-prove-navigation-tools
+// Plan: TP-TOOL-0001 | Feature: feat-prove-navigation-tools
 //
-// Bài kiểm tra tích hợp mức 3: `java_hover`, `java_definition` và `java_references` chạy qua một
-// tiến trình JDT LS THẬT do per-workspace pool thật khởi động. Không có facade giả nào ở đây; phần
-// duy nhất tệp này tự dựng là composition root — nơi nối project-router, workspace-pool,
-// readiness-gate và nội dung tệp trên đĩa thành `LspFacade` mà tầng tool đòi hỏi. Daemon sản phẩm
-// chưa có một nơi nối dây như vậy (feat-prove-cross-process-integration mới sở hữu việc đó), nên
-// composition root nằm trong tệp test và chỉ gọi các giao diện đã công bố của bốn thành phần.
+// Level 3 integration test: `java_hover`, `java_definition` and `java_references` run through a
+// REAL JDT LS process started by real per-workspace pool. There are no fake facades here; section
+// the only file that builds itself is composition root — where project-router, workspace-pool,
+// readiness-gate and file content on disk to `LspFacade` required by the tool layer. Product daemon
+// there is no such place for wiring yet (feat-prove-cross-process-integration owns that), so
+// composition root is in the test file and calls only the published interfaces of the four components.
 //
-// Ground truth của mọi toạ độ được tính từ CHÍNH văn bản fixture bằng chỉ số UTF-16 code unit của
-// JavaScript, rồi cộng 1 để sang hệ công bố (X-007). Không khẳng định nào lấy giá trị mà cài đặt
-// vừa trả về làm kỳ vọng.
+// Ground truth of all coordinates is calculated from the fixture text ITSELF using the UTF-16 code unit's index
+// JavaScript, then add 1 to convert to published system (X-007). There is no assertion that takes the value and sets it
+// just returned as an expectation.
 //
-// Fixture cố ý làm phép đếm khó theo hai cách khác nhau, vì hai chế độ hỏng khác nhau:
-//   * dòng BMP mang é ☕ ñ 日本語 ✓ ß — số code unit BẰNG số codepoint nhưng NHỎ HƠN số byte UTF-8,
-//     nên nó bắt được cách đếm bằng byte và chỉ cách đếm bằng byte (TCON-TOOL-0001);
-//   * dòng astral mang một dãy ký tự astral-plane (mỗi ký tự là một cặp surrogate) — số code unit
-//     LỚN HƠN số codepoint, nên nó bắt thêm cách đếm bằng codepoint mà dòng BMP không thể bắt
-//     (TCON-TOOL-0002).
+// Fixture intentionally makes counting difficult in two different ways, because of two different failure modes:
+// * BMP line carries é ☕ ñ 日本語 ✓ ß — number of code units EQUAL to number of codepoints but SMALLER than number of UTF-8 bytes,
+// so it captures byte counting and only byte counting (TCON-TOOL-0001);
+// * astral line carries a sequence of astral-plane characters (each character is a surrogate pair) — code unit number
+// LARGER THAN the codepoint number, so it captures additional codepoint counting that the BMP line cannot capture
+// (TCON-TOOL-0002).
 //
-// Cả hai dòng đều phải LỆCH XA HƠN BỀ RỘNG CỦA TOKEN, và đó là điều kiện có răng chứ không phải một
-// chi tiết trang trí. Bản fixture đầu tiên chỉ đặt hai cặp surrogate trước `counter`: phép đếm bằng
-// codepoint khi đó lệch đúng hai code unit, tức rơi vào giữa một token dài bảy ký tự, JDT LS vẫn giải
-// ra đúng symbol đó và mọi khẳng định vẫn xanh. Mutant "đếm bằng codepoint" sống sót. Vì vậy độ lệch
-// mà mỗi dòng gây ra được khẳng định tường minh là LỚN HƠN `SYMBOL.length` ngay trong đợt quét.
+// Both lines must be FAR MORE THAN THE WIDTH OF THE TOKEN, and that is a condition of teeth, not one
+// decorative details. The first fixture just puts two surrogate pairs before `counter`: equal counting
+// The codepoint is then exactly two code units off, meaning it falls in the middle of a seven-character token, JDT LS still solves it
+// output the correct symbol and all assertions are still green. Mutant "counting by codepoint" survives. So deviation// where each resulting line is explicitly stated to be GREATER THAN `SYMBOL.length` within the scan.
 //
-// Ngoài phạm vi có chủ đích: `resyncing` và `workspace-crashed` của taxonomy X-003 thuộc về
-// feat-prove-sync và feat-prove-pool-crash-handling (xem spec_gaps của TP-TOOL-0001).
+// Intentionally out of scope: `resyncing` and `workspace-crashed` of taxonomy X-003 belong to
+// feat-prove-sync and feat-prove-pool-crash-handling (see spec_gaps of TP-TOOL-0001).
 //
-// Về dọn dẹp: mọi tài nguyên đi qua `cleanupStack`, không qua `t.after` trực tiếp. Lý do nằm ở chú
-// thích của hàm đó — hook `after` của node:test chạy theo thứ tự đăng ký, nên cách viết quen thuộc
-// (`t.after(rmSync)` rồi `t.after(pool.close)`) xoá thư mục lúc JVM còn sống và treo tiến trình test.
+// About cleanup: all resources go through `cleanupStack`, not through `t.after` directly. The reason lies with you
+// like that function — node:test's `after` hook runs in order of registration, so the writing is familiar
+// (`t.after(rmSync)` then `t.after(pool.close)`) deletes the directory while the JVM is alive and suspends the test process.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -62,36 +61,35 @@ import {
 import { createWorkspacePool, type WorkspacePool } from "../../src/workspace/workspace-pool.ts";
 
 // -------------------------------------------------------------------------------------------
-// Tham số thời gian. X-001 (ngân sách deadline mỗi lời gọi) còn mở, nên mọi thời hạn ở đây là
-// tham số của test chứ không phải hằng số của sản phẩm.
+// Time parameter. X-001 (budget deadline per call) is open, so all deadlines here are
+// test parameters, not product constants.
 // -------------------------------------------------------------------------------------------
 
-/** Hạn chờ index sẵn sàng cho workspace ấm. Cold start đo được khoảng 4 s trên fixture này. */
+/** Time limit for index to be ready for warm workspace. Cold start measures approximately 4 s on this fixture. */
 const READY_DEADLINE_MS = Number.parseInt(process.env.JDT_READY_DEADLINE_MS ?? "120000", 10);
-/** Hạn chờ dùng cho ca not-ready: đủ ngắn để chắc chắn rơi vào giữa lúc index đang xây. */
-const WARMING_DEADLINE_MS = Number.parseInt(process.env.JDT_WARMING_DEADLINE_MS ?? "100", 10);
+/** The waiting period for the not-ready case: short enough to be sure to fall while the index is being built. */const WARMING_DEADLINE_MS = Number.parseInt(process.env.JDT_WARMING_DEADLINE_MS ?? "100", 10);
 const SWEEP_TIMEOUT_MS = 300_000;
 
 const JDTLS_FIXTURE_HOME = path.resolve(".cache/jdtls-fixture/1.61.0.202607231254");
 
 // -------------------------------------------------------------------------------------------
-// Fixture nguồn. Số dòng trong chú thích là số dòng 1-based mà mọi khẳng định dùng.
+// Fixture the source. The line number in the comment is the 1-based line number that every assertion uses.
 // -------------------------------------------------------------------------------------------
 
 const FIXTURE_LINES = [
   /* 1 */ "package fixture;",
   /* 2 */ "",
-  /* 3 */ "// một dòng chú thích thuần văn xuôi, không có định danh nào để giải",
+  /* 3 */ "// a plain prose comment line, with no identifier to resolve",
   /* 4 */ "public class Nav {",
-  /* 5 */ "    int counter;",
+  /* 5 */ " int counter;",
   /* 6 */ "",
-  /* 7 */ '    int bmpUse() { String bmp = "café ☕ ñ 日本語 ✓ ß"; return counter; }',
-  /* 8 */ '    int astralUse() { String astral = "𝄞𝒜𝔸𝔹𝔻𝔼𝔽𝔾𝕀𝕁𝕂𝕃 café ☕ ñ 日本語 ✓ ß"; return counter; }',
-  /* 9 */ "    int useA() { return counter; }",
-  /* 10 */ "    int useB() { return counter + 1; }",
-  /* 11 */ "    int useC() { return counter * 2; }",
-  /* 12 */ "    void useD() { counter = 0; }",
-  /* 13 */ "    void useE() { counter += 1; }",
+  /* 7 */ ' int bmpUse() { String bmp = "café ☕ ñ 日本語 ✓ ß"; return counter; }',
+  /* 8 */ ' int astralUse() { String astral = "𝄞𝒜𝔸𝔹𝔻𝔼𝔽𝔾𝕀𝕁𝕂𝕃 cafe ☕ ñ 日本語 ✓ ß"; return counter; }',
+  /* 9 */ " int useA() { return counter; }",
+  /* 10 */ " int useB() { return counter + 1; }",
+  /* 11 */ " int useC() { return counter * 2; }",
+  /* 12 */ " void useD() { counter = 0; }",
+  /* 13 */ " void useE() { counter += 1; }",
   /* 14 */ "}",
   /* 15 */ "",
 ];
@@ -104,27 +102,26 @@ const ASTRAL_LINE = 8;
 const COMMENT_LINE = 3;
 const BLANK_LINE = 6;
 /**
- * Neo thuần ASCII cho hai điều kiện về cap. INV-TOOL-3 nói về việc cắt danh sách, không nói về phép
- * chuyển đổi toạ độ; hỏi từ một dòng có ký tự non-ASCII sẽ khiến một lỗi đếm cột cũng làm đỏ chúng
- * và ta không còn phân biệt được hai bất biến.
+ * Plain ASCII anchor for two cap conditions. INV-TOOL-3 talks about list slicing, not permissions
+ * coordinate conversion; Asking from a line with non-ASCII characters will cause a column count error to redden them as well
+ * and we can no longer distinguish between the two invariants.
  */
 const PLAIN_LINE = 9;
 
-/** Văn bản của một dòng 1-based; ném lỗi thay vì trả về `undefined` để fixture không lặng lẽ trượt. */
+/** Text of a 1-based line; throws an error instead of returning `undefined` so the fixture doesn't quietly slip. */
 function lineText(line: number): string {
   const text = FIXTURE_LINES[line - 1];
-  assert.ok(text !== undefined, `fixture không có dòng ${line}`);
+  assert.ok(text !== undefined, `fixture does not have ${line}`);
   return text;
 }
 
-/** Cột 1-based của `needle` trên một dòng, đếm bằng UTF-16 code unit — đúng đơn vị mà X-007 công bố. */
+/** 1-based column of `needle` on a line, counted in UTF-16 code units — the exact units announced by X-007. */
 function columnOf(line: number, needle: string): number {
-  const index = lineText(line).indexOf(needle);
-  assert.ok(index >= 0, `fixture: không tìm thấy "${needle}" trên dòng ${line}`);
+  const index = lineText(line).indexOf(needle);assert.ok(index >= 0, `fixture: "${needle}" not found on line ${line}`);
   return index + 1;
 }
 
-/** Range ground-truth của một lần xuất hiện `SYMBOL` bắt đầu tại cột 1-based đã cho. */
+/** Range ground-truth of a `SYMBOL` occurrence starting at the given 1-based column. */
 function symbolRangeAt(line: number, column: number): SourceRange {
   return {
     start: { line, column },
@@ -137,9 +134,9 @@ function symbolRangeOn(line: number): SourceRange {
 }
 
 /**
- * Mọi lần xuất hiện của `counter` trong fixture TRỪ chính khai báo — tức tập tham chiếu đúng mà
- * `java_references` phải trả về khi `includeDeclaration: false`. Đọc thẳng từ văn bản fixture, nên
- * nó là ground truth độc lập chứ không phải giá trị mà cài đặt vừa sinh ra.
+ * Every occurrence of `counter` in the fixture EXCEPT the declaration itself — that is, the correct reference set
+ * `java_references` must return when `includeDeclaration: false`. Read straight from the fixture text, so
+ * it is the independent ground truth, not the value that the setting just generated.
  */
 function expectedReferenceRanges(): SourceRange[] {
   const ranges: SourceRange[] = [];
@@ -160,25 +157,24 @@ function sortRanges(ranges: readonly SourceRange[]): SourceRange[] {
 }
 
 // -------------------------------------------------------------------------------------------
-// Ngăn xếp dọn dẹp
+// Stack cleanup
 // -------------------------------------------------------------------------------------------
 
-interface AfterRegistrar {
+interfaceAfterRegistrar {
   after(fn: () => void | Promise<void>): void;
 }
 
-/** Đăng ký một bước dọn dẹp. Các bước chạy theo thứ tự NGƯỢC với thứ tự đăng ký. */
+/** Registers a cleanup step. The steps run in REVERSE order of registration. */
 type Cleanup = (step: () => void | Promise<void>) => void;
 
 /**
- * `node:test` chạy các hook `after` theo đúng THỨ TỰ ĐĂNG KÝ (kiểm chứng trực tiếp trên node 22).
- * Đăng ký `rmSync(root)` trước rồi `pool.close()` sau vì thế xoá thư mục trong lúc JVM còn sống: lệnh
- * xoá ném lỗi, tiến trình JDT LS sống sót và giữ stdio, và chính tiến trình test không bao giờ thoát.
+ * `node:test` runs `after` hooks in the correct REGISTRATION ORDER (test directly on node 22).
+ * Register `rmSync(root)` first and then `pool.close()` later thus deleting the directory while the JVM is alive: command
+ * removes throwing errors, the JDT LS process survives and keeps stdio, and the test process itself never exits.
  *
- * Hàm này đảo ngược thứ tự đó bằng một ngăn xếp duy nhất. Người viết test đăng ký các bước theo đúng
- * trình tự khởi tạo — thư mục trước, pool sau — và ngăn xếp tự tháo theo chiều ngược lại. Mỗi bước
- * được bọc riêng, nên một bước hỏng không chặn các bước còn lại: một khẳng định đỏ giữa chừng vẫn
- * phải bỏ lại một máy sạch.
+ * This function reverses that order using a single stack. The test writer registers the correct steps* initialization sequence — directory first, pool second — and the stack unwinds in reverse. Every step
+ * is wrapped separately, so a failed step does not block the remaining steps: a red assertion in the middle remains
+ * A clean machine must be left behind.
  */
 function cleanupStack(t: AfterRegistrar): Cleanup {
   const steps: Array<() => void | Promise<void>> = [];
@@ -187,7 +183,7 @@ function cleanupStack(t: AfterRegistrar): Cleanup {
       try {
         await steps[index]!();
       } catch {
-        /* dọn dẹp là best-effort */
+        /* cleaning is the best-effort */
       }
     }
   });
@@ -197,31 +193,31 @@ function cleanupStack(t: AfterRegistrar): Cleanup {
 }
 
 // -------------------------------------------------------------------------------------------
-// Composition root: project-router + workspace-pool + readiness-gate + nội dung tệp trên đĩa.
+// Composition root: project-router + workspace-pool + readiness-gate + file content on disk.
 // -------------------------------------------------------------------------------------------
 
 interface LiveHarness {
   facade: LspFacade;
   sourcePath: string;
   projectRoot: string;
-  /** Số LSP request đã thật sự rời khỏi tầng tool qua facade — cơ sở của khẳng định INV-TOOL-5. */
+  /** The number of LSP requests that actually left the tool layer via the facade — the basis of the INV-TOOL-5 assertion. */
   lspRequests(): number;
 }
 
 interface HarnessOptions {
-  /** Hạn chờ readiness cho mỗi lời gọi tool. Ca not-ready dùng một giá trị rất ngắn. */
+  /** Readiness waiting period for each tool call. Ca not-ready uses a very short value. */
   readyDeadlineMs: number;
-  /** Bỏ qua bước chờ index ấm lúc dựng, để tool được gọi khi workspace còn đang khởi động. */
+  /** Skip the step of waiting for the index to warm up during build, so that the tool is called while the workspace is still starting up. */
   warmUp: boolean;
 }
 
 /**
- * Dựng một workspace sống: project Maven thật trên đĩa, tiến trình JDT LS thật do pool spawn,
- * handshake initialize thật, readiness-gate thật.
+ * Build a live workspace: real Maven project on disk, real JDT LS process spawned by the pool,
+ * real initialize handshake, real readiness-gate.
  *
- * Mỗi tài nguyên được đẩy vào `cleanup` NGAY khi nó tồn tại, chứ không phải sau khi hàm trả về. Nếu
- * handshake ném lỗi giữa chừng, pool đã spawn vẫn được đóng; nếu chờ tới lúc trả về mới đăng ký thì
- * một JVM mồ côi sẽ giữ tiến trình test lại mãi mãi.
+ * Each resource is pushed into `cleanup` AS SOON as it exists, not after the function returns. If
+ * handshake throws error midway, spawned pool remains closed; If you wait until you return to register
+ * an orphaned JVM will keep the retest process going forever.
  */
 async function startLiveWorkspace(
   root: string,
@@ -233,8 +229,7 @@ async function startLiveWorkspace(
   const sourcePath = path.join(projectRoot, "src/main/java/fixture/Nav.java");
   mkdirSync(path.dirname(sourcePath), { recursive: true });
   writeFileSync(
-    path.join(projectRoot, "pom.xml"),
-    "<project><modelVersion>4.0.0</modelVersion><groupId>fixture</groupId>" +
+    path.join(projectRoot, "pom.xml"),"<project><modelVersion>4.0.0</modelVersion><groupId>fixture</groupId>" +
       `<artifactId>${name}</artifactId><version>1</version></project>\n`,
   );
   writeFileSync(sourcePath, FIXTURE_SOURCE, "utf8");
@@ -252,13 +247,13 @@ async function startLiveWorkspace(
   cleanup(() => gate.close());
 
   const routed = resolveWorkspace(sourcePath);
-  assert.ok(!("error" in routed), `fixture phải định tuyến được: ${JSON.stringify(routed)}`);
+  assert.ok(!("error" in routed), `fixture must be routable: ${JSON.stringify(routed)}`);
   const lease = await pool.acquire(routed.projectRoot);
   cleanup(() => lease.release());
   const client = lease.client;
-  assert.ok(client, "pool phải trả về LspClient của tiến trình JDT LS thật");
+  assert.ok(client, "pool must return the LspClient of the real JDT LS process");
 
-  // Nửa server→client của handshake. JDT LS treo nếu không ai trả lời ba request này.
+  // Server→client half of the handshake. JDT LS hangs if no one responds to these three requests.
   client.onRequest("workspace/configuration", (params) => {
     const items = (params as { items?: unknown[] } | undefined)?.items;
     return Array.from({ length: Array.isArray(items) ? items.length : 0 }, () => ({}));
@@ -288,8 +283,7 @@ async function startLiveWorkspace(
     },
   });
   client.notify("initialized", {});
-  targets.set(lease.workspaceId, {
-    workspaceId: lease.workspaceId,
+  targets.set(lease.workspaceId, {workspaceId: lease.workspaceId,
     projectRoot: routed.projectRoot,
     client,
   });
@@ -316,8 +310,8 @@ async function startLiveWorkspace(
         }
         throw error;
       } finally {
-        // Trả lease ngay: mỗi lời gọi tool mượn workspace đúng một lần, và một lease bị bỏ quên sẽ
-        // tích luỹ qua hàng chục lời gọi rồi giữ pool lại lúc đóng.
+        // Return lease immediately: each tool call borrows the workspace exactly once, and a forgotten lease will
+        // accumulates over dozens of calls and then keeps the pool when closed.
         await held.release();
       }
       return { status: "ready", workspaceId: held.workspaceId };
@@ -331,8 +325,8 @@ async function startLiveWorkspace(
     },
     request: async (method: string, params: unknown): Promise<unknown> => {
       lspRequests += 1;
-      // Tầng tool đặt `uri` bằng đúng đường dẫn nó nhận được; chuyển sang file URI là việc của
-      // composition root, vì chỉ nó biết tệp nằm trên hệ thống tệp nào.
+      // The tool layer sets `uri` to the correct path it received; Converting to URI file is the job
+      // composition root, because only it knows which file system the file is on.
       const shaped = params as { textDocument: { uri: string } };
       return client.request(method, {
         ...shaped,
@@ -351,22 +345,20 @@ async function startLiveWorkspace(
     projectRoot: routed.projectRoot,
     lspRequests: () => lspRequests,
   };
-}
-
-// -------------------------------------------------------------------------------------------
-// Trợ giúp khẳng định
+}// -------------------------------------------------------------------------------------------
+// Assertion help
 // -------------------------------------------------------------------------------------------
 
 function unwrap<T>(outcome: ToolOutcome<T>, label: string): T {
   assert.equal(
     outcome.isError,
     false,
-    `${label} phải thành công, nhận được ${JSON.stringify(outcome)}`,
+    `${label} must succeed, receiving ${JSON.stringify(outcome)}`,
   );
   return (outcome as { isError: false; value: T }).value;
 }
 
-/** `java_definition` trả URI, `java_references` trả đường dẫn; so sánh về cùng một dạng đường dẫn. */
+/** `java_definition` returns URI, `java_references` returns path; compare the same path type. */
 function asFsPath(value: string): string {
   const raw = value.startsWith("file:") ? fileURLToPath(value) : value;
   try {
@@ -380,11 +372,11 @@ function assertResolvedHover(result: JavaHoverResult, label: string): SourceRang
   assert.equal(
     result.resolved,
     true,
-    `${label}: java_hover phải giải được symbol, nhận được ${JSON.stringify(result)}`,
+    `${label}: java_hover must resolve the symbol, receive ${JSON.stringify(result)}`,
   );
   assert.ok(
     "range" in result && result.range !== undefined && result.range !== null,
-    `${label}: kết quả java_hover thành công LUÔN mang range (INV-TOOL-6)`,
+    `${label}: successful java_hover results ALWAYS have range (INV-TOOL-6)`,
   );
   return (result as { range: SourceRange }).range;
 }
@@ -393,15 +385,15 @@ function assertDeclarationLocation(answer: DefinitionAnswer, sourcePath: string,
   assert.equal(
     answer.resolved,
     true,
-    `${label}: java_definition phải tìm được khai báo, nhận được ${JSON.stringify(answer)}`,
+    `${label}: java_definition must find the declaration, get ${JSON.stringify(answer)}`,
   );
-  assert.equal(answer.locations.length, 1, `${label}: fixture chỉ có đúng một khai báo của ${SYMBOL}`);
+  assert.equal(answer.locations.length, 1, `${label}: fixture has exactly one declaration of ${SYMBOL}`);
   const location = answer.locations[0]!;
-  assert.equal(asFsPath(location.path), asFsPath(sourcePath), `${label}: khai báo phải nằm trong chính tệp fixture`);
+  assert.equal(asFsPath(location.path), asFsPath(sourcePath), `${label}: declaration must be in the fixture file itself`);
   assert.deepEqual(
     location.range,
     symbolRangeOn(DECLARATION_LINE),
-    `${label}: range của khai báo phải khớp offset thật của "${SYMBOL}" trên dòng ${DECLARATION_LINE}`,
+    `${label}: the declaration's range must match the actual offset of "${SYMBOL}" on line ${DECLARATION_LINE}`,
   );
 }
 
@@ -410,29 +402,28 @@ function assertReferenceSet(answer: ReferencesAnswer, sourcePath: string, label:
     assert.equal(
       asFsPath(reference.path),
       asFsPath(sourcePath),
-      `${label}: mọi tham chiếu phải nằm trong tệp fixture`,
+      `${label}: all references must be in the fixture file`,
     );
-  }
-  assert.deepEqual(
+  }assert.deepEqual(
     sortRanges(answer.references.map((reference) => reference.range)),
     sortRanges(expectedReferenceRanges()),
-    `${label}: tập range tham chiếu phải khớp từng offset thật trong fixture`,
+    `${label}: the reference range set must match each actual offset in the fixture`,
   );
 }
 
 // -------------------------------------------------------------------------------------------
-// Đợt quét chính: một tiến trình JDT LS ấm phục vụ tám điều kiện.
+// Main scan: a warm JDT LS process serving eight conditions.
 // -------------------------------------------------------------------------------------------
 
 test(
-  "feat-prove-navigation-tools: hover/definition/references qua pool thật trên fixture non-ASCII và astral-plane",
+  "feat-prove-navigation-tools: hover/definition/references via real pool on non-ASCII and astral-plane fixtures",
   { timeout: SWEEP_TIMEOUT_MS },
-  async (t) => {
+  async(t) => {
     process.env.JDTLS_HOME = JDTLS_FIXTURE_HOME;
     const cleanup = cleanupStack(t);
     const root = realpathSync(mkdtempSync(path.join(tmpdir(), "jdt-nav-")));
-    // Đăng ký theo trình tự khởi tạo; `cleanupStack` tháo theo chiều ngược lại, nên thư mục chỉ bị
-    // xoá SAU khi mọi tiến trình con đã dừng hẳn.
+    // Register according to the initialization sequence; `cleanupStack` disassembles in reverse, so the directory remains
+    // delete AFTER all child processes have stopped.
     cleanup(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }));
 
     const live = await startLiveWorkspace(
@@ -443,7 +434,7 @@ test(
     );
     const { facade, sourcePath } = live;
 
-    // Kỳ vọng của fixture, tính trước một lần và dùng lại — mọi giá trị đến từ văn bản nguồn.
+    // Fixture expectations, precomputed once and reused — all values come from the source text.
     const bmpColumn = columnOf(BMP_LINE, SYMBOL);
     const astralColumn = columnOf(ASTRAL_LINE, SYMBOL);
     const plainColumn = columnOf(PLAIN_LINE, SYMBOL);
@@ -451,50 +442,49 @@ test(
     assert.equal(
       lineText(PLAIN_LINE),
       Buffer.from(lineText(PLAIN_LINE), "utf8").toString("latin1"),
-      "neo của hai ca cap phải thuần ASCII, nếu không nó lại đo INV-TOOL-1 một lần nữa",
+      "the anchor of the two cases must be pure ASCII, otherwise it measures INV-TOOL-1 again",
     );
 
-    // Fixture phải thật sự làm phép đếm khó, nếu không cả hai điều kiện đầu đều vô nghĩa. Mỗi cách
-    // đếm sai đẩy vị trí được hỏi đi một quãng; quãng đó phải VƯỢT bề rộng token, nếu không lời gọi
-    // vẫn rơi vào giữa `counter`, JDT LS vẫn giải ra đúng symbol và cách đếm sai không để lại dấu vết.
-    const bmpPrefix = lineText(BMP_LINE).slice(0, bmpColumn - 1);
-    const astralPrefix = lineText(ASTRAL_LINE).slice(0, astralColumn - 1);
+    // Fixture must actually make counting difficult, otherwise both first conditions are meaningless. Every way
+    // wrong count pushes the asked position one distance; That interval must EXCEED the token width, otherwise the call will be made
+    // still falls in the middle of `counter`, JDT LS still solves the correct symbol and the wrong count leaves no trace.
+    const bmpPrefix = lineText(BMP_LINE).slice(0, bmpColumn - 1);const astralPrefix = lineText(ASTRAL_LINE).slice(0, astralColumn - 1);
     assert.equal(
       [...bmpPrefix].length,
       bmpPrefix.length,
-      "dòng BMP không được chứa cặp surrogate: nó tồn tại để cô lập cách đếm bằng byte",
+      "the BMP stream must not contain surrogate pairs: it exists to isolate the byte count",
     );
     assert.ok(
       Buffer.byteLength(bmpPrefix, "utf8") - bmpPrefix.length > SYMBOL.length,
-      "độ lệch byte↔code unit của dòng BMP phải vượt bề rộng token, nếu không lỗi đếm byte vẫn rơi trong token",
+      "the byte offset↔code unit of the BMP stream must exceed the token width, otherwise the byte count error will still fall in the token",
     );
     assert.ok(
       astralPrefix.length - [...astralPrefix].length > SYMBOL.length,
-      "độ lệch code unit↔codepoint của dòng astral phải vượt bề rộng token, nếu không lỗi đếm " +
-        "codepoint vẫn rơi trong token và mutant tương ứng sống sót",
+      "the astral line's code unit↔codepoint deviation must exceed the token width, otherwise the count error " +
+        "codepoint still falls in token and corresponding mutant survives",
     );
 
     await t.test(
-      "TCON-TOOL-0001: ba tool đều báo đúng offset thật trên dòng chứa ký tự non-ASCII một code unit [INV-TOOL-1]",
-      async () => {
+      "TCON-TOOL-0001: all three tools correctly report the true offset on a line containing a non-ASCII character in a code unit [INV-TOOL-1]",
+      async() => {
         const hover = unwrap(
           await javaHover(facade, { path: sourcePath, line: BMP_LINE, column: bmpColumn }),
-          "java_hover trên dòng BMP",
+          "java_hover on BMP stream",
         );
-        const range = assertResolvedHover(hover, "dòng BMP");
+        const range = assertResolvedHover(hover, "BMP line");
         assert.deepEqual(hover.position, { line: BMP_LINE, column: bmpColumn });
         assert.deepEqual(
           range,
           symbolRangeAt(BMP_LINE, bmpColumn),
-          "range của hover phải khớp offset UTF-16 thật, không phải số byte UTF-8 hay số codepoint",
+          "hover's range must match the actual UTF-16 offset, not the number of UTF-8 bytes or codepoints",
         );
 
         const declaration = unwrap(
           await definition(facade, { path: sourcePath, line: BMP_LINE, column: bmpColumn }),
-          "java_definition trên dòng BMP",
+          "java_definition on BMP line",
         );
         assert.deepEqual(declaration.position, { line: BMP_LINE, column: bmpColumn });
-        assertDeclarationLocation(declaration, sourcePath, "dòng BMP");
+        assertDeclarationLocation(declaration, sourcePath, "BMP line");
 
         const found = unwrap(
           await references(
@@ -502,34 +492,33 @@ test(
             { path: sourcePath, line: BMP_LINE, column: bmpColumn, includeDeclaration: false },
             { cap: expectedReferences.length },
           ),
-          "java_references trên dòng BMP",
+          "java_references on BMP line",
         );
         assert.deepEqual(found.position, { line: BMP_LINE, column: bmpColumn });
-        assertReferenceSet(found, sourcePath, "dòng BMP");
+        assertReferenceSet(found, sourcePath, "BMP stream");
       },
     );
 
-    await t.test(
-      "TCON-TOOL-0002: ba tool đều báo đúng offset thật trên dòng chứa cặp surrogate astral-plane [INV-TOOL-1]",
-      async () => {
+    await t.test("TCON-TOOL-0002: all three tools correctly report the true offset on the line containing the astral-plane surrogate pair [INV-TOOL-1]",
+      async() => {
         const hover = unwrap(
           await javaHover(facade, { path: sourcePath, line: ASTRAL_LINE, column: astralColumn }),
-          "java_hover trên dòng astral",
+          "java_hover on astral line",
         );
-        const range = assertResolvedHover(hover, "dòng astral");
+        const range = assertResolvedHover(hover, "astral line");
         assert.deepEqual(hover.position, { line: ASTRAL_LINE, column: astralColumn });
         assert.deepEqual(
           range,
           symbolRangeAt(ASTRAL_LINE, astralColumn),
-          "một ký tự astral-plane chiếm HAI code unit; đếm nó là một codepoint làm range lệch sang token khác",
+          "an astral-plane character takes up TWO code units; counting it as a codepoint shifts the range to another token",
         );
 
         const declaration = unwrap(
           await definition(facade, { path: sourcePath, line: ASTRAL_LINE, column: astralColumn }),
-          "java_definition trên dòng astral",
+          "java_definition on astral line",
         );
         assert.deepEqual(declaration.position, { line: ASTRAL_LINE, column: astralColumn });
-        assertDeclarationLocation(declaration, sourcePath, "dòng astral");
+        assertDeclarationLocation(declaration, sourcePath, "astral line");
 
         const found = unwrap(
           await references(
@@ -537,72 +526,69 @@ test(
             { path: sourcePath, line: ASTRAL_LINE, column: astralColumn, includeDeclaration: false },
             { cap: expectedReferences.length },
           ),
-          "java_references trên dòng astral",
+          "java_references on astral line",
         );
         assert.deepEqual(found.position, { line: ASTRAL_LINE, column: astralColumn });
-        assertReferenceSet(found, sourcePath, "dòng astral");
+        assertReferenceSet(found, sourcePath, "astral stream");
       },
     );
 
     await t.test(
-      "TCON-TOOL-0003: ba tool nói cùng MỘT hệ toạ độ cho cùng một vị trí symbol [INV-TOOL-1]",
-      async () => {
+      "TCON-TOOL-0003: three tools talk about the same coordinate system for the same symbol position [INV-TOOL-1]",
+      async() => {
         const request = { path: sourcePath, line: ASTRAL_LINE, column: astralColumn };
-        const hover = unwrap(await javaHover(facade, request), "java_hover trong đợt quét chung");
-        const declaration = unwrap(await definition(facade, request), "java_definition trong đợt quét chung");
+        const hover = unwrap(await javaHover(facade, request), "java_hover in general sweep");
+        const declaration = unwrap(await definition(facade, request), "java_definition in general scan");
         const found = unwrap(
           await references(facade, { ...request, includeDeclaration: true }, { cap: 1_000 }),
-          "java_references trong đợt quét chung",
-        );
-
-        // Cùng một vị trí được ba tool echo lại y hệt nhau — không tool nào tự hạ hay nâng cơ sở.
+          "java_references in general scan",
+        );// The same position is echoed by three tools exactly the same — no tool lowers or raises the base itself.
         const echoed = { line: ASTRAL_LINE, column: astralColumn };
         assert.deepEqual(hover.position, echoed);
         assert.deepEqual(declaration.position, echoed);
         assert.deepEqual(found.position, echoed);
 
-        const hoverRange = assertResolvedHover(hover, "đợt quét chung");
+        const hoverRange = assertResolvedHover(hover, "general scan");
         assert.equal(declaration.resolved, true);
         const declarationRange = declaration.locations[0]!.range;
 
-        // Đối chiếu chéo giữa các tool: đầu ra của java_definition được nạp thẳng làm đầu vào của
-        // java_hover. Nếu một trong hai nói bằng cơ sở khác, vòng này rơi sang token khác và range
-        // trả về không còn trùng.
+        // Cross-reference between tools: output of java_definition is fed directly as input of
+        // java_hover. If either one speaks with another base, the round falls to another token and range
+        // returns no more duplicates.
         const hoverAtDeclaration = unwrap(
           await javaHover(facade, {
             path: sourcePath,
             line: declarationRange.start.line,
             column: declarationRange.start.column,
           }),
-          "java_hover tại chính vị trí java_definition đã chỉ ra",
+          "java_hover at the specified java_definition location",
         );
         assert.deepEqual(
-          assertResolvedHover(hoverAtDeclaration, "vòng definition→hover"),
+          assertResolvedHover(hoverAtDeclaration, "hover definition→hover"),
           declarationRange,
-          "hover tại vị trí mà definition trả về phải bao đúng token đó — hai tool phải cùng cơ sở",
+          "hover at the position returned by the definition must include that exact token — the two tools must have the same base",
         );
 
-        // java_references với includeDeclaration bao đúng khai báo mà java_definition đã chỉ ra.
+        // java_references with includeDeclaration includes the exact declaration that java_definition specified.
         assert.ok(
           found.references.some(
             (reference) =>
               reference.range.start.line === declarationRange.start.line &&
               reference.range.start.column === declarationRange.start.column,
           ),
-          `java_references phải chứa khai báo tại ${JSON.stringify(declarationRange)}; ` +
-            `nhận được ${JSON.stringify(found.references.map((reference) => reference.range))}`,
+          `java_references must contain a declaration at ${JSON.stringify(declarationRange)}; `+
+            `get ${JSON.stringify(found.references.map((reference) => reference.range))}`,
         );
-        // Và ba tool cùng nói dòng 1-based, không tool nào rơi lại 0-based.
+        // And all three tools say the 1-based line, none of them returns 0-based.
         assert.deepEqual(hoverRange, symbolRangeAt(ASTRAL_LINE, astralColumn));
         assert.deepEqual(declarationRange, symbolRangeOn(DECLARATION_LINE));
       },
     );
 
     await t.test(
-      "TCON-TOOL-0004: danh sách vượt cap luôn kèm truncated:true và TỔNG THỰC [INV-TOOL-3]",
-      async () => {
+      "TCON-TOOL-0004: overcap list always includes truncated:true and TOTAL [INV-TOOL-3]",async() => {
         const trueTotal = expectedReferences.length;
-        assert.ok(trueTotal >= 2, "fixture phải có ít nhất hai tham chiếu thì mới cắt được");
+        assert.ok(trueTotal >= 2, "fixture must have at least two references to cut");
         const cap = trueTotal - 1;
 
         const found = unwrap(
@@ -611,17 +597,17 @@ test(
             { path: sourcePath, line: PLAIN_LINE, column: plainColumn, includeDeclaration: false },
             { cap },
           ),
-          "java_references dưới cap nhỏ hơn số tham chiếu thật",
+          "java_references under cap is less than the actual reference number",
         );
 
-        assert.equal(found.cap, cap, "kết quả phải nói rõ cap nào đã được áp dụng");
-        assert.equal(found.truncated, true, "một danh sách bị cắt KHÔNG BAO GIỜ được im lặng");
+        assert.equal(found.cap, cap, "the result must clearly state which cap was applied");
+        assert.equal(found.truncated, true, "a truncated list should NEVER be silent");
         assert.equal(
           found.total,
           trueTotal,
-          "total phải là tổng THỰC trước khi cắt, không phải độ dài sau khi cắt",
+          "total must be the REAL total before cutting, not the length after cutting",
         );
-        assert.equal(found.references.length, cap, "danh sách trả về phải dài đúng bằng cap");
+        assert.equal(found.references.length, cap, "the returned list must be exactly as long as cap");
         for (const reference of found.references) {
           assert.ok(
             expectedReferences.some(
@@ -629,15 +615,15 @@ test(
                 expected.start.line === reference.range.start.line &&
                 expected.start.column === reference.range.start.column,
             ),
-            `phần tử còn lại sau khi cắt phải là một tham chiếu thật: ${JSON.stringify(reference.range)}`,
+            `the remaining element after slicing must be a true reference: ${JSON.stringify(reference.range)}`,
           );
         }
       },
     );
 
     await t.test(
-      "TCON-TOOL-0005: đúng bằng cap thì danh sách đầy đủ và KHÔNG bị đánh dấu truncated [INV-TOOL-3]",
-      async () => {
+      "TCON-TOOL-0005: if the cap is correct, the list is complete and NOT truncated [INV-TOOL-3]",
+      async() => {
         const trueTotal = expectedReferences.length;
         const found = unwrap(
           await references(
@@ -645,28 +631,27 @@ test(
             { path: sourcePath, line: PLAIN_LINE, column: plainColumn, includeDeclaration: false },
             { cap: trueTotal },
           ),
-          "java_references dưới cap đúng bằng số tham chiếu thật",
+          "java_references under the cap is exactly equal to the actual reference number",
         );
 
         assert.equal(found.cap, trueTotal);
         assert.equal(
           found.truncated,
           false,
-          "không phần tử nào bị cắt thì không bao giờ được báo là đã cắt (so sánh > chứ không phải >=)",
+          "no cut element is never reported as cut (compare > not >=)",
         );
-        assert.equal(found.total, trueTotal);
-        assert.equal(found.references.length, trueTotal, "không được thiếu tham chiếu cuối cùng");
-        assertReferenceSet(found, sourcePath, "cap đúng biên");
+        assert.equal(found.total, trueTotal);assert.equal(found.references.length, trueTotal, "last reference must not be missing");
+        assertReferenceSet(found, sourcePath, "cap correct boundary");
       },
     );
 
     await t.test(
-      "TCON-TOOL-0008: toạ độ quá khổ bị từ chối TRƯỚC mọi lời gọi LSP, bằng lỗi invalid-position [INV-TOOL-5]",
-      async () => {
+      "TCON-TOOL-0008: oversized coordinates rejected BEFORE all LSP calls, with error invalid-position [INV-TOOL-5]",
+      async() => {
         const oversized = [
-          { label: "dòng vượt quá cuối tệp", line: FIXTURE_LINES.length + 1, column: 1 },
+          { label: "lines beyond the end of the file", line: FIXTURE_LINES.length + 1, column: 1 },
           {
-            label: "cột vượt quá cuối dòng",
+            label: "column beyond end of line",
             line: BMP_LINE,
             column: lineText(BMP_LINE).length + 5,
           },
@@ -674,7 +659,7 @@ test(
 
         for (const { label, line, column } of oversized) {
           const before = live.lspRequests();
-          const outcomes = [
+          const = outcomes [
             await javaHover(facade, { path: sourcePath, line, column }),
             await definition(facade, { path: sourcePath, line, column }),
             await references(facade, { path: sourcePath, line, column, includeDeclaration: false }),
@@ -685,87 +670,85 @@ test(
             assert.equal(
               outcome.isError,
               true,
-              `${names[index]} với ${label}: phải là lỗi tường minh, không phải kết quả thành công ${JSON.stringify(outcome)}`,
+              `${names[index]} with ${label}: must be an explicit error, not a success ${JSON.stringify(outcome)}`,
             );
             const failure = outcome as { isError: true; code: string; message: string };
             assert.equal(
               failure.code,
               "invalid-position",
-              `${names[index]} với ${label}: mã lỗi phải là invalid-position của chính tầng tool`,
+              `${names[index]} with ${label}: error code must be the invalid-position of the tool layer itself`,
             );
             assert.match(
               failure.message,
               /^invalid-position: /,
-              `${names[index]} với ${label}: thông điệp phải tự nêu tên loại lỗi`,
+              `${names[index]} with ${label}: the message must name the error type itself`,
             );
           });
 
           assert.equal(
             live.lspRequests(),
             before,
-            `${label}: không lời gọi LSP nào được phép rời tầng tool khi toạ độ đã sai (INV-TOOL-5)`,
+            `${label}: no LSP calls are allowed to leave the tool layer when the coordinates are wrong (INV-TOOL-5)`,
           );
         }
       },
     );
 
-    await t.test(
-      "TCON-TOOL-0009: hover giữa token luôn trả range của token ĐÃ GIẢI, không phải vị trí được hỏi [INV-TOOL-6]",
-      async () => {
+    await t.test("TCON-TOOL-0009: hovering between tokens always returns the range of the RESOLVED token, not the asked position [INV-TOOL-6]",
+      async() => {
         const midTokenColumn = astralColumn + 3;
         assert.ok(
           midTokenColumn > astralColumn && midTokenColumn < astralColumn + SYMBOL.length,
-          "vị trí hỏi phải nằm GIỮA token, nếu không một range echo lại đầu vào sẽ đúng một cách tầm thường",
+          "the query position must be BETWEEN the token, otherwise a range echo of the input will be trivially correct",
         );
 
         const hover = unwrap(
           await javaHover(facade, { path: sourcePath, line: ASTRAL_LINE, column: midTokenColumn }),
-          "java_hover giữa token trên dòng astral",
+          "java_hover between tokens on astral line",
         );
-        const range = assertResolvedHover(hover, "hover giữa token");
+        const range = assertResolvedHover(hover, "hover between token");
 
         assert.deepEqual(
           range,
           symbolRangeAt(ASTRAL_LINE, astralColumn),
-          "range phải bao trọn token đã giải, tính theo offset UTF-16 thật của fixture",
+          "range must cover the resolved token, calculated based on the actual UTF-16 offset of the fixture",
         );
         assert.notDeepEqual(
           range.start,
           hover.position,
-          "range không được là bản sao vị trí mà người gọi đã hỏi",
+          "range cannot be a duplicate of the location the caller asked for",
         );
         assert.notDeepEqual(
           range.end,
           hover.position,
-          "range không được suy biến thành một điểm tại vị trí được hỏi",
+          "range must not degenerate to a point at the asked location",
         );
       },
     );
 
     await t.test(
-      "TCON-TOOL-0010: vị trí không giải được phần tử nào là no-result CÓ TÊN, không phải hover thành công [INV-TOOL-6]",
-      async () => {
+      "TCON-TOOL-0010: location failed to resolve any element as no-result WITH NAME, not successful hover [INV-TOOL-6]",
+      async() => {
         const emptyPositions = [
-          { label: "dòng trống", line: BLANK_LINE, column: 1 },
-          { label: "dòng chú thích thuần văn xuôi", line: COMMENT_LINE, column: 20 },
+          { label: "blank line", line: BLANK_LINE, column: 1 },
+          { label: "plain prose comment line", line: COMMENT_LINE, column: 20 },
         ];
 
         for (const { label, line, column } of emptyPositions) {
           const result = unwrap(
             await javaHover(facade, { path: sourcePath, line, column }),
-            `java_hover tại ${label}`,
+            `java_hover at ${label}`,
           );
           assert.equal(
             result.resolved,
             false,
-            `${label}: phải là no-result tường minh, nhận được ${JSON.stringify(result)}`,
+            `${label}: must be an explicit no-result, receive ${JSON.stringify(result)}`,
           );
           assert.equal(
             "range" in result,
             false,
-            `${label}: nhánh no-result không mang range — "thành công nhưng thiếu range" bị cấm`,
-          );
-          const unresolved = result as { reason: string };
+            `${label}: no-result branch does not carry range — "success but missing range" forbidden`,
+          );          const unresolved = result as { reason: string };
           assert.ok(
             typeof unresolved.reason === "string" && unresolved.reason.trim().length > 0,
             `${label}: no-result phải nêu lý do đọc được, nhận được ${JSON.stringify(unresolved.reason)}`,

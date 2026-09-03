@@ -1,32 +1,32 @@
-# Oracle của tính năng prove có phụ thuộc đã done: mỗi điều kiện cần một mutant riêng
+# The prove feature's oracle has done dependencies: each condition needs its own mutant
 
-## Quan sát
+## Observe
 
-`feat-prove-pool-crash-handling` không nêu tên mutant nào, nhưng cả hai phụ thuộc
-(`feat-lsp-client`, `feat-workspace-pool`) đã `done`. Hành vi INV-POOL-3 vì thế đã tồn tại đúng, và
-oracle xanh ngay lần chạy đầu. Đây không phải dấu hiệu oracle vô dụng, cũng không thuộc trường hợp
-"mutant còn sống được nêu tên" đã ghi ở `mutant-kill-oracle-inverts-red-first.md`: ở đây bằng chứng
-đỏ phải do chính test-implementer dựng ra.
+`feat-prove-pool-crash-handling` does not name either mutant, but both are dependent
+(`feat-lsp-client`, `feat-workspace-pool`) is `done`. The INV-POOL-3 behavior thus exists correctly, and
+Green oracle on first run. This is not a sign that the oracle is useless, nor is it the case
+"named living mutant" recorded in `mutant-kill-oracle-inverts-red-first.md`: here the proof
+red must be created by the test-implementer itself.
 
-## Bằng chứng
+## Evidence
 
-Ba điều kiện của kế hoạch mô tả ba chế độ hỏng khác nhau của cùng một invariant. Một mutant duy nhất
-chỉ chứng minh được một chế độ. Bốn mutant tự dựng cho kết quả phân biệt rõ:
+The three plan conditions describe three different failure modes of the same invariant. A single mutant
+only one mode can be proven. Four self-constructed mutants gave clearly distinguishable results:
 
-| Mutant | Chế độ hỏng | Điều kiện đỏ |
+| Mutants | Failure mode | Red conditions |
 |---|---|---|
-| Bỏ vòng reject trong handler `exit` | treo quá deadline | cả ba |
-| `break` sau lần reject đầu tiên | chỉ settle một entry | chỉ TCON-POOL-0005 |
-| Trả kết quả từ frame chưa đủ byte | câu trả lời dở dang | chỉ TCON-POOL-0006 |
-| Resolve mọi pending bằng kết quả cũ | câu trả lời cũ | cả ba |
+| Remove the reject loop in the `exit` | handler overdue deadline | all three |
+| `break` after first reject | only settle one entry | only TCON-POOL-0005 |
+| Returns results from frames with insufficient bytes | unfinished answer | only TCON-POOL-0006 |
+| Resolve all pending results with the old result | old answer | all three |
 
-Hai mutant giữa mới là bằng chứng có giá trị: chúng cho thấy từng điều kiện bắt đúng chế độ hỏng
-riêng của nó, chứ không phải cả ba cùng đỏ vì một nguyên nhân chung.
+The two middle mutants are valuable evidence: they show that each condition captures the correct failure mode
+its own, not all three together for a common cause.
 
-## Quy tắc cho các lần sau
+## Rules for next time
 
-Khi tính năng `prove` có mọi phụ thuộc đã `done` và không nêu tên mutant, dựng mỗi chế độ hỏng mà
-falsifier liệt kê thành một mutant tạm, và ghi vào `evidence` cả những điều kiện KHÔNG đỏ dưới mutant
-đó cùng lý do. Một mutant làm đỏ cả ba điều kiện không phân biệt được điều kiện thừa với điều kiện
-cần. Luôn hoàn nguyên bằng `git checkout` và kiểm tra `git status --porcelain src/` rỗng trước khi
-bàn giao.
+When the `prove` feature has all dependencies `done` and does not name the mutant, it builds a failure mode
+falsifier lists it as a temporary mutant, and records in `evidence` all conditions that are NOT under the mutant
+same reason. A mutant that reddened all three conditions did not distinguish between redundant and unconditioned conditions
+need. Always revert with `git checkout` and check for `git status --porcelain src/` to be empty before
+hand over.

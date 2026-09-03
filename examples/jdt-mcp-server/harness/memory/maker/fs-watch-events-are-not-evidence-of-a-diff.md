@@ -1,37 +1,37 @@
-# Sự kiện `fs.watch` không phải bằng chứng rằng tệp đã đổi — chỉ bản diff mới là
+# The `fs.watch` event is not proof that the file has changed — only the diff is
 
-**Khi nào áp dụng:** bất cứ thành phần nào theo dõi filesystem bằng `node:fs.watch` rồi dịch sự
-kiện thành một hành động có thể quan sát (thông báo LSP, xoá cache, kích hoạt làm mới). Gặp lần đầu
-ở `feat-file-sync-watcher`.
+**When applicable:** Any component that monitors the filesystem with `node:fs.watch` and then interprets
+event into an observable action (notify LSP, clear cache, trigger refresh). First meeting
+in `feat-file-sync-watcher`.
 
-## Điều gì trông như lỗi mã nguồn nhưng thật ra là môi trường
+## What looks like a code error is actually an environment error
 
-Trên macOS, `fs.watch(..., { recursive: true })` phát lại sự kiện cho những lần ghi xảy ra **ngay
-trước** khi `watch()` được cài. Nguyên nhân là độ trễ gom nhóm của FSEvents, không phải lỗi của
-Node. Hệ quả cụ thể đã đo được: fixture ghi `pom.xml` và `Greeter.java`, rồi mới gọi `start()`; hai
-sự kiện cho hai tệp đó vẫn tới sau đó vài mili giây.
+On macOS, `fs.watch(..., { recursive: true })` replays events for writes that occur **immediately
+before** when `watch()` is set. The cause is FSEvents' clustering delay, not my fault
+Node. Specific consequences measured: fixture writes `pom.xml` and `Greeter.java`, then calls `start()`; two
+The events for those two files still arrive a few milliseconds later.
 
-Bản triển khai đầu tiên tin vào đường dẫn mà sự kiện nêu tên — "có mặt ở cả hai phía ⇒ Changed" —
-nên phát một thông báo `pom.xml` giả sau một lần sửa chỉ chạm mã nguồn. Trong hệ này, mỗi thông báo
-`pom.xml` kéo theo một lần làm mới project-model của JDT LS, tức là một lần re-import thừa ở mỗi
-lần khởi động workspace.
+The first implementation trusts the path named by the event — "present on both sides ⇒ Changed" —
+should emit a fake `pom.xml` message after an edit that only touches the source code. In this system, each message
+`pom.xml` entails a refresh of the JDT LS project-model, i.e. a redundant re-import at each
+workspace startup.
 
-## Cách làm đúng
+## Correct way
 
-1. Coi sự kiện chỉ là tín hiệu "có gì đó động đậy", đủ để lên lịch một lần flush. Không đọc loại
-   thay đổi từ `eventType`: `fs.watch` báo `rename` cho cả tạo, xoá và **hai nửa** của một lần đổi
-   tên, và gộp sự kiện tuỳ ý (một lần xoá thư mục có thể chỉ báo đúng thư mục đó).
-2. Quyết định loại thay đổi bằng cách so một lần quét mới với ảnh chụp lần settle trước: vắng → có
-   là Created, có → vắng là Deleted, khác `(mtimeMs, size, ino)` là Changed.
-3. So sánh có `ino` là điểm khiến pattern ghi-tạm-rồi-đổi-tên (cách hầu hết editor và agent ghi
-   tệp) hiện ra: tệp đích giữ nguyên đường dẫn nhưng nhận inode của tệp tạm, nên bản diff bắt được
-   kể cả khi kích thước không đổi.
-4. Đừng bù bằng cách phát thông báo thừa cho chắc. Ở đây thông báo thừa không vô hại — nó là một
-   lần re-import project-model.
+1. Treat the event as just a "something moving" signal, enough to schedule a flush. Doesn't read type
+   change from `eventType`: `fs.watch` reports `rename` for both creation, deletion and **two halves** of a change
+   name, and optionally include events (a directory deletion may indicate the correct directory).
+2. Decide the type of change by comparing a new scan with the previous settlement image: absent → present
+   is Created, yes → absent is Deleted, else `(mtimeMs, size, ino)` is Changed.
+3. Comparison with `ino` is the point that causes the write-temporary-then-rename pattern (the way most editors and agents write
+   file) appears: the destination file keeps the path but receives the inode of the temporary file, so the diff catches it
+   even if the size remains the same.
+4. Don't make up for it by sending out extra notices just to be sure. Here the redundant message is not harmless — it is one
+   times re-import project-model.
 
-## Cách phát hiện
+## How to detect
 
-Trường hợp bắt được lỗi này không phải là "watcher có báo thay đổi không", mà là hai khẳng định
-phủ định: **một lần sửa chỉ chạm mã nguồn không được sinh ra bất kỳ lần làm mới `pom.xml` nào**, và
-**danh sách tệp được nêu tên phải đúng bằng một phần tử**. Trường hợp khẳng định dương tính vẫn xanh
-với bản triển khai sai.
+The case of catching this error is not "did the watcher report the change", but two assertions
+negative: **an edit that only touches the source code must not generate any `pom.xml` refreshes**, and
+**named file list must be exactly one element**. Confirmed positive cases are still green
+with the wrong implementation.

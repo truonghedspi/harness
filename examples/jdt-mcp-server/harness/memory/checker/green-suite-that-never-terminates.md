@@ -1,40 +1,40 @@
-# Bộ ca xanh hết nhưng tiến trình không bao giờ thoát
+# The green shift ends but the process never exits
 
-**Khi nào áp dụng:** mọi tính năng sở hữu một tài nguyên cấp hệ điều hành giữ event loop sống —
-server đang listen, socket, watcher, tiến trình con — và có một hàm `shutdown()`/`close()` trả về
-promise. Gặp ở `feat-daemon-supervisor` (2026-08-23), ngay lượt maker vừa vá xong một lỗi treo khác.
+**When applicable:** Every feature owns an OS-level resource that keeps the event loop alive —
+server is listening, socket, watcher, child process — and has a `shutdown()`/`close()` function that returns
+promise. promise. Found in `feat-daemon-supervisor` (2026-08-23), right now the maker has just finished patching another crash.
 
-## Vì sao ghi chú cũ chưa đủ
+## Why old notes are not enough
 
-Ghi chú `test-timeout-does-not-cover-the-after-hook.md` nói về một `await` KHÔNG settle trong móc
-`t.after`. Maker đã vá đúng lớp đó: mọi lời gọi shutdown đi qua một hàm `withBudget` có
-`Promise.race` với bộ đếm giờ, nên quá hạn thành một ca đỏ có tên.
+Note `test-timeout-does-not-cover-the-after-hook.md` talks about an `await` NOT settled in the hook
+`t.after`. Maker has patched that layer right: every shutdown call goes through a `withBudget` function there
+`Promise.race` with timer, so overdue becomes a named red shift.
 
-Lớp còn lại nằm ở phía đối diện và `withBudget` không thấy được: **shutdown settle SỚM rồi bỏ lại
-tài nguyên còn sống.** Không có gì để chờ, nên không có gì để đặt ngân sách. Mọi khẳng định đều xanh,
-bộ chạy in đủ `ok 1..9`, rồi đứng im vì handle listening vẫn giữ event loop. Không có dòng tóm tắt,
-không có mã thoát, không có ca đỏ.
+The other layer is on the opposite side and `withBudget` is not visible: **shutdown settle EARLY then leave
+Resources are alive.** There's nothing to wait for, so there's nothing to budget for. All affirmations are green,
+The runtime prints `ok 1..9`, then freezes because handle listening still keeps the event loop. There is no summary line,
+no exit code, no red shift.
 
-## Mutant rẻ nhất phát hiện ra nó
+## Cheapest Mutant discovered it
 
-Đúng phép thử mà checker-prompt yêu cầu: lật một phép so sánh. Trong hàm đóng server có một lối ra
-sớm dạng `if (!server.listening) { resolve(); return; }`. Đổi thành `if (server.listening)`. Kết
-quả: 9/9 xanh, tiến trình phải SIGKILL ở 40 s.
+Exact test that checker-prompt requires: flip a comparison. In the server close function there is an exit
+early form `if (!server.listening) { resolve(); return; }`. Change to `if (server.listening)`. Conclusion
+Result: 9/9 green, process must SIGKILL at 40 s.
 
-Bẫy suy luận cần tránh: mọi khẳng định gián tiếp vẫn đúng dưới mutant này. Tệp socket vẫn bị unlink,
-khoá vẫn được giải phóng, mọi tiến trình con vẫn bị dừng, launcher tiếp theo vẫn bind được. Chỉ
-riêng handle listening là còn sống, và không API công khai nào của component để lộ nó.
+Inference trap to avoid: all indirect assertions are still true under this mutant. The socket file is still unlinked,
+The lock is still released, all child processes are still stopped, the next launcher is still bindable. Only
+handle listening alone is alive, and none of the component's public APIs expose it.
 
-## Cách đo an toàn cho chính agent
+## How to measure safety for the agent itself
 
-Không bao giờ chạy trần lệnh test khi đang dựng mutant lớp này. macOS không có `timeout`, nên dùng
-một bộ chạy tự viết: `spawn(cmd, { detached: true })` rồi `process.kill(-pid, "SIGKILL")` khi quá
-hạn — giết cả process group, vì tiến trình con do spec spawn ra sẽ sống sót nếu chỉ giết tiến trình
-cha. Một phiên checker trước đó đã tự kẹt agent của mình đúng ở chỗ này.
+Never run a test command while mutating this class. macOS doesn't have `timeout`, so use it
+a scripted executable: `spawn(cmd, { detached: true })` then `process.kill(-pid, "SIGKILL")` when
+limit — kill the entire process group, because the child process spawned by spec will survive if only the process is killed
+father. A previous checker session stuck its agent exactly in this place.
 
-## Điều kiện đòi hỏi trong `checkerNotes`
+## Condition required in `checkerNotes`
 
-Đòi một ca chứng minh **tiến trình thoát được**, không phải một ca chứng minh hàm shutdown trả về:
-spawn tiến trình con chạy component rồi gọi shutdown, khẳng định nó thoát với mã 0 trong một ngân
-sách rõ ràng, quá hạn thì kill và báo đỏ có tên. Bằng chứng cần có là ca đỏ trong ngân sách dưới
-mutant lật phép so sánh, không phải một lần chạy xanh.
+Requires a case that proves **the process exited**, not a case that proves the shutdown function returns:
+spawn the child process running the component and then call shutdown, asserting that it exits with code 0 in a bank
+The book is clear, if it is overdue, it will be killed and the red flag will have a name. The evidence needed is a red shift in the lower budget
+mutant flips the analogy, not a green run.

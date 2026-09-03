@@ -46,7 +46,7 @@ export interface SpawnedWorkspace {
 export interface WorkspaceStatus {
   workspaceId: string;
   projectRoot: string;
-  dataDir: string;
+dataDir: string;
   state: WorkspaceState;
 }
 
@@ -60,13 +60,13 @@ export interface WorkspaceLease {
 }
 
 // -------------------------------------------------------------------------------------------
-// Attachments — thứ được gắn vào một TIẾN TRÌNH JDT LS, đúng một lần cho mỗi tiến trình.
+// Attachments — things attached to a JDT LS PROCESS, exactly once per process.
 //
-// Vì sao đây là một khái niệm riêng chứ không phải một tham số của acquire(): một tiến trình JDT LS
-// ấm phục vụ NHIỀU lease qua vòng đời của nó. Đăng ký subscriber notification theo từng lease làm
-// mảng handler của LspClient dài thêm sau mỗi lời gọi tool, và không lời gọi nào gỡ được đăng ký của
-// lời gọi trước — một rò rỉ tăng tuyến tính theo lưu lượng. Nên vòng đời đúng là spawn ↔ evict:
-// attach chạy ngay sau khi tiến trình ra đời, detach chạy khi nó bị giết.
+// Why is this a separate concept and not a parameter of acquire(): a JDT LS process
+// warm serves MANY leases over its lifecycle. Sign up for subscriber notifications for each lease
+// LspClient's handler array grows longer with each tool call, and no call will unregister it
+// previous call — a leak that increases linearly with traffic. So the correct life cycle is spawn ↔ evict:
+// attach runs immediately after the process is born, detach runs when it is killed.
 // -------------------------------------------------------------------------------------------
 
 export interface WorkspaceAttachContext {
@@ -75,23 +75,23 @@ export interface WorkspaceAttachContext {
   canonicalRoot: string;
   dataDir: string;
   pid: number;
-  /** Vắng mặt với các spawn seam giả không nói LSP; attachment phải chịu được điều đó. */
+  /** Absent with fake spawn seams that do not say LSP; attachment must withstand that. */
   client?: LspClient;
 }
 
 export type WorkspaceDetach = () => void | Promise<void>;
 
-/** Chạy đúng một lần cho mỗi tiến trình được spawn; hàm trả về chạy đúng một lần lúc evict. */
-export type WorkspaceAttachment = (context: WorkspaceAttachContext) => WorkspaceDetach | void;
+/** Runs exactly once for each spawned process; The returned function runs exactly once at evict. */
+export type WorkspaceAttachment = (context: WorkspaceAttachContext) => WorkspaceDetach | void; void;
 
-/** Nửa cổng `onNotification` của LspClient mà một subscriber cần; giữ hẹp và cấu trúc. */
+/** The `onNotification` half of the LspClient that a subscriber needs; Keep narrow and structured. */
 export interface WorkspaceNotificationSource {
   onNotification(method: string, handler: (params: unknown) => void): void;
 }
 
 /**
- * Cổng tới diagnostics-cache, khai báo tại đây thay vì import ngược: `DiagnosticsCache` thoả nó về
- * mặt cấu trúc ngay lập tức, nên pool không phụ thuộc vào module cache.
+ * Port to diagnostics-cache, declare here instead of importing back: `DiagnosticsCache` returns it
+ * the structure is immediate, so the pool does not depend on the cache module.
  */
 export interface WorkspaceDiagnosticsSink {
   attach(workspaceId: string, source: WorkspaceNotificationSource): () => void;
@@ -99,14 +99,13 @@ export interface WorkspaceDiagnosticsSink {
 }
 
 /**
- * Nối dây production của đường diagnostics: `attach` đúng một lần cho mỗi LspClient ngay sau spawn,
- * và lúc evict thì gỡ đăng ký rồi quên workspace.
+ * Connect the production line of the diagnostics line: `attach` exactly once for each LspClient immediately after spawn,* and when evict unregisters and forgets the workspace.
  *
- * Điều đã được chứng minh là cả HAI việc phải chạy: bỏ `detach()` để lại một handler còn sống, và
- * một publishDiagnostics tới muộn dựng lại mục vừa bị xoá. Thứ tự giữa chúng thì KHÔNG: `detach`
- * hiện chỉ lật một cờ đồng bộ, không có điểm nhường nào giữa hai lời gọi nên không publish nào chen
- * vào được. Nếu `detach` một ngày nào đó trở thành bất đồng bộ, thứ tự này lại có nghĩa và cần một
- * ca riêng chứng minh nó.
+ * It has been proven that BOTH things must be done: quit `detach()` to leave a handler alive, and
+ * a late publishDiagnostics rebuilds the recently deleted item. The order between them is NO: `detach`
+ * currently only flips one synchronization flag, there is no offset between the two calls so no publish will interfere
+ * can enter. If `detach` someday becomes asynchronous, this order will again make sense and need one
+ * private case proves it.
  */
 export function diagnosticsAttachment(cache: WorkspaceDiagnosticsSink): WorkspaceAttachment {
   return (context: WorkspaceAttachContext): WorkspaceDetach | void => {
@@ -156,8 +155,7 @@ class JdtWorkspacePool implements WorkspacePool {
   #tick = 0;
   #closed = false;
 
-  public constructor(options: WorkspacePoolOptions) {
-    this.#cacheRoot = path.resolve(options.cacheRoot);
+  public constructor(options: WorkspacePoolOptions) {    this.#cacheRoot = path.resolve(options.cacheRoot);
     this.#maxWorkspaces = options.maxWorkspaces ?? DEFAULT_MAX_WORKSPACES;
     if (!Number.isInteger(this.#maxWorkspaces) || this.#maxWorkspaces < 1) {
       throw new Error(`--max-workspaces must be a positive integer, got ${String(options.maxWorkspaces)}`);
@@ -211,7 +209,7 @@ class JdtWorkspacePool implements WorkspacePool {
     return this.#lease(entry, spawned);
   }
 
-  public status(): { workspaces: WorkspaceStatus[] } {
+public status(): { workspaces: WorkspaceStatus[] } {
     return {
       workspaces: [...this.#entries.values()].map((entry) => ({
         workspaceId: entry.workspaceId,
@@ -255,8 +253,8 @@ class JdtWorkspacePool implements WorkspacePool {
       workspaceId: entry.workspaceId,
     });
 
-    // Đúng một lần cho mỗi tiến trình: `started` được tạo một lần cho mỗi entry (INV-POOL-5), nên
-    // mọi lease sau đó chỉ await lại cùng promise này và không chạy attachment lần nữa.
+    // Exactly once per process: `started` is created once per entry (INV-POOL-5), so
+    // every lease after that only awaits this same promise again and does not run attachment again.
     const context: WorkspaceAttachContext = {
       workspaceId: entry.workspaceId,
       projectRoot: entry.projectRoot,
@@ -270,9 +268,8 @@ class JdtWorkspacePool implements WorkspacePool {
         const detach = attach(context);
         if (typeof detach === "function") entry.detachments.push(detach);
       }
-    } catch (error) {
-      // Một attachment hỏng là một start hỏng. Tiến trình vừa sinh ra phải chết cùng nó, nếu không
-      // pool để lại một JVM không ai sở hữu và không ai giết được.
+    } catch (error) {// A broken attachment is a broken start. The newly born process must die with it, otherwise
+      // pool leaves behind a JVM that no one owns and no one can kill.
       await this.#runDetachments(entry);
       await spawned.stop().catch(() => {});
       throw error;
@@ -280,14 +277,14 @@ class JdtWorkspacePool implements WorkspacePool {
     return spawned;
   }
 
-  /** Chạy ngược thứ tự attach, và một detach hỏng không được chặn những detach còn lại. */
+  /** Runs the attach order in reverse, and a failed detach cannot block the remaining detach. */
   async #runDetachments(entry: PoolEntry): Promise<void> {
     const detachments = entry.detachments.splice(0).reverse();
     for (const detach of detachments) {
       try {
         await detach();
       } catch {
-        // Dọn dẹp là best-effort: eviction vẫn phải hoàn tất.
+        // Cleanup is best-effort: eviction still has to complete.
       }
     }
   }
@@ -298,8 +295,8 @@ class JdtWorkspacePool implements WorkspacePool {
         .filter((candidate) => candidate !== entry && candidate.leases === 0 && candidate.state === "idle")
         .sort((a, b) => a.lastUsedTick - b.lastUsedTick)[0];
       if (victim === undefined) {
-        // X-003's `cap-exceeded`: every live workspace is in use, so honouring the cap means
-        // failing this call explicitly rather than spawning over it or waiting unbounded.
+        // X-003's `cap-exceeded`: every live workspace is in use, so honoring the cap means
+        // failing this call clearly rather than spawning over it or waiting unbounded.
         throw new Error(
           `cap-exceeded: all ${this.#maxWorkspaces} workspace slots are busy; cannot start ${entry.projectRoot}`,
         );
@@ -312,29 +309,28 @@ class JdtWorkspacePool implements WorkspacePool {
     victim.state = "stopping";
     this.#entries.delete(victim.workspaceId);
 
-    // Chờ start kết thúc TRƯỚC mọi việc dọn dẹp. `entry.detachments` chỉ đầy đủ sau khi
-    // #startWorkspace chạy xong, và evict rơi vào giữa một cold start (~2,3 s) là sự kiện thường:
-    // `close()` evict MỌI entry, kể cả entry đang ở trạng thái "starting". Gỡ sớm hơn là gỡ trên một
-    // mảng còn rỗng — attachment đăng ký ngay sau đó và không ai chạy hàm detach của nó nữa, nên
-    // handle `fs.watch` của file-sync ở lại và tiến trình không bao giờ thoát tự nhiên.
+    // Wait for start to finish BEFORE any cleanup. `entry.detachments` is complete only after
+    // #startWorkspace finishes running, and evict falls in the middle of a cold start (~2.3 s) which is a common event:
+    // `close()` evict EVERY entry, including entries in the "starting" state. Remove earlier than remove on one
+    // array is empty — attachment registers right after and no one runs its detach function anymore, so
+    // file-sync's `fs.watch` handle stays and the process never exits naturally.
     let spawned: SpawnedWorkspace | undefined;
     try {
       spawned = await victim.started;
-    } catch {
-      // Một start hỏng đã tự dọn trong #startWorkspace: không có tiến trình nào để giết, và mảng
-      // detach đã rỗng nên lượt gỡ bên dưới là no-op.
+    } catch {// A failed start has cleaned itself up in #startWorkspace: no processes to kill, and array
+      // detach is empty so the detach below is no-op.
     }
 
-    // Gỡ TRƯỚC khi giết tiến trình. Mối nguy nằm ở chiều ngược với chiều thường được kể: một
-    // notification tới muộn rơi vào cache của workspace đang biến mất thì vô hại, vì `forget()`
-    // trong chính hàm detach xoá nó ngay sau đó. Thứ chịu lực là kẻ kế nhiệm. `workspaceId` là
-    // sha256 của canonical root, độc lập với thế hệ tiến trình, nên một acquire đồng thời cho cùng
-    // root gắn một tiến trình MỚI dưới đúng id này trong lúc nạn nhân còn đang dừng. Đảo `stop()`
-    // lên trước sẽ đẩy `cache.forget(workspaceId)` ra sau trọn hạn ân xá STOP_GRACE_MS 5 000 ms,
-    // rộng hơn cold start khoảng 2,3 s. Lượt quên muộn đó xoá diagnostics mà kẻ kế nhiệm vừa hấp
-    // thụ, nên một tệp JDT LS đã báo cáo đọc lại thành "chưa báo cáo" và INV-DIAG-1 gãy. Ở thứ tự
-    // hiện tại, khe hở chỉ còn một nhịp microtask mà một lần spawn bất đồng bộ không lọt vào.
-    // Ca chứng minh: test/workspace/workspace-succession.spec.ts (TCON-DIAG-0004).
+    // Remove BEFORE killing the process. The danger lies in the opposite direction from the one usually told: one
+    // Late notifications falling into the cache of the disappearing workspace are harmless, because `forget()`
+    // in the detach function itself delete it immediately afterwards. What bears the force is the successor. `workspaceId` is
+    // sha256 of the canonical root, independent of process generation, should be a concurrent acquisition for the same
+    // root attaches a NEW process under this id while the victim is stopped. Invert `stop()`
+    // forward will push `cache.forget(workspaceId)` after the full amnesty period STOP_GRACE_MS 5 000 ms,
+    // about 2.3 s wider than cold start. The late forgetful turn deleted the diagnostics that the successor had just steamed
+    // passive, so a reported JDT LS file reads back as "unreported" and INV-DIAG-1 breaks. In order
+    // Currently, the gap is only one microtask that an asynchronous spawn cannot fit into.
+    // Demonstration case: test/workspace/workspace-succession.spec.ts (TCON-DIAG-0004).
     await this.#runDetachments(victim);
     if (spawned !== undefined) {
       try {
@@ -371,9 +367,7 @@ class JdtWorkspacePool implements WorkspacePool {
 
 export function createWorkspacePool(options: WorkspacePoolOptions): WorkspacePool {
   return new JdtWorkspacePool(options);
-}
-
-// -------------------------------------------------------------------------------------------
+}// -------------------------------------------------------------------------------------------
 // The real process boundary: java … -jar plugins/org.eclipse.equinox.launcher_*.jar
 //                                 -configuration <dir> -data <abs path>
 // (harness/docs/design/evidence.md). The pool starts the process and wires an LspClient over its

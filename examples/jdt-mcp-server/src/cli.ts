@@ -1,12 +1,12 @@
-// cli — entry point vận hành: nối mcp-shim (stdio) với daemon (composition root) và 8 tool.
+// cli — operational entry point: connect mcp-shim (stdio) to daemon (composition root) and 8 tools.
 //
-// Đây là phần nối dây sản phẩm còn thiếu trước đây (trước đó nó nằm trong
-// test/integration/cross-process.integration.spec.ts). Một tiến trình vừa là shim (stdio front end)
-// vừa là daemon (socket listener + tool routing) khi nó là kẻ đầu tiên giữ socket; các tiến trình sau
-// nối vào daemon đó qua Unix socket.
+// This is the previously missing product wiring part (it was previously in the
+//test/integration/cross-process.integration.spec.ts). A process is both a shim (stdio front end)
+// both a daemon (socket listener + routing tool) when it is the first to hold the socket; the following processes
+// connect to that daemon via Unix socket.
 //
-// Chạy: node --experimental-strip-types src/cli.ts
-// Client nói MCP qua stdio: mỗi message là một dòng JSON (newline-delimited).
+// Run: node --experimental-strip-types src/cli.ts
+// Client speaks to MCP via stdio: each message is a JSON line (newline-delimited).
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -37,10 +37,8 @@ const DIAG_OPEN_WAIT_MS = 10_000;
 const cacheRoot = path.resolve(process.env.JDT_CACHE_ROOT ?? ".cache/jdt-mcp");
 
 // -------------------------------------------------------------------------------------------
-// Composition root — một lần cho toàn bộ tiến trình.
-// -------------------------------------------------------------------------------------------
-
-const watchers = new Map<string, ReturnType<typeof attachFileSync> extends never ? never : import("./workspace/file-sync-watcher.ts").FileSyncWatcher>();
+// Composition root — once for the entire process.
+// -------------------------------------------------------------------------------------------const watchers = new Map<string, ReturnType<typeof attachFileSync> extends never ? never : import("./workspace/file-sync-watcher.ts").FileSyncWatcher>();
 const targets = new Map<string, { workspaceId: string; projectRoot: string; client: unknown }>();
 const handshaken = new Set<string>();
 const lastGeneration = new Map<string, number>();
@@ -86,7 +84,7 @@ async function ensureHandshake(workspaceId: string, client: import("./lsp/lsp-cl
         references: {},
         completion: { completionItem: { snippetSupport: false } },
         rename: {},
-        codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: ["quickfix", "refactor"] } } },
+codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: ["quickfix", "refactor"] } } },
         publishDiagnostics: {},
       },
     },
@@ -138,27 +136,26 @@ function buildDiagnosticsFacade(filePath: string, workspaceId: string): import("
 }
 
 /**
- * Bọc lời gọi tool bằng sync-guard khi watcher đã quan sát thay đổi mới (generation tăng) — "tool call
- * mang generation". `isStale` là câu hỏi "kết quả này còn mô tả thế giới trước khi sửa không?".
+ * Wrap the tool call with sync-guard when the watcher has observed a new change (increased generation) — "tool call
+ * brings generation". `isStale` is asking "does this result still describe the world before correction?".
  */
-async function guarded<T>(workspaceId: string, watcher: import("./workspace/file-sync-watcher.ts").FileSyncWatcher | undefined, run: () => Promise<T>, isStale: (r: T) => boolean): Promise<T> {
-  const generation = watcher?.generation ?? 0;
-  const previous = lastGeneration.get(workspaceId) ?? generation;
+async function guarded<T>(workspaceId: string, watcher: import("./workspace/file-sync-watcher.ts").FileSyncWatcher | undefined, run: () => Promise<T>, isStale: (r: T) => boolean): Promise<T> {const generation = watcher?.generation ?? 0;
+  const previous = lastGeneration.get(workspaceId) ?? generation; generation;
   lastGeneration.set(workspaceId, generation);
   if (generation === previous || watcher === undefined) return run();
   return withSyncQuiescence(watcher, { withinMs: SYNC_DEADLINE_MS }, run, isStale);
 }
 
-/** Kết quả resolve trả về "đã tìm thấy" — cơ sở `isStale` cho definition/hover (symbol còn resolve là stale). */
+/** Resolve returns "found" — `isStale` base for definition/hover (symbol and resolve is stale). */
 function resolvesStale(r: unknown): boolean {
   return !!r && typeof r === "object" && (r as { isError?: boolean; value?: { resolved?: boolean } }).isError === false && (r as { value?: { resolved?: boolean } }).value?.resolved === true;
 }
 
 /**
- * INV-DIAG-4: mở document được hỏi để JDT LS validate và push publishDiagnostics, rồi chờ (có giới
- * hạn) cho publish đó trước khi java_diagnostics đọc cache. Side effect này nằm ở lớp nối dây của
- * daemon — `diagnostics.ts` vẫn không tự phát LSP request nào. Khi hết hạn mà chưa có publish, câu
- * trả lời trung thực vẫn là `not-reported` (INV-DIAG-1), không bao giờ treo.
+ * INV-DIAG-4: open the requested document for JDT LS to validate and push publishDiagnostics, then wait (limited).
+ * term) for that publication before java_diagnostics reads the cache. This side effect is located in the wiring layer of the
+ * daemon — `diagnostics.ts` still does not generate any spontaneous LSP requests. When the deadline expires and there is no publication or sentence
+ * honest answer is still `not-reported` (INV-DIAG-1), never hangs.
  */
 async function openForDiagnostics(
   lease: { client?: import("./lsp/lsp-client.ts").LspClient },
@@ -172,7 +169,7 @@ async function openForDiagnostics(
   try {
     text = readFileSync(filePath, "utf8");
   } catch {
-    return; // file không đọc được — javaDiagnostics tự trả kết quả có cấu trúc của nó
+    return; // file cannot be read — javaDiagnostics returns its own structured results
   }
   client.notify("textDocument/didOpen", {
     textDocument: { uri, languageId: "java", version: 1, text },
@@ -185,11 +182,10 @@ async function openForDiagnostics(
 }
 
 // -------------------------------------------------------------------------------------------
-// Route MCP tools/call -> 8 tool.
+// Route MCP tools/call -> 8 tools.
 // -------------------------------------------------------------------------------------------
 
-async function routeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-  const filePath = typeof args.path === "string" ? args.path : "";
+async function routeTool(name: string, args: Record<string, unknown>): Promise<unknown> {  const filePath = typeof args.path === "string" ? args.path : "";
   const acquired = await acquire(filePath);
   if ("error" in acquired) return { isError: true, code: "unroutable", message: `unroutable: ${acquired.error}` };
 
