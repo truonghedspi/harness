@@ -501,6 +501,7 @@
       "behavior": "A scaffolded target with test-toolchain.json runs init.mjs through the toolchain baseline, resolve-test-command returns correct commands, review-contract validates testScope, and survey-project detects the runner. Removing the toolchain falls back to stack detection.",
       "verification": "node tools/validate-toolchain.mjs --target . --check && node tools/resolve-test-command.mjs --scope unit --check && bash harness-loop/scripts/demo.sh",
       "falsifier": "The demo target's init.mjs ignores the toolchain and runs hardcoded commands, or resolve-test-command returns a command for a scope whose requires are not met, or review-contract accepts a testScope referencing an undeclared scope.",
+      "oracle": "node tools/oracles/feat-toolchain-e2e.mjs",
       "kind": "prove",
       "dependencies": [
         "feat-toolchain-schema",
@@ -520,7 +521,13 @@
       },
       "status": "not-started",
       "readyForCheck": false,
-      "evidence": [],
+      "evidence": [
+        {
+          "date": "2026-09-04",
+          "type": "oracle",
+          "result": "Oracle được tạo với 6 điều kiện kiểm tra độc lập: schema validation, command resolution, baseline integration, feature scope validation, survey detection, và fallback behavior. Oracle phát hiện 5/6 thành phần chưa được triển khai, chỉ fallback behavior đang hoạt động."
+        }
+      ],
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3
