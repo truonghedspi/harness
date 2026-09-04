@@ -5,17 +5,17 @@ sessions; this file is not. Update it at the end of every session (Lesson 12).
 
 ## Current State
 
-- **Last updated:** 2026-09-03  
-- **Active feature:** feat-prove-prompt-acp (oracle created)
-- **Baseline (`./init.sh`):** green — `demo.sh` 70/70 steps
+- **Last updated:** 2026-09-04  
+- **Active feature:** None (feat-prove-prompt-acp completed)
+- **Baseline (`./init.sh`):** green — `demo.sh` 71/71 steps
 
 ## In Progress
 
-- **feat-prove-prompt-acp:** Oracle tạo thành công với 6 điều kiện kiểm tra end-to-end proof cho prompt centralization và Claude Code ACP. Status = active, oracle complete, awaiting maker implementation.
+- No active features ready for maker.
 
-## Completed This Session (2026-09-03)
+## Completed This Session (2026-09-04)
 
-- **feat-prove-prompt-acp oracle:** Tạo tools/oracles/feat-prove-prompt-acp.mjs với 6 điều kiện kiểm tra độc lập: prompts tập trung trong prompts/, không còn legacy prompt trong loop/, gen-agents tạo config đúng, dispatch chọn Claude runtime, không fallback về Kiro, và demo chạy thành công end-to-end.
+- **feat-prove-prompt-acp:** Completed end-to-end proof. Verification passed: gen-agents check (16 files match manifest) và demo.sh (71 steps passed). ReviewPacket created với đầy đủ adversarialChecks. Status = readyForCheck, awaiting checker approval.
 
 ## Done
 

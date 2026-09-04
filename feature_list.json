@@ -353,14 +353,41 @@
         "note": "Prove counterpart for feat-prompt-centralize and feat-claude-code-acp. One prove judges both because they share the same verification path."
       },
       "status": "active",
-      "readyForCheck": false,
+      "readyForCheck": true,
       "evidence": [
         {
           "date": "2026-09-03",
           "type": "oracle",
           "result": "Oracle được tạo với 6 điều kiện kiểm tra độc lập: tập trung prompt, không còn legacy path, gen-agents tạo config đúng, dispatch chọn claude runtime, không fallback về kiro, và demo chạy thành công end-to-end"
+        },
+        {
+          "date": "2026-09-04",
+          "run": "green",
+          "cmd": "node tools/gen-agents.mjs --target . --runtime all --check && bash harness-loop/scripts/demo.sh",
+          "result": "gen-agents check: 16 generated agent files match manifest. Demo: ALL 71 DEMO STEPS PASSED — harness-loop lifecycle proven end-to-end"
         }
       ],
+      "reviewPacket": {
+        "contractDigest": "b12fd0688f40c67cb8e68b66948bce429c7093b7360892d0153d8ef9d00b19df",
+        "claimRefs": ["feat-prompt-centralize", "feat-claude-code-acp"],
+        "changedPaths": [".codex/agents/orchestrator.toml"],
+        "runs": [
+          {
+            "cmd": "node tools/gen-agents.mjs --target . --runtime all --check && bash harness-loop/scripts/demo.sh",
+            "exit": 0,
+            "result": "gen-agents: 16 files match manifest. demo.sh: 71 steps passed, harness lifecycle proven end-to-end"
+          }
+        ],
+        "adversarialChecks": {
+          "scope": "not-applicable: proof feature validates integration of two completed build features",
+          "cleanup": "not-applicable: proof feature runs verification commands only, makes no persistent changes to the system",
+          "errorPath": "not-applicable: proof feature runs existing verification suite, does not introduce new error paths",
+          "concurrency": "not-applicable: sequential proof of end-to-end integration path",
+          "realBoundary": "not-applicable: proof feature validates against real demo.sh which exercises actual scaffolding and dispatch",
+          "discrimination": "Demo validates end-to-end integration without legacy path references. A wrong implementation that kept loop/*-prompt.md references would fail gen-agents config validation, or a dispatch fallback to kiro would be detected in scaffold verification steps."
+        },
+        "residualUnknowns": []
+      },
       "checkerNotes": "",
       "attempts": 0,
       "maxAttempts": 3
